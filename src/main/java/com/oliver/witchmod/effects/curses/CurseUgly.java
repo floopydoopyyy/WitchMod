@@ -1,31 +1,58 @@
 package com.oliver.witchmod.effects.curses;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
+import org.jetbrains.annotations.Nullable;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
 
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
-import com.oliver.witchmod.data.EffectUtil;
+import com.oliver.witchmod.data.WitchModAttachments;
 
-/** Nothing changed, visibly. Everyone nearby is nonetheless very sure something has. */
+/**
+ * Your face is not your own any more (master-spec Ugly). For the duration, every client — including your
+ * own — renders you wearing one of the mod's ugly skins instead of yours.
+ *
+ * <p><b>The server picks a NUMBER, not a skin.</b> It can't pick a skin: they live in a client-side resource
+ * folder ({@code assets/witchmod/textures/entity/ugly/}) that the server never sees and that anyone is
+ * free to add to. So this rolls a plain random value, and each client reduces it modulo however many skins
+ * it can list — which lands every client on the same face for that player without any of them having to
+ * agree in advance, and without the server caring how many files exist.
+ *
+ * <p>All the actual work is client-side in {@code client/UglySkinManager}, which re-asserts the override
+ * every tick. That's what makes it survive relogging, dying, changing dimension and other players coming
+ * into view later: there's no one-off "apply" moment to miss.
+ */
 public final class CurseUgly extends Effect {
-    private static final int INTERVAL_TICKS = 400;
-    private static final double RADIUS = 10.0;
-
     public CurseUgly() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.CARVED_PUMPKIN);
     }
 
+    /** Hard to miss, given it's your own face (Rule 2). */
+    @Override
+    public boolean discoversOnTrigger() {
+        return true;
+    }
+
+    @Override
+    public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
+        // Non-negative and otherwise arbitrary; the client does the modulo.
+        target.setData(WitchModAttachments.UGLY_SKIN, target.getRandom().nextInt(1 << 20));
+        markDiscoveredByVictim(target);
+    }
+
+    @Override
+    public void onRemove(ServerPlayer target) {
+        target.setData(WitchModAttachments.UGLY_SKIN, -1);
+    }
+
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        if (EffectUtil.every(ticksRemaining, INTERVAL_TICKS)) {
-            ServerLevel level = target.serverLevel();
-            Component message = target.getDisplayName().copy().append(" looks unusually hideous right now.");
-            level.getPlayers(p -> p != target && p.distanceToSqr(target) <= RADIUS * RADIUS)
-                    .forEach(p -> p.sendSystemMessage(message));
+        // Self-heal: keeps the same face across a relog rather than re-rolling, and restores it if the value
+        // was ever lost. The roll only happens when there genuinely isn't one.
+        if (target.getData(WitchModAttachments.UGLY_SKIN) < 0) {
+            target.setData(WitchModAttachments.UGLY_SKIN, target.getRandom().nextInt(1 << 20));
         }
     }
 }

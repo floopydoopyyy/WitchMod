@@ -30,7 +30,13 @@ import com.oliver.witchmod.WitchMod;
 public final class WitchModFluids {
     public static final ResourceLocation WATER_STILL = ResourceLocation.withDefaultNamespace("block/water_still");
     public static final ResourceLocation WATER_FLOW = ResourceLocation.withDefaultNamespace("block/water_flow");
-    public static final int TINT_COLOR = 0xFF9B6FD1;
+    /**
+     * ARGB. A pale, mostly-transparent white — holy water should read as clean and barely there, not as a
+     * coloured potion (it was an opaque purple, which rendered pink over the greyscale water texture).
+     * <p>The ALPHA byte only does anything because the fluid is registered on the translucent render layer
+     * in {@code WitchModClient}; on the default solid layer it is discarded and the fluid renders opaque.
+     */
+    public static final int TINT_COLOR = 0x8CF2FBFF;
 
     public static final DeferredRegister<FluidType> FLUID_TYPES = DeferredRegister.create(NeoForgeRegistries.Keys.FLUID_TYPES, WitchMod.MODID);
     public static final DeferredRegister<Fluid> FLUIDS = DeferredRegister.create(Registries.FLUID, WitchMod.MODID);

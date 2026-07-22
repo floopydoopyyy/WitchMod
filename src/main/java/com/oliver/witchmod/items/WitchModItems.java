@@ -45,9 +45,6 @@ public final class WitchModItems {
     public static final DeferredItem<ItemJar> CURSED_JAR =
             ITEMS.register("cursed_jar", () -> new ItemJar(new Item.Properties().stacksTo(1), 3));
 
-    /** Modifier item (CLAUDE.md section 4.6) — vanilla has no equivalent, unlike most other modifiers which reuse existing items. */
-    public static final DeferredItem<Item> RECOVERY_COMPASS = ITEMS.registerSimpleItem("recovery_compass");
-
     private WitchModItems() {}
 
     public static void register(net.neoforged.bus.api.IEventBus modEventBus) {

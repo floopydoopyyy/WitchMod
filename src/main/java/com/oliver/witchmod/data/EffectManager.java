@@ -90,11 +90,17 @@ public final class EffectManager {
         effect.value().onApply(target, caster, effectiveDuration);
         StatusEffectSync.sync(target);
 
-        // Discovery (CLAUDE.md section 2.7): the victim discovers on trigger, the caster the instant
-        // they successfully send it. Centralized here since every application — command, item, Table —
-        // passes through this one method.
-        DiscoveryManager.markEffectDiscovered(target, id);
-        if (caster != null) {
+        // Discovery (Rule 2): the caster discovers the instant they successfully send it. The victim
+        // normally discovers here too, EXCEPT for effects that define a real trigger moment
+        // (discoversOnTrigger) — those call markDiscoveredByVictim themselves when they actually fire,
+        // e.g. Allergic's first bad reaction or Backseat Driver's first AI takeover.
+        boolean discoversOnTrigger = effect.value().discoversOnTrigger();
+        if (!discoversOnTrigger) {
+            DiscoveryManager.markEffectDiscovered(target, id);
+        }
+        // A self-cast makes you both roles at once. For a trigger-discovered effect the VICTIM half has to
+        // win, or casting one on yourself would spoil the very moment you're meant to find out from.
+        if (caster != null && !(caster == target && discoversOnTrigger)) {
             DiscoveryManager.markEffectDiscovered(caster, id);
         }
     }

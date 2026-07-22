@@ -7,15 +7,14 @@ import net.minecraft.world.item.Items;
 
 /**
  * Reverse lookup from a Modifier item (CLAUDE.md section 4.6/section 6.4 note) back to the {@link Modifier}
- * it represents. Most modifiers reuse an existing vanilla item directly; Recovery Compass is the one
- * exception (no vanilla equivalent), so its item is passed in rather than referenced here, keeping this
- * class free of a dependency on the items package.
+ * it represents. Every modifier reuses an existing vanilla item, Recovery Compass included — a mistakenly
+ * added custom {@code witchmod:recovery_compass} was removed in favour of vanilla's own.
  */
 public final class ModifierItems {
     private ModifierItems() {}
 
-    public static Optional<Modifier> findModifier(Item item, Item recoveryCompassItem) {
-        if (item == recoveryCompassItem) {
+    public static Optional<Modifier> findModifier(Item item) {
+        if (item == Items.RECOVERY_COMPASS) {
             return Optional.of(Modifier.RECOVERY_COMPASS);
         }
         if (item == Items.CLOCK) {

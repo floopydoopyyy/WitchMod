@@ -33,6 +33,7 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModDataComponents;
 import com.oliver.witchmod.data.WitchModMobEffects;
+import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.effects.Curses;
@@ -90,7 +91,8 @@ public class WitchMod {
                 output.accept(WitchModItems.EXECUTIONERS_COIN.get());
                 output.accept(WitchModItems.JAR.get());
                 output.accept(WitchModItems.CURSED_JAR.get());
-                output.accept(WitchModItems.RECOVERY_COMPASS.get());
+                // Recovery Compass is a modifier backed by vanilla's own item (no custom item needed).
+                output.accept(net.minecraft.world.item.Items.RECOVERY_COMPASS);
                 // Blocks (section 3)
                 output.accept(WitchModBlocks.BEWITCHING_TABLE_ITEM.get());
                 output.accept(WitchModBlocks.CURSED_ESSENCE_BLOCK_ITEM.get());
@@ -120,6 +122,11 @@ public class WitchMod {
         WitchModAttachments.register(modEventBus);
         // Register the Cursed/Blessed/Afflicted wrapper status effects
         WitchModMobEffects.register(modEventBus);
+
+        WitchModSounds.register(modEventBus);
+        // Register the mod's custom entities (the Tax Man)
+        com.oliver.witchmod.entities.WitchModEntities.register(modEventBus);
+        com.oliver.witchmod.entities.WitchModEntityAttributes.register(modEventBus);
         // Register custom item data components (bound player, captured effects)
         WitchModDataComponents.register(modEventBus);
         // Register this mod's items and blocks (Phase 3/section 3)

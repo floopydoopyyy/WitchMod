@@ -7,11 +7,12 @@ import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.curses.*;
 
 /**
- * Registers all 50 curses (master-spec Section 5). The first block below uses the prototype's original
- * names for several the master spec later renamed (e.g. neutral_mobs_attack_instantly = "Neutral
- * Aggression", loud = "Flat Footed", pidgeon_toed = "Wonky", sick_of_you = "Broken Bonds") — the
- * registry ids are kept stable rather than renamed to avoid breaking saved player data; the display
- * names are a lang-file concern. The final block is Phase A's 7 newly-built curses.
+ * Registers all 49 curses (master-spec Section 5). Some still carry the prototype's original ids where the
+ * master spec later renamed them (loud = "Flat Footed", pidgeon_toed = "Wonky", sick_of_you = "Broken
+ * Bonds"). Those are renamed AS EACH ONE IS REFINED rather than in bulk, because display names are derived
+ * from the id path ({@code DiscoveryManager.titleCase}) — so the id IS the visible name, and leaving it
+ * stale would leave the wrong name on screen. Renaming drops any saved instance of the old id as unknown,
+ * which is harmless for a placeholder that was never shipped.
  */
 public final class Curses {
     public static final DeferredHolder<Effect, CurseViolence> VIOLENCE = register("violence", CurseViolence::new);
@@ -19,7 +20,7 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseExplosive> EXPLOSIVE = register("explosive", CurseExplosive::new);
     public static final DeferredHolder<Effect, CursePopularity> POPULARITY = register("popularity", CursePopularity::new);
     public static final DeferredHolder<Effect, CurseYap> YAP = register("yap", CurseYap::new);
-    public static final DeferredHolder<Effect, CurseGreenAura> GREEN_AURA = register("green_aura", CurseGreenAura::new);
+    public static final DeferredHolder<Effect, CurseUnhygienic> UNHYGIENIC = register("unhygienic", CurseUnhygienic::new);
     public static final DeferredHolder<Effect, CurseRepel> REPEL = register("repel", CurseRepel::new);
     public static final DeferredHolder<Effect, CurseEchoes> ECHOES = register("echoes", CurseEchoes::new);
     public static final DeferredHolder<Effect, CurseDelusions> DELUSIONS = register("delusions", CurseDelusions::new);
@@ -29,8 +30,8 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseHeavy> HEAVY = register("heavy", CurseHeavy::new);
     public static final DeferredHolder<Effect, CurseSlipperyFeet> SLIPPERY_FEET = register("slippery_feet", CurseSlipperyFeet::new);
     public static final DeferredHolder<Effect, CurseMagnet> MAGNET = register("magnet", CurseMagnet::new);
-    public static final DeferredHolder<Effect, CurseNeutralMobsAttackInstantly> NEUTRAL_MOBS_ATTACK_INSTANTLY =
-            register("neutral_mobs_attack_instantly", CurseNeutralMobsAttackInstantly::new);
+    public static final DeferredHolder<Effect, CurseNeutralAggression> NEUTRAL_AGGRESSION =
+            register("neutral_aggression", CurseNeutralAggression::new);
     public static final DeferredHolder<Effect, CurseDwarfism> DWARFISM = register("dwarfism", CurseDwarfism::new);
     public static final DeferredHolder<Effect, CurseScreensaver> SCREENSAVER = register("screensaver", CurseScreensaver::new);
     public static final DeferredHolder<Effect, CurseMinorInconvenience> MINOR_INCONVENIENCE = register("minor_inconvenience", CurseMinorInconvenience::new);
@@ -48,7 +49,6 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseBackseatDriver> BACKSEAT_DRIVER = register("backseat_driver", CurseBackseatDriver::new);
     public static final DeferredHolder<Effect, CurseClumsy> CLUMSY = register("clumsy", CurseClumsy::new);
     public static final DeferredHolder<Effect, CurseOversharer> OVERSHARER = register("oversharer", CurseOversharer::new);
-    public static final DeferredHolder<Effect, CurseAura> AURA = register("aura", CurseAura::new);
     public static final DeferredHolder<Effect, CurseSickOfYou> SICK_OF_YOU = register("sick_of_you", CurseSickOfYou::new);
     public static final DeferredHolder<Effect, CurseInsomniac> INSOMNIAC = register("insomniac", CurseInsomniac::new);
     public static final DeferredHolder<Effect, CurseLoud> LOUD = register("loud", CurseLoud::new);

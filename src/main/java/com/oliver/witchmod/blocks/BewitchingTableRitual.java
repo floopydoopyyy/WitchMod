@@ -1,5 +1,6 @@
 package com.oliver.witchmod.blocks;
 
+import net.minecraft.ChatFormatting;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,8 +26,10 @@ import com.oliver.witchmod.data.ModifierCalculator;
 import com.oliver.witchmod.data.ModifierItems;
 import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.SacrificialItems;
+import com.oliver.witchmod.data.TaxBank;
 import com.oliver.witchmod.data.WitchModDataComponents;
 import com.oliver.witchmod.data.WitchModRegistries;
+import com.oliver.witchmod.effects.curses.CurseTaxes;
 import com.oliver.witchmod.items.WitchModItems;
 
 /**
@@ -73,7 +76,7 @@ public final class BewitchingTableRitual {
 
         ItemStack modifierStack = table.getItem(BewitchingTableBlockEntity.SLOT_MODIFIER);
         Modifier modifier = modifierStack.isEmpty() ? null
-                : ModifierItems.findModifier(modifierStack.getItem(), WitchModItems.RECOVERY_COMPASS.get()).orElse(null);
+                : ModifierItems.findModifier(modifierStack.getItem()).orElse(null);
 
         ItemStack playerEssenceStack = table.getItem(BewitchingTableBlockEntity.SLOT_PLAYER_ESSENCE);
         ServerPlayer target = caster;
@@ -114,6 +117,15 @@ public final class BewitchingTableRitual {
         float roll = caster.getRandom().nextFloat();
 
         if (roll < successChance) {
+            // ⚠ Taxes is refused outright when the tax bank has hit its memory ceiling. It must never be
+            // cast into a state where the Tax Man would have to void what he takes — see TaxBank.isFull().
+            if (effect.value() instanceof CurseTaxes && TaxBank.get(caster.server).isFull()) {
+                caster.displayClientMessage(Component.literal(
+                        "The ritual fizzles — the tax vaults are full.").withStyle(ChatFormatting.RED), false);
+                LedgerLog.log(Optional.of(caster.getName().getString()), target.getName().getString(),
+                        effectId, "refused_bank_full", level.getGameTime());
+                return;
+            }
             EffectManager.apply(target, effect, durationTicks, caster);
             LedgerLog.log(Optional.of(caster.getName().getString()), target.getName().getString(), effectId, "success", level.getGameTime());
             caster.displayClientMessage(Component.literal("The ritual succeeds."), true);

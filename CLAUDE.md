@@ -1,10 +1,14 @@
-# Bewitchment (placeholder name) — CLAUDE.MD (Post-Prototype / Main Stage)
+# Bewitchment (placeholder name) — CLAUDE.MD (Refinement Stage)
 
-STATUS: Prototype build COMPLETE. All attachments are loosely functional UNLESS listed in the
-NOT PROTOTYPED master list below. This document merges the concrete attachment specs with the full
-system framework (costs, formulas, items, blocks, UI, workflow) and is the single source of truth.
-Where older notes conflict with this file, this file wins.
-Totals: **50 curses, 45 blessings, 11 neutrals, 15 globals, 15 modifiers.**
+STATUS: Prototype + Phases A–F COMPLETE. Every attachment, item, and block is implemented and functional
+(the per-phase build logs at the bottom record the stand-ins/simplifications each currently uses). **The
+task is now REFINEMENT** — bringing each one from "functional prototype" up to its full, polished spec, one
+at a time, hands-on with Oliver. The workflow and the tick-off checklists live in **Section 16**; the rest
+of this document (Sections 1–15) is the reference for what "perfect" means per attachment. This file is the
+single source of truth; where older notes conflict with it, this file wins.
+Totals: **49 curses, 45 blessings, 11 neutrals, 15 globals, 15 modifiers.**
+(Aura was CUT on Oliver's call — too similar to another curse. Its class, registration, cost, sounds and
+checklist entry are all removed; the count dropped 50 → 49.)
 
 ---
 
@@ -23,7 +27,8 @@ Excavation, Angler, Laugh Track, Chat, Civilisation, Low Gravity — plus Last S
 blessing-consumption behavior if the prototype lacks it.
 
 ### 0.2 CUSTOM SOUND attachments (need modded SoundEvents; OGG list in Section 12)
-**Curses (7):** Delusions, Gassy, Slippery Feet, Aura, Loading Screen, Pacing, Trumpet.
+**Curses (5):** Gassy ✅ done, Slippery Feet ✅ done, Loading Screen, Pacing, Trumpet. (Unhygienic ✅ done)
+(Delusions was REMOVED from this list on Oliver's call — vanilla sounds suffice for it, see its entry.)
 **Blessings (5):** Main Character, Last Stand, Brute, Bouncy, Laugh Track.
 **System (2):** discovery chime, global warning sting.
 
@@ -129,179 +134,824 @@ Unique fluid; bathing rapidly burns down attachment timers
 
 ---
 
-## 5. CURSES (50)
+## 5. CURSES (49)
 
 Format: Name — Sacrificial Item, then behavior, then constants.
 All previously-specced constants carry over; entries below reflect the CURRENT item mappings and
 any spec changes. `(NOT PROTOTYPED)` = still to build.
 
 ### Violence — Iron Sword
-Chance to auto-swing at nearest entity (players prioritized); real camera/animation/enchantments;
-intentionally does NOT consume attack cooldown; swing timing biases toward ledge/hazard shoves.
+Your hand goes for whoever is closest, on its own. The camera really snaps onto them (`ServerPlayer.lookAt`
+sends the look-at packet), the arm swings, and the hit is **vanilla's own `Player.attack`** — so enchantments,
+knockback, crits, sweeping and sounds are all genuinely applied with the held item, not imitated.
+**TWO distinct urges, deliberately behaving differently:**
+- **Sight swings — INSTANT PRIORITY, never ramp.** Whatever you look straight at (within `SIGHT_CONE_DEGREES`
+  AND in line of sight, so walls don't set it off) is in serious danger, and far more so if a shove would
+  drop it — `SIGHT_CHANCE` vs `SIGHT_HAZARD_CHANCE`. **No camera hijack**, since you were already looking.
+  Checked before impulsive urges every time.
+- **Impulsive swings — ramping, camera IS hijacked** onto something you weren't looking at. Possible at any
+  moment from `IMPULSIVE_BASE_CHANCE`, growing `IMPULSIVE_RAMP_PER_SECOND` per second since the last swing,
+  clamped to `IMPULSIVE_CAP`. Anything that **loiters** at a ledge/hazard for `HAZARD_SUSTAIN_TICKS` (1.5s)
+  overrides that ramp outright with `IMPULSIVE_HAZARD_CHANCE`. Loitering is tracked per-entity and is
+  deliberately independent of where the cursed player stands.
+
+**Target priority is TIERED, not merely weighted** — multiplied weights cannot deliver an "always"
+guarantee, since a big enough product elsewhere eventually overtakes it. Each trait is worth strictly more
+than everything beneath it combined, so the ordering is exact and stays exact:
+| Weight | Trait |
+|---|---|
+| **+4** | **environmental kill — THE dominant term.** The shove puts them off a ledge, into lava/fire/magma/cactus/powder snow/berry bush/wither rose/dripstone, or beside lit TNT. ANY hazard shove outranks any non-hazard target, however wounded. |
+| **+2** | wounded (`<= LOW_HEALTH_PERCENT` health) — below hazards, but above merely being a player, so a wounded mob outranks a healthy player standing safely |
+| **+1** | player — the tie-breaker between otherwise equal targets |
+Giving 7 (wounded player at a ledge) down to 0 (ordinary mob standing safely). **To re-rank, change those
+three weights in `priorityTier` — nothing else needs touching.** Within a tier it's nearest-first, nudged by
+`PLAYER_PRIORITY_MULT` and `HAZARD_BIAS_MULT`.
+**Lit TNT is an ENTITY (`PrimedTnt`), not a block**, so it needs its own entity lookup — a block scan alone
+silently misses it. Counted within `TNT_DANGER_RADIUS` of the shove line or of a loitering entity.
+**`violenceRandomTargetChancePercent`** of impulsive urges discard the whole order and swing at someone at
+random, so the curse never becomes perfectly predictable.
+- **Multi-hit:** a small chance that one urge becomes a flurry of extra swings; if the target leaves
+  mid-flurry it flails at the air.
+- **It DOES consume your attack cooldown** (Oliver's call, overriding the earlier "hidden perk" idea): a
+  stolen swing costs you the cooldown exactly like a real one, so it takes your next hit's damage with it
+  rather than being a free extra attack. `Player.attack` resets that counter itself, so this needs no help —
+  the refund exists only behind `violenceRefundsAttackCooldown=false`. Swings are still forced to full
+  strength so they don't land as limp mid-cooldown taps; that half writes `attackStrengthTicker` (protected
+  in LivingEntity) **by reflection**, since the project has no access transformer set up, and degrades
+  gracefully if the field can't be resolved.
+- Discovered on trigger (the first time your arm swings without you).
 ```
-VIOLENCE_CHECK_INTERVAL=40  VIOLENCE_TRIGGER_CHANCE=0.15  VIOLENCE_TARGET_RANGE=3.5
-VIOLENCE_PLAYER_PRIORITY_MULT=3.0  VIOLENCE_HAZARD_BIAS_RANGE=4  VIOLENCE_HAZARD_BIAS_MULT=4.0
+violenceCheckIntervalTicks=20   violenceTargetRange=3.5
+violenceSightConeDegrees=20     violenceSightChancePercent=25   violenceSightHazardChancePercent=75
+violenceImpulsiveBaseChancePercent=2  violenceImpulsiveRampPerSecond=0.5  violenceImpulsiveCapPercent=30
+violenceImpulsiveHazardChancePercent=90  violenceHazardSustainTicks=30  violenceLowHealthPercent=25
+violenceRandomTargetChancePercent=10
+violencePlayerPriorityMultiplier=3.0  violenceHazardBiasMultiplier=4.0  violenceHazardShoveDistance=4
+violenceLedgeDropMin=3  violenceMultiHitChancePercent=12  violenceMultiHitMin=2  violenceMultiHitMax=4
+violenceMultiHitSpacingTicks=6  violenceFullStrengthSwings=true  violenceRefundsAttackCooldown=false
 ```
 
-### Butterfingers — Milk Bucket
-Rare passive item drops on shared internal cooldown; boosted on damage taken / tool swing.
+### Butterfingers — Milk Bucket  ✅ REFINED
+Whatever's in your hands has a habit of just... slipping. Three triggers, all sharing **ONE** internal
+cooldown so a run of hits can't strip you bare:
+- **Passive** — rare, out of nowhere (`PASSIVE_CHANCE` per `PASSIVE_INTERVAL`).
+- **On taking damage** — much likelier; a hit knocks it out of your hands (`LivingIncomingDamageEvent`).
+- **On swinging a tool** — mining (`LeftClickBlock`) or attacking (`AttackEntityEvent`), the classic "threw
+  my pickaxe into the lava". "Tool" = any held item with durability, so modded tools qualify automatically.
+
+The shared cooldown IS the balance: the passive roll is deliberately rare, so in practice the curse gets you
+mid-fight or mid-swing, when losing your gear hurts most. The cooldown is only consumed on an ACTUAL drop —
+rolling a fumble with nothing to lose doesn't buy you grace. Fumble order is main hand → offhand → a random
+hotbar slot (`DROP_FROM_HOTBAR`); `DROPS_WHOLE_STACK` throws the lot rather than one item.
+Discovered on trigger (the first time something leaps out of your hands).
 ```
-BUTTERFINGERS_COOLDOWN=600  BUTTERFINGERS_PASSIVE_CHANCE=0.03  BUTTERFINGERS_PASSIVE_INTERVAL=100
-BUTTERFINGERS_ON_DAMAGE_CHANCE=0.35  BUTTERFINGERS_ON_SWING_CHANCE=0.15  BUTTERFINGERS_DROP_FROM_HOTBAR=true
+butterfingersCooldownTicks=600  butterfingersPassiveIntervalTicks=100  butterfingersPassiveChancePercent=3
+butterfingersOnDamageChancePercent=35  butterfingersOnSwingChancePercent=15
+butterfingersDropFromHotbar=true  butterfingersDropsWholeStack=true
 ```
 
-### Explosive — Gunpowder
-Explodes on death; world damage gated by mobGriefing.
+### Explosive — Gunpowder  ✅ REFINED
+You go off when you go down. Dying triggers a real `Level.explode` — full damage, knockback and block
+damage, exactly what a creeper would hand out — **and your dropped inventory is destroyed in the blast**,
+which is what makes dying with this genuinely expensive rather than merely loud. World damage is gated on
+`mobGriefing` via `Level.ExplosionInteraction.MOB` (vanilla's own switch for that). The dying player stays
+the explosion's source, so kills are attributed to them rather than to thin air.
+
+**The blast is deferred by `explosiveDelayTicks` (min 1), and that is load-bearing, not cosmetic.**
+Verified in bytecode: `LivingEntity.die` calls `onLivingDeath` (which fires `LivingDeathEvent`) at offset 2
+but `dropAllDeathLoot` only at offset 164 — so an explosion fired straight from the death event goes off
+while the items **do not exist yet**, leaving the whole inventory sitting neatly on the floor. One tick
+later the drops are real entities and the blast destroys them like any other ground item.
+Discovered on death.
 ```
-EXPLOSIVE_POWER=4.0  EXPLOSIVE_CREATES_FIRE=false
+explosivePower=4.0  explosiveCreatesFire=false  explosiveDelayTicks=1
 ```
 
-### Super Explosive — TNT (NOT PROTOTYPED)
-Small chance to explode on TAKING damage; world damage gated by mobGriefing.
+### Super Explosive — TNT  ✅ REFINED
+Every hit you take is a small, **flat** chance of simply going off — a real explosion with full damage, big
+knockback and block damage gated on `mobGriefing` via `Level.ExplosionInteraction.MOB`. The chance never
+ramps: it's a standing risk, not a building one. **No cooldown** (Oliver's call — "a consistent 5% chance");
+the only guard is that explosion damage can't re-trigger it, or your own blast would chain off itself.
+
+**You take only `SELF_DAMAGE_PERCENT` of your own blast.** You stand at dead centre, so at full damage it
+would execute you every single time; 15% leaves it a serious hit rather than a death sentence, while
+everyone else nearby takes it in full.
+
+Both that and the knockback go through vanilla's own `ExplosionDamageCalculator` extension points —
+`getEntityDamageAmount` and `getKnockbackMultiplier`, subclassing `EntityBasedExplosionDamageCalculator` so
+player-caused block resistance stays vanilla. That's cleaner than intercepting the damage event afterwards:
+the explosion remains an ordinary explosion in every other respect. Discovered on the first detonation.
+
+**⚠ The explosion's source ENTITY must be `null`, never the player.** `Explosion` collects its victims via
+`Level.getEntities(source, box)`, whose first argument is the entity to **EXCLUDE** — so naming the player as
+the source silently drops them from their own blast and they take *no* damage and *no* knockback (this was a
+real bug, caught in play: "the explosions do no damage instead of little"). The player rides on the damage
+source (`damageSources().explosion(null, player)`, keeping kill attribution) and in the calculator (block
+resistance + the self-damage scale) instead. Note also that vanilla's 10-tick invulnerability window still
+applies, so the blast damage merges with the hit that set it off rather than stacking on top of it.
 ```
-SUPER_EXPLOSIVE_ON_HIT_CHANCE=0.08  SUPER_EXPLOSIVE_POWER=2.5
-SUPER_EXPLOSIVE_SELF_DAMAGE=true  SUPER_EXPLOSIVE_COOLDOWN=200
+superExplosiveChancePercent=5  superExplosivePower=2.5
+superExplosiveSelfDamagePercent=15  superExplosiveKnockbackMultiplier=2.5
 ```
 
-### Popularity — Bell
-Hostile spawns up, detection radius up, hostiles ALWAYS re-prioritize the victim.
+### Popularity — Bell  ✅ REFINED
+The "whole server chasing one guy" TikTok, made real. Two halves, both on a tick:
+- **Conjured horde, biome- and environment-aware.** Extra hostiles are spawned in a ring
+  (`SPAWN_RADIUS_MIN`..`MAX`) around the victim every `SPAWN_INTERVAL` (`SPAWN_ATTEMPTS` tries each), up to a
+  live cap `MAX_MOBS`. A column scan near the victim's height finds either standing WATER → **Drowned**
+  (so a submerged victim reliably gets water mobs regardless of the pond's biome — the earlier pure
+  biome-list approach spawned none in a land-biome pond), or a standable ground spot → a weighted pick from
+  the **local biome's `MobCategory.MONSTER` list** (husks in desert, strays in snow, ...). Placement uses the
+  type's own `SpawnPlacements.getPlacementType(...).isSpawnPositionOk` for footing; the safety gate is a
+  **light check** (`MAX_SPAWN_LIGHT`, vanilla's dark-enough threshold), so daylight and torches keep you
+  clear. **NeutralMobs (endermen, zombified piglins) are never conjured.** Tagged `witchmod_popularity`, not
+  persistence-locked → the crowd despawns after the curse ends.
+- **Dedicated hunters.** Every hostile within `DETECTION_RADIUS` is set up ONCE (tag-guarded) as a committed
+  hunter: FOLLOW_RANGE bumped to the detection radius, a high-priority `NearestAttackableTargetGoal<Player>`
+  with `PROLONGED_TRACKING_TICKS` unseen-memory (mustSee=true, so it must SEE you to lock on but then hunts
+  ~15s through walls after losing LOS — dogged, not x-ray), and — for zombies (incl. husk/drowned/zombie
+  villager) with GROUND navigation — a custom `BreakDoorGoal` with an always-true predicate so they smash
+  doors on ANY difficulty. (Drowned use water navigation, so `BreakDoorGoal`'s ctor rejects them — guarded
+  with an `instanceof GroundPathNavigation` check after a crash proved it throws otherwise.)
+  When a hunter currently has LOS it's re-aimed at you, so you stay the priority.
+  **NeutralMobs are excluded** from enlistment too — force-aggroing endermen/zombified piglins is Neutral
+  Aggression's job, and doing it here would make that curse pointless.
+- **No instant-explosion creepers** — creepers aren't conjured specially and the horde is biome-driven now.
+Discovered once a `DISCOVERY_HORDE_SIZE`+ crowd has amassed (not on the first spawn).
 ```
-POPULARITY_SPAWN_RATE_MULT=3.0  POPULARITY_SPAWN_RADIUS=48
-POPULARITY_DETECTION_RADIUS=48  POPULARITY_RETARGET_INTERVAL=40
-```
-
-### Yap — Paper
-Uncontrollable chat from writable list; occasional player-info-templated specials; prefers unsaid
-entries.
-```
-YAP_INTERVAL_MIN=1200  YAP_INTERVAL_MAX=4800  YAP_SPECIAL_ENTRY_CHANCE=0.10  YAP_NO_REPEAT_WINDOW=10
-List: data/bewitchment/text/yap.json
-```
-
-### Green Aura — Rotten Flesh
-Green gas + tiny-fly particles; non-undead mobs flee; nearby players auto-drift away.
-```
-GREEN_AURA_MOB_FLEE_RADIUS=8  GREEN_AURA_PLAYER_DRIFT_RADIUS=3
-GREEN_AURA_PLAYER_DRIFT_FORCE=0.04  GREEN_AURA_PARTICLE_INTERVAL=10
-```
-
-### Repel — Water Bucket
-Ground items + XP slide away from victim, will roll off ledges.
-```
-REPEL_RADIUS=6  REPEL_FORCE=0.05  REPEL_TICK_RATE=5
-```
-
-### Echoes — Echo Shard
-Client-only hallucinated game sounds + fake chat messages from list.
-```
-ECHOES_SOUND_INTERVAL_MIN=600  ECHOES_SOUND_INTERVAL_MAX=2400  ECHOES_CHAT_CHANCE=0.25
-Pool: creeper_primed, footsteps, zombie_ambient, door_open, chest_open, arrow_hit, tnt_primed, enderman_stare
-List: data/bewitchment/text/echoes_chat.json
+popularitySpawnIntervalTicks=45  popularitySpawnAttempts=2  popularityMaxMobs=34
+popularityDiscoveryHordeSize=15  popularityProlongedTrackingTicks=300
+popularitySpawnRadiusMin=6  popularitySpawnRadiusMax=20  popularityMaxSpawnLight=7
+popularityDetectionRadius=48  popularityRetargetIntervalTicks=20
 ```
 
-### Delusions — Ender Pearl (CUSTOM SOUND)
-Client-side fake players using real server skins/nametags (incl. victim's own). Vanish in smoke on
-hit/collision. States: wandering, sprinting, teleporting, mining, flying, punching, sneaking,
-waving, idle, dancing, twerking, jumping, spinning, realisation (turn + stare + vanish). Can charge
-the victim when spotted.
+### Yap — Paper  ✅ REFINED
+You can't stop talking. Every `INTERVAL_MIN`..`MAX` you blurt a line into **server chat** as if you'd typed
+it (`chat.type.text` broadcast, not a nearby-only whisper like the prototype). Outbursts come from THREE
+SEPARATE writable lists so multi-message rambles are **scripted, not randomly paired**:
+- `singles` — one message.
+- `doubles` — a 2-message combo, both lines sent in order, `MESSAGE_GAP` ticks apart.
+- `triples` — a 3-message combo, in order.
+The list is weighted (`SINGLE_WEIGHT`/`DOUBLE_WEIGHT`/`TRIPLE_WEIGHT`) so more messages = rarer.
+**Event reactions** (separate `events` object) fire a much rarer line on a specific action, each on its own
+long `EVENT_COOLDOWN`: `hurt` (taking damage), `attack` (dealing damage), `chest` (opening a chest/trapped/
+ender via `AbstractChestBlock`), `death` (dying), `proximity` (a player within `PROXIMITY_RADIUS`). Each
+event entry can be a string (single) or an array (a sequence). Loaded from `data/witchmod/text/yap.json` via
+a `SimpleJsonResourceReloadListener` (reload-able with `/reload`), malformed entries skipped not fatal.
+**Self-heal:** the ambient schedule lives in a transient map, so a curse that PERSISTED across a relog/world
+reload (onApply never re-ran) would go silent forever — `onTick` re-schedules if it finds no record. Fixed
+after "3 minutes, said nothing". Discovered on first outburst.
 ```
-DELUSIONS_MAX_CONCURRENT=2  DELUSIONS_SPAWN_INTERVAL_MIN=1200  DELUSIONS_SPAWN_INTERVAL_MAX=6000
-DELUSIONS_SPAWN_RANGE_MIN=12  DELUSIONS_SPAWN_RANGE_MAX=32  DELUSIONS_LIFETIME_MAX=1200
-DELUSIONS_STATE_SWAP_INTERVAL=200  DELUSIONS_REALISATION_CHANCE=0.15  DELUSIONS_CHARGE_CHANCE=0.08
-Sounds: bewitchment:curse.delusions.vanish, bewitchment:curse.delusions.whisper
-```
-
-### Gluttony — Cake (CUSTOM UI)
-Second hunger bar (extra UI row), bigger model, sprint cutoff at double vanilla threshold.
-```
-GLUTTONY_MODEL_SCALE=1.35  GLUTTONY_EXTRA_HUNGER_MAX=20  GLUTTONY_EXTRA_DRAIN_MULT=1.5
-GLUTTONY_SPRINT_CUTOFF=12
-```
-
-### Gassy — Pufferfish (CUSTOM SOUND)
-Random farts launch in random directions/velocities, biased toward ledges/hazards, can be upward;
-nearby explosions/damage also trigger at higher velocity.
-```
-GASSY_INTERVAL_MIN=1200  GASSY_INTERVAL_MAX=3600  GASSY_VELOCITY_MIN=0.6  GASSY_VELOCITY_MAX=1.4
-GASSY_HAZARD_BIAS_MULT=3.0  GASSY_ON_DAMAGE_CHANCE=0.25  GASSY_ON_EXPLOSION_CHANCE=0.60
-GASSY_EVENT_VELOCITY_MULT=1.5
-Sounds: bewitchment:curse.gassy.fart_small, bewitchment:curse.gassy.fart_large
+yapIntervalMinTicks=200  yapIntervalMaxTicks=600
+yapSingleWeight=70  yapDoubleWeight=25  yapTripleWeight=5  yapMessageGapTicks=30
+yapEventCooldownTicks=2400  yapProximityRadius=6.0
+List: data/witchmod/text/yap.json  { "singles":[..], "doubles":[[a,b]..], "triples":[[a,b,c]..],
+  "events": { "hurt":[..], "attack":[..], "chest":[..], "death":[..], "proximity":[..] } }
 ```
 
-### Farmhand — Wheat
-Passive animals' AI overridden to stand in your way; only panic/flee-on-hurt outranks it (they
-return after).
+### Unhygienic — Rotten Flesh (CUSTOM SOUND)  ✅ REFINED
+**RENAMED from "Green Aura" on Oliver's call.** Note the registry id was changed too (`green_aura` →
+`unhygienic`), unlike the Phase-A renames which kept their ids: display names are derived from the id path
+(`DiscoveryManager.titleCase(id.getPath())`), so the id *is* the visible name here. Any saved `green_aura`
+instance is dropped as unknown — harmless, it was only ever a placeholder.
+
+You reek. A green stink cloud leaks off you with a few flies orbiting your head, and:
+- **Non-undead mobs flee** — anything within `MOB_FLEE_RADIUS` gets an `UnhygienicFleeGoal` (priority 2, so
+  panic/float still outrank it) and paths away, re-picking its escape route as you follow. Get within
+  `PANIC_RADIUS` and it switches to `PANIC_SPEED` — a proper run rather than an unhurried walk. **Undead are
+  pointedly unbothered** (`EntityTypeTags.UNDEAD`) — they smell worse.
+- **Nearby players drift away** — anyone inside `PLAYER_DRIFT_RADIUS` gets a small repeated push
+  (`PLAYER_DRIFT_FORCE`) every 5 ticks, deliberately subtle enough to walk against. Needs `hurtMarked` or the
+  velocity never reaches the client.
+- **Particles**: a green `DustParticleOptions` haze for the gas — `ENTITY_EFFECT` was the obvious pick but
+  renders as potion BUBBLES, which read as "brewing" rather than "stink". Flies are `MYCELIUM` specks, and
+  the trick there is the MOTION, not the sprite: a clean circular orbit just looks like a ring of dust, so
+  each fly follows a wobbling radius, uneven angular speed and its own bobbing height (sines at differing
+  frequencies). Specks are spawned **stationary and only every `FLY_INTERVAL` ticks** — giving them a darting
+  velocity every tick meant ~80 moving particles a second, which read as flung dust and was pure waste;
+  dropped along a continuous path instead, consecutive specks land close enough that the eye interpolates
+  them into one moving fly, at a fraction of the cost.
+- **Sound**: `curse.unhygienic.flies` buzzes on a randomised `FLY_SOUND_MIN..MAX` gap — three OGG variants in
+  one event, so vanilla picks between them.
+The flee goal is bound to a specific player and checked with `isTargeting`, so a respawn/relog swap doesn't
+leave mobs permanently unbothered (the Farmhand lesson).
 ```
-FARMHAND_RADIUS=16  FARMHAND_MAX_RECRUITS=8  FARMHAND_REPATH_INTERVAL=20  FARMHAND_BLOCKING_DISTANCE=1.0
+unhygienicMobFleeRadius=8.0  unhygienicFleeSpeed=1.35  unhygienicPanicRadius=3.5  unhygienicPanicSpeed=2.0
+unhygienicPlayerDriftRadius=3.0  unhygienicPlayerDriftForce=0.04  unhygienicParticleInterval=10
+unhygienicFlyInterval=3  unhygienicFlyVolume=0.56
+unhygienicFlySoundMinTicks=120  unhygienicFlySoundMaxTicks=400
+Sounds: witchmod:curse.unhygienic.flies (fly1/fly2/fly3) ✅ SUPPLIED
 ```
 
-### Heavy — Iron Ingot
-Fall speed + damage up; long falls crater (damage/knockback/particles to victim + nearby; block
-damage per mobGriefing).
+### Repel — Water Bucket  ✅ REFINED
+Dropped items and XP orbs **on the floor** within `RADIUS` slide slowly AWAY from you at `SPEED` — kept
+below sprint speed so you can always chase your stuff down. They steer toward the nastiest reachable thing,
+but ONLY in a direction that still points away from you (never back toward you to reach a ledge). Steering
+priority, highest first: **lit TNT > lava > cacti > ledges > other players > (just away)** — each candidate
+is taken only if its direction from the item is in the away half-space (`dot(dir, away) > 0`). Ledges are a
+neighbouring column with `LEDGE_DROP_MIN` clear blocks down; TNT/players are entity scans, lava/cactus a
+coarse block-grid scan. Velocity is SET each tick (not nudged) so the slide is steady and predictable, with
+a per-tick `MAX_ENTITIES` cap. Discovered the moment anything slides.
+**Was on the wrong item** (Slime Block) and repelled living entities — corrected to its spec item Water
+Bucket (unused) and rebuilt around items/orbs. NOTE: within ~8 blocks vanilla's XP-magnet pulls orbs toward
+you and partly fights the repel; items are unaffected and slide cleanly.
 ```
-HEAVY_FALL_SPEED_MULT=1.8  HEAVY_FALL_DAMAGE_MULT=1.75  HEAVY_CRATER_MIN_FALL=8
-HEAVY_CRATER_RADIUS=3  HEAVY_CRATER_DAMAGE=6.0  HEAVY_CRATER_KNOCKBACK=1.2
-```
-
-### Slippery Feet — Ice (CUSTOM SOUND)
-Standing near ledges: chance of slide-whistle + shove off.
-```
-SLIPPERY_CHECK_INTERVAL=60  SLIPPERY_TRIGGER_CHANCE=0.10  SLIPPERY_LEDGE_DROP_MIN=2  SLIPPERY_PUSH_FORCE=0.35
-Sound: bewitchment:curse.slippery.slide_whistle
-```
-
-### Magnet — Lodestone
-Nearby projectiles' velocity spoofed toward the victim.
-```
-MAGNET_RADIUS=16  MAGNET_STEER_STRENGTH=0.15  MAGNET_AFFECTS_OWN=false
+repelRadius=6.0  repelSpeed=0.07  repelHazardScanRadius=5.0  repelLedgeDropMin=2  repelMaxEntities=64
 ```
 
-### Neutral Aggression — Spider Eye
-All neutral mobs auto-aggro the victim.
+### Echoes — Echo Shard  ✅ REFINED
+You keep hearing things that aren't there. Every `INTERVAL_MIN`..`MAX` the victim — and ONLY the victim —
+hears an utterly ordinary game sound at a believable spot in the world.
+
+**Believability is the entire design**, so two rules drive the implementation:
+1. **Client-only but still positional.** Each sound is a `ClientboundSoundPacket` sent down that one player's
+   connection (NOT `level.playSound`, which everyone nearby would hear). It's directional and attenuates
+   exactly like a real sound, and nobody else can confirm it wasn't.
+2. **Placement is checked against the world.** Footsteps/landings are snapped DOWN onto real ground
+   (`groundedAt`, which returns null and picks another hallucination if there's nothing solid underfoot) and
+   use that block's OWN step sound. Mining comes from inside a solid block several blocks below you and uses
+   that block's hit/break sounds. Distant explosions are genuinely 24–48 blocks out.
+
+Multi-part sequences are queued over several ticks, not fired at once: approaching sprint footsteps close
+the distance step by step, mining is a run of hits at a randomised cadence ("various speeds") then the break.
+
+Pool — a **weighted table** (`CurseEchoes.POOL`, one `Weighted(weight, method)` row each, so re-tuning or
+adding a hallucination is a one-line change), weighted so background noises are common and the ones that make
+you spin round stay rare: calm footsteps from a random bearing · sprinting footsteps closing in · mining
+below · zombie/skeleton/spider ambient · chest or door opening (with a matching close a moment later) ·
+distant explosion · someone landing (plus a step after, to sell it as a person) · fake chat · villager · TNT
+primed · cave ambience · **someone swimming** · **someone eating, finished with a burp** · **an animal being
+hurt nearby** (a swing lands, THEN it cries out — the order sells it; sheep/cow/pig/chicken) · **someone
+whiffing at air** (the flat no-damage swing) · **someone fighting a zombie** (ambient, then swings alternating
+with zombie grunts, sometimes ending in a death) · creeper priming then exploding behind · misc one-offs (bow,
+enderman teleport, XP/item pickup, anvil, splash) · **a fake notification ping** (rarest).
+
+**The ping** is a fake message-app chime, played at the VICTIM'S OWN position so it sits dead centre like a
+real one out of their headphones rather than off in the world. It is deliberately a **single OGG with no
+variants** (Oliver's call) — a real notification is identical every time, so randomising it would give the
+game away instantly.
+
+**Swimming is only ever placed in real water** (`findWaterNear` scans for a `FluidTags.WATER` block within 14
+blocks and returns null otherwise) for the same reason footsteps are snapped to ground — a swimming sound on
+dry land is an immediate tell.
+
+**Fake chat** puts a line from `data/witchmod/text/echoes_chat.json` in the mouth of a player who is genuinely
+online (never the victim), shown to the victim alone; skipped if nobody else is on. Any hallucination whose
+conditions aren't met falls back to another rather than wasting the slot.
+**Discovery is delayed** `DISCOVERY_DELAY_TICKS` after the FIRST hallucination, so the penny drops a moment
+later instead of the alert giving the sound away.
 ```
-NEUTRAL_AGGRO_RADIUS=24  NEUTRAL_AGGRO_CHECK_INTERVAL=40
+echoesIntervalMinTicks=160  echoesIntervalMaxTicks=1300   // 8s .. 65s — the wide spread is the point, since
+                                                          // a predictable rhythm identifies the fakes for you
+echoesDiscoveryDelayTicks=40  echoesVolume=1.0
+List: data/witchmod/text/echoes_chat.json  (plain JSON array of strings, /reload-able)
+Sound: witchmod:curse.echoes.ping  ✅ SUPPLIED (single file, no variants by design)
 ```
 
-### Dwarfism — Turtle Egg
-Half-size model; right-click entities to ride; reduced walk distance.
+### Delusions — Ender Pearl  ✅ REFINED
+**NO CUSTOM SOUNDS** (Oliver's call — the spec's `curse.delusions.vanish`/`.whisper` are retired). Vanilla
+sounds carry it, and they're the *better* choice here rather than a compromise: every noise a delusion makes
+is one the victim has heard a thousand times from real players, which is exactly what makes it pass.
+There's someone out there. There isn't. Fake players wearing the skins and nametags of people really on
+the server wander around at the edge of your vision going about ordinary player business — until one
+notices you looking.
+
+**They are `RemotePlayer`s inserted straight into the victim's own `ClientLevel`, and that is the whole
+architecture.** No other client is told about them and the server has no entity to tick, so there is nothing
+anyone could walk over and confirm. The server owns ONLY a schedule: `DELUSIONS_SIGNAL` is `0` while the
+curse is off and gets a fresh random value each time one is due — the client sees the change and does the
+rest (same split as Loading Screen). That keeps duration and discovery authoritative without leaking the
+illusion.
+
+**Skin and nametag come free from vanilla, by two different routes.** The nametag is just `Player.getName()`
+→ the GameProfile name, so the profile is built with the mirrored player's NAME but a **fresh random UUID** —
+reusing their real one would collide with the genuine entity in the level's uuid lookup. That breaks the
+skin lookup (which is UUID-based), so `getSkin()` is overridden to return the mirrored `PlayerInfo`'s skin
+directly. That single override also settles the body type, since `EntityRenderDispatcher.getRenderer` picks
+the slim or wide player renderer from `getSkin().model()`. The victim's own skin is in the pool
+(`delusionsMirrorSelf`), and unavoidably so when they're the only one online.
+**⚠ `DATA_PLAYER_MODE_CUSTOMISATION` must be set to `0x7F` manually** — which skin overlay layers to draw is
+normally SYNCED from the server and defaults to `0`, so without it every delusion renders with no hat,
+jacket or sleeve layer (i.e. visibly bald and wearing the wrong clothes).
+
+**Behaviour is mimicked at the INPUT level, not the animation level** — which the spec asks for and which is
+also the only sane way to do it, since `PlayerModel.setupAnim` rewrites every limb each frame and hand-posed
+bones would need a model mixin. Each state drives only what a real player's inputs drive — a heading (WASD),
+a look angle (the mouse), sneak, sprint, jump, arm swings — and vanilla's animation code does the rest. So
+**twerking really is crouch spam, waving really is repeated arm swings, spinning really is yanking the mouse
+round**, which is exactly what a player doing those things looks like.
+
+**Movement is vanilla's own `travel()`, fed fake key presses — nothing is hand-rolled.** Each state sets only
+`zza`/`xxa` (WASD as a throttle plus a strafe, since `moveRelative` rotates the input by the entity's yaw),
+the look angles, `jumping`, sneak and sprint; `aiStep` hands those to `travel()`, which supplies
+acceleration, friction, inertia, gravity, terminal velocity, the 0.6-block step-up, collision and fluids.
+**Speed is never a number in the file** — it comes from `Attributes.MOVEMENT_SPEED`, and `setSprinting(true)`
+applies vanilla's real +30% sprint modifier, so a delusion physically cannot move at a speed a real player
+couldn't. Sneak uses vanilla's own 0.3 input factor.
+An earlier version set velocity directly and called `move()`, which opted out of that whole pipeline: no
+acceleration ramp, no friction, gravity and step-up reimplemented badly. Caught in play as three separate
+complaints with one cause — "they often walk on air, get stuck and walk WAYYY faster than any normal
+Minecraft player".
+**⚠ Two vanilla gotchas, both of which fully disable movement if missed:**
+- **`isControlledByLocalInstance()` MUST return true.** `LivingEntity.travel` wraps its ENTIRE body in that
+  check, and the default resolves to `!level.isClientSide` — so on the client `travel()` runs every tick and
+  does nothing. Real remote players don't care (positions arrive in packets); a delusion is simulated wholly
+  by this one client, so it genuinely IS locally controlled. Caught in play: "they now do not move at all".
+- **`LivingEntity.aiStep` can't just be called instead.** On the client it damps velocity by 0.98 every tick
+  (drift correction for packet-lerped entities), which would quietly make every delusion slower than the real
+  thing. So `aiStep` is overridden to run only jump + `travel()`. (`noJumpDelay` is private, so the 10-tick
+  jump cooldown is mirrored locally.)
+**⚠ `calculateEntityAnimation` must be guarded to ONCE per tick.** `travel()` ends by calling it, and
+`RemotePlayer.tick()` calls it again. That's harmless for a real remote player (whose `travel()` never runs —
+which is exactly why RemotePlayer has that line) but a delusion runs both, and `WalkAnimationState.update`
+advances the limb phase on EVERY call. Two calls per tick = arms and legs cycling at double the rate the
+distance covered warrants, which is an instant tell. Caught in play: "you can tell it's a clone due to how
+fast the arm and leg movements are compared to the speed".
+
+**Terrain:** vanilla's step-up only clears 0.6 of a block, so a full block stops a walker dead — players
+*jump*, and they start the jump before they touch it. So a look-ahead probe (full block at foot height,
+clear air above) fires the jump early, with vanilla's own `horizontalCollision` as the backstop for corners
+and odd shapes. Only if a whole 12-tick window passes with under 0.6 blocks covered is it treated as a wall
+rather than a step, and the delusion turns away.
+**Sporadic by design:** walking is deliberately irregular — unprompted pauses to look at something, jogs
+breaking out mid-walk, idle hops over nothing, constant course drift. The irregularity does as much work as
+the speed does; a perfectly straight line at a perfect speed still reads as a bot.
+The one hand-written piece is the **head/body split**: a real player's body lags their head and snaps once
+the twist passes ~50°, and without it a delusion reads as a rotating statue.
+
+States: idle (small aimless glances) · wandering · sprinting · sneaking · **mining** (arm swings on the
+vanilla cadence, the block's own hit/break sounds, and the cracking overlay really creeps across it via the
+client-side `destroyBlockProgress` — cleared on exit or it sticks for the session) · punching · waving ·
+jumping · dancing · twerking · spinning · flying (hovers ~4 blocks up and drifts) · teleporting (particles
+and the sound at BOTH ends, plus `setOldPosAndRot` or it visibly *slides* across the gap) ·
+**observing** · realisation.
+
+**Observing** (Oliver's addition) walks in at an ordinary pace and then just watches from
+`OBSERVE_DISTANCE`, standing perfectly still and silent — no swinging, no fidgeting, no sound at all. It's
+deliberately the quietest state in the set, because every other one is a person being *oblivious* to you and
+this is the one that isn't. The stillness is the behaviour.
+
+**Realisation** is earned, never rolled: a `seenScore` builds while the delusion is in the victim's view
+cone AND in line of sight, and decays at half rate when they look away. Past `REALISATION_SEEN_TICKS` it
+rolls once a second; on success it turns to face them (over 8 ticks — a snap reads as a teleport), stares,
+then either evaporates where it stands or **sprints straight at them** and pops on arrival.
+
+**Hit/collision:** they are deliberately **NOT pickable** (`isPickable()` → false) and not collidable.
+Vanilla's crosshair must never target one, because attacking it would make the client send the server an
+interact packet naming an entity id it has never heard of. The swing is instead ray-traced against
+delusions separately in `DelusionManager.onAttack` and the interaction is cancelled (arm still swings), and
+"collision" is a proximity check. `pushEntities()` is a no-op for the same reason — shoving the real player
+would be corrected by the server instantly.
 ```
-DWARFISM_MODEL_SCALE=0.5  DWARFISM_SPEED_MULT=0.75  DWARFISM_CAN_RIDE_HOSTILES=true  DWARFISM_RIDE_CONTROL=false
+delusionsMaxConcurrent=2  delusionsSpawnIntervalMinTicks=1200  delusionsSpawnIntervalMaxTicks=3600
+delusionsSpawnRangeMin=12  delusionsSpawnRangeMax=28  delusionsLifetimeMaxTicks=1200
+delusionsDespawnDistance=48  delusionsStateSwapInterval=120
+delusionsRealisationSeenTicks=60  delusionsRealisationChancePercent=15  delusionsChargeChancePercent=40
+delusionsHitReach=4.0  delusionsViewConeDot=0.75  delusionsMirrorSelf=true  delusionsObserveDistance=4.0
+Sounds: ALL VANILLA, nothing pending. Vanish = ENDERMAN_TELEPORT pitched up (which also ties it to the
+  Ender Pearl it's cast with); footsteps/mining use the real block's own step/hit/break sounds; punching
+  uses the flat PLAYER_ATTACK_NODAMAGE whiff; teleporting uses ENDERMAN_TELEPORT at both ends.
+  No ambient "whisper" — a recognisable idle noise would mark them out as not-a-real-player.
 ```
 
-### Screensaver — Painting
-Window bounces DVD-style; occasional, slow, large; slow ease in/out. Client-only; no-op if window
-manipulation unavailable.
+### Gluttony — Cake (CUSTOM UI)  ✅ REFINED
+Bigger model (SCALE +0.35 → 1.35x, physically wider) and a second hunger row — but the two rows are
+**ONE BIG 40-POINT BAR**, not two separate meters. That was the whole refinement: they used to drain on
+independent timers and be fed independently, which is why it felt disconnected.
+- The extra row (drawn above vanilla's) is the **TOP half**. The vanilla half is held at `VANILLA_HOLD` while
+  reserve remains: anything above that line is pushed UP into the reserve, anything below is pulled back
+  DOWN out of it — so the upper half empties first and then the vanilla half, one long bar draining top-down.
+- **⚠ `VANILLA_HOLD` is 19, deliberately ONE POINT SHORT of full.** Vanilla gates eating on
+  `FoodData.needsFood()`, which is just `foodLevel < 20`, so holding the lower half at a true 20 makes the
+  game think you're permanently full and **refuses every food item** until the reserve runs dry (a real bug,
+  caught in play: "I am unable to eat until the second bar starts to tick down"). Sitting at 19 keeps you
+  always able to eat and costs half a drumstick of display.
+- **Starvation therefore takes twice as long to reach**: you only start starving once all 40 points are gone.
+- **Eating fills vanilla first and the overflow spills UP into the extra row** rather than being wasted
+  (measured as `nutrition - actualVanillaGain` on the use-Finish hook).
+- **Sprint cuts out at `SPRINT_CUTOFF` of the COMBINED bar** — double vanilla's 6.
+- The trade: food is eaten **`EAT_SPEED_PERCENT` faster** (the one mercy — there's a lot of eating to do) but
+  every meal gives **`SATURATION_PENALTY_PERCENT` less saturation**, so nothing sticks and you keep grazing.
+  Both measure the REAL gain from a Start/Finish snapshot, so they stay correct when vanilla clamps.
+- **HUD takeover:** while active, vanilla's `FOOD_LEVEL` layer is CANCELLED (`RenderGuiLayerEvent.Pre`) and
+  `GluttonyHudLayer` draws BOTH rows from the combined total (lower = `min(20, combined)`, upper = the rest).
+  Necessary because the real vanilla value is held at 19, so drawing the lower row from it made the bar look
+  permanently one point short and flicker as it dipped and was topped back up. Both rows mirror
+  `Gui#renderFood` — green `*_hunger` sprites under the Hunger effect, jitter at zero saturation — and the
+  takeover copies vanilla's visibility rules (hidden GUI, creative/spectator, riding a living mount).
+- **⚠ The sprint cutoff MUST be enforced client-side** (`ClientCurseHandler`) by suppressing the sprint KEY.
+  Sprinting is decided in `LocalPlayer.aiStep`, so a server-side `setSprinting(false)` is overwritten on the
+  next client tick — and merely clearing the flag client-side lets the very next line of `aiStep` turn it
+  back on. That's why the doubled cutoff appeared to do nothing and only vanilla's 6-point rule applied.
+- **⚠ The SCALE modifier is TRANSIENT**, so a world reload drops it while the curse persists (you return the
+  wrong size). `onApply` never re-runs, so `onTick` re-applies it if missing.
 ```
-SCREENSAVER_TRIGGER_INTERVAL_MIN=4800  SCREENSAVER_TRIGGER_INTERVAL_MAX=12000
-SCREENSAVER_EPISODE_DURATION=400  SCREENSAVER_WINDOW_SPEED_PX=2  SCREENSAVER_TRANSITION_TICKS=60
+gluttonySprintCutoff=12  gluttonyEatSpeedPercent=30  gluttonySaturationPenaltyPercent=20
+gluttonyModelScaleBonus=0.35   (extra row max 20 → combined bar 40)
 ```
 
-### Minor Inconvenience — Cobweb
-Fullscreen blocked; window renamed to dumb titles from a list. Client-only.
+### Gassy — Pufferfish (CUSTOM SOUND)  ✅ REFINED
+You go off, and it MOVES you. Every `INTERVAL_MIN`..`MAX` you're launched in some direction at a randomised
+velocity, biased toward whatever nearby would make it worse.
+
+**The bias is a WEIGHTED DRAW, never a guarantee — that distinction is the whole balance of the curse.**
+Backseat Driver's hazard scan uses strict priority (nastiest type always wins) because an AI deliberately
+steering into danger should be reliable about it. This one must not be, or standing anywhere near lava
+becomes a death sentence on a timer rather than a running joke. So:
+- `RANDOM_DIRECTION_CHANCE` (35%) of farts ignore hazards outright and fire off anywhere.
+- Even when a hazard IS chosen it's a weighted draw across everything found — weight = the hazard's own
+  nastiness ÷ its distance, so near-and-nasty wins *more often* but a far-off cliff can still beat adjacent
+  lava.
+- `STRAIGHT_UP_CHANCE` (18%) go mostly vertical instead, with a slight lean so it isn't a clean elevator.
+- Every directional fart still carries an upward kick (`VERTICAL_MIN..MAX`), so you always get some air.
+
+Hazards recognised: lava · lit TNT · ledges (a column with a real drop) · fire/soul fire/lit campfires ·
+magma · pointed dripstone · cacti · powder snow · sweet berry bushes · wither roses.
+**Lit TNT is an ENTITY (`PrimedTnt`)**, so it needs its own lookup — a block scan silently misses the best
+hazard going. The block scan is a coarse 2-block grid, affordable because it only runs when a fart actually
+fires rather than every tick.
+
+**Events force one out of you**, on a shared `EVENT_COOLDOWN` so a firework show doesn't punt you across the
+map forty times:
+- **Any explosion nearby** via `ExplosionEvent.Detonate` — TNT, creepers, beds, end crystals, all of it —
+  and deliberately **independent of whether the blast damaged you**, since being startled doesn't require
+  being hurt.
+- **Fireworks**, which produce no `Explosion` and therefore have no event to hook. Instead nearby rockets are
+  remembered each tick and one that has VANISHED by the next tick is read as having gone off; a firework that
+  close disappearing for any other reason is vanishingly unlikely.
+- **Taking a hit** (explosion damage uses the explosion chance, everything else the lower damage chance).
+Event farts roll a far higher big-fart chance and carry `EVENT_VELOCITY_MULT` on top.
+
+**Big farts** (`BIG_CHANCE`, ~8% spontaneous but ~55% on an event) use the separate louder OGG and multiply
+velocity by `BIG_MULTIPLIER`. Velocity needs `hurtMarked` or the server never sends it and the victim doesn't
+budge on their own screen. Discovered the first time you leave the ground under your own power.
+
+**Particles:** a white `CLOUD` puff carrying the body of it, with a *minor* amount of green
+`DustParticleOptions` mixed through (vanilla has no tintable smoke). The green is deliberately sparse — it
+should read as a tinge, not as Unhygienic's full stink cloud, which is a different curse doing a different
+job. Plus a directional `CLOUD` jet fired opposite the launch so it reads as thrust (count 0, which makes the
+offsets a velocity).
+**Note `VERTICAL_MIN/MAX` are a RATIO, not a speed** — the launch vector is normalised before the velocity is
+applied, so raising them tilts farts upward without making them any stronger.
 ```
-MINOR_INCONV_RENAME_INTERVAL_MIN=2400  MINOR_INCONV_RENAME_INTERVAL_MAX=9600
-List: data/bewitchment/text/window_titles.json
+gassyIntervalMinTicks=400  gassyIntervalMaxTicks=1200
+gassyVelocityMin=0.45  gassyVelocityMax=1.0  gassyBigFartChancePercent=8  gassyBigFartMultiplier=1.8
+gassyRandomDirectionChancePercent=35  gassyHazardScanRadius=8  gassyLedgeDropMin=3
+gassyStraightUpChancePercent=18  gassyVerticalMin=0.45  gassyVerticalMax=0.85
+gassyOnDamageChancePercent=25  gassyOnExplosionChancePercent=60  gassyEventBigFartChancePercent=55
+gassyEventVelocityMultiplier=1.5  gassyEventCooldownTicks=40  gassyExplosionHearRadius=12.0
+Sounds: witchmod:curse.gassy.fart_small (fart1-4) ✅ SUPPLIED · witchmod:curse.gassy.fart_large (fartbig) ✅
 ```
 
-### Social Outcast — Wither Rose
-Other players invisible on victim's client unless very close OR recently damaged the victim
-(re-hidden after no damage for a period).
+### Farmhand — Wheat  ✅ REFINED
+You can't build in peace. Every untamed `Animal` within `RADIUS` (**passive mobs only** — Oliver's call) gets
+a `FarmhandBlockGoal` at **priority 1**, making getting-in-the-way its top task above wandering/grazing
+(float/panic still sit at 0-1, so a hit makes it flinch then wander back). **Most of the herd packs into a
+dense crowd hugging you** — concentric rings at `SURROUND_RADIUS` +0/+0.5/+1.0, so a big herd nests around
+you instead of fighting for one spot — and only **1 in 4** peels off to stand on the block under your
+crosshair (server-side raycast) and block placement/mining.
+**Pace is deliberately lazy:** `SPEED_BONUS` +15% (a real MOVEMENT_SPEED modifier applied by the goal and
+handed back in `stop()`), `NAV_SPEED` 1.05, and the `MoveControl` nudge fires ONLY once the path is done —
+driving it every tick made the herd stampede rather than wander into the way.
+**Discovery fires when an animal is planted IN FRONT of you** — within ~2.5 blocks and a 45° view cone — not
+merely when one is recruited.
+
+**Two bugs found by adding temporary diagnostics — the AI itself was never broken** (it logged `pathed=true`
+on every mob throughout; three rounds of blind tuning had been chasing a non-existent fault):
+1. *"Barely noticeable"* — the split was originally **2 in 3 chasing the CROSSHAIR**, which sits up to 5
+   blocks away and moves whenever you glance elsewhere, so the herd spent its time walking to a spot several
+   blocks off and was never actually underfoot. Flipping it to crowd-the-player is what made it land.
+2. *"Was already applied but did nothing until I re-applied it"* — the goal captures a `ServerPlayer`, and
+   that object is **replaced on respawn/relog**, leaving every animal holding a dead reference so `canUse()`
+   failed forever. Recruitment now checks **who the goal is bound to** (`isTargeting`) and swaps stale goals,
+   instead of only asking whether a goal exists.
+**Recruitment is guarded by checking the animal's GOAL LIST, not a scoreboard tag** — goals are transient,
+so a persistent tag would survive a world reload while the goal didn't, leaving old animals permanently
+un-recruited (an earlier "pigs just ignore me" bug).
+**Top-up spawning:** if fewer than `MIN_ANIMALS` are nearby, a spawn burst (`SPAWN_ATTEMPTS`, on a
+`SPAWN_COOLDOWN`) conjures biome-appropriate creatures — but ONLY where vanilla itself would allow them
+(`SpawnPlacements.isSpawnPositionOk` + `checkSpawnRules NATURAL`, i.e. grass/light/footing), matching "the
+game has the correct conditions". Tamed/owned animals are exempt. Discovered when anything gets recruited.
 ```
-OUTCAST_REVEAL_DISTANCE=4  OUTCAST_DAMAGE_REVEAL_TIME=400
+farmhandRadius=24.0  farmhandNavSpeed=1.05  farmhandSpeedBonus=0.15  farmhandSurroundRadius=1.3
+farmhandRecruitIntervalTicks=20
+farmhandMinAnimals=3  farmhandSpawnCooldownTicks=300  farmhandSpawnAttempts=3
+farmhandSpawnRadiusMin=6  farmhandSpawnRadiusMax=16
 ```
 
-### Floor Is Lava — Magma Block
-Constant damage while stationary; grace period for crafting etc.
+### Heavy — Iron Ingot  ✅ REFINED
+You come down like a dropped anvil. You fall faster, you take more for it, and past a threshold you stop
+landing and start *impacting* — a real explosion at the landing site that craters the ground, throws
+everything nearby and hurts you too.
+
+**Fall speed is the `Attributes.GRAVITY` attribute, not a downward shove.** That keeps acceleration,
+terminal velocity and vanilla's own fall-distance bookkeeping intact — you're simply heavier, so a chunk of
+the extra fall damage follows on its own before `FALL_DAMAGE_MULT` is even applied. (Same approach Bad
+Swimmer uses; note the attribute is hard-capped at 1.0 by the game.) The modifier is TRANSIENT, so `onTick`
+re-applies it if missing — otherwise a world reload silently returns you to falling normally.
+
+**The crater scales with the drop, up to a hard cap.** The cap is the load-bearing half: uncapped, a fall
+from build height would level a base. Scaling is measured on fall DISTANCE rather than by sampling impact
+velocity on the exact landing tick — distance is monotonic in speed right up to terminal velocity, so it
+gives the same felt result far more stably. Power lerps `POWER_MIN`→`POWER_MAX` across
+`MIN_FALL`→`CAP_FALL`.
+
+It's a genuine `Level.explode`, so block damage, knockback, sound and shockwave are all vanilla's, with
+world damage gated on `mobGriefing` via `Level.ExplosionInteraction.MOB`. On top of that, an impact spray of
+whatever block was actually landed on (`BlockParticleOption`), plus explosion and cloud puffs, all scaled by
+the same factor.
+**You take only `SELF_DAMAGE_PERCENT` of your own crater** — you're at dead centre AND about to eat
+amplified fall damage, so a full share would execute you every single time.
+
+**⚠ Same trap as Super Explosive: the explosion's source ENTITY must be `null`.** `Explosion` gathers victims
+via `Level.getEntities(source, box)`, whose first argument is the entity to **EXCLUDE** — naming the player
+there quietly leaves them out of their own crater, taking neither damage nor knockback. Attribution rides on
+the damage source (`damageSources().explosion(null, player)`) instead.
+**Crater cooldown (`CRATER_COOLDOWN`)** stops the blast CHAINING: a crater blows the ground out from under
+you, so without a guard you drop into your own hole, crater again, and excavate yourself downward off a
+single fall.
+
+**⚠ Landing is detected on the TICK, from vanilla's own `fallDistance`, NOT from `LivingFallEvent` — and that
+is what makes cratering work in CREATIVE.** `Player.causeFallDamage` returns immediately when `mayFly()` is
+true (it routes to `PlayerFlyableFallEvent` instead), so a damage-driven crater simply never fires in
+creative. Watching `fallDistance` fall back to zero while `onGround` is mode-independent. Flying resets it
+too (`Player.travel` calls `resetFallDistance`), so a gentle creative descent doesn't crater — you have to
+actually stop flying and drop. `LivingFallEvent` is still used, but ONLY for the damage multiplier.
+Landing in water leaves `onGround` false, so no crater there either — which is the right call anyway.
+
+**Discovery is on the FIRST FALL, not the first crater** (Oliver's call): you come down noticeably heavier
+straight away, so holding the alert back until a crater would only be telling the victim what they already
+know.
+NOTE: the prototype's JUMP_STRENGTH penalty was a stand-in and is **removed** — it isn't in the spec, which
+is about falling, not jumping.
+**Anchor in water** (Oliver's addition): an extra `WATER_PULL` downward per tick while in water or lava, so
+you sink like the dead weight you are. Needed as its own value because **vanilla divides gravity by 16 in
+fluid**, so the GRAVITY attribute alone only gives a slightly brisker version of the same gentle bob.
+Applied CLIENT-side off a synced `HEAVY_ACTIVE` flag for the same reason Bad Swimmer's pull is — player
+movement is client-authoritative. Creative flight is exempt.
 ```
-FIL_STATIONARY_GRACE=100  FIL_DAMAGE=1.0  FIL_DAMAGE_INTERVAL=20  FIL_MOVEMENT_RESET_DIST=0.5
-FIL_PAUSED_IN_GUIS=false
+heavyFallSpeedMultiplier=1.8  heavyFallDamageMultiplier=1.75  heavyWaterPull=0.06
+heavyCraterMinFall=8  heavyCraterCapFall=40  heavyCraterCooldownTicks=60  heavyJumpCompensation=1.35
+heavyCraterPowerMin=1.5  heavyCraterPowerMax=4.0   // TNT is 4.0
+heavyCraterSelfDamagePercent=25  heavyCraterKnockbackMultiplier=1.6
 ```
 
-### Heavyweight — Iron Block
-Blocks with air beneath break under you; time scales with hardness.
+### Slippery Feet — Ice (CUSTOM SOUND)  ✅ REFINED
+A joke at the expense of Minecraft's most reflexive habit: everyone sneaks up to an edge to look over,
+trusting vanilla not to let them fall. This breaks that trust, with a slide whistle.
+
+**TWO triggers, and nothing else — it never shoves you at random.** That restraint IS the design: a push
+that could arrive anywhere is just an annoyance tax on walking about, whereas one that only ever happens at
+an edge makes edges themselves frightening.
+- **Standing** near a ledge/hazard — a very low roll (`STANDING_CHANCE`) every `CHECK_INTERVAL`. Background
+  dread, not a real threat.
+- **Crouching** over one — **guaranteed** after 1–2s. The grace period is **re-rolled every time you settle
+  over an edge**, so it can never be counted out and waited through.
+If neither holds, nothing happens at all.
+
+"Ledge" = a neighbouring column with nothing solid at foot height AND a real drop beneath (so a step *up*
+never counts). "Hazard" covers lava, fire/soul fire, magma, lit campfires, cacti, powder snow, sweet berry
+bushes, wither roses and dripstone — being shoved one block sideways into a fire pit counts as much as being
+shoved off a cliff. The shove is aimed at the nearest such column, with a small upward `PUSH_LIFT` so you
+clear the lip instead of scraping down the block face; `hurtMarked` is required or the velocity never
+reaches the client. Discovery on the first push — until your feet go, there's nothing to notice.
 ```
-HEAVYWEIGHT_BASE_BREAK_TICKS=60  HEAVYWEIGHT_HARDNESS_MULT=60
-HEAVYWEIGHT_UNBREAKABLE_SKIP=true  HEAVYWEIGHT_RESPECTS_GRIEFING=true
+slipperyCheckIntervalTicks=20  slipperyStandingChancePercent=2
+slipperyCrouchMinTicks=20  slipperyCrouchMaxTicks=40
+slipperyLedgeDropMin=2  slipperyPushForce=0.35  slipperyPushLift=0.18
+Sound: witchmod:curse.slippery.slide_whistle (slide1/2/3) ✅ SUPPLIED
+```
+
+### Magnet — Lodestone  ✅ REFINED
+Everything thrown in your general direction finds you. Every projectile within `RADIUS` has its velocity
+bent toward you each tick, so arrows that would have sailed past instead curve in. It exists to make
+fighting at range miserable.
+
+**Direction is STEERED, speed is PRESERVED.** The velocity is rotated toward the victim by `STEER_STRENGTH`
+and then rescaled to its original magnitude, rather than having a pull added to it. Adding acceleration
+would make every arrow hit harder the longer it flew — that turns a curse about accuracy into a curse about
+damage, which isn't the joke and is far harder to balance.
+The projectile's yaw/pitch are rewritten to match the new heading, or arrows visibly fly sideways along
+their old one.
+
+**Your own projectiles are excluded** (`AFFECTS_OWN=false`, Oliver's call). Having your own arrows boomerang
+into your face isn't funny, it's unplayable — you'd be unable to use a bow at all rather than merely being
+easy to hit.
+Projectiles already stuck in a block (effectively zero velocity) are skipped, and a per-tick cap keeps an
+arrow barrage from costing the server. Discovered the moment anything visibly bends toward you.
+```
+magnetRadius=16.0  magnetSteerStrength=0.15  magnetAffectsOwn=false  magnetMaxProjectiles=32
+```
+
+### Neutral Aggression — Spider Eye  ✅ REFINED
+**RENAMED from "Neutral Mobs Attack Instantly" on Oliver's call** — and the registry id was changed with it
+(`neutral_mobs_attack_instantly` → `neutral_aggression`), because display names derive from the id path
+(`DiscoveryManager.titleCase`), so the id IS the visible name. Same situation as Unhygienic. Any saved
+instance of the old id is dropped as unknown; harmless for a placeholder that never shipped.
+
+Everything that would normally leave you alone has decided today is not that day. Anything neutral within
+`RADIUS` turns on you: endermen, zombified piglins, wolves, iron golems, bees, polar bears — **and your own
+tamed pets** (`TURNS_OWN_PETS`, on by default, because your own dog deciding it hates you is the best thing
+this curse does).
+
+**"Neutral" is vanilla's own `NeutralMob` interface, never a hardcoded list** — same principle as Allergic's
+food categories, so modded neutral mobs are covered automatically and the boundary always matches what the
+game itself considers neutral.
+**⚠ SPIDERS are the one exception that must be added by hand.** A spider is a `Monster`, not a `NeutralMob`:
+its daytime passivity comes from `SpiderTargetGoal.canUse()` refusing to acquire a target above light level
+0.5, not from any anger system. So by the interface it's hostile, but by behaviour it is precisely what a
+player means by neutral — it leaves you alone in daylight. Caught in play: "spiders aren't affected at all
+and just don't attack in day still". CaveSpider extends Spider, so it's covered too. Spiders have no
+persistent anger to set, so the target is simply re-applied each sweep, which also survives their own goals
+clearing it.
+
+**⚠ Persistent anger is the mechanism, NOT `setTarget`.** The prototype just called `setTarget` on every
+nearby `Mob` (including cows, which have no attack goal at all), and a bare target is wiped within a tick or
+two by the mob's own target-selection goals — `ResetUniversalAngerTargetGoal` and friends — so the aggro
+flickered and died. Setting `setPersistentAngerTarget` + `startPersistentAngerTimer` is how vanilla itself
+makes these mobs hostile (it's exactly what hitting an enderman does), so the hatred sticks, and decays on
+vanilla's own schedule once the curse ends rather than needing to be cleaned up.
+
+This curse is why **Popularity deliberately EXCLUDES neutral mobs** from its horde — force-aggroing endermen
+and zombified piglins is this one's whole job. Discovered the first time something turns on you.
+```
+neutralAggroRadius=24.0  neutralAggroCheckIntervalTicks=40  neutralAggroTurnsOwnPets=true
+```
+
+### Dwarfism — Turtle Egg  ✅ REFINED
+You're half the man you were: **half height, half health**, and small enough that the sensible way to get
+anywhere is to climb on someone. Right-click a player or a villager to ride them.
+
+**Both halves are attribute modifiers**, so nothing fights vanilla. `Attributes.SCALE` drives the bounding
+box as well as the model, so shrinking genuinely lets you fit through **one-block gaps** rather than merely
+looking like it; `MAX_HEALTH` is scaled the same way.
+**⚠ Health must be CLAMPED on the way in.** Lowering the maximum doesn't lower current health, so without it
+you'd sit at 20/10 — which vanilla draws as a full bar, hiding the entire downside of the curse.
+**⚠ Both modifiers are TRANSIENT, so `onTick` re-applies them** — a reload would otherwise return you
+full-sized and full-health with the curse still running. (Fourth curse in this project to hit that trap,
+after Gluttony, Heavy and Bad Swimmer.)
+
+Riding uses `startRiding(mount, force=true)` — force because a Player isn't normally a valid vehicle, though
+nothing about it misbehaves. **The mount keeps full control of itself:** a rider only steers a vehicle that
+reads rider input, and neither players nor villagers do, so this is pure indignity rather than a hijack. The
+interact event is cancelled on success so the same click doesn't also open a villager's trade screen.
+Dismounts on cure. Note the old spec's speed penalty is dropped — Oliver's spec is size, health and riding.
+```
+dwarfismModelScale=0.5  dwarfismHealthMultiplier=0.5
+dwarfismCanRidePlayers=true  dwarfismCanRideVillagers=true
+```
+
+### Screensaver — Painting  ✅ REFINED
+Every so often the game drops out of fullscreen, **slowly** shrinks to a window, bounces around the monitor
+DVD-logo style for a while, then grows back and returns to fullscreen. Client-only; every stage no-ops if
+the monitor can't be queried.
+
+**It is EPISODIC, not constant.** The prototype forced the game permanently windowed and bounced forever,
+which stops being funny within a minute and makes the game unplayable. Roughly `DUTY_PERCENT` (20%) of the
+time is spent bouncing and the rest is left completely alone.
+**The idle gap is DERIVED, not configured:** `gap = episode × (100 − duty) / duty`, plus ±25% jitter so
+episodes don't arrive on a countable metronome. Retuning episode length therefore preserves the overall
+rhythm without also having to retune the gap.
+
+**Deliberately slow and LARGE.** Transitions are smoothstep-eased over `TRANSITION_TICKS` (4s each way) and
+the shrunk window stays at `WINDOW_SCALE_PERCENT` (55%) of the monitor. A small window snapping about at
+speed is a motion-sickness generator rather than a joke, and you still have to be able to play through it.
+The shrink pulls toward the centre of the screen so it doesn't lurch sideways; the grow starts from wherever
+it drifted to, not from where it began.
+
+**⚠ Resizes are throttled to every other tick.** Each `glfwSetWindowSize` makes Minecraft rebuild its
+framebuffer, so pushing one 20x a second for four seconds stutters; at 10/s the easing still reads smooth.
+**⚠ Fullscreen is toggled via the OPTION** (`options.fullscreen().set(...)`), never `toggleFullScreen()` —
+vanilla's own change callback does the toggle, so calling both double-toggles straight back (a real bug this
+project already hit). The player's original state — fullscreen or not, plus windowed size and position — is
+captured at episode start and restored at the end, including if the curse is cured mid-episode, so it never
+permanently changes their setup.
+```
+screensaverEpisodeMinTicks=400  screensaverEpisodeMaxTicks=900   // 20s .. 45s
+screensaverDutyPercent=20  screensaverTransitionTicks=80
+screensaverWindowScalePercent=55  screensaverSpeedPx=2
+```
+
+### Minor Inconvenience — Cobweb  ✅ REFINED
+You cannot go fullscreen, and your window is named something stupid every so often. Client-only.
+
+**Fullscreen is refused, then the window is MAXIMISED** (Oliver's call). Both halves matter: the renamed
+title bar is invisible in fullscreen, so the joke needs windowed — but merely dropping to whatever windowed
+size they last had shrinks the play area, which is a real handicap rather than a minor inconvenience.
+Maximised gives the whole screen AND a visible title bar.
+Maximising is re-asserted only on the EDGE (when they try fullscreen again), never every tick, so it doesn't
+fight Screensaver's shrink if both curses are active at once. Fullscreen is refused via
+`options.fullscreen().set(false)` — vanilla's change callback does the toggle, so calling
+`toggleFullScreen()` as well double-toggles straight back.
+
+**Titles come from a writable list**, `assets/witchmod/text/window_titles.json` — a plain JSON array of
+strings. **Note `assets/`, not `data/`**, the same call as the Loading Screen's tips and for the same
+reason: purely client-side, so it needs no server→client syncing and reloads with an ordinary resource
+reload rather than `/reload`. Re-read on each activation of the curse (not per rename — that would be
+pointless churn at a 30s–2min cadence), so editing it and re-applying picks changes up without a restart.
+Missing or malformed falls back to one title with a warning rather than crashing.
+Rename interval is 30s–2min, deliberately faster than the old spec's 2400–9600 (2–8min), which was rare
+enough that a victim might never see it change.
+```
+minorInconvenienceRenameMinTicks=600  minorInconvenienceRenameMaxTicks=2400
+List: assets/witchmod/text/window_titles.json  ✅ CREATED (25 entries, freely editable)
+```
+
+### Social Outcast — Wither Rose  ✅ REFINED
+Nobody's there. Other players and villagers simply aren't drawn on your client — **no model, no nametag** —
+unless they get right on top of you (`REVEAL_DISTANCE`) or they hit you.
+
+**The hiding is pure client-side render.** `RenderLivingEvent.Pre` is cancelled, which returns before
+`LivingEntityRenderer.render` reaches its `super.render` call — and that call is what draws the nametag, so
+one cancel hides both. Nothing about the world changes: they are still there, still solid, still able to
+kill you. You just can't see them coming.
+
+**⚠ The damage reveal MUST be server-driven.** Who dealt the damage is server-authoritative — the client is
+told that it was hurt, not reliably by whom — so the set of revealed entity ids is tracked server-side and
+synced down via `SOCIAL_OUTCAST_REVEALED`. The set is tiny (only whoever has hit you inside the window) and
+is only re-synced when the SET changes, not on every hit that merely extends an existing timer.
+The damage source's **direct entity** is used, so an arrow reveals the archer rather than the arrow.
+
+**The window lapsing is what makes it a curse rather than a one-off.** A running fight keeps your attacker
+on screen, but the moment they stop hitting you for `DAMAGE_REVEAL_TICKS` they vanish again — mid-fight,
+while still hunting you.
+**Hidden entities are SILENCED as well as invisible** (Oliver's call). Hearing footsteps and villager
+mumbling out of thin air would give the illusion away instantly — and worse, would tell you exactly where
+the person you can't see is standing, which is the opposite of the point. A `SoundInstance` carries a
+position but not who made it, so `PlaySoundEvent` matches on ORIGIN: any PLAYERS/NEUTRAL/VOICE sound
+starting within `OUTCAST_SOUND_MATCH_RADIUS` (2 blocks) of a currently-hidden entity is dropped. Approximate
+by nature and deliberately so — a noise coming from exactly where an invisible person stands should be
+suppressed whatever produced it. Render and audio share one `isOutcastHidden` check so they can never
+disagree.
+
+**Discovery fires when someone actually POPS INTO VIEW** (Oliver's call) — the out-of-range → in-range
+transition — not when the curse lands. Until something appears out of nowhere there's nothing to notice; an
+empty world just looks like an empty world. The server mirrors the client's proximity test rather than being
+told about it, since it knows every position anyway.
+NOTE the prototype did something entirely unrelated — it shoved nearby villagers away — and was replaced
+wholesale.
+```
+outcastRevealDistance=4.0  outcastDamageRevealTicks=400  outcastHidesVillagers=true
+```
+
+### Floor Is Lava — Magma Block  ✅ REFINED
+The ground remembers being lava, and it only notices you when you STOP. Stand still past the grace period
+and you start burning — and it gets worse the longer you stand there.
+
+**The grace period and the ramp do opposite jobs, and both are needed.** The grace (`GRACE_TICKS`, 5s) is
+what keeps the curse playable — you can still craft, read a sign, dig through a chest. The **ramp**
+(`RAMP_PER_BURN`) is what stops it being a flat tax you simply eat: the longer you ignore it the sharper it
+bites, so it eventually forces you to move rather than merely costing health. The **cap** (`MAX_DAMAGE`)
+then stops an AFK player being executed outright, which would be a disconnect rather than a joke.
+
+Damage uses vanilla's own `HOT_FLOOR` source — the magma-block one, which is exactly the sacrificial item.
+Fire resistance therefore protects: deliberate counterplay, not an oversight. Flames and smoke thicken
+around the feet as the ramp climbs, so it reads as the floor heating up rather than as random damage.
+Movement is measured as real **displacement**, so turning on the spot doesn't save you.
+**Deliberately NOT paused while a GUI is open** — cowering in your inventory is precisely the behaviour this
+curse exists to punish, and the grace period already covers legitimate crafting.
+Discovered on the first burn.
+```
+floorIsLavaGraceTicks=100  floorIsLavaDamageIntervalTicks=20
+floorIsLavaBaseDamage=1.0  floorIsLavaRampPerBurn=0.5  floorIsLavaMaxDamage=4.0
+floorIsLavaMovementResetDistance=0.5
+```
+
+### Heavyweight — Iron Block  ✅ REFINED
+The floor can't take you. Stand on anything with **air beneath it** — a second storey, a bridge, a ledge —
+and it starts giving way under your weight.
+
+**Break time scales with the block's own hardness**: leaves ~0.8s, dirt ~1.1s, stone ~2.4s, planks ~3.0s,
+iron block ~6.8s, obsidian ~60s. (The first pass used a 60x multiplier, which put planks at 7s and obsidian
+past two minutes — "very slow, even on blocks like leaves and especially wood+".) Obsidian stays a real
+deterrent without being literally impossible. **Unbreakable blocks (hardness < 0 — bedrock, barriers) are
+skipped entirely**, so nothing can ever chew through the world bottom.
+
+**⚠ It must warn you, or it reads as a bug rather than a curse — but the warning is VISUAL, not audible.**
+That split is deliberate (Oliver's call). Dust pours out of the underside for the WHOLE duration, thickening
+as it goes, with fragments spitting off the top edge once it's close; the crack overlay creeps across via
+`destroyBlockProgress` (server-side, so everyone sees it). The audio stays sparse and quiet — an early
+version creaked constantly and loudly, which was both grating and easy to tune out.
+
+**The COLLAPSE is where the noise goes.** `ZOMBIE_BREAK_WOODEN_DOOR` (the most "something just gave way"
+sound vanilla has) layered with the block's own break sound, ~60 debris particles plus smoke, a **camera
+shake**, and a **ragged hole** taken out of the surrounding floor (`COLLAPSE_RADIUS`/`COLLAPSE_CHANCE` —
+below 100% so it isn't a neat square). Neighbours only go if they were themselves unsupported and
+breakable. One block quietly disappearing didn't read as a collapse at all.
+**Vanilla has no screen shake**, so it's hand-rolled: a synced `HEAVYWEIGHT_SHAKE_END` tick drives a random
+jolt on yaw/pitch/roll in `ComputeCameraAngles`, decaying quadratically so it lands as one impact. Applied
+to the camera ANGLES, never the player's real rotation, so it never actually changes where you're aiming.
+
+Progress is tied to ONE block position and resets the moment you step off, so walking across a floor is
+safe and only loitering is punished. The overlay is cleared on step-off, or the cracks would stick on that
+block permanently (the same trap Delusions' mining state hit). World damage is gated on `mobGriefing`;
+the break is credited to the victim, so it's their doing.
+NOTE the prototype was unrelated — it granted attack-knockback and knockback-resistance attributes — and was
+replaced wholesale.
+```
+heavyweightBaseBreakTicks=10  heavyweightHardnessMultiplier=25.0  heavyweightWarnFraction=0.45
+heavyweightCollapseRadius=1  heavyweightCollapseChancePercent=60
+heavyweightShakeTicks=12  heavyweightShakeStrength=3.5
 ```
 
 ### Thirst Meter — Water Bottle (CUSTOM UI — FULLY FUNCTIONAL UI REQUIRED)
@@ -313,85 +963,312 @@ THIRST_RAW_WATER_DEBUFF_CHANCE=0.25  THIRST_EMPTY_EFFECTS=[slowness_1,weakness_1
 ```
 
 ### Bad Swimmer — Copper Ingot
-Liquids act as air for buoyancy: instant sink, walk along the bottom, still can't breathe.
+You never learned to swim. Liquid stops acting like liquid: you drop straight through it as if it were
+air, hit the bottom and **walk along it**. You cannot kick your way back up — the pull down far exceeds
+what swimming gives you. Stepping up blocks underwater just works (it's ordinary walking on an ordinary
+floor, so the normal step height applies). Breathing is untouched, so **drowning still applies**. Applies
+to lava as well as water. Discovered on trigger (the first time you get in liquid and sink).
+
+**⚠ You also cannot enter the SWIMMING state at all** (Oliver's call — sinking alone was too close to
+Heavy's water anchor, and two curses shouldn't do the same thing). The horizontal front-crawl is simply
+unavailable to you. Vanilla only enters that pose when `isSprinting()` is true in water, so the real lever
+is killing the sprint at the KEY (`keySprint.setDown(false)`) client-side — a bare `setSwimming(false)`
+would just be recomputed straight back the next tick. Same client-authoritative lesson as Gluttony's sprint
+cutoff. **This is what distinguishes the two curses: Heavy makes you sink, Bad Swimmer makes you unable to
+swim.**
+**Single blocks are climbable underwater via extra STEP HEIGHT** (`badSwimmerStepBonus`, 0.6 → 1.1), not via
+a weaker pull. That distinction matters: underwater there is no impulse jump to boost — past the fluid-jump
+threshold vanilla routes jumping to `jumpInFluid()`, a gentle sustained thrust — so the only way to clear a
+block by *rising* is to swim up, the one thing this curse forbids. Weakening the pull enough to hop a ledge
+would hand back a slow ascent to the surface as well. Raising the step separates them cleanly: you can WALK
+over terrain on the bottom, and you still cannot go UP.
+
+**Mostly real vanilla physics** — two attribute modifiers toggled on only while in liquid:
+- `Attributes.GRAVITY` ×16 — vanilla divides gravity by 16 underwater (that's the gentle bob), so
+  multiplying it back restores air-like sinking. NOTE the attribute is hard-capped at 1.0 by the game, so
+  anything above ~12 lands on that cap.
+- `Attributes.WATER_MOVEMENT_EFFICIENCY` = 1.0 — lerps water acceleration/friction to exactly the LAND
+  values, so you walk instead of swim. Vanilla halves this while airborne and gives it in full when
+  `onGround`, which lands perfectly: you sink, then walk properly once standing on the bottom.
+Both come off the moment you leave liquid, so normal falling is unaffected.
+
+**Attributes alone are NOT enough** — vanilla's `getFluidFallingAdjustedMovement` is gated on
+`!isSprinting()`, so fluid gravity is skipped ENTIRELY while sprinting: a sprint-swim switched the whole
+curse off, leaving no middle ground between "can't stay up at all" and "swimming works fine". So a **constant
+downward pull is applied client-side** (player movement is client-authoritative) which bites in BOTH states,
+plus a one-shot **entry plunge** as you break the surface. Reference point for tuning: a full swim-up tops
+out around **0.048/tick**, so the pull sits just under it — ascending is possible but a losing battle.
+Never applied while flying, so creative flight is untouched.
 ```
-BAD_SWIMMER_SINK_SPEED_MULT=1.0  BAD_SWIMMER_ALLOW_SWIM_INPUT=false
+BAD_SWIMMER_GRAVITY_MULTIPLIER=16.0  BAD_SWIMMER_WATER_EFFICIENCY=1.0  badSwimmerStepBonus=0.5
+BAD_SWIMMER_CONSTANT_PULL=0.04       BAD_SWIMMER_ENTRY_PLUNGE=0.4
 ```
 
-### Pests — Cobblestone
-Chance to spawn silverfish on mining.
+### Pests — Cobblestone  ✅ REFINED
+Every block you break has something living in it. A per-block chance that **1–3 silverfish** pour out and
+come straight for you (`setTarget` on the victim, so they know whose fault it is). **ANY block**, not just
+stone — the ore bonus from the old spec is dropped.
+
+**⚠ `MAX_NEARBY` is a SAFETY guard, not balance.** Silverfish call MORE silverfish out of surrounding stone
+when they're hit, so a curse that adds them every few blocks mined can snowball into a swarm the victim
+can't recover from and a server would rather not tick. Above the ceiling the spawn is simply skipped until
+the crowd thins.
+Note the chance looks low because **mining is such a high-frequency action** — at 8% per block, ordinary
+tunnelling still produces a steady trickle. Discovered the first time something crawls out.
+
+**Also fixed a latent item collision:** Pests was on `STONE` and Basement Dweller on `COBBLESTONE`, but §5
+assigns Pests → **Cobblestone** and Basement Dweller → **Grass Block**. Both were simply on the wrong items;
+Grass Block was unused, so Basement Dweller moved to its spec-correct item and freed Cobblestone. Fixed
+inside Pests' own refinement, so not a lone item change.
 ```
-PESTS_CHANCE=0.06  PESTS_MAX_PER_TRIGGER=1  PESTS_ORE_BONUS_CHANCE=0.12
+pestsChancePercent=8  pestsMinPerTrigger=1  pestsMaxPerTrigger=3
+pestsMaxNearby=12  pestsNearbyRadius=16.0
 ```
 
-### Allergic — Sweet Berries
-One category rolled at application. Forbidden food = big damage + half a hunger point.
-**Categories use FOOD-PROPERTY CATEGORIES, not hardcoded lists, for modded-food compatibility**
-(classify by item food properties: cooked flag/smelting result, meat tag, effect-bearing = magic,
-plant-derived = natural; fall back to tags for edge cases).
-Naturalist (no cooked) | Vegetarian (no meat) | Anti-magic (no magic foods) | Carnivore (no plants).
+### Allergic — Sweet Berries  ✅ REFINED
+ONE of THREE diets is rolled at application (the victim is never told which — they find out by eating).
+Eating anything the diet forbids **blinds and poisons** you and you keep only a fraction of the hunger
+**and** saturation it would have given.
+- **Vegetarian** — cannot eat meat.
+- **Carnivore** — cannot eat natural (plant) food.
+- **Clean eater** — cannot eat magic food, AND gets **no positive effects from potions**.
+
+**Classification uses in-game categories, never hardcoded item lists, so modded foods work automatically:**
+meat = the vanilla `minecraft:meat` item tag; magic = any food whose food component grants effects (or a
+potion that grants effects); natural = the remainder (edible, but neither meat nor magic). Water bottles
+grant no effects, so they stay drinkable for clean eaters (and still feed the Thirst Meter).
 ```
-ALLERGIC_DAMAGE=6.0  ALLERGIC_HUNGER_RESTORED=1  ALLERGIC_CATEGORY_ROLL=uniform(4)
-Category tags (fallback): data/bewitchment/tags/foods/{cooked,meat,magic,natural}.json
+allergicBlindnessSeconds=8  allergicPoisonSeconds=6  allergicPoisonLevel=1
+allergicNutritionPercent=50   // % of hunger AND saturation actually kept
+```
+Nutrition clawback measures the REAL gain (snapshot on use-Start, corrected on use-Finish) so it stays
+correct even when you were nearly full and vanilla clamped the gain.
+
+**Scrying Mirror interaction:** the mirror names your exact diet instead of leaving you to discover it by
+eating. Implemented generically — `Effect.scryingDetail(target)` is an overridable hook (empty by default)
+that the mirror appends to an effect's line, so any future attachment can expose instance detail the same
+way without the items package knowing about specific curses.
+
+### Comic Relief — Lightning Rod  ✅ REFINED
+A reference to the genre of clip where someone is quietly having a bad time and the sky finishes the job.
+While you're below `LOW_HEALTH` there's a small chance per check of a comedically-timed bolt that kills you
+**outright** — a bolt's normal 5 hearts wouldn't be the joke and might not even finish you, so the damage is
+applied directly and the bolt itself is `setVisualOnly(true)` (so it can't also set fire to half the
+neighbourhood). If you've a pile of dropped items nearby (`ITEM_PILE_MIN`+), the bolt may take **those**
+instead, vaporising them outright.
+
+**The odds are deliberately small.** The whole joke rests on it being unexpected; a bolt you can see coming
+is just weather. Everything is multiplied by `THUNDER_MULTIPLIER` (2.5) while it's actually thundering —
+the one time the game has already primed you to expect lightning.
+
+**The posthumous strike is intentional and rare.** Dying earns a small chance of one more bolt landing on
+the spot `POSTHUMOUS_DELAY` later — long enough that the death screen is already up — which torches the
+drops you left behind. Kicking someone while they're down is the entire bit. Deferred through a pending
+list ticked from `CurseEventHandler`, the same way Explosive defers its blast.
+Discovered on ANY bolt this curse causes, including the ones that only hit your items.
+**Item corrected to Lightning Rod** — the prototype was on Trident, which isn't its spec item (nothing else
+used either, so no collision either way).
+```
+comicReliefCheckIntervalTicks=100  comicReliefLowHealthThreshold=6.0
+comicReliefStrikeChancePercent=3.0  comicReliefItemStrikeChancePercent=4.0
+comicReliefItemPileMin=5  comicReliefItemScanRadius=8.0
+comicReliefPosthumousChancePercent=2.0  comicReliefPosthumousDelayTicks=40
+comicReliefThunderMultiplier=2.5
 ```
 
-### Comic Relief — Lightning Rod
-Low HP → chance of comedically-timed instakill lightning; item piles nearby may be struck and
-destroyed; rare posthumous strike (intentional).
+### Ugly — Carved Pumpkin  ✅ REFINED
+Your face isn't your own. For the duration, EVERY client — including the victim's — renders them wearing one
+of the mod's ugly skins.
+
+**📁 SKINS GO IN `assets/witchmod/textures/entity/ugly/` — just drop PNGs in.** Any valid `.png` in that
+folder is listed at runtime; no registration, no code change. 64x64 standard player-skin format.
+A filename ending `_slim` (e.g. `gremlin_slim.png`) is treated as Alex-armed; anything else is Steve-armed.
+`readme.txt` in the folder repeats all of this. F3+T re-scans (a client reload listener is registered), so
+adding a skin mid-session works.
+**⚠ FILENAMES MUST BE LOWERCASE WITH NO SPACES.** Minecraft refuses any resource path containing anything
+but `a-z 0-9 _ - .`, and drops it BEFORE this mod ever sees it — `purple guy!.png` was silently ignored in
+testing for exactly this reason. Rejected files show up in the log as `Invalid path in pack: ... ignoring`,
+and the mod logs `[Ugly] Loaded N ugly skin(s)` so the count can be sanity-checked against the folder.
+
+**The server picks a NUMBER, not a skin** — it can't pick a skin, since the folder is a client resource the
+server never sees and players may add to. It rolls a plain value; each client reduces it modulo however many
+skins IT can list, over a **sorted** list, so every client independently lands on the same face for that
+player without the server knowing anything about the files.
+
+**The swap works by reflectively replacing `PlayerInfo.skinLookup`** — the field
+`AbstractClientPlayer.getSkin()` ultimately reads from. Swapping it changes the skin *everywhere at once*
+(world model, first-person hands, inventory doll, tab list) rather than only where a render hook could
+reach. It's a private FINAL field, but non-static finals are writable once `setAccessible(true)` succeeds,
+and this project already uses reflection (`LivingEntity.attackStrengthTicker`) rather than take on mixin
+infra. The original lookup is stored per player and restored the moment the curse ends.
+
+**⚠ It works on OTHER players because NeoForge syncs entity attachments to every player TRACKING the
+entity**, not just its owner (`AttachmentSync.syncEntityUpdate` → `getPlayersWatching` + the player itself).
+**Everything is re-asserted every client tick**, which is what makes it survive relogging, dying, changing
+dimension and other players wandering into view long after the curse landed — there is deliberately no
+one-off "apply" moment to miss.
 ```
-COMIC_LOW_HP_THRESHOLD=6.0  COMIC_CHECK_INTERVAL=100  COMIC_STRIKE_CHANCE=0.05
-COMIC_ITEM_PILE_MIN=5  COMIC_ITEM_STRIKE_CHANCE=0.10  COMIC_POSTHUMOUS_CHANCE=0.02
+(no config values — the skin list is whatever is in the folder)
 ```
 
-### Ugly — Carved Pumpkin
-Skin swapped for all clients to a random ugly skin from mod files.
-**Skin location: `assets/bewitchment/textures/entity/skins/ugly/ugly_0.png, ugly_1.png, ...`**
-(64x64 standard player skin format; one selected at random on application; ship >= 3.)
+### Taxes — Emerald  ✅ REFINED
+Somebody has noticed how much you're carrying. The victim is periodically assessed — chests nearby, items on
+the floor, their own pockets — and once there's enough VALUE within `SCAN_RADIUS`, the **Tax Man** turns up
+and starts confiscating. The mod's first custom entity.
 
-### Taxes — Emerald
-Chest-scanner near victim; enough valuables → Tax Man entity (playermodel, custom skin/nametag)
-loots valuables into world bank; hard cap; **curse consumed after collection**.
+**He walks the property rather than vacuuming it.** He paths to the victim first, then goes container to
+container: navigating to each, **actually opening the lid** (vanilla's own chest block-event, id 1 — the
+same mechanism a real player triggers, not a fake animation), pausing over it while taking a stack every
+`COLLECT_INTERVAL`, closing it, moving on. He watches the victim whenever he isn't mid-search. That
+physicality is the whole difference between reading as a person and reading as a script — the first pass
+took everything from a standstill and looked, in Oliver's words, lazy.
+**"Immovable" means unpushable/unkillable, NOT motionless** — `hurt`/`isPushable`/`doPush`/`push` are all
+neutered, but he has real pathfinding and a walking speed.
+
+**Search order is fixed and deliberate: chests → floor items → the victim's inventory.** That ordering IS
+the counterplay. Storage is hit first, so keeping valuables where you live is the worst option; your person
+is raided last, so travelling light genuinely works. Nearby ender chests are included, and after
+`ENDER_CHEST_AFTER` fruitless sweeps he places **his own ender chest** to reach the one stash you thought
+was out of his jurisdiction — then takes it with him when he leaves.
+
+**Taken by VALUE, not item count** (`TaxValues` / `taxesItemValues`): iron+copper 1, gold 2, emerald 3,
+diamond 4, netherite 16, storage blocks ~9x their ingot; anything else in the tag falls back to
+`taxesDefaultItemValue`, so modded ores work automatically. Without weighting, "take 40 items" is trivial
+from one angle and devastating from another. The cap is deliberately small — an irritation, not a robbery.
+
+Valuables are the datapack tag `witchmod:valuables` — every ore line and its ingots/gems/blocks,
+deliberately excluding redstone and coal. Chat is keyed by state from `data/witchmod/text/taxman.json`
+(`arrive`, `searching`, `taking`, `satisfied`, `empty_handed`, `ender_chest`, `bank_full`, `gave_up`).
+
+**⚠⚠ THE TAX BANK'S CAPACITY IS A MEMORY LIMIT, NOT A BALANCE ONE, AND MUST NEVER VOID ITEMS ⚠⚠**
+`TaxBank` is a `SavedData` list that persists for the life of the world and is drained ONLY by the Tax Man
+*blessing* — which may not be cast for weeks. Without a ceiling it grows unbounded. It is therefore sized
+far larger than one visit's haul (`taxesBankCapacityStacks`, 512) so it comfortably holds many taxations,
+and when it fills the correct behaviour everywhere is to **STOP TAKING**:
+- `deposit()` returns false and stores nothing; the Tax Man leaves the items exactly where they are and
+  departs with a `bank_full` line.
+- The **Bewitching Table refuses** to apply Taxes ("the ritual fizzles").
+- **`/bewitch apply` refuses** it, and warns from `taxesBankWarnAtPercent` (80%) that it is filling up.
+Discarding items to make room would be a silent, unrecoverable loss of somebody's diamonds.
+**Any future code touching the bank must preserve this invariant.**
 ```
-TAXES_SCAN_RADIUS=12  TAXES_MIN_VALUE_TRIGGER=16  TAXES_HAUL_CAP=128
-TAXES_TAXMAN_LOOT_SPEED=20  TAXES_TAXMAN_HEALTH=100.0  TAXES_BANK_STORAGE_CAP=512
-Value points: iron=1, gold=2, emerald=3, diamond=4, netherite=16; blocks = 9x
+taxesCheckIntervalTicks=100  taxesScanRadius=12  taxesMinValueTrigger=24  taxesHaulValueCap=40
+taxesCooldownTicks=6000  taxesCollectIntervalTicks=20  taxesArriveTicks=60  taxesLeaveTicks=60
+taxesGiveUpSweeps=8  taxesEnderChestAfterSweeps=3  taxesChatRadius=24.0
+taxesDefaultItemValue=1  taxesItemValues=[...]  taxesBankCapacityStacks=512  taxesBankWarnAtPercent=80
+Tag:  data/witchmod/tags/item/valuables.json
+Text: data/witchmod/text/taxman.json
+Art:  assets/witchmod/textures/entity/tax_man.png  ⏳ PENDING (64x64 player skin; renders as the
+      missing-texture checker until supplied)
 ```
 
-### Sticky — Honey Bottle
-No armour removal, no drop/throw; containers still work; death drops unaffected.
+### Sticky — Honey Bottle  ✅ REFINED
+Everything you're holding is stuck to you. You can't drop items and you can't take your armour off.
+**Containers are deliberately untouched** — chests, furnaces, barrels all work exactly as normal, so it's an
+inconvenience rather than a lockout.
+
+**Armour is RESTORED, not locked.** Vanilla gates removal inside `ArmorSlot.mayPickup`, which checks for
+Curse of Binding and has no hook. Actually enchanting the victim's gear was considered and **rejected**: if
+the curse ever ended abnormally they'd be left with permanently bound armour — an unrecoverable mess in
+exchange for a temporary joke. Instead `LivingEquipmentChangeEvent` catches the removal and puts it back.
+**⚠ The restore only fires if the removed piece can actually be FOUND** (on the cursor, or in the inventory
+where a shift-click put it). That one condition is what keeps it safe: armour that BROKE has gone nowhere,
+so nothing is found and nothing is restored — otherwise this would quietly grant infinite-durability armour.
+Death is guarded separately (`isAlive`/`isDeadOrDying`), so **death drops behave normally**.
+**Swaps count as removal too** — otherwise swapping in a leather cap would trivially pop the diamond helmet
+off. The piece you tried to put on goes back to your cursor rather than being eaten.
+
+**Dropping is blocked at both ends:** the drop KEY client-side (the primary mechanism — the stack never
+leaves its slot), and `ItemTossEvent` server-side as the authoritative backstop.
+**⚠⚠ CANCELLING `ItemTossEvent` DELETES THE ITEM ON ITS OWN.** NeoForge's `CommonHooks.onPlayerTossEvent`
+has already pulled the stack out of the inventory before the event fires, and cancelling only skips spawning
+the `ItemEntity` — nothing puts it back. (Older Forge DID re-add it; 21.1 does not, and assuming otherwise
+destroyed items in play.) The handler therefore hands it back explicitly with `placeItemBackInInventory`,
+which cannot void: with no room it drops the stack instead. **Losing the curse for one item beats deleting
+somebody's netherite** — any future code cancelling a toss must preserve that.
+
+**Feedback:** a honey-block squelch + slime hit, and a few `FALLING_HONEY`/`ITEM_SLIME` drips, on both
+triggers. Rate-limited to one every 12 ticks, because holding Q or clicking repeatedly at a helmet is
+exactly what a frustrated victim does — one squelch reads as the curse resisting, twenty a second reads as
+a broken mod.
+**Item corrected to Honey Bottle** (the prototype was on Honey Block, and did something unrelated —
+vacuuming up nearby items). Note §11's soft flag: Honey Bottle = Sticky, Honeycomb = a modifier; distinct.
 ```
-STICKY_BLOCKS_Q_DROP=true  STICKY_BLOCKS_ARMOR_SLOTS=true  STICKY_BLOCKS_CONTAINERS=false
-STICKY_BLOCKS_DEATH_DROPS=false
+stickyBlocksDropping=true  stickyBlocksArmourRemoval=true
 ```
 
-### Backseat Driver — Saddle
-While riding, AI can seize full control; prioritizes stupid actions (ledges/lava/water) else
-wanders; ends on dismount; early dismount shortens NEXT cooldown.
+### Backseat Driver — Saddle  ✅ REFINED
+While riding ANYTHING (horse/pig/boat/minecart/modded), an AI can seize the wheel: rider control is cut
+dead and it makes FAST for the stupidest thing in range, careening around wandering if nothing qualifies.
+- **Hazard priority (type beats proximity; nearest-first only within a type):**
+  `LIT TNT > LEDGE > LAVA > HOSTILE MOB > CACTUS > WATER`. Encoded as the `Hazard` enum's declaration
+  order in `CurseBackseatDriver` — reorder the enum to reorder the priority, nothing else to change.
+  TNT and hostiles are entity scans; ledge/lava/cactus/water are a coarse block-grid scan.
+- **Ramping chance:** grows the longer you ride without a takeover, clamped to a ceiling. Spotting a
+  hazard nearby **immediately raises that ceiling**, so takeovers cluster around danger.
+- **Ends instantly on dismount**, but bailing early gives a SHORTER cooldown than sitting through it —
+  escaping only brings the next one sooner.
+- **The mount moves ITSELF — never shoved with forced velocity.** (First attempt set `setDeltaMovement`
+  every tick; it slid to its destination and hovered over hazards because that bypasses the mount's own
+  movement, gravity accumulation and collision.) A ridden mount takes its facing from the RIDER's yaw and
+  its throttle from the rider's forward input (`AbstractHorse.getRiddenRotation/getRiddenInput`), so the
+  hijack **steers the rider** client-side off the synced `BACKSEAT_DRIVE_YAW` (eased, max 8°/tick) and holds
+  full throttle — the animal then walks/gallops there under its own code, with real gait, gravity, step-up
+  and collision. Speed comes from a genuine Speed effect on the mount, not teleporting.
+- Mounts that are NOT rider-steered (a pig without a carrot on a stick — `getControllingPassenger()` returns
+  null, so they ignore rider input entirely) are instead sent via their own `navigation.moveTo`, so they
+  also genuinely walk there.
 ```
-BACKSEAT_TRIGGER_CHANCE=0.20  BACKSEAT_CHECK_INTERVAL=200  BACKSEAT_EPISODE_DURATION=200
-BACKSEAT_COOLDOWN=1200  BACKSEAT_EARLY_EXIT_COOLDOWN=600  BACKSEAT_HAZARD_SEEK_RANGE=12
+backseatEpisodeSeconds=10  backseatCooldownSeconds=60  backseatEarlyExitCooldownSeconds=20
+backseatChanceGrowthPerSecond=1  backseatChanceCapPercent=25  backseatHazardChanceCapPercent=70
+backseatHazardScanRadius=12  backseatSpeedBoostLevel=2  backseatNavSpeedMultiplier=1.6
 ```
 
-### Clumsy — Egg
-Occasional misplaced blocks (wrong adjacent position or orientation).
+### Clumsy — Egg  ✅ REFINED
+You keep getting it slightly wrong: a block you place comes out facing the wrong way, lands one over from
+where you aimed, or turns out to be a different block off your hotbar.
+
+**The chance RAMPS.** It starts at `BASE` (1%) and climbs `PER_BLOCK` (1.5%) with every block placed cleanly,
+up to `MAX` (31%) — then resets the instant something goes wrong. A long uninterrupted build gets steadily
+more precarious rather than being a flat per-block tax; the ramp maxes out at 20 clean blocks.
+
+**Which mistake depends on the block.** A block with an orientation (stairs, door, log, furnace — detected
+by having `HORIZONTAL_FACING`/`FACING`/`AXIS`/`ROTATION_16`) rolls **60% orientation / 32% location / 8%
+wrong-block**; a plain cube can only go **65% location / 35% wrong-block**. If the chosen slip can't apply
+(nothing else placeable in the hotbar, nowhere to misplace it) it falls back to wrong-location, so a
+triggered slip is never wasted.
+
+**Runs off `BlockEvent.EntityPlaceEvent` and mutates the RESULT** rather than intercepting placement — vanilla
+places the block and does all the item accounting, then this turns/moves/swaps it. That's the safe choice:
+- **orientation** overwrites the state in place with a random `rotate()` (retried until it actually differs,
+  since some blocks are symmetric under some turns) — same block, same item, no accounting at all;
+- **location** removes it (no drop) and re-places at a valid empty neighbour;
+- **wrong-block** removes it, **refunds** the block you meant to place, **consumes** a different hotbar block,
+  and places that instead — counts move exactly as a real fumble would, nothing created or destroyed.
+Discovered on the first slip.
 ```
-CLUMSY_CHANCE=0.10  CLUMSY_WRONG_POS_WEIGHT=0.5  CLUMSY_MAX_OFFSET=1
+clumsyBaseChancePercent=1.0  clumsyPerBlockChancePercent=1.5  clumsyMaxChancePercent=31.0
+clumsyOrientalOrientationPercent=60  clumsyOrientalLocationPercent=32  clumsyOrientalWrongBlockPercent=8
+clumsyPlainLocationPercent=65  clumsyPlainWrongBlockPercent=35
 ```
 
-### Oversharer — Empty Map
-Periodic server-wide broadcasts of personal info (coords, biome, Y, spawn, held item, armour) in
-goofy templated lines.
-```
-OVERSHARER_INTERVAL_MIN=2400  OVERSHARER_INTERVAL_MAX=7200  Scope: server chat
-List: data/bewitchment/text/oversharer.json (templates: {coords},{biome},{y},{spawn},{held},{armour})
-```
+### Oversharer — Empty Map  ✅ REFINED
+Every `INTERVAL_MIN`..`MAX` the victim blurts a piece of personal info into server chat — sent as
+`chat.type.text`, so it appears exactly as if THEY typed it — wrapped in a goofy line from a writable list
+rather than stated flatly. Its point is to make a distant player **trackable**.
 
-### Aura — Note Block (CUSTOM SOUND)
-Long-form music follows the victim, audible to all nearby. Long tracks require a positional-audio
-re-anchor loop (move the playing sound instance to the victim), NOT re-firing short loops.
+**11 leak categories, each a keyed list in `data/witchmod/text/oversharer.json`** (`/reload`-able): `coords`,
+`y`, `biome`, `spawn` (bed, or world spawn), `held`, `armour`, `health`, `facing` (compass direction —
+useful for predicting a target's movement), `dimension`, `standing` (block underfoot), `xp`. Each line has a
+`{value}` placeholder the curse fills in (`{player}` also supported). Beyond the spec's list I added facing,
+dimension, health, standing-block and xp — facing/dimension/health being the genuinely useful tracking intel.
+
+A category is only picked if the file HAS lines for it AND a value can be computed, so a leak is disabled
+just by emptying its list, and new categories can be added for any key the curse already computes. Discovered
+on the first overshare.
 ```
-AURA_AUDIBLE_RADIUS=24  AURA_REANCHOR_INTERVAL=10  AURA_TRACK_GAP=100
-Sounds: bewitchment:curse.aura.track_1 / track_2 / track_3
+oversharerIntervalMinTicks=1800  oversharerIntervalMaxTicks=6000   // 1.5min .. 5min, jittered
+List: data/witchmod/text/oversharer.json  { "coords":[..], "biome":[..], ... }  ✅ 11 categories supplied
 ```
 
 ### Broken Bonds — Lead
@@ -470,23 +1347,86 @@ SIREN_STAGE3_THRESHOLD=90 (pull active)
 SIREN_PULL_FORCE=0.06  SIREN_WATER_SEARCH_RADIUS=48  SIREN_CLEAR_RATE_IN_WATER=5.0  SIREN_DROWNED_PASSIVE=true
 ```
 
-### Loading Screen — Glistering Melon (NOT PROTOTYPED) (CUSTOM UI — FULLY FUNCTIONAL) (CUSTOM SOUND)
-Bethesda joke: doors/trapdoors/fence gates trigger a fullscreen fake loading screen + random
-useless tip.
+### Loading Screen — Glistering Melon (CUSTOM UI — FULLY FUNCTIONAL) (CUSTOM SOUND)  ✅ REFINED
+Bethesda joke. **EVERY** door/trapdoor/fence gate you open covers your entire screen with a fake loading
+screen — **no chance roll and no cooldown**. That's deliberate: the curse is completely avoidable (you
+choose when to touch a door), so certainty is what gives it teeth.
+- **Input is dead** for the duration — movement, jumping, sneaking, attack/use/pick, and mouse-look. Menus
+  are deliberately still allowed. Mouse-look is blocked in TWO places because look is applied per FRAME but
+  ticks are per 50ms: the real rotation is pinned each tick (so nothing is banked up and applied on
+  release) AND `ComputeCameraAngles` pins the render view (so it doesn't visibly jitter between ticks).
+- **Duration is random 1.5–5s**, then two ways to make it worse:
+  - **Restart** (`RESTART_CHANCE`): on reaching the end, the bar visibly whips back to zero and loads for
+    another 1–3s.
+  - **Stutter** (`STUTTER_CHANCE`, rolled once a second): the bar freezes in place for 1–3s as if the game
+    has hung. The animation keeps playing, which is what sells it.
+- **Hard safety cap** `MAX_TOTAL_TICKS`: input is locked, so this guarantees you can never be stuck longer
+  than 20s however the rolls land.
+- Discovered on trigger.
+
+**The server owns nothing but a signal.** It sets `LOADING_SCREEN_SESSION` to a fresh random long; the
+client sees the value CHANGE, seeds its RNG from it, and runs everything itself. This is required, not
+stylistic — the length is dynamic (stutters/restarts extend it) and the input lock must release on exactly
+the frame the bar completes, so an authoritative server end-tick would drift out of sync with the animation.
+Setting the session to `0` (cure/expiry) dismisses a screen in progress.
 ```
-LOADING_SCREEN_DURATION=60  LOADING_SCREEN_CHANCE=0.5  LOADING_SCREEN_COOLDOWN=400
-List: data/bewitchment/text/loading_tips.json
-Sound: bewitchment:curse.loading.ambience
-UI: black overlay + spinner + tip text, client render layer
+loadingScreenMinTicks=30  loadingScreenMaxTicks=100          // 1.5s .. 5s
+loadingScreenRestartChancePercent=50  loadingScreenRestartMinTicks=20  loadingScreenRestartMaxTicks=60
+loadingScreenStutterChancePercent=40  loadingScreenStutterMinTicks=20  loadingScreenStutterMaxTicks=60
+loadingScreenMaxTotalTicks=400        loadingScreenTipScrollSpeed=6.0   // px/tick; 120px/sec
+loadingScreenFrameCount=36  loadingScreenFrameWidth=128  loadingScreenFrameHeight=152
+loadingScreenSheetVertical=true  loadingScreenFrameTicks=2
+Tips list: assets/witchmod/text/loading_tips.json  (plain JSON array of strings — see note in 13.6)
+Music: 4 hold-music tracks, weighted 375/375/240/10 => 37.5% / 37.5% / 24% / 1% (the goofy one, at half
+volume). Played CLIENT-SIDE ONLY via the local SoundManager (so nobody else hears it) and stopped the
+instant the screen ends, however it ended — start/stop are paired inside LoadingScreenState.finish().
+loadingScreenMusic{1,2,3,Goofy}Weight  loadingScreenMusicVolume=1.0  loadingScreenGoofyVolume=0.5
+Sounds: witchmod:curse.loading.music_1 / music_2 / music_3 / music_goofy  ✅ SUPPLIED
+Art: assets/witchmod/textures/gui/hud/loading_animation.png  ✅ SUPPLIED (36 frames, 128x152, vertical)
 ```
 
-### Pacing — Tropical Fish (NOT PROTOTYPED) (CUSTOM SOUND)
-One Piece joke: epic actions (landing a hit, sprint-jumping) freeze victim + involved enemy and
-hijack the camera for dramatic cuts/closeups of nearby entities, then release.
+### Pacing — Tropical Fish (CUSTOM SOUND)  ✅ REFINED
+One Piece joke: a "dramatic moment" **time-stop**. Trigger chance RAMPS the longer it's gone without one
+(pre-charged high on apply, resets each time), rolled per combat hit; if it maxes out with no hit it fires
+on a non-combat tick.
+- **The moment** freezes the victim + **everything** within `FREEZE_RADIUS`: all made invulnerable, velocity
+  zeroed (`hurtMarked` so the client sees them stop dead), mobs `setNoAi`, players given heavy Slowness AND a
+  client-side input lock — so the victim can no longer swing/use/interact mid-moment.
+  **⚠ The freeze is RE-ASSERTED every tick and the radius RE-SWEPT every 5 ticks.** A one-shot freeze at the
+  moment's start silently misses everything that wanders in over the next 5–30s, and doesn't survive
+  knockback or anything else nudging an entity — which read in play as "the AI pause is unreliable and often
+  just does not pause involved AI". Non-players are also pinned back to their anchor position each tick, so
+  it's a true stop; players are left alone (client-authoritative movement, so pinning only rubber-bands).
+  **The freeze IS capped, at `MAX_INVOLVED` = 12** (Oliver's call). The cap is a SAFETY limit, not a
+  presentation one: everything frozen is also made invulnerable and pinned every tick, so an uncapped sweep
+  set off inside a mob farm could hurt a server badly. 12 is high enough that a normal scene freezes whole —
+  the old value of 5 was low enough that the 6th mob onward visibly kept moving through a time-stop.
+  **⚠ NO Jump Boost.** It used to apply amplifier 128 labelled "level 129 = no jump", but
+  `getJumpBoostPower()` is `0.1 × (amplifier + 1)` — so that was **+12.9 jump power, a launch pad**, which
+  fired whenever the freeze caught someone mid-jump ("rare bug where being paused mid jump launches you into
+  the air"). The client input lock already blocks jumping, so the effect was redundant as well as harmful.
+  Slowness sits at amplifier 10 — already enough to clamp movement speed to zero, and well clear of the byte
+  boundaries where extreme amplifiers get unpredictable.
+- **Duration is random 5–30s, biased short** (`min + (max-min)·r^LOW_BIAS_EXPONENT`), so most are brief with
+  the odd long one.
+- **Camera** cuts every `SHOT_TICKS`: the first **2–4 cuts are the victim** (orbit angles, back view), then
+  it cuts to nearby frozen entities — each a FRONT-view **face zoom** — shuffled so the spotlight spreads
+  around (variety bias toward whoever hasn't been shown) rather than lingering on the victim. Every shot gets
+  a small **dutch-angle roll** for drama. The mob-vision shader problem is solved NOT by avoiding mobs but by
+  calling `GameRenderer.shutdownEffect()` right after each `setCameraEntity` to a mob — verified that
+  `checkEntityPostEffect` only re-runs on the next `setCameraEntity`, so the shader stays off for the shot.
+  (Earlier the camera only ever orbited the victim to dodge the shader; now it can feature mobs safely.)
+- **Every player caught in the freeze** gets the cinematic too, not just the victim: the synced
+  `PACING_FOCUS_ID` points each included client's camera at the victim.
+- **Sound (client-side, local SoundManager so it's per-client):** `curse.pacing.theme` plays for the whole
+  moment and is cut off the instant it ends; `curse.pacing.click` plays quietly at every camera cut, with a
+  1-in-`THE_ONE_PIECE_CHANCE` chance of being replaced by `curse.pacing.theonepiece`.
+- Discovered on the first moment.
 ```
-PACING_TRIGGER_CHANCE=0.10  PACING_COOLDOWN=1200  PACING_FREEZE_DURATION=80
-PACING_CAMERA_CUTS=3  PACING_AFFECTS_ENEMY=true
-Sound: bewitchment:curse.pacing.sting
+pacingMinSeconds=5  pacingMaxSeconds=30  pacingLowBiasExponent=2.0
+pacingFreezeRadius=8.0  pacingMaxInvolved=5  pacingShotTicks=14
+pacingTheOnePieceChance=250  pacingClickVolume=1.0  pacingThemeVolume=1.0
+Sounds: witchmod:curse.pacing.theme ✅ / .click ✅ / .theonepiece ✅  (all OGG, in place)
 ```
 
 ### Trumpet — Cookie (NOT PROTOTYPED) (CUSTOM SOUND)
@@ -892,7 +1832,6 @@ Sticky - Moderate - 30
 Backseat Driver - Minor - 17
 Clumsy - Minor - 20
 Oversharer - Moderate - 32
-Aura - Minor - 20
 Broken Bonds - Minor - 20
 Insomniac - Minor - 17
 Flat Footed - Minor - 25
@@ -990,6 +1929,37 @@ Sacrificial matching is exact-item (Rule 9), so collisions only matter within/be
 share the Sacrificial Item slot (curses + blessings certainly; neutrals and globals are also
 table-forcible, so treat all four pools as one selection space until ruled otherwise).
 
+**HARD — RESOLVED (Oliver's say-so, after Bad Swimmer freed Iron Ingot):**
+0. **Heavy and Heavyweight were both on the wrong sacrificial items** — a leftover from how the old
+   prototype shuffled around the Iron Block clash. The full spec-correct chain is now applied:
+   | Curse | Was | Now (spec) |
+   |---|---|---|
+   | Bad Swimmer | Iron Ingot | **Copper Ingot** (fixed during its own refinement; Copper Ingot was unused) |
+   | Heavy | Iron **Block** | **Iron Ingot** |
+   | Heavyweight | **Netherite** Block | **Iron Block** |
+   Verified afterwards by listing every `() -> Items.X` sacrificial item across `effects/` + `events/` and
+   checking for duplicates: **none**, so the shuffle introduced no new clash. **Netherite Block is now
+   unused** and free for a future attachment.
+
+**HARD — RESOLVED during Unhygienic refinement (was a LIVE collision, both castable items identical):**
+0d. **Rotten Flesh — Unhygienic (curse) vs Iron Stomach (blessing).** Both were on `Items.ROTTEN_FLESH`.
+   Spec assigns Unhygienic → **Rotten Flesh** and Iron Stomach → **Raw Chicken** (§6); Iron Stomach was
+   simply on the wrong item, so it moved to its spec-correct Raw Chicken (unused), freeing Rotten Flesh.
+   Fixed inside Unhygienic's own refinement, so not a lone item change.
+
+**HARD — RESOLVED during Yap refinement (was a LIVE collision, both castable items identical):**
+0c. **Paper — Yap (curse) vs Windfall (blessing).** Both were on `Items.PAPER`, uncastable-collision under
+   Rule 9. Spec assigns Yap → **Paper** and Windfall → **Wind Charge** (§6). Windfall was simply on the wrong
+   item; moved it to its spec-correct Wind Charge (which was unused), freeing Paper for Yap. Fixed inside
+   Yap's own refinement, so not a lone item change.
+
+**HARD — RESOLVED during Butterfingers refinement (was a LIVE collision, both castable items identical):**
+0b. **Slime Ball — Butterfingers (curse) vs Bouncy (blessing).** Both classes really were on `SLIME_BALL`,
+   which under exact-item matching (Rule 9) made one of them uncastable at the Table. Spec assigns
+   Butterfingers → **Milk Bucket** (free: the old Moovin clash was resolved by moving Moovin to Cooked Beef),
+   so Butterfingers moved to its spec-correct item and **Bouncy keeps Slime Ball**. Fixed as part of its own
+   refinement, so this is not a lone item change.
+
 **HARD — RESOLVED:**
 1. ~~**Firework Star** — Main Character (blessing) vs Celebration (neutral).~~ RESOLVED (Oliver's call):
    **Main Character → Fire Charge**; Celebration keeps the Firework Star (it's inherently about fireworks).
@@ -1027,20 +1997,23 @@ items are distinct (Honey Bottle=Sticky vs Honeycomb=modifier).
 
 ---
 
-## 12. CUSTOM SOUND EVENTS — MASTER OGG TODO (24)
+## 12. CUSTOM SOUND EVENTS — MASTER OGG TODO (19)
+
+(Delusions' two entries — `vanish` and `whisper` — were CUT on Oliver's call: vanilla sounds suffice, and
+for that curse they're actively better, since every noise it makes should be one the victim has heard from
+real players. Count dropped 21 → 19.)
 
 ```
 CURSES
-bewitchment:curse.delusions.vanish        smoke-puff disappear
-bewitchment:curse.delusions.whisper       faint ambient near a delusion
-bewitchment:curse.gassy.fart_small        standard fart
-bewitchment:curse.gassy.fart_large        event-triggered fart
-bewitchment:curse.slippery.slide_whistle  descending slide whistle
-bewitchment:curse.aura.track_1            long follow-music track 1
-bewitchment:curse.aura.track_2            long follow-music track 2
-bewitchment:curse.aura.track_3            long follow-music track 3
-bewitchment:curse.loading.ambience        fake loading screen hum
-bewitchment:curse.pacing.sting            dramatic orchestral hit
+witchmod:curse.unhygienic.flies           ✅ DONE — 3 ambient fly-buzz variants
+witchmod:curse.echoes.ping                ✅ DONE — fake notification chime (SINGLE file, no variants by design)
+witchmod:curse.gassy.fart_small           ✅ DONE — 4 everyday variants
+witchmod:curse.gassy.fart_large           ✅ DONE — the rare big one (single file by design)
+witchmod:curse.slippery.slide_whistle     ✅ DONE — 3 descending slide-whistle variants
+witchmod:curse.loading.music_1/2/3/goofy   ✅ DONE — 4 hold-music tracks (weighted 37.5/37.5/24/1%)
+witchmod:curse.pacing.theme               ✅ dramatic theme (⚠ supplied as .mp3 — export to OGG)
+witchmod:curse.pacing.click               ✅ DONE — quiet camera-cut click
+witchmod:curse.pacing.theonepiece         ✅ DONE — 1/250 revelation replacing a click
 bewitchment:curse.trumpet.walk_loop       fat-trumpet walking music loop
 bewitchment:curse.trumpet.stop_sting      short stop flourish
 
@@ -1139,6 +2112,80 @@ assets/bewitchment/textures/gui/hud/twitch_overlay.png           (chat blessing 
 
 ---
 
+### 13.6 GUIDE: The Loading Screen curse — animation sheet, bar, and how to design the whole screen
+
+The screen is already FULLY FUNCTIONAL with no art: the panel and bar are drawn from plain fills, and the
+animation slot renders as the missing-texture checker until a PNG exists. Everything below is a drop-in.
+
+**1. The animation ("GIF"). Minecraft cannot play GIFs — you supply a SPRITE SHEET and the code flips
+through it.** ✅ SUPPLIED — the shipped sheet is Oliver's opening/closing chest:
+```
+File:    assets/witchmod/textures/gui/hud/loading_animation.png
+Shipped: 36 frames of 128 x 152, stacked VERTICALLY  =>  a 128 x 5472 PNG
+         (an Aseprite "{name}-Sheet.png" export; opens fully then shuts, so it loops seamlessly)
+```
+- **Both layouts are supported** — set `loadingScreenSheetVertical` to `true` for a single column (Aseprite's
+  default export) or `false` for one left-to-right row. Frame 0 comes first either way.
+- **Frames do NOT have to be square** (the chest isn't — it's taller than it is wide). The four numbers are
+  config, not code: `loadingScreenFrameCount`, `loadingScreenFrameWidth`, `loadingScreenFrameHeight`,
+  `loadingScreenFrameTicks`. **Change the sheet, change those to match**, and remember the sheet's total
+  size must be exactly `frameWidth x (frameHeight * frameCount)` for a vertical strip.
+- `loadingScreenFrameTicks=2` holds each frame 2 ticks => **10 fps**, so the 36-frame chest runs one full
+  open-and-shut every 3.6s — deliberately close to a typical fake load. Set 1 for 20fps/1.8s. For smoother
+  motion raise the frame count rather than dropping frame ticks below 1.
+- Use a **transparent background** — it's drawn onto black — and note the frame is blitted at its NATIVE
+  pixel size, centred horizontally, sitting `ANIMATION_GAP` (10px) above the bar. A frame much taller than
+  ~200px will crowd small GUI scales.
+- The animation is driven off wall-clock ticks, so it **keeps playing during a stutter** — that's what makes
+  a frozen bar read as "hung" rather than "broken".
+
+**2. The loading bar and palette.** All code-drawn — no texture needed. Current look (Oliver's call, an
+Xbox-360 homage): 240x10 bar, 2px outer rim `#B4B4B0` (light grey), dark well `#3A3A3A`, fill `#92C83E`
+(the 360 green), on a soft off-white page `#E6E4DF`, with `#2E2E2E` text and `#5A5A5A` tips. Text is drawn
+**without a shadow** — a drop shadow reads as mud on a light background.
+The "Loading" caption cycles `.` → `..` → `...` every `DOT_CYCLE_TICKS`, driven off wall-clock ticks so it
+keeps ticking over even while the bar is frozen mid-stutter (which is what sells a stutter as the game
+hanging rather than the overlay dying). It's centred on the WIDEST form so it can't twitch sideways.
+To make the bar a texture instead, follow the two-state sprite technique in 13.5 §3 — paint the empty bar
+and the full bar into one sheet and blit a partial-width slice of the full one over the empty one, using
+`LoadingScreenState.progress()` (0..1) as the fraction.
+
+**3. The tips.** `assets/witchmod/text/loading_tips.json` — a **plain JSON array of strings**, nothing else:
+```json
+["TIP: first line", "TIP: second line"]
+```
+Write freely; the file is re-read at the START of every loading screen, so editing it plus F3+T shows up
+immediately with no restart. If the file is missing or malformed the screen falls back to one generic tip
+and logs a warning rather than crashing. One tip scrolls right-to-left along the bottom; when it fully
+leaves the screen the next one starts.
+**Note the path is `assets/`, not `data/`** as the other text lists in Section 17 use. That's deliberate:
+this list is consumed purely client-side by the overlay, so putting it in assets means it needs no
+server→client syncing and reloads with the normal resource-pack reload.
+
+**4. Designing the screen as a whole.** Layout is in `client/LoadingScreenOverlay`, all of it plain numbers
+you can move:
+Everything is **horizontally centred**, and vertical positions are measured **from the centre** so the
+layout holds together at any window size/GUI scale. Change one number, move one element:
+| Element | Where | Constant |
+|---|---|---|
+| Page | whole screen, slightly TRANSLUCENT white | `BACKGROUND` (alpha `0xDC`) |
+| Animation + shadow | centred; its BASE sits at `h/2 + 18` | `ANIMATION_BASE`, `SHADOW` |
+| "Loading..." | centred, `h/2 + 60` | `TEXT_Y` |
+| Bar | centred, `h/2 + 78` | `BAR_Y`, `BAR_WIDTH/BAR_HEIGHT` |
+| Bar accent | muted sage rim + 1px highlight on the fill | `BAR_RIM`, `BAR_HIGHLIGHT` |
+| Live percentage | just right of the bar | `FAINT_COLOUR` |
+| Hairline rule | `h - 40`, inset both sides | `RULE_FROM_BOTTOM`, `RULE_COLOUR` |
+| Tip marquee | `h - 26`, clipped to a scissor strip | `TIP_FROM_BOTTOM`, `loadingScreenTipScrollSpeed` |
+Design notes (all Oliver's calls after seeing it in-game): the page is deliberately **not opaque** — the
+world showing faintly through is what makes it interesting, so it needs no painted-on decoration. The green
+is confined to the bar (a bold accent stripe elsewhere on the page fought with it), and the rim is a muted
+sage so the accent stays quiet next to the fill. The **BAR is what must read as centred**, so it's centred
+exactly and the percentage hangs off its right. The animation is anchored by its BASE, not its top, so a
+taller sheet grows upward instead of shoving the bar around (and it's clamped off the top edge on tiny GUIs).
+For a fuller Bethesda parody, the natural additions are a background image behind the animation (blit
+before the other elements) and a "PRESS ANY KEY" prompt that flashes but does nothing — input is already
+dead, so it would be pure theatre, which is the joke.
+
 ## 14. Gamerules / Config
 ```
 Grace Period      - new players cannot be targeted for a customisable window
@@ -1168,40 +2215,332 @@ effect's onRemove for clean teardown). The Thirst + Gluttony HUD bars now hide i
 
 ---
 
-## 16. REMAINING WORKFLOW (post-prototype)
+## 16. REFINEMENT WORKFLOW (current stage)
 
-Prototype is DONE — all attachments loosely functional except `(NOT PROTOTYPED)`. Remaining phases:
+Phases A–F are DONE (build logs at the bottom). Every attachment, item, and block already works. The job
+now is **refinement**: take each one from "functional prototype" up to its full, polished spec (Sections
+1–15) — the real behaviour, the right feel, the edge cases, the config-exposed constants — retiring the
+prototype stand-ins the build logs list.
 
-### Phase A — Build all NOT PROTOTYPED attachments (⛔ Section 0.1 — these have NO class yet)
-Curses (8): Super Explosive, Claustrophobia, Moonwalker, Siren's Call, Loading Screen, Pacing,
-Trumpet, Uncareful.
-Blessings (14 + 1 behavior): Thick Skinned, Farmer's Spirit, Brute, Blacksmith, Unseen, Silver
-Tongue, Hot Stuff, Bouncy, Excavation, Angler, Laugh Track, Chat, Civilisation, Low Gravity;
-plus Last Stand blessing-consumption behavior if the prototype lacks it.
-All must be command-startable with duration override before moving on.
+### 16.1 The loop — ONE thing at a time, hands-on
+1. **Pick** the next unchecked entry from the checklists in 16.3 (Oliver chooses, or Claude suggests the
+   next). Only ONE entry is "in progress" at any moment.
+2. **Assess.** Claude re-reads that entry's full spec (its Section 5/6/7/8/4/3 entry + constants) AND its
+   current implementation, then proposes concrete, specific improvements to close the gap — behaviour,
+   missing mechanics, feel/timing, edge cases, and turning any hardcoded numbers into named config values.
+3. **Iterate in-game.** Oliver tests it in-game against the spec; Claude refines the suggestions and the
+   implementation, round by round, until Oliver is satisfied with the functionality.
+4. **Sign off.** When Oliver says it's good, flip its `- [ ]` to `- [x]` and append `— <one-line note>` of
+   what "done" means for it (e.g. what was changed, any deliberate deviation, any asset still pending).
+5. **Next.** Do not start the next entry until the current one is checked off. Do NOT batch-refine.
 
-### Phase B — Status effect layer hardening
-Cursed/Blessed/Afflicted wrappers: dynamic duration tracking across add/cure/extend/shorten;
-particles ONLY on first-onset and last-expiry; enforce NO-STACKING (KEEP_LONGER) at the single
-apply entry-point so table, commands, coins, jars, and Gamble all inherit it.
+### 16.2 Order & rules
+- **Order:** all CURSES → all BLESSINGS → all NEUTRALS → all GLOBALS → then ITEMS → then BLOCKS.
+  (Modifiers, Section 9, get refined opportunistically alongside the Table/items — no separate checklist.)
+- Refine to the REAL spec. Where a custom sound / UI / entity / text-list / skin asset is still missing
+  (Sections 12/13/17), get as close as possible with what exists and note the pending asset in the sign-off
+  line rather than blocking.
+- Every numeric value stays a **named, config-exposed constant** (rule 7 / the Phase E config) — refining an
+  attachment includes lifting any still-hardcoded numbers into config.
+- Preserve the no-stacking / discovery / status-wrapper guarantees (they live at shared chokepoints — don't
+  re-scatter them while refining a single attachment).
+- Keep this section's checklist current the moment Oliver signs off — it is the live source of progress.
 
-### Phase C — Items & blocks completion
-All Section 4 items + Section 3 blocks wired to the real ritual pipeline (formulas of 10.1,
-failure → neutral/backfire/table-explosion, Redstone Dust random mechanic, global bank draw for
-globals, escalating-cost rule).
+### 16.3 Refinement checklists
 
-### Phase D — UI build (Section 13)
-Order of attack for a first-time UI dev: Ledger (read-only, simplest) → Thirst/Gluttony HUD bars →
-Loading Screen overlay → Bewitching Table screen → Compendium (most complex: bookmarks, rumour/
-discovered page flip, per-page images, chat-alert hook). Confirm every attachment's effect code
-calls the discovery hook (victim on trigger, caster on successful send).
+**CURSES (49)** — `witchmod:` ids in the build logs; note the renamed ones (Neutral Aggression =
+`neutral_aggression` (RENAMED), Flat Footed = `loud`, Wonky = `pidgeon_toed`, Broken Bonds = `sick_of_you`).
+- [x] Violence — real `Player.attack` (enchants/knockback/crits/sweep) with a real `lookAt` camera turn. TWO
+      urge types: sight swings (20° cone + line of sight, 25%/s, 75%/s if the shove would kill, instant priority,
+      no camera hijack) and impulsive swings (camera hijacked, ramps 2%+0.5/s to 30%, overridden to 90% by
+      anything loitering 1.5s at a hazard). Priority is TIERED not weighted (+4 hazard / +2 wounded / +1 player)
+      so hazards always dominate; lit TNT needed its own PrimedTnt ENTITY lookup. 10% random-target roll for
+      variety. Costs the attack cooldown (Oliver's call, reversing the "free swing" perk). 18 config knobs.
+- [x] Butterfingers — three triggers on ONE shared cooldown: rare passive (3%/5s), on-damage (35%), and
+      on-tool-swing (15%, hooking both mining and attacking; "tool" = any held item with durability, so modded
+      tools work). The cooldown is only consumed on an ACTUAL drop, so empty hands can't buy you grace. Fumble
+      order main hand → offhand → random hotbar slot, whole stack by default. Discovers on first fumble.
+      **Also fixed a LIVE collision** — it shared Slime Ball with the Bouncy blessing, making one uncastable;
+      moved to its spec item Milk Bucket. 7 config knobs.
+- [x] Explosive — real `Level.explode` on death with full damage/knockback/block damage, mobGriefing-gated via
+      `ExplosionInteraction.MOB`, dying player kept as the source for kill attribution. **The blast is deferred
+      one tick, which is load-bearing:** verified in bytecode that `die()` fires `LivingDeathEvent` at offset 2
+      but `dropAllDeathLoot` only at offset 164, so an immediate blast goes off before the items exist and
+      leaves the whole inventory on the floor. Discovers on death. 3 config knobs.
+- [x] Super Explosive — flat 5% per hit taken (no ramp, no cooldown, guarded against explosion-recursion) →
+      real `Level.explode`, mobGriefing-gated. You take only 15% of your own blast and everyone else takes it
+      full, via a subclassed `ExplosionDamageCalculator` (`getEntityDamageAmount`/`getKnockbackMultiplier`),
+      knockback ×2.5. **Bug caught in play:** the source entity MUST be `null` — `Explosion` excludes its source
+      from `getEntities`, so passing the player dropped them from their own blast entirely (no damage/knockback);
+      attribution now rides the damage source instead. 4 config knobs.
+- [x] Popularity — the "whole server chasing one guy" bit. Conjured horde spawned in a ring using vanilla-ish
+      rules: water column → Drowned, ground → biome MONSTER-list pick (husks/desert etc), light-level safety gate,
+      NeutralMobs never conjured, cap 34, gradual ramp, despawns after. Dedicated hunters: FOLLOW_RANGE bumped +
+      high-priority NearestAttackableTargetGoal with 15s unseen-memory (must SEE you to lock on, then dogged
+      through walls), zombies (ground-nav) break doors on any difficulty via always-true BreakDoorGoal. Neutral
+      mobs excluded from aggro (Neutral Aggression's job). Discovers at a 15+ crowd. 12 config knobs.
+- [x] Yap — periodic uncontrollable server-chat outbursts from a writable `data/witchmod/text/yap.json`
+      (reload-able). THREE separate lists — singles / doubles / triples — so multi-message rambles are scripted
+      combos sent one line after another (gap-spaced), not randomly paired; weighted so more messages are rarer.
+      Sent as real player chat (`chat.type.text`). Discovers on first outburst. **Freed Paper by moving the
+      Windfall blessing to its spec item Wind Charge** (was a live Paper collision — see §11). 6 config knobs.
+- [x] Unhygienic (RENAMED from Green Aura, id `green_aura` → `unhygienic` since display names derive from the
+      id) — green `ENTITY_EFFECT` stink cloud + `ASH` flies on an advancing orbit; non-undead mobs get an
+      `UnhygienicFleeGoal` and run (undead unbothered via `EntityTypeTags.UNDEAD`); nearby players get a subtle
+      repeated push away (`hurtMarked` so it syncs); three fly OGGs in one sound event on a randomised gap.
+      **Freed Rotten Flesh by moving Iron Stomach to its spec item Raw Chicken** (see §11). 7 config knobs.
+- [x] Repel — dropped items + XP orbs on the floor within radius slide slowly away (below sprint speed, so
+      catchable), steering toward hazards but ONLY ever in the away half-space (never back toward you). Priority
+      lit TNT > lava > cacti > ledges > other players > just away. Velocity SET each tick, per-tick entity cap.
+      Discovers when anything slides. Fixed wrong item (Slime Block → spec's Water Bucket) and old behaviour
+      (repelled living entities). 5 config knobs. Note: vanilla XP-magnet partly fights orb repel within ~8 blocks.
+- [x] Echoes — client-only POSITIONAL hallucinations via `ClientboundSoundPacket` down the victim's connection
+      (not `level.playSound`, which others would hear). Placement validated against the world: footsteps/landings
+      snap onto real ground and use that block's own step sound, mining comes from inside solid rock below and
+      uses its hit/break sounds, distant blasts are genuinely distant. Sequences queued over ticks — sprint steps
+      close the distance, mining runs at a randomised cadence. **19 types in a weighted table** (`POOL`, one row
+      each, so adding/retuning one is a one-line change): the above plus swimming (only ever placed in REAL
+      water), eating-then-burping, an animal being hurt (swing lands THEN it cries out), whiffing at air, a
+      full zombie fight, fake chat from a real online player (writable `echoes_chat.json`), and a rare fake
+      notification `ping` played at the victim's own position — a single OGG with no variants on purpose, since
+      a real chime never varies. Interval widened to 8–65s so the rhythm can't be used to spot the fakes.
+      Discovery delayed 2s after the first one. 4 config knobs.
+- [x] Delusions — client-only `RemotePlayer`s inserted into the victim's own `ClientLevel` (so nothing exists
+      for another client to see or the server to be asked about); the server owns only a spawn signal. Skin +
+      nametag mirror a real online player via a fresh-UUID GameProfile plus a `getSkin()` override (which also
+      picks slim/wide); `DATA_PLAYER_MODE_CUSTOMISATION` set manually or they render bald. 15 behaviours driven
+      at the INPUT level — twerking is crouch spam, waving is arm swings, spinning is mouse yank — plus
+      **observing** (Oliver's addition: walks up, then stands dead still and silent). Realisation is earned by
+      being watched, not rolled. **Three movement bugs, one cause:** hand-rolled velocity instead of vanilla's
+      pipeline (fixed by feeding `zza`/`xxa` to `travel()`, so speed comes from MOVEMENT_SPEED and can't exceed
+      a real player's); then `isControlledByLocalInstance()` had to return true or `travel()` silently no-ops
+      client-side; then `calculateEntityAnimation` had to be guarded to once per tick or limbs cycle at double
+      rate. Terrain now cleared by a look-ahead jump. NO custom sounds (Oliver's call) — vanilla is the better
+      choice, since a bespoke sting would be the one thing marking them as fake. 15 config knobs.
+- [x] Gluttony — the two hunger rows are now ONE 40-point bar, not two independent meters: vanilla drains and
+      is topped up from the extra row each tick (so the top half empties first), eating overflow spills UP into
+      the extra row, starvation only at a fully empty 40, sprint cutoff measured on the COMBINED bar at double
+      vanilla's threshold. Plus the trade — eats 30% faster but gains 20% less saturation (both measured off a
+      real Start/Finish snapshot). Model still 1.35x wider. 4 config knobs.
+- [x] Gassy — random farts launch you at a randomised velocity, biased toward hazards but **never reliably**:
+      35% ignore hazards outright, 18% go mostly straight up, and even a hazard pick is a weighted draw
+      (nastiness ÷ distance) rather than nearest-worst-always. That distinction is the balance — strict
+      priority like Backseat Driver's would make standing near lava a death sentence on a timer. Ten hazard
+      types incl. lit TNT (an ENTITY, so its own lookup) and ledges. Events force one out of you: any explosion
+      via `ExplosionEvent.Detonate` (fires whether or not the blast hurt you), taking a hit, and **fireworks —
+      which produce no `Explosion` at all**, so nearby rockets are remembered per tick and one that has
+      vanished by the next is read as a detonation. Event farts are ~55% big and carry 1.5x velocity, sharing
+      one cooldown. Big farts use the separate OGG at 1.8x. Vertical min/max are a RATIO, not a speed (the
+      vector is normalised before velocity), so tilting them upward doesn't add power. White CLOUD puff with a
+      deliberately minor green dust tinge — heavier green would read as Unhygienic. 17 config knobs.
+      Sounds ✅ supplied (fart1-4 + fartbig).
+- [x] Farmhand — untamed animals within a wide radius get a `FarmhandBlockGoal` (priority 2, below panic/flee)
+      that re-paths to just ahead of the victim so they stand in your way and wander back after interruptions;
+      dormant on curse end via an isActive check. Tops up with biome-appropriate creatures spawned only where
+      vanilla allows (isSpawnPositionOk + checkSpawnRules). Tamed exempt. Discovers on first recruit. Repel push
+      also bumped +20% (0.084) this pass. 8 config knobs.
+- [ ] Heavy
+- [ ] Slippery Feet
+- [ ] Magnet
+- [x] Neutral Aggression — **renamed** from "Neutral Mobs Attack Instantly", id `neutral_mobs_attack_instantly`
+      → `neutral_aggression` (display names derive from the id path, so the id IS the visible name — same as
+      Unhygienic). Rewritten from the prototype, which was wrong twice over: it called `setTarget` on every
+      nearby `Mob` including passive animals that have no attack goal, and a bare `setTarget` is wiped within
+      a tick or two by the mob's own target-selection goals so the aggro flickered and died. Now filters on
+      vanilla's own `NeutralMob` interface (so modded neutrals work automatically, per the Allergic principle)
+      and uses `setPersistentAngerTarget` + `startPersistentAngerTimer` — the same route vanilla uses when you
+      hit an enderman — so the hatred sticks and decays on vanilla's schedule after the curse. Your own tamed
+      pets turn on you too (configurable). **SPIDERS added by hand** after Oliver caught them being immune:
+      they're `Monster`, not `NeutralMob` — their daylight passivity is `SpiderTargetGoal` refusing to acquire
+      above light 0.5 — so by interface they're hostile but by behaviour they're exactly what "neutral" means.
+      3 config knobs.
+- [ ] Dwarfism
+- [ ] Screensaver
+- [ ] Minor Inconvenience
+- [x] Thirst Meter — FULLY FUNCTIONAL, with the supplied droplet art (plus dehydration variants) mirroring
+      `Gui#renderFood`, hidden AND frozen in creative/spectator. Drain uses vanilla's EXHAUSTION model, not a
+      timer: idle 20s/droplet, more for walking, much more for sprinting/swimming/mining/fighting — the curse
+      is aimed at activity. Hidden **saturation** is spent before the visible bar (the grace period that stops
+      a freshly-filled bar ticking down instantly). **Dehydration** is a real custom MobEffect — Hunger for
+      thirst, ×4 drain (5s/droplet), `visible=false` so no particles but keeps its icon; brought on by hot
+      biomes (base temp ≥1.0) or overexertion on a low bar. Refills: water bottle 6, potion 3, raw water 5,
+      raw food 2, natural food 4, other food 1, all with a hand swing; raw water/cauldrons/**wet sponges**
+      (which dry out) carry a poison-or-dehydration risk. Cauldrons lose a level. Eating at full hunger is
+      forced through by intercepting the click, since `Player.canEat` refuses otherwise. ≤2 blocks sprinting;
+      0 kills via a **custom damage type** that is fatal on every difficulty, bypasses armour and is tagged
+      `no_knockback`/`no_impact` so it doesn't shove you. Both bars full = bonus regen. 24 config knobs.
+- [x] Social Outcast — players and villagers simply aren't rendered (no model, no nametag — one
+      `RenderLivingEvent.Pre` cancel returns before the `super.render` that draws the tag) unless within
+      `revealDistance` or they've hit you recently. The damage reveal MUST be server-driven (who dealt damage
+      is server-authoritative), so revealed ids are synced down and only re-synced when the SET changes.
+      Hidden entities are **silenced** too — matched on sound ORIGIN, since a SoundInstance doesn't say who
+      made it — or footsteps would pinpoint someone you can't see. Discovery fires when someone actually POPS
+      INTO VIEW, not on application. 3 config knobs.
+- [x] Floor Is Lava — stand still past a 5s grace and you burn, ramping +0.5 per burn to a 4.0 cap. Grace
+      keeps it playable (craft, read a sign); the ramp stops it being a flat tax you eat; the cap stops an AFK
+      player being executed. Vanilla's own `HOT_FLOOR` source (the magma-block one, matching the sacrificial
+      item), so fire resistance is deliberate counterplay. Flames thicken as it climbs; movement measured as
+      real displacement so turning on the spot won't save you; deliberately NOT paused in GUIs. 6 config knobs.
+- [x] Heavyweight — blocks with air beneath give way under you, scaling on hardness (leaves 0.8s, dirt 1.1s,
+      stone 2.4s, planks 3.0s, obsidian ~60s); unbreakable blocks skipped so nothing chews through the world
+      bottom. Warning is **visual** (crack overlay + dust pouring from the underside, thickening, fragments
+      off the top edge) with the audio sparse and quiet — an early build creaked constantly and was grating.
+      The COLLAPSE carries the noise: zombie door-smash + the block's break sound, ~60 debris particles, a
+      hand-rolled **camera shake** (vanilla has none) applied to camera angles only, and a ragged hole in the
+      surrounding floor. Progress is per-block and resets on step-off, clearing the overlay. 7 config knobs.
+- [x] Bad Swimmer — liquid stops holding you up: GRAVITY ×16 + WATER_MOVEMENT_EFFICIENCY 1.0 (real vanilla
+      physics — you sink then walk the bottom, ordinary step-up applies) PLUS a client-side constant 0.04/tick pull
+      and a 0.4 entry plunge. The pull exists because vanilla skips fluid gravity ENTIRELY while sprinting, which
+      made swimming a total exemption; it now bites in both states so staying up is a real fight (a full swim-up
+      tops out ~0.048/tick, so the pull sits just under it). Drowning still applies; lava included; discovers on
+      first sink; creative flight explicitly exempt. 4 config knobs.
+- [x] Pests — a per-block chance (8%) that 1-3 silverfish pour out of ANY block you mine and come straight
+      for you. `MAX_NEARBY` is a SAFETY ceiling rather than balance: silverfish call MORE silverfish out of
+      stone when hit, so without it a mining session snowballs into a swarm the victim cannot escape. Also
+      **fixed a latent item collision** — Pests was on Stone and Basement Dweller on Cobblestone, but the spec
+      assigns Pests → Cobblestone and Basement Dweller → Grass Block (unused); both were simply on the wrong
+      items, so moving Basement Dweller freed Cobblestone. 5 config knobs.
+- [x] Allergic — 3 rolled diets (Vegetarian/Carnivore/Clean Eater) via vanilla categories (`minecraft:meat` tag + effect-granting = magic + the remainder = natural) so modded foods work; forbidden food ⇒ Blindness+Poison and only 50% of the REAL hunger/saturation gain; Clean Eaters get no positive potion effects; Scrying Mirror names the exact diet (new `Effect.scryingDetail` hook); victim discovers on first bad reaction. All 4 numbers config-exposed.
+- [ ] Comic Relief
+- [ ] Ugly
+- [ ] Taxes
+- [ ] Sticky
+- [x] Backseat Driver — rebuilt to steer the RIDER (mount reads rider yaw + forward input) so the animal
+      walks under its own movement code instead of being shoved by velocity (which slid/hovered); non-rider-steered
+      mounts use their own navigation; real Speed effect for the bolt; hazard priority Lit TNT > ledge > lava >
+      hostile > cactus > water; chance ramps while riding, cap jumps near hazards; ends instantly on dismount with
+      a shorter cooldown for bailing early; discovers on first takeover. 8 config knobs.
+- [ ] Clumsy
+- [ ] Oversharer
+- [ ] Broken Bonds
+- [ ] Insomniac
+- [ ] Flat Footed
+- [ ] Wonky
+- [ ] Stick Drift
+- [ ] Basement Dweller
+- [ ] Claustrophobia
+- [ ] Glass Cannon
+- [ ] Mansplainer
+- [ ] Moonwalker
+- [ ] Siren's Call
+- [x] Loading Screen — FULLY FUNCTIONAL. Every door/trapdoor/fence gate, no roll and no cooldown (it's
+      avoidable, so certainty is the point). Random 1.5–5s, 40%/s stutter freezes and a 50% fake restart, hard
+      20s cap. Input dead except menus — mouse-look pinned in BOTH the tick (real rotation) and
+      `ComputeCameraAngles` (render), since look is applied per frame. Server owns only a random session id;
+      the client runs the whole animation, because its length is dynamic and the input lock must release on the
+      exact frame the bar ends. Chest sprite sheet (36 frames, 128×152, vertical), weighted client-only hold
+      music (37.5/37.5/24/1%, goofy at half volume) that cuts off however the screen ends, writable tips,
+      translucent-white page, centred layout, live percentage. 20 config knobs. Pending: nothing.
+- [x] Pacing — time-stop dramatic moment: ramping trigger, random 5–30s biased short, freezes victim + up to 5
+      nearby (invulnerable + zeroed velocity + noAi; players get Slowness/Jump lock AND a client input lock so
+      they can't swing/use mid-moment). Camera cuts between orbit angles + hero shots of nearby entities, ALWAYS
+      orbiting the victim-player (never `setCameraEntity` a mob — avoids spider/creeper vision shaders, Oliver's
+      fix). Every player caught in it gets the cinematic via synced `PACING_FOCUS_ID`. Client-side theme (whole
+      moment, cut off at end) + click per cut with a 1/250 `theonepiece` swap. 9 config knobs. Pending: the
+      supplied `pacingtheme` is a .mp3 and needs an OGG export before the theme audio plays.
+- [ ] Trumpet
+- [ ] Uncareful
 
-### Phase E — Balance & config extraction
-All Section 10 numbers and every per-attachment constant exposed as real config (not hardcoded).
-Full playtest of Grace Period, Ward opt-out, Backfires toggle, Limit.
+**BLESSINGS (44 listed; header says 45 — reconcile if a 45th is intended)** — renamed ids: Workman =
+`tools_dont_use_durability`, Personal Trainer = `trainer`, Hawk Guy = `locked_in`.
+- [ ] Fortune
+- [ ] Peace
+- [ ] Luck
+- [ ] Full
+- [ ] Army
+- [ ] Reflect
+- [ ] Soul Bond
+- [ ] Bodyguard
+- [ ] Tax Man
+- [ ] Hype Man
+- [ ] Workman
+- [ ] Pickpocket
+- [ ] Windfall
+- [ ] Immortality
+- [ ] Sixth Sense
+- [ ] Iron Stomach
+- [ ] Iron Lung
+- [ ] Anchor
+- [ ] Twinkletoes
+- [ ] Personal Trainer
+- [ ] Studious
+- [ ] Twist of Fate
+- [ ] Company
+- [ ] Organised
+- [ ] Nightowl
+- [ ] Steady Hands
+- [ ] Hawk Guy
+- [ ] Main Character
+- [ ] Last Stand
+- [ ] Jesus
+- [ ] Thick Skinned
+- [ ] Farmer's Spirit
+- [ ] Brute
+- [ ] Blacksmith
+- [ ] Unseen
+- [ ] Silver Tongue
+- [ ] Hot Stuff
+- [ ] Bouncy
+- [ ] Excavation
+- [ ] Angler
+- [ ] Laugh Track
+- [ ] Chat
+- [ ] Civilisation
+- [ ] Low Gravity
 
-### Phase F — Resolve Section 11 hard flag
-Firework Star collision (Main Character vs Celebration). Do not ship before it's resolved.
+**NEUTRALS (11)**
+- [ ] Wooliam
+- [ ] Disguise
+- [ ] Anvil
+- [ ] Letter
+- [ ] Creeper
+- [ ] Useless Trade
+- [ ] Moovin
+- [ ] Celebration
+- [ ] Mansplaining
+- [ ] Damage
+- [ ] Mirror (backfire-only)
+
+**GLOBALS (15)**
+- [ ] Inventory Shuffle
+- [ ] Russian Roulette
+- [ ] Player Shuffle
+- [ ] Hot Potato
+- [ ] Spot Shuffle
+- [ ] Gravity Flip
+- [ ] Party Time
+- [ ] Auction
+- [ ] Apocalypse
+- [ ] Aporkalypse
+- [ ] TNT Rain
+- [ ] Silence
+- [ ] Firework Show
+- [ ] Floor Is Lava (global)
+- [ ] Gamble
+
+**ITEMS (Section 4)** — start only after every attachment above is checked off.
+- [ ] Cursed Essence
+- [ ] Player Essence
+- [ ] Compendium
+- [ ] Voodoo Doll
+- [ ] Needle
+- [ ] Ward
+- [ ] Scrying Mirror
+- [ ] Effigy
+- [ ] Cursed Coin
+- [ ] Blessed Coin
+- [ ] Executioner's Coin
+- [ ] Jar
+- [ ] Cursed Jar
+- [ ] Amethyst Bell
+- [ ] Recovery Compass (modifier item)
+
+**BLOCKS (Section 3)** — start only after every item above is checked off.
+- [ ] Bewitching Table
+- [ ] Block of Cursed Essence
+- [ ] Ledger
+- [ ] Warding Totem
+- [ ] Purifying Water
 
 ---
 
@@ -1263,7 +2602,7 @@ intended, it's missing from the Section 6 list and needs naming.
 pacing, trumpet. **New blessing classes (15):** thick_skinned, farmers_spirit, brute, blacksmith, unseen,
 silver_tongue, hot_stuff, bouncy, excavation, angler, laugh_track, chat, civilisation, low_gravity,
 last_stand. (Registry ids use the spec's current names; note the older prototype ids kept for the renamed
-ones — `neutral_mobs_attack_instantly`=Neutral Aggression, `loud`=Flat Footed, `pidgeon_toed`=Wonky,
+ones — `loud`=Flat Footed, `pidgeon_toed`=Wonky,
 `sick_of_you`=Broken Bonds, `locked_in`=Hawk Guy, `tools_dont_use_durability`=Workman, `trainer`=Personal
 Trainer — kept stable to avoid breaking saved data; display names are a lang concern.)
 
@@ -1476,10 +2815,30 @@ local player (`MOONWALKER_ACTIVE`, `SCREENSAVER_ACTIVE`, `MINOR_INCONVENIENCE_AC
 - **Minor Inconvenience** — `ClientTickEvent.Post`: renames the OS window title to silly strings
   (`Window.setTitle`) on an interval; restores "Minecraft" when the curse ends. PROTOTYPE gaps: the
   fullscreen-block half of the spec + the writable `window_titles.json` are deferred (hardcoded pool).
-- **Pacing** — server trigger in `CurseEventHandler` (the cursed player landing a hit rolls a chance on a
-  cooldown → sets `PACING_END_TICK` + a brief Slowness "freeze"); client `ViewportEvent.ComputeCameraAngles`
-  rolls the camera for a dramatic wobble during that window. PROTOTYPE: the full multi-shot "cut between
-  nearby entities" camera + freezing the enemy too are deferred; custom sting sound deferred.
+- **Pacing** — REFACTORED to the real One Piece "dramatic moment" spec (per Oliver). Server side
+  (`data/PacingManager`): the trigger chance RAMPS 0→1 over ~2 min since the last moment (`PACING_CHARGE_START`
+  attachment), pre-charged to ~0.85 on curse apply so it starts high; each combat hit rolls `charge *
+  MAX_HIT_CHANCE`; if the ramp maxes out without a hit it auto-fires on a non-combat server tick. A moment is
+  a **time-stop**: the victim + up to 5 nearby living entities are frozen (invulnerable + Mob `setNoAi`, zero
+  velocity; players get near-total Slowness as a best-effort since a player can't be truly frozen
+  server-side) and restored on a `ServerTickEvent` after `FREEZE_TICKS`. Client side (`ClientCurseHandler`):
+  the camera is hijacked into **third-person** + `setCameraEntity`, cutting between angles around the frozen
+  victim (camera entity = victim, varied yaw) then to the **faces of nearby entities** (camera entity =
+  that entity, yaw = its facing + 180 → sits in front of its face; works for players too).
+  - **Feasibility note (told to Oliver):** true free-camera positioning (flying the camera to arbitrary
+    points) is NOT possible via NeoForge events — `Camera.setup` overwrites the camera position *after* the
+    modifiable `ComputeCameraAngles` event, so only yaw/pitch are controllable. The third-person +
+    `setCameraEntity` approach achieves the spec (orbit victim / face nearby entities) with public API only;
+    a literal free-fly camera would need a `Camera` mixin (build-infra the project doesn't have yet).
+  - PROTOTYPE gaps: custom sting sound (Section 12) deferred; the freeze can't 100% pause other *players*
+    (invuln + slowness best-effort).
+
+**Force-windowed for the window curses (per Oliver):** Screensaver and Minor Inconvenience force the game
+OUT of fullscreen while active — they're invisible/no-op in fullscreen, and being annoying is the point.
+Implementation gotcha (fixed): the fix is JUST `mc.options.fullscreen().set(false)`. Vanilla's fullscreen
+`OptionInstance` change-callback (Options.java) already calls `window.toggleFullScreen()` itself, so the
+first attempt (which ALSO called `toggleFullScreen()`) double-toggled straight back to fullscreen and did
+nothing visible. Setting the option alone is the whole fix.
 
 **Phase D is now functionally complete** — all Section 0.3 CUSTOM UI overlays (Thirst, Gluttony, Loading
 Screen, Organised, Chat) and all the client-side curses are built. Remaining Phase D polish is art (the

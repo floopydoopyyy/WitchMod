@@ -16,7 +16,7 @@ public final class CurseBasementDweller extends Effect {
     private static final int BURST_TICKS = 60;
 
     public CurseBasementDweller() {
-        super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.COBBLESTONE);
+        super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.GRASS_BLOCK);
     }
 
     @Override

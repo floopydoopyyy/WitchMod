@@ -14,7 +14,7 @@ public final class BlessingWindfall extends Effect {
     private static final int INTERVAL_TICKS = 400;
 
     public BlessingWindfall() {
-        super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.PAPER);
+        super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.WIND_CHARGE);
     }
 
     @Override

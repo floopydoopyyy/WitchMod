@@ -41,7 +41,7 @@ final class RitualSlot extends Slot {
             // Redstone Dust is accepted too: it's the "random attachment" table mechanic (master-spec
             // Section 3), not a normal effect selector.
             case SACRIFICIAL_ITEM -> stack.is(Items.REDSTONE) || SacrificialItems.findEffect(stack.getItem()).isPresent();
-            case MODIFIER -> ModifierItems.findModifier(stack.getItem(), WitchModItems.RECOVERY_COMPASS.get()).isPresent();
+            case MODIFIER -> ModifierItems.findModifier(stack.getItem()).isPresent();
         };
     }
 

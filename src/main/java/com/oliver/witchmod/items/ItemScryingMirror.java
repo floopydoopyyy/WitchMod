@@ -13,6 +13,7 @@ import net.minecraft.world.level.Level;
 import com.oliver.witchmod.data.ActiveEffectInstance;
 import com.oliver.witchmod.data.ActiveEffects;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.data.WitchModRegistries;
 
 /** Reveals your own active curses/blessings (CLAUDE.md section 3) — text-only for now, no UI until Phase 5. */
 public final class ItemScryingMirror extends Item {
@@ -35,8 +36,16 @@ public final class ItemScryingMirror extends Item {
 
         serverPlayer.displayClientMessage(Component.literal("The mirror reveals:"), false);
         for (ResourceLocation id : active.activeIds()) {
-            active.get(id).ifPresent(instance -> serverPlayer.displayClientMessage(
-                    Component.literal(" - " + id.getPath() + " (" + ticksToSeconds(instance) + "s left)"), false));
+            active.get(id).ifPresent(instance -> {
+                // Some effects reveal extra instance detail to the mirror (e.g. Allergic names the exact
+                // diet you rolled, which you'd otherwise only discover by eating the wrong thing).
+                String detail = WitchModRegistries.EFFECT_REGISTRY.getOptional(id)
+                        .flatMap(effect -> effect.scryingDetail(serverPlayer))
+                        .map(d -> ": " + d)
+                        .orElse("");
+                serverPlayer.displayClientMessage(
+                        Component.literal(" - " + id.getPath() + " (" + ticksToSeconds(instance) + "s left)" + detail), false);
+            });
         }
         return InteractionResultHolder.success(stack);
     }

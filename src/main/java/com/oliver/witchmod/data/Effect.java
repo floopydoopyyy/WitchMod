@@ -1,9 +1,11 @@
 package com.oliver.witchmod.data;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import org.jetbrains.annotations.Nullable;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 
@@ -65,4 +67,32 @@ public abstract class Effect {
      * periodic behavior (a chance each tick, a fixed interval) should check {@code ticksRemaining} here.
      */
     public void onTick(ServerPlayer target, int ticksRemaining) {}
+
+    /**
+     * Extra, instance-specific detail the Scrying Mirror should reveal about this effect on {@code target} —
+     * e.g. Allergic's rolled diet, which is otherwise hidden from the victim until they eat the wrong thing.
+     * Empty by default; the mirror lists those effects by name and timer only.
+     */
+    public Optional<String> scryingDetail(ServerPlayer target) {
+        return Optional.empty();
+    }
+
+    /**
+     * Whether the VICTIM only discovers this attachment when it actually fires, rather than the moment it
+     * lands (master-spec Rule 2: "the victim discovers on trigger"). Effects that return true must call
+     * {@link #markDiscoveredByVictim} at their real trigger moment — otherwise the victim never discovers
+     * it. Defaults to false, which keeps the centralised discover-on-apply behaviour for everything that
+     * hasn't been refined yet.
+     */
+    public boolean discoversOnTrigger() {
+        return false;
+    }
+
+    /** Marks this effect discovered for {@code target}, alerting them — call at the real trigger moment. */
+    public void markDiscoveredByVictim(ServerPlayer target) {
+        ResourceLocation id = WitchModRegistries.EFFECT_REGISTRY.getKey(this);
+        if (id != null) {
+            DiscoveryManager.markEffectDiscovered(target, id);
+        }
+    }
 }

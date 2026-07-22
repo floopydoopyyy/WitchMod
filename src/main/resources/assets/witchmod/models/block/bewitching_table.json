@@ -1,6 +1,12 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/cube",
   "textures": {
-    "all": "witchmod:block/bewitching_table"
+    "down": "minecraft:block/oak_planks",
+    "up": "witchmod:block/bewitching_table_top",
+    "north": "witchmod:block/bewitching_table_front",
+    "east": "witchmod:block/bewitching_table_side",
+    "south": "witchmod:block/bewitching_table_side",
+    "west": "witchmod:block/bewitching_table_front",
+    "particle": "witchmod:block/bewitching_table_front"
   }
 }

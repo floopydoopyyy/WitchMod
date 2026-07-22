@@ -95,10 +95,11 @@ public final class BewitchingTableBlockEntity extends BlockEntity implements Con
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        // NonNullList.withSize is FIXED-SIZE (Arrays.asList-backed), so add() throws
+        // UnsupportedOperationException — which was killing every load and wiping the table's contents.
+        // clear() is all that's needed: with a non-null default it re-sets every slot to EMPTY and keeps
+        // the size, which is exactly the reset loadAllItems wants.
         items.clear();
-        for (int i = 0; i < SLOT_COUNT; i++) {
-            items.add(ItemStack.EMPTY);
-        }
         ContainerHelper.loadAllItems(tag, items, registries);
     }
 }

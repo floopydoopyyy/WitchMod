@@ -9,8 +9,13 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.minecraft.client.renderer.RenderType;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
@@ -22,6 +27,9 @@ import com.oliver.witchmod.client.ChatOverlayLayer;
 import com.oliver.witchmod.client.GluttonyHudLayer;
 import com.oliver.witchmod.client.LoadingScreenOverlay;
 import com.oliver.witchmod.client.ThirstHudLayer;
+import com.oliver.witchmod.client.TaxManRenderer;
+import com.oliver.witchmod.client.UglySkinManager;
+import com.oliver.witchmod.entities.WitchModEntities;
 import com.oliver.witchmod.ui.BewitchingTableScreen;
 import com.oliver.witchmod.ui.WitchModMenus;
 
@@ -42,6 +50,34 @@ public class WitchModClient {
         // Some client setup code
         WitchMod.LOGGER.info("HELLO FROM CLIENT SETUP");
         WitchMod.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+
+        // Holy Water has to be on the TRANSLUCENT layer or the alpha in its tint colour is simply discarded
+        // — an unregistered fluid falls back to a solid render type, which does no blending at all. Vanilla
+        // registers its own water the same way. Both the source and flowing fluids need it.
+        event.enqueueWork(() -> {
+            ItemBlockRenderTypes.setRenderLayer(WitchModFluids.PURIFYING_WATER.get(), RenderType.translucent());
+            ItemBlockRenderTypes.setRenderLayer(WitchModFluids.PURIFYING_WATER_FLOWING.get(), RenderType.translucent());
+        });
+    }
+
+    /**
+     * Ugly: re-scan the skin folder on every resource reload, so dropping a new PNG in and pressing F3+T
+     * picks it up without a restart — which is the whole promise of that folder.
+     */
+    @SubscribeEvent
+    static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener((ResourceManagerReloadListener) manager -> UglySkinManager.reload());
+    }
+
+    /** The Tax Man's humanoid model and renderer. */
+    @SubscribeEvent
+    static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(TaxManRenderer.LAYER, TaxManRenderer::createBodyLayer);
+    }
+
+    @SubscribeEvent
+    static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(WitchModEntities.TAX_MAN.get(), TaxManRenderer::new);
     }
 
     @SubscribeEvent

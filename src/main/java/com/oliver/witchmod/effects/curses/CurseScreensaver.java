@@ -11,10 +11,8 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Your whole game window drifts off like a DVD screensaver (master-spec Screensaver, a client-side curse,
- * Phase D). Drives the auto-synced {@link WitchModAttachments#SCREENSAVER_ACTIVE} flag; the client bounces
- * the OS window around the monitor in occasional episodes while it's set (see {@code client/ClientCurseHandler}).
- * No-op if the window can't be moved (e.g. fullscreen).
+ * hahaha funny ping pong
+ * maths sucks!!!!!!!
  */
 public final class CurseScreensaver extends Effect {
     public CurseScreensaver() {

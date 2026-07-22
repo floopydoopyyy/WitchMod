@@ -14,7 +14,7 @@ public final class BlessingIronStomach extends Effect {
     private static final int INTERVAL_TICKS = 20;
 
     public BlessingIronStomach() {
-        super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.ROTTEN_FLESH);
+        super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.CHICKEN);
     }
 
     @Override

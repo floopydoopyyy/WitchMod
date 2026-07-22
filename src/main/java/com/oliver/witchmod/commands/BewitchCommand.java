@@ -39,7 +39,9 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.EventCategory;
 import com.oliver.witchmod.data.LedgerLog;
+import com.oliver.witchmod.data.TaxBank;
 import com.oliver.witchmod.data.WitchModRegistries;
+import com.oliver.witchmod.effects.curses.CurseTaxes;
 
 /**
  * The {@code /bewitch} command tree (CLAUDE.md section 8). The only entry point into curse/blessing/
@@ -130,6 +132,24 @@ public final class BewitchCommand {
         ServerPlayer caster = ctx.getSource().getPlayer();
         Optional<String> casterName = Optional.ofNullable(caster).map(p -> p.getName().getString());
         long gameTime = ctx.getSource().getLevel().getGameTime();
+
+        // ⚠ Taxes is refused when the tax bank has hit its MEMORY ceiling — never cast it into a state where
+        // the Tax Man would have to void what he takes. See TaxBank.isFull().
+        if (effect.value() instanceof CurseTaxes) {
+            TaxBank bank = TaxBank.get(ctx.getSource().getServer());
+            if (bank.isFull()) {
+                ctx.getSource().sendFailure(Component.literal(
+                        "The tax bank is full (" + bank.contents().size() + " stacks). Taxes cannot be applied "
+                        + "until the Tax Man blessing pays some of it out — items are never discarded to make room."));
+                return 0;
+            }
+            if (bank.shouldWarn()) {
+                ctx.getSource().sendSuccess(() -> Component.literal(
+                        "Warning: the tax bank is " + Math.round(bank.fullness() * 100)
+                        + "% full. Taxes will be refused once it fills."), false);
+            }
+        }
+
         for (ServerPlayer target : targets) {
             EffectManager.apply(target, effect, durationTicks, caster);
             LedgerLog.log(casterName, target.getName().getString(), effect.key().location(), "command", gameTime);

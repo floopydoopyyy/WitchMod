@@ -143,7 +143,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
 
         ItemStack modifierStack = this.menu.slots.get(BewitchingTableBlockEntity.SLOT_MODIFIER).getItem();
         Modifier modifier = modifierStack.isEmpty() ? null
-                : ModifierItems.findModifier(modifierStack.getItem(), WitchModItems.RECOVERY_COMPASS.get()).orElse(null);
+                : ModifierItems.findModifier(modifierStack.getItem()).orElse(null);
 
         int essenceSpent = this.menu.slots.get(BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE).getItem().getCount();
         int adjustedCost = ModifierCalculator.applyCost(effect.value().baseCost(), modifier);

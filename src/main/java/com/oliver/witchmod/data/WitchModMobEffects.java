@@ -24,6 +24,17 @@ public final class WitchModMobEffects {
     public static final DeferredHolder<MobEffect, MobEffect> AFFLICTED =
             MOB_EFFECTS.register("afflicted", () -> new SimpleMobEffect(MobEffectCategory.NEUTRAL, 0x800080));
 
+    /**
+     * Thirst Meter's Dehydration — Hunger, but for thirst: it makes the bar drain faster. The draining
+     * itself lives in {@code CurseThirstMeter}; this is only the marker and the HUD icon.
+     *
+     * <p>Applied with {@code visible=false} so it shows NO ambient particles (Oliver's call — it comes and
+     * goes far too often to be spewing swirls the whole time) but keeps {@code showIcon=true} so the effect
+     * bar still tells you why the bar is emptying.
+     */
+    public static final DeferredHolder<MobEffect, MobEffect> DEHYDRATION =
+            MOB_EFFECTS.register("dehydration", () -> new SimpleMobEffect(MobEffectCategory.HARMFUL, 0x4A90C2));
+
     private WitchModMobEffects() {}
 
     public static void register(IEventBus modEventBus) {

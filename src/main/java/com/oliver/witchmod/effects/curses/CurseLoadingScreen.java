@@ -9,29 +9,40 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Please wait... loading region... this Bethesda joke never ends (master-spec Loading Screen — a
- * FULLY-FUNCTIONAL custom overlay, Phase D).
+ * Please wait... loading region... this Bethesda joke never ends (master-spec Loading Screen).
  *
- * <p>The actual trigger is event-driven, not tick-based: opening a door/trapdoor/fence gate has a chance
- * (on a cooldown) to flash a fullscreen fake loading screen — see the door hook in {@code CurseEventHandler}
- * (server) and {@code client/LoadingScreenOverlay} (render), coordinated through the auto-synced
- * {@link WitchModAttachments#LOADING_SCREEN_END_TICK}. This class just declares cost/sacrificial item and
- * makes sure a curse cure/expiry dismisses any overlay in progress.
+ * <p><b>Every</b> door, trapdoor or fence gate you open drops a full fake loading screen over your entire
+ * view — no chance roll, no cooldown. That's deliberate: unlike most curses this one is <i>completely
+ * avoidable</i>, since you choose when to touch a door, so making it certain is what gives it teeth.
+ * All input except menus is dead until it finishes.
  *
- * <p>PROTOTYPE gaps: the custom ambience sound (Section 12) and the writable {@code loading_tips.json} list
- * are deferred — the overlay uses a small hardcoded tip pool for now.
+ * <p>This class only declares the cost/item and starts a session; the screen itself is entirely client-side
+ * (see {@code client/LoadingScreenState}), coordinated through the auto-synced
+ * {@link WitchModAttachments#LOADING_SCREEN_SESSION} — the server never needs to know how long a given
+ * screen ends up lasting, which matters because stutters and restarts make that length dynamic.
  */
 public final class CurseLoadingScreen extends Effect {
-    public static final int DURATION_TICKS = 60;
-    public static final float CHANCE = 0.5F;
-    public static final int COOLDOWN_TICKS = 400;
-
     public CurseLoadingScreen() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 15, () -> Items.GLISTERING_MELON_SLICE);
     }
 
+    /** You find out by having it happen to you (Rule 2). */
+    @Override
+    public boolean discoversOnTrigger() {
+        return true;
+    }
+
+    /** Hook for opening a door-ish block — see {@code CurseEventHandler}. */
+    public static void trigger(ServerPlayer player) {
+        long session = player.getRandom().nextLong();
+        if (session == 0L) {
+            session = 1L; // 0 means "nothing to show", so never hand it out as a session id
+        }
+        player.setData(WitchModAttachments.LOADING_SCREEN_SESSION, session);
+    }
+
     @Override
     public void onRemove(ServerPlayer target) {
-        target.setData(WitchModAttachments.LOADING_SCREEN_END_TICK, 0L); // dismiss any overlay in progress
+        target.setData(WitchModAttachments.LOADING_SCREEN_SESSION, 0L); // dismiss any screen in progress
     }
 }

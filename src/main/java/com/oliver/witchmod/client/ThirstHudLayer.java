@@ -5,25 +5,42 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.RandomSource;
 
+import com.oliver.witchmod.Config;
+import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
-import com.oliver.witchmod.effects.curses.CurseThirstMeter;
+import com.oliver.witchmod.data.WitchModMobEffects;
 
 /**
- * Renders the Thirst Meter bar (Phase D / Section 13.4) as a row of droplets above the hunger bar, driven
- * by the auto-synced {@link WitchModAttachments#THIRST} attribute ({@code -1} = curse inactive → hidden).
+ * The Thirst Meter bar: a row of droplets mirroring vanilla's hunger row, driven by the auto-synced
+ * {@link WitchModAttachments#THIRST} value ({@code -1} = curse inactive → hidden entirely).
  *
- * <p>No {@code thirst_icons.png} exists yet (Human Action Items), so droplets are drawn as simple filled
- * rectangles — a drop-in {@code blit} swap later. The VALUE and behaviour are fully functional; only the
- * art is placeholder.
+ * <p>Deliberately built as a close copy of {@code Gui#renderFood} so it reads as part of the HUD rather than
+ * as something bolted on: same 10 icons, same 8px spacing, same right-to-left fill, and the same **jitter**
+ * vanilla applies when you're in trouble — here driven by the Dehydration effect rather than by hunger.
+ * Under Dehydration the icons also swap to their own tinted variants, which is what tells you at a glance
+ * why the bar is emptying so fast.
+ *
+ * <p>Hidden in creative and spectator via the same {@code canHurtPlayer} gate vanilla uses for health,
+ * hunger and air.
  */
 public final class ThirstHudLayer implements LayeredDraw.Layer {
-    private static final int ICONS = 10;                 // 10 droplets, 2 thirst points each
+    private static final int ICONS = 10;
     private static final int ICON_SPACING = 8;
-    private static final int ICON_SIZE = 7;
-    private static final int SLOT_COLOR = 0xFF101B2E;     // empty droplet
-    private static final int WATER_COLOR = 0xFF3AA0FF;    // filled droplet
-    private static final int OUTLINE_COLOR = 0xFF0A1220;
+    private static final int ICON_SIZE = 9;
+
+    private static final ResourceLocation FULL = hud("thirst_full");
+    private static final ResourceLocation HALF = hud("thirst_half");
+    private static final ResourceLocation EMPTY = hud("thirst_empty");
+    private static final ResourceLocation FULL_DRY = hud("thirst_full_dehydration");
+    private static final ResourceLocation HALF_DRY = hud("thirst_half_dehydration");
+    private static final ResourceLocation EMPTY_DRY = hud("thirst_empty_dehydration");
+
+    private static ResourceLocation hud(String name) {
+        return ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/gui/hud/" + name + ".png");
+    }
 
     @Override
     public void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
@@ -35,29 +52,37 @@ public final class ThirstHudLayer implements LayeredDraw.Layer {
         LocalPlayer player = mc.player;
         int thirst = player.getData(WitchModAttachments.THIRST);
         if (thirst < 0) {
-            return; // Thirst Meter curse not active
+            return; // curse not active
         }
 
-        int right = guiGraphics.guiWidth() / 2 + 91;      // vanilla food-bar right edge
-        int top = HudBars.topForRow(guiGraphics.guiHeight(), HudBars.thirstRow(player)); // above Gluttony if it's active too
+        boolean dry = player.hasEffect(WitchModMobEffects.DEHYDRATION);
+        ResourceLocation full = dry ? FULL_DRY : FULL;
+        ResourceLocation half = dry ? HALF_DRY : HALF;
+        ResourceLocation empty = dry ? EMPTY_DRY : EMPTY;
+
+        int max = Config.THIRST_MAX.get();
+        int right = guiGraphics.guiWidth() / 2 + 91;                       // vanilla food-bar right edge
+        int top = HudBars.topForRow(guiGraphics.guiHeight(), HudBars.thirstRow(player));
+
+        // Vanilla jitters the hunger icons when you're starving; here it's Dehydration that shakes them,
+        // seeded off the tick so the whole row doesn't wobble in lockstep.
+        RandomSource jitter = player.getRandom();
 
         for (int i = 0; i < ICONS; i++) {
-            int x = right - i * ICON_SPACING - 9;
-            int filled = Math.max(0, Math.min(2, thirst - i * 2)); // 0 empty, 1 half, 2 full
+            int x = right - i * ICON_SPACING - ICON_SIZE;
+            int y = top;
+            if (dry && jitter.nextFloat() < 0.08F) {
+                y += jitter.nextInt(3) - 1;
+            }
+            // Two thirst points per icon, filling right to left exactly like hunger.
+            int pointsHere = Math.max(0, Math.min(2, thirst - i * (max / ICONS)));
 
-            // empty droplet slot
-            guiGraphics.fill(x - 1, top - 1, x + ICON_SIZE + 1, top + ICON_SIZE + 1, OUTLINE_COLOR);
-            guiGraphics.fill(x, top, x + ICON_SIZE, top + ICON_SIZE, SLOT_COLOR);
-            if (filled == 2) {
-                guiGraphics.fill(x, top, x + ICON_SIZE, top + ICON_SIZE, WATER_COLOR);
-            } else if (filled == 1) {
-                guiGraphics.fill(x, top, x + ICON_SIZE / 2 + 1, top + ICON_SIZE, WATER_COLOR);
+            guiGraphics.blit(empty, x, y, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
+            if (pointsHere >= 2) {
+                guiGraphics.blit(full, x, y, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
+            } else if (pointsHere == 1) {
+                guiGraphics.blit(half, x, y, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
             }
         }
-    }
-
-    /** Sanity reference so this layer and the curse stay in step on the max value. */
-    static int maxThirst() {
-        return CurseThirstMeter.THIRST_MAX;
     }
 }
