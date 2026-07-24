@@ -11,14 +11,25 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Forward isn't where you thought it was. Smooth criminal (master-spec Moonwalker, a client-side curse,
- * Phase D). Drives the auto-synced {@link WitchModAttachments#MOONWALKER_ACTIVE} flag; the client reverses
- * the forward/back movement input while it's set (see {@code client/ClientCurseHandler}). The spec's
- * shorter duration override (6000-12000t) is a caster/table concern, not enforced from inside the effect.
+ * You cannot walk forward (master-spec Moonwalker). Every other direction works normally — back, both
+ * strafes — but W does nothing: the client zeroes any forward movement input while the curse is set (see
+ * {@code client/ClientCurseHandler}), off the auto-synced {@link WitchModAttachments#MOONWALKER_ACTIVE} flag,
+ * because movement is client-authoritative.
+ *
+ * <p><b>Halved duration</b> ({@link #durationMultiplier}): being unable to advance is punishing enough that
+ * a full 30–60 minutes of it would be miserable, so it's cut in half at every cast path.
  */
 public final class CurseMoonwalker extends Effect {
     public CurseMoonwalker() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.END_STONE);
+    }
+
+    // Discovery stays on apply (the centralised default): it's client-only, so the server can't cleanly see
+    // the first blocked W-press, and pressing W and going nowhere gives it away within a second regardless.
+
+    @Override
+    public float durationMultiplier() {
+        return 0.5F; // half duration override — the spec's "so detrimental" allowance
     }
 
     @Override
@@ -29,5 +40,12 @@ public final class CurseMoonwalker extends Effect {
     @Override
     public void onRemove(ServerPlayer target) {
         target.setData(WitchModAttachments.MOONWALKER_ACTIVE, -1);
+    }
+
+    @Override
+    public void onTick(ServerPlayer target, int ticksRemaining) {
+        if (target.getData(WitchModAttachments.MOONWALKER_ACTIVE) < 0) {
+            target.setData(WitchModAttachments.MOONWALKER_ACTIVE, 1); // self-heal after a relog
+        }
     }
 }

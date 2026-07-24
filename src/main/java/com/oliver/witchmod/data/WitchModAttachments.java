@@ -125,6 +125,34 @@ public final class WitchModAttachments {
     // effect (reversed input / window bounce / window rename / camera hijack) runs client-side off the flag.
     public static final Supplier<AttachmentType<Integer>> MOONWALKER_ACTIVE = ATTACHMENT_TYPES.register("moonwalker_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** Wonky: {@code -1} inactive, {@code 1} active — the client adds a subtle sideways wander while moving. */
+    public static final Supplier<AttachmentType<Integer>> WONKY_ACTIVE = ATTACHMENT_TYPES.register("wonky_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** Siren's Call: {@code 1} while the longing is high enough to march you to water; {@code -1} otherwise. */
+    public static final Supplier<AttachmentType<Integer>> SIREN_PULL_ACTIVE = ATTACHMENT_TYPES.register("siren_pull_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** Siren's Call: the heading toward the nearest water, which the client walks the hijacked victim along. */
+    public static final Supplier<AttachmentType<Float>> SIREN_PULL_YAW = ATTACHMENT_TYPES.register("siren_pull_yaw",
+            () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
+    /** Siren's Call: 0..1 magenta-shader strength; 1 while mind-controlled, fading to 0 over the water grace. */
+    public static final Supplier<AttachmentType<Float>> SIREN_SHADER = ATTACHMENT_TYPES.register("siren_shader",
+            () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
+
+    // --- Stick Drift. Mode + direction are rolled ONCE at apply and never change (a stick doesn't develop a
+    // new drift mid-session); the intensity/end pair is the current episode, which the server retunes.
+    /** Stick Drift: {@code -1} inactive, {@code 0} camera drift, {@code 1} movement drift. */
+    public static final Supplier<AttachmentType<Integer>> STICK_DRIFT_MODE = ATTACHMENT_TYPES.register("stick_drift_mode",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** Stick Drift: the fixed direction it drifts, as an angle in radians. Constant for the curse's life. */
+    public static final Supplier<AttachmentType<Float>> STICK_DRIFT_ANGLE = ATTACHMENT_TYPES.register("stick_drift_angle",
+            () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
+    /** Stick Drift: current episode intensity 0..1 ({@code 0} = not drifting right now). */
+    public static final Supplier<AttachmentType<Float>> STICK_DRIFT_INTENSITY = ATTACHMENT_TYPES.register("stick_drift_intensity",
+            () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
+    /** Stick Drift: game tick the current episode ends. */
+    public static final Supplier<AttachmentType<Long>> STICK_DRIFT_END = ATTACHMENT_TYPES.register("stick_drift_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
     public static final Supplier<AttachmentType<Integer>> SCREENSAVER_ACTIVE = ATTACHMENT_TYPES.register("screensaver_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
     public static final Supplier<AttachmentType<Integer>> MINOR_INCONVENIENCE_ACTIVE = ATTACHMENT_TYPES.register("minor_inconvenience_active",
@@ -210,6 +238,14 @@ public final class WitchModAttachments {
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).build());
 
     /**
+     * Flat Footed: game tick a nearby footstep-shudder ends, set on OTHER players near the loud victim so
+     * their view rattles a little as the heavy footfalls land. Auto-synced; read in `ComputeCameraAngles`
+     * alongside the Heavyweight shake.
+     */
+    public static final Supplier<AttachmentType<Long>> FLAT_FOOTED_SHAKE_END = ATTACHMENT_TYPES.register("flat_footed_shake_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /**
      * Heavyweight: game tick the collapse camera-shake ends. Auto-synced — there is no vanilla screen shake,
      * so the client rattles the view itself off this in {@code ComputeCameraAngles}.
      */
@@ -240,6 +276,15 @@ public final class WitchModAttachments {
 
     /** Social Outcast: {@code -1} inactive, {@code 1} active. Auto-synced — the hiding is pure client render. */
     public static final Supplier<AttachmentType<Integer>> SOCIAL_OUTCAST_ACTIVE = ATTACHMENT_TYPES.register("social_outcast_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /**
+     * Trumpet: {@code -1} inactive, {@code 1} active. Synced to trackers (like {@link #UGLY_SKIN}) so EVERY
+     * nearby client — not just the victim — spins up the looping fat-trumpet sound at the cursed player's
+     * position while they walk, which is what gives their position away. The whole start/stop/pitch decision
+     * is made client-side off this flag plus the entity's own (synced) walk animation, sprint flag and pose.
+     */
+    public static final Supplier<AttachmentType<Integer>> TRUMPET_ACTIVE = ATTACHMENT_TYPES.register("trumpet_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
     /**

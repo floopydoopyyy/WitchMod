@@ -38,6 +38,7 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.CanPlayerSleepEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
@@ -55,6 +56,8 @@ import com.oliver.witchmod.effects.curses.CurseComicRelief;
 import com.oliver.witchmod.effects.curses.CurseDwarfism;
 import com.oliver.witchmod.effects.curses.CurseExplosive;
 import com.oliver.witchmod.effects.curses.CurseGassy;
+import com.oliver.witchmod.effects.curses.CurseGlassCannon;
+import com.oliver.witchmod.effects.curses.CurseInsomniac;
 import com.oliver.witchmod.effects.curses.CurseSocialOutcast;
 import com.oliver.witchmod.effects.curses.CurseSticky;
 import com.oliver.witchmod.effects.curses.CurseHeavy;
@@ -73,6 +76,26 @@ public final class CurseEventHandler {
     private static final Map<UUID, float[]> PRE_EAT_FOOD = new ConcurrentHashMap<>();
 
     private CurseEventHandler() {}
+
+    /**
+     * Glass Cannon runs FIRST and on its own, because it applies to any damaged entity (not just the cursed
+     * player) — it has to catch both the victim taking a hit AND a cursed attacker landing a melee blow on
+     * something else. It scales the amount; the rest of the mod's per-player logic runs afterwards.
+     */
+    @SubscribeEvent
+    static void onGlassCannon(LivingIncomingDamageEvent event) {
+        // Taking a hit: every source counts, at 200%.
+        if (event.getEntity() instanceof ServerPlayer victim
+                && EffectManager.isActive(victim, Curses.GLASS_CANNON)) {
+            event.setAmount(CurseGlassCannon.onDamageTaken(victim, event.getAmount()));
+        }
+        // Dealing a hit: melee only (the direct entity of the blow is the attacker, not a projectile), 150%.
+        if (event.getSource().getEntity() instanceof ServerPlayer attacker
+                && CurseGlassCannon.isMelee(event.getSource().getDirectEntity(), attacker)
+                && EffectManager.isActive(attacker, Curses.GLASS_CANNON)) {
+            event.setAmount(CurseGlassCannon.onMeleeDealt(attacker, event.getEntity(), event.getAmount()));
+        }
+    }
 
     @SubscribeEvent
     static void onIncomingDamage(LivingIncomingDamageEvent event) {
@@ -143,6 +166,21 @@ public final class CurseEventHandler {
                 && !event.getFrom().isEmpty()                            // something was actually taken off
                 && EffectManager.isActive(player, Curses.STICKY)) {
             CurseSticky.onArmourRemoved(player, event.getSlot(), event.getFrom(), event.getTo());
+        }
+    }
+
+    /**
+     * Insomniac: the bed just won't take you. Only overrides when vanilla would ACTUALLY have let you sleep
+     * (no problem of its own) — so a daytime bed, monsters nearby, etc. still show their normal reason rather
+     * than a curse line — and blocks it with {@code OTHER_PROBLEM}, which carries no vanilla message so the
+     * curse's own line stands alone. Never sleeping is exactly what keeps the phantom counter rising.
+     */
+    @SubscribeEvent
+    static void onCanSleep(CanPlayerSleepEvent event) {
+        ServerPlayer player = event.getEntity();
+        if (event.getProblem() == null && EffectManager.isActive(player, Curses.INSOMNIAC)) {
+            event.setProblem(Player.BedSleepingProblem.OTHER_PROBLEM);
+            Curses.INSOMNIAC.value().onSleepDenied(player);
         }
     }
 

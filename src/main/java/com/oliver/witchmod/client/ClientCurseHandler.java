@@ -224,6 +224,24 @@ public final class ClientCurseHandler {
             return;
         }
 
+        // Siren's Call: at full longing the water takes the wheel. Same hijack as Backseat Driver — ease the
+        // heading toward the synced water bearing and force forward, so you march to the sea against your own
+        // input. Sitting below Backseat's block so a mounted victim's mount steering still wins.
+        if (mc.player != null && event.getEntity().getData(WitchModAttachments.SIREN_PULL_ACTIVE) >= 0) {
+            float wanted = event.getEntity().getData(WitchModAttachments.SIREN_PULL_YAW);
+            float turned = mc.player.getYRot()
+                    + Mth.clamp(Mth.degreesDifference(mc.player.getYRot(), wanted), -8.0F, 8.0F);
+            mc.player.setYRot(turned);
+            mc.player.yBodyRot = turned;
+            input.leftImpulse = 0.0F;
+            input.forwardImpulse = 1.0F;
+            input.up = true;
+            input.down = false;
+            input.left = false;
+            input.right = false;
+            return;
+        }
+
         // Gluttony: no sprinting once the COMBINED bar is at/below the cutoff. This has to be done here,
         // client-side, and by suppressing the sprint KEY: sprinting is decided in LocalPlayer.aiStep, so a
         // server-side setSprinting(false) is overwritten immediately, and merely clearing the flag here just
@@ -242,12 +260,66 @@ public final class ClientCurseHandler {
             mc.player.setSprinting(false);
         }
 
-        if (event.getEntity().getData(WitchModAttachments.MOONWALKER_ACTIVE) >= 0) {
-            input.forwardImpulse = -input.forwardImpulse;
-            boolean up = input.up;
-            input.up = input.down;
-            input.down = up;
+        // Moonwalker: W does nothing. Only FORWARD is blocked — back, left and right all work normally, which
+        // is what makes it a shuffling-backwards curse rather than a full input scramble.
+        if (event.getEntity().getData(WitchModAttachments.MOONWALKER_ACTIVE) >= 0 && input.forwardImpulse > 0.0F) {
+            input.forwardImpulse = 0.0F;
+            input.up = false;
         }
+
+        // Wonky: a subtle sideways wander you can't quite hold a line against — but only while you're
+        // actually trying to move, and worse when you sprint. A slow sine gives a lazy weave rather than
+        // jitter; it's added to the strafe, so it never affects standing still or facing.
+        if (mc.player != null && mc.player.getData(WitchModAttachments.WONKY_ACTIVE) >= 0
+                && (Math.abs(input.forwardImpulse) > 0.0F || Math.abs(input.leftImpulse) > 0.0F)) {
+            // Per-tick phase — this event fires once a tick, which is plenty for a lazy weave.
+            double phase = mc.level.getGameTime() * (2.0 * Math.PI / Config.WONKY_PERIOD_TICKS.get());
+            double strength = Config.WONKY_DRIFT_STRENGTH.get();
+            if (mc.player.isSprinting()) {
+                strength *= Config.WONKY_SPRINT_MULTIPLIER.get();
+            }
+            input.leftImpulse += (float) (Math.sin(phase) * strength);
+        }
+
+        // Stick Drift (MOVEMENT mode): a phantom stick input in the fixed drifted direction, always the same
+        // way, at the current episode's intensity. Unlike Wonky this is constant while it runs — the stick is
+        // stuck, not weaving.
+        if (mc.player != null && mc.player.getData(WitchModAttachments.STICK_DRIFT_MODE) == 1) {
+            float intensity = stickDriftIntensity(mc.player, mc.level.getGameTime());
+            if (intensity > 0.0F) {
+                double angle = mc.player.getData(WitchModAttachments.STICK_DRIFT_ANGLE);
+                double push = intensity * Config.STICKDRIFT_MOVE_SCALE.get();
+                input.leftImpulse += (float) (Math.cos(angle) * push);
+                input.forwardImpulse += (float) (Math.sin(angle) * push);
+            }
+        }
+    }
+
+    /** Current Stick Drift episode intensity for this player, or 0 when between episodes. */
+    private static float stickDriftIntensity(LocalPlayer player, long now) {
+        if (now >= player.getData(WitchModAttachments.STICK_DRIFT_END)) {
+            return 0.0F;
+        }
+        return player.getData(WitchModAttachments.STICK_DRIFT_INTENSITY);
+    }
+
+    /**
+     * Stick Drift (CAMERA mode): rotates your ACTUAL aim a fixed way each tick — unlike a shake this really
+     * moves where you're pointing, exactly like a drifting right stick, so it has to write the player's real
+     * yaw/pitch rather than just the render view.
+     */
+    private static void tickStickDriftCamera(LocalPlayer player) {
+        if (player.getData(WitchModAttachments.STICK_DRIFT_MODE) != 0) {
+            return;
+        }
+        float intensity = stickDriftIntensity(player, player.level().getGameTime());
+        if (intensity <= 0.0F) {
+            return;
+        }
+        double angle = player.getData(WitchModAttachments.STICK_DRIFT_ANGLE);
+        double deg = intensity * Config.STICKDRIFT_CAMERA_SCALE.get();
+        player.setYRot(player.getYRot() + (float) (Math.cos(angle) * deg));
+        player.setXRot(Mth.clamp(player.getXRot() + (float) (Math.sin(angle) * deg), -90.0F, 90.0F));
     }
 
     /** True while the thirst bar has run low enough to cut sprinting off. */
@@ -316,14 +388,24 @@ public final class ClientCurseHandler {
         if (mc.player == null || mc.level == null) {
             return;
         }
-        long end = mc.player.getData(WitchModAttachments.HEAVYWEIGHT_SHAKE_END);
         long now = mc.level.getGameTime();
+        // Heavyweight's own collapse jolt...
+        applyShake(event, now, mc.player.getData(WitchModAttachments.HEAVYWEIGHT_SHAKE_END),
+                Config.HEAVYWEIGHT_SHAKE_TICKS.get(), Config.HEAVYWEIGHT_SHAKE_STRENGTH.get());
+        // ...and Flat Footed's footstep shudder from a loud player nearby. Both stack additively.
+        applyShake(event, now, mc.player.getData(WitchModAttachments.FLAT_FOOTED_SHAKE_END),
+                Config.FLATFOOT_SHAKE_TICKS.get(), Config.FLATFOOT_SHAKE_STRENGTH.get());
+    }
+
+    /** One decaying random jolt on the camera ANGLES (never the real rotation), shared by both shake sources. */
+    private static void applyShake(ViewportEvent.ComputeCameraAngles event, long now, long end,
+                                   int windowTicks, double peakStrength) {
         if (now >= end) {
             return;
         }
-        int window = Math.max(1, Config.HEAVYWEIGHT_SHAKE_TICKS.get());
+        int window = Math.max(1, windowTicks);
         double decay = Math.min(1.0, (end - now) / (double) window);
-        double strength = Config.HEAVYWEIGHT_SHAKE_STRENGTH.get() * decay * decay;
+        double strength = peakStrength * decay * decay;
         event.setYaw((float) (event.getYaw() + (SHAKE_RNG.nextDouble() - 0.5) * 2.0 * strength));
         event.setPitch((float) (event.getPitch() + (SHAKE_RNG.nextDouble() - 0.5) * 2.0 * strength));
         event.setRoll((float) (event.getRoll() + (SHAKE_RNG.nextDouble() - 0.5) * 2.0 * strength));
@@ -363,6 +445,7 @@ public final class ClientCurseHandler {
         tickLoadingScreen(player);
         tickBadSwimmer(player);
         tickHeavyAnchor(player);
+        tickStickDriftCamera(player);
         tickPacingCamera(mc, player);
     }
 

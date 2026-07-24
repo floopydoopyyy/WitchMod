@@ -19,7 +19,7 @@ Everything NOT on this list already has a working class from the prototype.
 
 **Curses (8):**
 Super Explosive, Claustrophobia, Moonwalker, Siren's Call, Loading Screen, Pacing, Trumpet,
-Uncareful (restored — see its entry).
+Heavy Handed (restored, renamed from Uncareful — see its entry).
 
 **Blessings (15):**
 Thick Skinned, Farmer's Spirit, Brute, Blacksmith, Unseen, Silver Tongue, Hot Stuff, Bouncy,
@@ -27,7 +27,8 @@ Excavation, Angler, Laugh Track, Chat, Civilisation, Low Gravity — plus Last S
 blessing-consumption behavior if the prototype lacks it.
 
 ### 0.2 CUSTOM SOUND attachments (need modded SoundEvents; OGG list in Section 12)
-**Curses (5):** Gassy ✅ done, Slippery Feet ✅ done, Loading Screen, Pacing, Trumpet. (Unhygienic ✅ done)
+**Curses (5):** Gassy ✅ done, Slippery Feet ✅ done, Loading Screen ✅ done, Pacing ✅ (theme mp3→ogg pending),
+Trumpet ✅ (⚠ supplied ogg is STEREO — needs a mono re-export for positional audio). (Unhygienic ✅ done)
 (Delusions was REMOVED from this list on Oliver's call — vanilla sounds suffice for it, see its entry.)
 **Blessings (5):** Main Character, Last Stand, Brute, Bouncy, Laugh Track.
 **System (2):** discovery chime, global warning sting.
@@ -1271,80 +1272,215 @@ oversharerIntervalMinTicks=1800  oversharerIntervalMaxTicks=6000   // 1.5min .. 
 List: data/witchmod/text/oversharer.json  { "coords":[..], "biome":[..], ... }  ✅ 11 categories supplied
 ```
 
-### Broken Bonds — Lead
-Nearby tamed mobs may untame and pathfind away, preserving other NBT (names, dyes) where possible.
+### Broken Bonds — Lead  ✅ REFINED
+**RENAMED from the prototype's "Sick Of You"** — registry id `sick_of_you` → `broken_bonds`, since display
+names derive from the id path (`DiscoveryManager.titleCase`), so the id IS the visible name. Same situation
+as Unhygienic and Neutral Aggression; any saved instance of the old id drops as unknown (harmless, never
+shipped). The prototype was also unrelated (it puffed angry-villager particles at nearby *villagers*) and was
+replaced wholesale.
+
+Your animals are quietly deciding they've had enough of you. Every owned tamed mob nearby carries a hidden
+**hate meter**, and when it maxes out the animal untames on the spot, throws you off if you were riding it,
+and storms a good distance away — **keeping all its other NBT** (name tag, collar dye, everything but the
+ownership itself), so what walks off is recognisably the pet you lost.
+
+**⚠ Covers BOTH taming systems.** Wolves/cats/parrots are `TamableAnimal`; horses/donkeys/mules/llamas are
+`AbstractHorse` and owned through an entirely separate mechanism. The scan filters on `Animal` +
+`OwnableEntity` (the interface both implement, exposing `getOwnerUUID()`), and the untame is split —
+`setTame(false,false)` for tamables, `setTamed(false)` for horses. Filtering on `TamableAnimal` alone (the
+first attempt) silently missed every horse.
+
+**The meter is proximity + interaction, with decay and jitter:**
+- **Proximity** builds it, scaled by closeness (`PROXIMITY_GAIN × (1 − dist/radius)`) — right next to you is
+  full rate, across the radius barely registers. Deliberately slow.
+- **Following** (standing, not sitting — i.e. trailing you around) adds `FOLLOW_GAIN` on top.
+- **Riding** adds `RIDE_GAIN`, the fastest way to lose a friend.
+- Every change carries ±`RANDOMNESS` jitter so the exact snap moment isn't predictable.
+- Any tracked pet NOT in range this sweep **decays** at `DECAY` (similar to the build rate), forgotten at 0 —
+  so leaving a pet alone genuinely calms it.
+
+**The snap:** `setTame(false, false)` + `setOwnerUUID(null)` (no taming side-effects, ownership only), rider
+ejected, then a time-limited `BrokenBondsFleeGoal` at priority 0 walks it away from where it happened for
+`FLEE_TICKS`. Discovered on the first snap. Angry-villager particles wisp off a pet once its meter passes
+half, as a hint something's brewing.
 ```
-BROKEN_BONDS_RADIUS=16  BROKEN_BONDS_CHECK_INTERVAL=1200  BROKEN_BONDS_CHANCE=0.15
-BROKEN_BONDS_FLEE_DISTANCE=48
+brokenBondsRadius=16.0  brokenBondsCheckIntervalTicks=20  brokenBondsLimit=100.0
+brokenBondsProximityGain=2.0  brokenBondsFollowGain=1.5  brokenBondsRideGain=4.0
+brokenBondsDecay=2.0  brokenBondsRandomness=0.3
+brokenBondsFleeTicks=200  brokenBondsFleeDistance=12.0  brokenBondsFleeSpeed=1.3
 ```
 
-### Insomniac — Phantom Membrane
-Bed blocked; silly rejection message from list. Vanilla insomnia timer still rises.
+### Insomniac — Phantom Membrane  ✅ REFINED
+You can't sleep. Trying to get into bed just doesn't work — you get one of a few silly excuses from a
+writable list (shown above the hotbar, not chat) instead.
+
+**Hooks `CanPlayerSleepEvent`, and only overrides when vanilla would ACTUALLY have let you sleep** (its own
+problem is null). So a daytime bed, monsters nearby or an obstructed bed still show vanilla's normal reason
+rather than a curse line — the curse only steals the one case where you'd otherwise have slept. It blocks
+with `BedSleepingProblem.OTHER_PROBLEM`, which carries no vanilla message, so the curse's line stands alone.
+**Because you never actually sleep, vanilla's own phantom "time since rest" counter keeps climbing** exactly
+as for anyone who stayed up — no extra bookkeeping needed. Discovered on the first denied bedtime.
 ```
-List: data/bewitchment/text/insomniac.json  INSOMNIAC_COUNTS_FOR_PHANTOMS=true
+List: data/witchmod/text/insomniac.json  (plain JSON array of strings, /reload-able)  ✅ 12 lines supplied
 ```
 
-### Flat Footed — Goat Horn
-Footsteps heavily amplified + slight camera shake for nearby players.
+### Flat Footed — Goat Horn  ✅ REFINED
+**RENAMED from the prototype's "Loud"** — registry id `loud` → `flat_footed`, since display names derive from
+the id path (`DiscoveryManager.titleCase`), so the id IS the visible name. The prototype was unrelated (it
+blared a `RAID_HORN` on a timer) and was replaced. Any saved `loud` instance drops as unknown; harmless.
+
+Your footsteps are deafening, so you're trivially trackable — even sneaking, which is only *somewhat*
+quieter, never silent.
+
+**Amplified real footsteps, not an ambient loop.** The curse tracks `walkDist` and, every `STEP_DISTANCE`
+(1.8) blocks on the ground, plays the step sound of the block you're actually standing on at `VOLUME` (3.0,
+vs vanilla's ~0.15) — so it's your genuine footstep, just enormous, which reads as *you* rather than a
+generic noise. Sneaking multiplies volume by `SNEAK_VOLUME_MULT` (0.45).
+**Camera shudder:** each footfall sets a synced `FLAT_FOOTED_SHAKE_END` tick on every OTHER player within
+`SHAKE_RADIUS`, read in `ComputeCameraAngles` (shared with Heavyweight's shake via one `applyShake` helper),
+a slight decaying jolt on the camera angles only. **Mob hearing:** hostiles within `DETECTION_RADIUS` get a
+transient `+DETECTION_BONUS` FOLLOW_RANGE so they pick you up from further off — scanned on a wider ring than
+it boosts and stripped from mobs in the outer band, so the transient modifier doesn't leak onto every mob
+that ever passed by. Discovered on the first thunderous step.
 ```
-FLATFOOT_AUDIBLE_RADIUS=24  FLATFOOT_VOLUME_MULT=3.0  FLATFOOT_SHAKE_RADIUS=8  FLATFOOT_SHAKE_STRENGTH=0.15
+flatFootedStepDistance=1.8  flatFootedVolume=3.0  flatFootedSneakVolumeMultiplier=0.45
+flatFootedShakeRadius=8.0  flatFootedShakeStrength=0.6  flatFootedShakeTicks=5
+flatFootedDetectionBonus=8.0  flatFootedDetectionRadius=24.0
 ```
 
-### Wonky — Feather
-Subtle movement-direction noise while moving; amplified sprinting.
+### Wonky — Feather  ✅ REFINED
+**RENAMED from the prototype's "Pidgeon Toed"** — id `pidgeon_toed` → `wonky` (display names derive from the
+id path, so the id IS the visible name). Prototype was a flat -25% movement-speed modifier, replaced.
+
+You can't walk in a straight line. A subtle sideways wander is added to your STRAFE (`leftImpulse`) whenever
+you're actually moving, from a slow sine so it's a lazy weave rather than jitter — quietly disorienting, not
+an obvious shove. Sprinting multiplies it (`SPRINT_MULTIPLIER`), since you commit harder to a bad line.
+
+Client-side off the synced `WONKY_ACTIVE` flag (player movement is client-authoritative, so a server nudge
+would just be corrected away). Only applied when there's real movement input, so standing still and pure
+camera aim are untouched. Discovered on apply.
 ```
-WONKY_WALK_DRIFT_STRENGTH=0.015  WONKY_SPRINT_MULT=2.5  WONKY_NOISE_PERIOD=40
+wonkyDriftStrength=0.18  wonkySprintMultiplier=2.2  wonkyPeriodTicks=34.0
 ```
 
-### Stick Drift — Fishing Rod
-Direction + mode (movement/camera) rolled once at start; random episodes; strength inversely
-proportional to episode duration; direction always consistent.
+### Stick Drift — Fishing Rod  ✅ REFINED
+A joke about controllers. When the curse lands it rolls ONCE a mode (camera or movement) and a fixed
+direction to drift toward, and both stay constant for the whole duration — a worn stick doesn't develop a
+new fault mid-session.
+
+**It drifts in EPISODES**, random intensity for random length, with the controller-drift twist:
+**intensity × duration is held roughly constant** (`DURATION_PRODUCT ÷ intensity`, clamped) — a hard drift is
+brief, a gentle one drags on. The direction is always the one rolled at apply.
+
+- **Movement mode** adds a phantom stick input (`cos/​sin(angle)` on strafe/forward) at `MOVE_SCALE`, so your
+  feet slide a consistent way. Unlike Wonky's weave this is a *constant* pull while the episode runs — the
+  stick is stuck, not wandering.
+- **Camera mode** rotates your ACTUAL yaw/pitch each tick by `CAMERA_SCALE` degrees — really moving your aim,
+  not just the render view (a shake wouldn't drift where you're pointing), exactly like a drifting stick.
+
+Server owns only the schedule (mode, angle, current episode intensity/end — all synced); the drift is applied
+client-side since both movement and aim are client-authoritative. Discovered on apply.
 ```
-STICKDRIFT_MODE_CAMERA_CHANCE=0.5  STICKDRIFT_EPISODE_INTERVAL_MIN=600  STICKDRIFT_EPISODE_INTERVAL_MAX=2400
-STICKDRIFT_STRENGTH_MIN=0.02  STICKDRIFT_STRENGTH_MAX=0.12
-STICKDRIFT_DURATION_AT_MIN=300  STICKDRIFT_DURATION_AT_MAX=60
+stickDriftCameraChancePercent=50  stickDriftGapMinTicks=40  stickDriftGapMaxTicks=200
+stickDriftIntensityMin=0.2  stickDriftIntensityMax=1.0  stickDriftDurationProduct=60.0
+stickDriftDurationMinTicks=20  stickDriftDurationMaxTicks=300
+stickDriftMoveScale=0.7  stickDriftCameraScale=2.0
 ```
 
-### Basement Dweller — Grass Block
-Direct sunlight damages; any helmet reduces (not removes).
+### Basement Dweller — Grass Block  ✅ REFINED
+Daylight doesn't agree with you. Standing in **direct sunlight** burns you — a hat takes the edge off but
+never fully saves you (`HELMET_MULT`, any head slot). "Direct sun" = daytime, clear sky straight up, and not
+raining on that spot.
+
+Custom `witchmod:sunburn` damage type — **fatal on every difficulty, bypasses armour, no knockback/no impact**
+(a slow cook, not a shove; armour shouldn't stop sunburn, so the only mitigation is the hat multiplier).
+Death: *"%s could not handle the sun"*. Each burn hisses (GENERIC_BURN) so the source is obvious. **Discovered on the first burn.**
+Item corrected to Grass Block during Pests' refinement (it was on Cobblestone — see Pests).
 ```
-BASEMENT_DAMAGE=1.0  BASEMENT_DAMAGE_INTERVAL=40  BASEMENT_HELMET_MULT=0.5  BASEMENT_REQUIRES_SKY=true
+basementDamage=1.0  basementDamageIntervalTicks=12  basementHelmetIntervalMultiplier=2.5  // hat SLOWS burns, not softens
 ```
 
-### Claustrophobia — Cobbled Deepslate (NOT PROTOTYPED)
+### Claustrophobia — Cobbled Deepslate  ✅ REFINED (NEW — was never prototyped)
+The walls are too close. Being shut indoors with **no sky above you** wears at you — the gentler mirror of
+Basement Dweller: less damage, and NO hat mitigation (a helmet does nothing about the ceiling). It bites
+whenever you can't see the sky, **night included** — the problem is the roof, not the sun.
+
+Custom `witchmod:cave_dread` damage type — same properties as sunburn (fatal everywhere, bypasses armour, no
+knockback/impact). Each bite thumps a faint WARDEN_HEARTBEAT (distinct from Basement Dweller's sizzle) so
+the source is clear. Death: *"%s let the walls get too close"*. Discovered on the first bite.
+**Both damage curses track the next-tick per player** rather than a fixed modulo, so Basement Dweller's hat
+can lengthen its interval cleanly and stepping in/out of the trigger resets it correctly.
+```
+claustrophobiaDamage=0.5  claustrophobiaDamageIntervalTicks=16
+```
+
+### Claustrophobia — Cobbled Deepslate (SUPERSEDED — see refined entry above)
 Being indoors (no sky access) hurts; milder than Basement Dweller.
 ```
 CLAUSTRO_DAMAGE=0.5  CLAUSTRO_DAMAGE_INTERVAL=40  CLAUSTRO_GRACE=200
 ```
 
-### Glass Cannon — Glass Block
+### Glass Cannon — Glass Block  ✅ REFINED
+You hit hard and you break like one. Every hit you take lands for `TAKEN_MULT` (**200%, any source**), and
+every MELEE hit you land deals `DEALT_MULT` (**150%**).
+
+**Done on `LivingIncomingDamageEvent`, not via attributes.** The prototype used ATTACK_DAMAGE + ARMOR
+modifiers, which only approximate it — an armour cut isn't a clean ×2, and an attack-damage modifier misses
+enchantment/crit contributions. Multiplying the damage AMOUNT is exact: taken applies to *any* incoming
+source; dealt is restricted to melee precisely by requiring the hit's **direct entity to be the attacker**
+(a fired arrow's direct entity is the arrow, so ranged doesn't count).
+Runs in its own handler ahead of the mod's per-player damage logic, since it fires for any damaged entity —
+not just a cursed player, but a cursed player's melee VICTIM too. Both directions get a glass shatter + `CRIT`
+particles for emphasis (`GLASS_BREAK` on you, `GLASS_HIT` on your target).
 ```
-GLASS_CANNON_DAMAGE_TAKEN_MULT=2.0  GLASS_CANNON_DAMAGE_DEALT_MULT=1.5
+glassCannonDamageTakenMultiplier=2.0  glassCannonDamageDealtMultiplier=1.5
 ```
 
-### Mansplainer — Written Book (a signed book)
-States the obvious in chat per action category: mining, building, chests, fighting, idling,
-boating, crafting.
+### Mansplainer — Written Book (a signed book)  ❌ CUT (Oliver's call)
+**REMOVED** — too close to the other chat-based curses (Yap, Oversharer, Echoes' fake chat). Its class
+`CurseMansplainer` still exists and is registered, but it is NOT being refined and should be considered
+retired; the count drops accordingly. If a slot is ever needed, its Written Book sacrificial item is free.
+
+### Moonwalker — End Stone  ✅ REFINED
+You cannot walk **forward**. W does nothing; back, left and right all work normally, so it's a
+shuffling-backwards nuisance rather than a full input scramble. Client-side off the synced
+`MOONWALKER_ACTIVE` flag (movement is client-authoritative) — the client zeroes any positive
+`forwardImpulse` and clears the W key while the curse is set.
+
+**Halved duration** via a new general `Effect.durationMultiplier()` hook (0.5 here), applied centrally in
+`EffectManager.apply` so EVERY cast path (table, command, coin, effigy, mirror-backfire) honours it — being
+unable to advance is punishing enough that a full 30–60min would be miserable. Discovery is on apply (it's
+client-only, so the server can't cleanly catch the first blocked W-press, and pressing W and going nowhere
+gives it away instantly anyway).
+NOTE the earlier prototype swapped W/S — Oliver flagged that as "not the planned version"; only forward is
+blocked now.
 ```
-MANSPLAINER_TRIGGER_COOLDOWN=1200  MANSPLAINER_TRIGGER_CHANCE=0.30
-List: data/bewitchment/text/mansplainer.json (per-category sub-lists)
+(no config — durationMultiplier is 0.5 in code; movement handled client-side)
 ```
 
-### Moonwalker — End Stone (NOT PROTOTYPED)
-Cannot walk forward normally (forward input reversed). Shorter duration override.
-```
-MOONWALKER_DURATION_OVERRIDE_MIN=6000  MOONWALKER_DURATION_OVERRIDE_MAX=12000  MOONWALKER_MODE=REVERSED
-```
+### Siren's Call — Heart of the Sea  ✅ REFINED (NEW — was never prototyped)
+The sea is calling and staying dry aches. A hidden **longing** meter builds whenever the victim is out of
+water and drains fast the moment they're back in it, escalating in three stages:
+1. **Ache** (`STAGE1`) — Mining Fatigue, plus a "You yearn for the water..." cue on the action bar.
+2. **Heaviness** (`STAGE2`) — Slowness, but only on LAND (in water you're where you want to be).
+3. **The march** (`STAGE3`) — movement is HIJACKED and you're walked to the nearest water like you're
+   mind-controlled.
 
-### Siren's Call — Heart of the Sea (NOT PROTOTYPED)
-"Longing" stat builds while out of water: fatigue/yearning → physical pull toward nearest water.
-Drowned are passive/protective toward the victim.
+The hijack is the same trick Backseat Driver uses: the server finds the nearest water (coarse-sampled scan
+within `WATER_SEARCH_RADIUS`), syncs a bearing (`SIREN_PULL_YAW`) + active flag, and the client eases the
+victim's yaw onto it and forces forward — client-side because movement is client-authoritative. A small
+server-side `PULL_FORCE` velocity tug rides on top so ice or a fall still drifts you seaward. Sits BELOW the
+Backseat block so a mounted victim's mount steering still wins.
+
+**Drowned protect their own** (`DROWNED_SOOTHE_RADIUS`): one nearby multiplies the longing gain down
+(`DROWNED_GAIN_MULT`) AND is stripped of the victim as a target — the sea's creatures don't harm one it's
+claimed. Longing is a transient server-side meter (resets on apply). Discovered on the FIRST ache, not on
+apply.
 ```
-SIREN_LONGING_MAX=100  SIREN_LONGING_GAIN_PER_SEC=0.5
-SIREN_STAGE1_THRESHOLD=40 (mining fatigue I + yearning actionbar)
-SIREN_STAGE2_THRESHOLD=70 (slowness I on land)
-SIREN_STAGE3_THRESHOLD=90 (pull active)
-SIREN_PULL_FORCE=0.06  SIREN_WATER_SEARCH_RADIUS=48  SIREN_CLEAR_RATE_IN_WATER=5.0  SIREN_DROWNED_PASSIVE=true
+sirenCheckIntervalTicks=10  sirenLongingMax=100.0  sirenDryGain=0.4  sirenWaterDrain=4.0
+sirenStage1Threshold=35  sirenStage2Threshold=65  sirenStage3Threshold=88
+sirenWaterSearchRadius=24  sirenPullForce=0.05
+sirenDrownedSootheRadius=12.0  sirenDrownedGainMultiplier=0.25
 ```
 
 ### Loading Screen — Glistering Melon (CUSTOM UI — FULLY FUNCTIONAL) (CUSTOM SOUND)  ✅ REFINED
@@ -1429,20 +1565,57 @@ pacingTheOnePieceChance=250  pacingClickVolume=1.0  pacingThemeVolume=1.0
 Sounds: witchmod:curse.pacing.theme ✅ / .click ✅ / .theonepiece ✅  (all OGG, in place)
 ```
 
-### Trumpet — Cookie (NOT PROTOTYPED) (CUSTOM SOUND)
-Cartoonish fat-trumpet MUSIC plays while moving (looping track that starts/stops with movement,
-not per-step toots).
+### Trumpet — Cookie (CUSTOM SOUND)  ✅ REFINED
+A cartoon fat-trumpet scores your every step — the old gag of a large character entering to a trumpet. A
+looping "walking in" trumpet plays whenever you MOVE, cuts out the instant you stop, speeds up slightly
+while you sprint, and goes completely silent while you crouch. In play it gives your position away to
+anyone in earshot unless you move quietly (crouch).
+
+**All the audio is CLIENT-side, and that's what makes it work.** The server owns only a synced
+`TRUMPET_ACTIVE` flag (synced to TRACKERS like Ugly, so everyone nearby hears it — not just the victim); the
+loop is a looping tickable `SoundInstance` (`client/TrumpetSoundInstance`) each nearby client spins up at the
+cursed player, managed by `client/TrumpetSoundManager`. This is required, not stylistic:
+- **Instant stop.** A fire-and-forget `level.playSound` can't be stopped mid-blare — stop moving 1s into a
+  5s toot and it keeps going for 4 more. A tickable instance `stop()`s itself the moment you stop/crouch.
+- **Seamless loop.** The engine sets OpenAL `AL_LOOPING` on the fully-buffered (`"stream": false`) sound, so
+  it loops perfectly at the buffer boundary — the file just has to be authored to loop (it is, ~4.94s).
+- **Sprint speed-up with no hiccup.** Verified in `SoundEngine.tick`: `getPitch()` is read and re-applied to
+  the live channel EVERY tick, so bumping pitch to `trumpetSprintPitch` while sprinting speeds the loop up
+  without restarting it (pitch = playback speed; clamped by the engine to [0.5, 2.0]).
+- **"Is walking"** = the entity's own `walkAnimation.speed()` (synced/computed for remote players too, since
+  it drives their leg animation) above `trumpetWalkThreshold`. Crouch = `isCrouching()`, sprint =
+  `isSprinting()` — both synced, so remote observers judge it correctly.
+
+**⚠ The OGG MUST be MONO.** OpenAL only positions/attenuates mono sounds; a stereo file plays globally at
+constant volume, which kills both the distance falloff and the whole "gives away your position"
+directionality. The supplied `trumpettheme.ogg` is **stereo (48kHz)** — installed as-is so it's testable now,
+but it plays non-directionally until re-exported to mono. `trumpetVolume` doubles as the audible RANGE
+(linear attenuation ≈ volume×16 blocks, so 1.0 ≈ 16 blocks) once it's mono. Discovery is on apply (audio is
+client-authoritative; a trumpet blaring on your first step gives itself away regardless).
+NOTE the spec's separate `stop_sting` is dropped — the design is an instant cut, no flourish.
 ```
-TRUMPET_START_DELAY=5      // ticks of movement before music starts
-TRUMPET_STOP_GRACE=20      // ticks of stillness before it cuts
-TRUMPET_AUDIBLE_RADIUS=16
-Sounds: bewitchment:curse.trumpet.walk_loop, bewitchment:curse.trumpet.stop_sting
+trumpetVolume=1.0   trumpetSprintPitch=1.15   trumpetWalkThreshold=0.03
+Sound: witchmod:curse.trumpet.walk_loop  ✅ SUPPLIED (⚠ stereo — needs a MONO re-export for positional audio)
 ```
 
-### Uncareful — Flint (NOT PROTOTYPED — restored per decision)
-Durability damage to tools/armour is greatly increased.
+### Heavy Handed — Flint  ✅ REFINED
+**RENAMED from "Uncareful" on Oliver's call** — registry id `uncareful` → `heavy_handed`, since display
+names derive from the id path (`DiscoveryManager.titleCase`), so the id IS the visible name (same as
+Unhygienic/Neutral Aggression/etc.). Any saved `uncareful` instance drops as unknown; harmless.
+
+You're rough with your gear: tools and armour lose durability **`DURABILITY_MULT` (4x)** as fast. (Oliver
+first thought this was an alias for Clumsy, then kept it as its own curse — it's a distinct mechanic. Item
+stays **Flint**, which nothing else uses.)
+
+**No event lets you modify a durability hit's amount, so this WATCHES instead:** each tick it records the
+damage value of the six slots that actually wear — both hands + the four armour pieces — and when one rises
+(the item was just used) it re-applies the shortfall as EXTRA wear via `ItemStack.hurtAndBreak`. Going
+through `hurtAndBreak` means Unbreaking still mitigates it and a piece that crosses its limit breaks
+properly. **The recorded value is taken AFTER the top-up**, so the extra isn't mistaken for fresh damage the
+next tick (which would compound it). Idle inventory items are never touched — they don't wear anyway.
+Discovered on the first extra wear.
 ```
-UNCAREFUL_DURABILITY_MULT=3.0
+heavyHandedDurabilityMultiplier=4.0
 ```
 
 ---
@@ -1846,7 +2019,7 @@ Siren's Call - Moderate - 35          (NEW)
 Loading Screen - Minor - 15           (NEW)
 Pacing - Minor - 17                   (NEW)
 Trumpet - Minor - 15                  (NEW)
-Uncareful - Moderate - 40             (RESTORED; NOT PROTOTYPED)
+Heavy Handed - Moderate - 40          (RESTORED; renamed from Uncareful)
 ```
 
 ### 10.3 Blessing costs (x1.4 flavor multiplier baked in; NEW entries marked)
@@ -1969,7 +2142,7 @@ table-forcible, so treat all four pools as one selection space until ruled other
 
 **RESOLVED this revision:** Book clash (Mansplainer → Written Book; Studious keeps Book);
 Firework Rocket clash (Main Character → Firework Star; Firework Show keeps Rocket); Brute item
-assigned (Iron Helmet — nothing else uses it); Uncareful restored (Flint — nothing else uses it).
+assigned (Iron Helmet — nothing else uses it); Heavy Handed restored (Flint — nothing else uses it).
 
 **RESOLVED in earlier revisions (no action needed):** Heavy/Heavyweight Iron Block clash (Heavy →
 Iron Ingot); Gunpowder Explosive/Creeper-neutral clash (Creeper → Dark Green Dye); Milk Bucket
@@ -2014,8 +2187,9 @@ witchmod:curse.loading.music_1/2/3/goofy   ✅ DONE — 4 hold-music tracks (wei
 witchmod:curse.pacing.theme               ✅ dramatic theme (⚠ supplied as .mp3 — export to OGG)
 witchmod:curse.pacing.click               ✅ DONE — quiet camera-cut click
 witchmod:curse.pacing.theonepiece         ✅ DONE — 1/250 revelation replacing a click
-bewitchment:curse.trumpet.walk_loop       fat-trumpet walking music loop
-bewitchment:curse.trumpet.stop_sting      short stop flourish
+witchmod:curse.trumpet.walk_loop          ✅ SUPPLIED — fat-trumpet walking loop (⚠ file is STEREO; must be
+                                          re-exported MONO for OpenAL to position/attenuate it)
+(curse.trumpet.stop_sting — CUT; the design is an instant cut with no stop flourish)
 
 BLESSINGS
 bewitchment:blessing.mainchar.theme          looping battle theme
@@ -2249,7 +2423,7 @@ prototype stand-ins the build logs list.
 ### 16.3 Refinement checklists
 
 **CURSES (49)** — `witchmod:` ids in the build logs; note the renamed ones (Neutral Aggression =
-`neutral_aggression` (RENAMED), Flat Footed = `loud`, Wonky = `pidgeon_toed`, Broken Bonds = `sick_of_you`).
+`neutral_aggression` (RENAMED), Flat Footed = `flat_footed` (RENAMED), Wonky = `wonky` (RENAMED), Broken Bonds = `broken_bonds` (RENAMED)).
 - [x] Violence — real `Player.attack` (enchants/knockback/crits/sweep) with a real `lookAt` camera turn. TWO
       urge types: sight swings (20° cone + line of sight, 25%/s, 75%/s if the shove would kill, instant priority,
       no camera hijack) and impulsive swings (camera hijacked, ramps 2%+0.5/s to 30%, overridden to 90% by
@@ -2422,7 +2596,17 @@ prototype stand-ins the build logs list.
 - [ ] Glass Cannon
 - [ ] Mansplainer
 - [ ] Moonwalker
-- [ ] Siren's Call
+- [x] Siren's Call — hidden LONGING meter that builds while dry and drains in water, through SIX stages:
+      Unease@12 (bubbles/drip, no penalty) · Yearning@28 (Mining Fatigue I + cue; discovery moment) ·
+      Restlessness@45 (Mining Fatigue II, faster cue, Nausea flickers) · Heaviness@60 (Slowness I on land) ·
+      The Sea's Grip@78 (Slowness II + intermittent resistible pull-bursts toward water) · The March@92
+      (continuous movement hijack to the nearest water + magenta mind-control shader). Water GRACE: you must
+      stay submerged `sirenWaterGraceTicks` (3s) before the longing starts to fall, and the magenta shader
+      fades to 0 across exactly that window, so the screen is clear by the time it drops. The march reuses
+      Backseat Driver's rider-steer (synced yaw + forced forward) since movement is client-authoritative,
+      plus a small server velocity tug; shader is a fullscreen `SirenShaderOverlay` at `SIREN_SHADER *
+      sirenShaderMaxAlpha` with edge vignette. Nearby Drowned soothe (×0.25 gain) and won't target the victim.
+      18 config knobs.
 - [x] Loading Screen — FULLY FUNCTIONAL. Every door/trapdoor/fence gate, no roll and no cooldown (it's
       avoidable, so certainty is the point). Random 1.5–5s, 40%/s stutter freezes and a 50% fake restart, hard
       20s cap. Input dead except menus — mouse-look pinned in BOTH the tick (real rotation) and
@@ -2438,8 +2622,19 @@ prototype stand-ins the build logs list.
       fix). Every player caught in it gets the cinematic via synced `PACING_FOCUS_ID`. Client-side theme (whole
       moment, cut off at end) + click per cut with a 1/250 `theonepiece` swap. 9 config knobs. Pending: the
       supplied `pacingtheme` is a .mp3 and needs an OGG export before the theme audio plays.
-- [ ] Trumpet
-- [ ] Uncareful
+- [x] Trumpet — cartoon fat-trumpet loop while WALKING, cuts out instantly when you stop, speeds up while
+      sprinting (live pitch), silent while crouching (the counterplay — quiet = hidden). All client-side: the
+      server owns a synced `TRUMPET_ACTIVE` flag (synced to trackers, so everyone nearby hears it), and each
+      client spins up a looping tickable `SoundInstance` at the cursed player. Instant stop + seamless
+      `AL_LOOPING` buffer loop + per-tick pitch — none of which a fire-and-forget `playSound` can do.
+      "Walking" = `walkAnimation.speed()` > threshold. Discovers on apply. 3 config knobs. ⚠ supplied OGG is
+      STEREO so it plays non-positionally — needs a MONO re-export for the position-giveaway to work.
+- [x] Heavy Handed (renamed from Uncareful) — tools/armour wear 4x as fast. No event modifies a durability
+      hit's amount, so it WATCHES: records the damage value of the six wearing slots (both hands + 4 armour)
+      each tick and, when one rises, re-applies the shortfall as EXTRA wear via `ItemStack.hurtAndBreak` (so
+      Unbreaking still mitigates and a piece that crosses its limit breaks properly). Recorded AFTER the
+      top-up so the extra isn't compounded next tick. Idle inventory untouched. Item stays Flint. Discovers
+      on first extra wear. 1 config knob.
 
 **BLESSINGS (44 listed; header says 45 — reconcile if a 45th is intended)** — renamed ids: Workman =
 `tools_dont_use_durability`, Personal Trainer = `trainer`, Hawk Guy = `locked_in`.
@@ -2602,8 +2797,8 @@ intended, it's missing from the Section 6 list and needs naming.
 pacing, trumpet. **New blessing classes (15):** thick_skinned, farmers_spirit, brute, blacksmith, unseen,
 silver_tongue, hot_stuff, bouncy, excavation, angler, laugh_track, chat, civilisation, low_gravity,
 last_stand. (Registry ids use the spec's current names; note the older prototype ids kept for the renamed
-ones — `loud`=Flat Footed, `pidgeon_toed`=Wonky,
-`sick_of_you`=Broken Bonds, `locked_in`=Hawk Guy, `tools_dont_use_durability`=Workman, `trainer`=Personal
+ones — `pidgeon_toed`=Wonky (RENAMED to wonky), `pidgeon_toed`=Wonky,
+`locked_in`=Hawk Guy, `tools_dont_use_durability`=Workman, `trainer`=Personal
 Trainer — kept stable to avoid breaking saved data; display names are a lang concern.)
 
 **Prototype stand-ins (real behavior deferred to later phases — flagged in each class's javadoc):**

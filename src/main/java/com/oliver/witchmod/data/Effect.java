@@ -88,6 +88,16 @@ public abstract class Effect {
         return false;
     }
 
+    /**
+     * A multiplier applied to this effect's rolled duration when it's cast (master-spec "duration override").
+     * Defaults to 1.0. Moonwalker halves it, because being unable to walk forward is punishing enough that
+     * it shouldn't last a full 30–60 minutes. Applied centrally in {@code EffectManager.apply}, so it's
+     * respected by every cast path (table, command, coin, effigy...).
+     */
+    public float durationMultiplier() {
+        return 1.0F;
+    }
+
     /** Marks this effect discovered for {@code target}, alerting them — call at the real trigger moment. */
     public void markDiscoveredByVictim(ServerPlayer target) {
         ResourceLocation id = WitchModRegistries.EFFECT_REGISTRY.getKey(this);

@@ -74,6 +74,10 @@ public final class EffectManager {
             return;
         }
 
+        // Per-effect duration override (e.g. Moonwalker halves its own). Applied here so every cast path
+        // honours it. Clamped to at least 1 tick so a zero multiplier can't make an effect never land.
+        durationTicks = Math.max(1, Math.round(durationTicks * effect.value().durationMultiplier()));
+
         ResourceLocation id = idOf(effect);
         ActiveEffects active = target.getData(WitchModAttachments.ACTIVE_EFFECTS);
 

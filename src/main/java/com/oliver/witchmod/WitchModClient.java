@@ -26,6 +26,7 @@ import com.oliver.witchmod.blocks.WitchModFluids;
 import com.oliver.witchmod.client.ChatOverlayLayer;
 import com.oliver.witchmod.client.GluttonyHudLayer;
 import com.oliver.witchmod.client.LoadingScreenOverlay;
+import com.oliver.witchmod.client.SirenShaderOverlay;
 import com.oliver.witchmod.client.ThirstHudLayer;
 import com.oliver.witchmod.client.TaxManRenderer;
 import com.oliver.witchmod.client.UglySkinManager;
@@ -96,6 +97,8 @@ public class WitchModClient {
         // Chat blessing's Twitch overlay (a side panel, above the HUD but below any fullscreen overlay).
         event.registerAbove(VanillaGuiLayers.FOOD_LEVEL,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "chat_overlay"), new ChatOverlayLayer());
+        // Siren's Call magenta mind-control tint — over the HUD but below the loading-screen prank.
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "siren_shader"), new SirenShaderOverlay());
         // Loading Screen prank overlay sits above everything (it's a fake fullscreen loading screen).
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "loading_screen"), new LoadingScreenOverlay());
     }

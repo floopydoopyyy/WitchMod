@@ -49,18 +49,18 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseBackseatDriver> BACKSEAT_DRIVER = register("backseat_driver", CurseBackseatDriver::new);
     public static final DeferredHolder<Effect, CurseClumsy> CLUMSY = register("clumsy", CurseClumsy::new);
     public static final DeferredHolder<Effect, CurseOversharer> OVERSHARER = register("oversharer", CurseOversharer::new);
-    public static final DeferredHolder<Effect, CurseSickOfYou> SICK_OF_YOU = register("sick_of_you", CurseSickOfYou::new);
+    public static final DeferredHolder<Effect, CurseBrokenBonds> BROKEN_BONDS = register("broken_bonds", CurseBrokenBonds::new);
     public static final DeferredHolder<Effect, CurseInsomniac> INSOMNIAC = register("insomniac", CurseInsomniac::new);
-    public static final DeferredHolder<Effect, CurseLoud> LOUD = register("loud", CurseLoud::new);
-    public static final DeferredHolder<Effect, CursePidgeonToed> PIDGEON_TOED = register("pidgeon_toed", CursePidgeonToed::new);
+    public static final DeferredHolder<Effect, CurseFlatFooted> FLAT_FOOTED = register("flat_footed", CurseFlatFooted::new);
+    public static final DeferredHolder<Effect, CurseWonky> WONKY = register("wonky", CurseWonky::new);
     public static final DeferredHolder<Effect, CurseStickDrift> STICK_DRIFT = register("stick_drift", CurseStickDrift::new);
     public static final DeferredHolder<Effect, CurseBasementDweller> BASEMENT_DWELLER = register("basement_dweller", CurseBasementDweller::new);
     public static final DeferredHolder<Effect, CurseGlassCannon> GLASS_CANNON = register("glass_cannon", CurseGlassCannon::new);
-    public static final DeferredHolder<Effect, CurseUncareful> UNCAREFUL = register("uncareful", CurseUncareful::new);
+    public static final DeferredHolder<Effect, CurseHeavyHanded> HEAVY_HANDED = register("heavy_handed", CurseHeavyHanded::new);
     public static final DeferredHolder<Effect, CurseMansplainer> MANSPLAINER = register("mansplainer", CurseMansplainer::new);
 
     // Phase A (master-spec Section 16): the 7 previously NOT-PROTOTYPED curses, now built to the same
-    // loosely-functional/command-startable bar as the rest. (Uncareful was already present above.)
+    // loosely-functional/command-startable bar as the rest. (Heavy Handed was already present above.)
     public static final DeferredHolder<Effect, CurseSuperExplosive> SUPER_EXPLOSIVE = register("super_explosive", CurseSuperExplosive::new);
     public static final DeferredHolder<Effect, CurseClaustrophobia> CLAUSTROPHOBIA = register("claustrophobia", CurseClaustrophobia::new);
     public static final DeferredHolder<Effect, CurseMoonwalker> MOONWALKER = register("moonwalker", CurseMoonwalker::new);

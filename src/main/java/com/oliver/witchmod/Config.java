@@ -779,6 +779,287 @@ public final class Config {
                     "become an infinite-durability exploit.")
             .define("stickyBlocksArmourRemoval", true);
 
+    // --- Glass Cannon ----------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue GLASS_CANNON_DAMAGE_TAKEN_MULT = BUILDER
+            .comment("Glass Cannon: multiplier on ALL incoming damage. 2.0 = you take 200%.")
+            .defineInRange("glassCannonDamageTakenMultiplier", 2.0, 1.0, 10.0);
+
+    public static final ModConfigSpec.DoubleValue GLASS_CANNON_DAMAGE_DEALT_MULT = BUILDER
+            .comment("Glass Cannon: multiplier on MELEE damage you deal (direct hits only, not projectiles).",
+                    "1.5 = you deal 150%.")
+            .defineInRange("glassCannonDamageDealtMultiplier", 1.5, 1.0, 10.0);
+
+    // --- Heavy Handed ----------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue HEAVY_HANDED_DURABILITY_MULT = BUILDER
+            .comment("Heavy Handed: durability-loss multiplier on your tools and armour. 4.0 = they wear four",
+                    "times as fast. Applied as EXTRA damage on top of the normal loss, so Unbreaking still",
+                    "mitigates it — you're clumsy, not exempt from enchantments.")
+            .defineInRange("heavyHandedDurabilityMultiplier", 4.0, 1.0, 20.0);
+
+    // --- Trumpet ---------------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue TRUMPET_VOLUME = BUILDER
+            .comment("Trumpet: loop volume. Doubles as the audible RANGE — with linear attenuation a mono",
+                    "sound carries roughly volume*16 blocks, so 1.0 ~ 16 blocks. (Needs a MONO ogg to",
+                    "position/attenuate at all — a stereo file plays globally at constant volume.)")
+            .defineInRange("trumpetVolume", 1.0, 0.0, 4.0);
+
+    public static final ModConfigSpec.DoubleValue TRUMPET_SPRINT_PITCH = BUILDER
+            .comment("Trumpet: playback pitch (= speed) while SPRINTING. 1.0 = normal; 1.15 is a slight,",
+                    "comedic speed-up. Clamped by the engine to [0.5, 2.0].")
+            .defineInRange("trumpetSprintPitch", 1.15, 0.5, 2.0);
+
+    public static final ModConfigSpec.DoubleValue TRUMPET_WALK_THRESHOLD = BUILDER
+            .comment("Trumpet: how much walk-animation speed counts as 'moving' before the music kicks in.",
+                    "Small enough to catch a walk, large enough to ignore idle jitter.")
+            .defineInRange("trumpetWalkThreshold", 0.03, 0.0, 1.0);
+
+    // --- Siren's Call ----------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue SIREN_CHECK_INTERVAL = BUILDER
+            .comment("Siren's Call: ticks between longing updates. 10 = twice a second.")
+            .defineInRange("sirenCheckIntervalTicks", 10, 1, 100);
+
+    public static final ModConfigSpec.DoubleValue SIREN_LONGING_MAX = BUILDER
+            .comment("Siren's Call: the longing meter's ceiling. Stages are read against this.")
+            .defineInRange("sirenLongingMax", 100.0, 1.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_DRY_GAIN = BUILDER
+            .comment("Siren's Call: longing gained per check while OUT of water. At the default check rate,",
+                    "0.2 fills an empty meter in roughly four minutes of staying dry.")
+            .defineInRange("sirenDryGain", 0.2, 0.0, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_WATER_DRAIN = BUILDER
+            .comment("Siren's Call: longing lost per check while in water, AFTER the grace period. Much faster",
+                    "than it builds — a proper dip settles you quickly.")
+            .defineInRange("sirenWaterDrain", 4.0, 0.0, 1000.0);
+
+    public static final ModConfigSpec.IntValue SIREN_WATER_GRACE = BUILDER
+            .comment("Siren's Call: minimum ticks you must stay in water before the longing begins to DROP.",
+                    "During this grace the meter holds and the magenta mind-control shader fades out — so by",
+                    "the time it's actually falling, the screen is clear again. 60 = 3s.")
+            .defineInRange("sirenWaterGraceTicks", 60, 0, 600);
+
+    // Six escalating stages (longing 0..100). Each is the longing at which that stage BEGINS.
+    public static final ModConfigSpec.DoubleValue SIREN_STAGE1 = BUILDER
+            .comment("Siren's Call stage 1 — UNEASE: faint bubbles and a rare water drip, no penalty yet.")
+            .defineInRange("sirenStage1Threshold", 12.0, 0.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_STAGE2 = BUILDER
+            .comment("Siren's Call stage 2 — YEARNING: Mining Fatigue I + the occasional yearning cue.")
+            .defineInRange("sirenStage2Threshold", 28.0, 0.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_STAGE3 = BUILDER
+            .comment("Siren's Call stage 3 — RESTLESSNESS: Mining Fatigue II, a more frequent cue, Nausea flickers.")
+            .defineInRange("sirenStage3Threshold", 45.0, 0.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_STAGE4 = BUILDER
+            .comment("Siren's Call stage 4 — HEAVINESS: Slowness I on land.")
+            .defineInRange("sirenStage4Threshold", 60.0, 0.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_STAGE5 = BUILDER
+            .comment("Siren's Call stage 5 — THE SEA'S GRIP: Slowness II on land + intermittent pull-bursts",
+                    "toward water (the sea testing its hold; still resistible between bursts).")
+            .defineInRange("sirenStage5Threshold", 78.0, 0.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_STAGE6 = BUILDER
+            .comment("Siren's Call stage 6 — THE MARCH: continuous movement hijack to the water, magenta shader.")
+            .defineInRange("sirenStage6Threshold", 92.0, 0.0, 10000.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_SHADER_MAX_ALPHA = BUILDER
+            .comment("Siren's Call: peak opacity of the magenta mind-control overlay, 0..1. A tint, not a wall.")
+            .defineInRange("sirenShaderMaxAlpha", 0.4, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue SIREN_WATER_SEARCH_RADIUS = BUILDER
+            .comment("Siren's Call: how far to look for water to be dragged toward, in blocks.")
+            .defineInRange("sirenWaterSearchRadius", 24, 1, 64);
+
+    public static final ModConfigSpec.DoubleValue SIREN_PULL_FORCE = BUILDER
+            .comment("Siren's Call: a small server-side velocity tug toward the water on top of the hijacked",
+                    "walk, so even mid-air or on ice you drift the right way.")
+            .defineInRange("sirenPullForce", 0.05, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_DROWNED_SOOTHE_RADIUS = BUILDER
+            .comment("Siren's Call: how close a Drowned must be to soothe you, in blocks. They protect their",
+                    "own — nearby Drowned slow the longing and won't turn on the victim.")
+            .defineInRange("sirenDrownedSootheRadius", 12.0, 0.0, 48.0);
+
+    public static final ModConfigSpec.DoubleValue SIREN_DROWNED_GAIN_MULT = BUILDER
+            .comment("Siren's Call: longing-gain multiplier while a Drowned is watching over you. Below 1.")
+            .defineInRange("sirenDrownedGainMultiplier", 0.25, 0.0, 1.0);
+
+    // --- Basement Dweller ------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue BASEMENT_DAMAGE_INTERVAL = BUILDER
+            .comment("Basement Dweller: ticks between burns while stood in the open sun. 12 = 0.6s.")
+            .defineInRange("basementDamageIntervalTicks", 12, 1, 200);
+
+    public static final ModConfigSpec.DoubleValue BASEMENT_DAMAGE = BUILDER
+            .comment("Basement Dweller: damage per burn in direct daylight, in half-hearts.")
+            .defineInRange("basementDamage", 1.0, 0.0, 40.0);
+
+    public static final ModConfigSpec.DoubleValue BASEMENT_HELMET_INTERVAL_MULT = BUILDER
+            .comment("Basement Dweller: a hat SLOWS the burns rather than softening them — the interval is",
+                    "multiplied by this while your head slot is occupied. Above 1 (2.5 = burns 2.5x further",
+                    "apart), but never infinite: you still cook, just slower.")
+            .defineInRange("basementHelmetIntervalMultiplier", 2.5, 1.0, 20.0);
+
+    // --- Claustrophobia --------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue CLAUSTRO_DAMAGE_INTERVAL = BUILDER
+            .comment("Claustrophobia: ticks between the dread biting while shut indoors. 16 = 0.8s.")
+            .defineInRange("claustrophobiaDamageIntervalTicks", 16, 1, 200);
+
+    public static final ModConfigSpec.DoubleValue CLAUSTRO_DAMAGE = BUILDER
+            .comment("Claustrophobia: damage per tick while indoors, in half-hearts. Milder than Basement",
+                    "Dweller's sun by design.")
+            .defineInRange("claustrophobiaDamage", 0.5, 0.0, 40.0);
+
+    // --- Stick Drift -----------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue STICKDRIFT_CAMERA_CHANCE = BUILDER
+            .comment("Stick Drift: percent chance the rolled drift is a CAMERA drift rather than a MOVEMENT",
+                    "one. Decided once when the curse lands and fixed thereafter.")
+            .defineInRange("stickDriftCameraChancePercent", 50, 0, 100);
+
+    public static final ModConfigSpec.IntValue STICKDRIFT_GAP_MIN = BUILDER
+            .comment("Stick Drift: shortest calm gap between drift episodes, in ticks.")
+            .defineInRange("stickDriftGapMinTicks", 40, 0, 6000);
+
+    public static final ModConfigSpec.IntValue STICKDRIFT_GAP_MAX = BUILDER
+            .comment("Stick Drift: longest calm gap between drift episodes, in ticks.")
+            .defineInRange("stickDriftGapMaxTicks", 200, 0, 6000);
+
+    public static final ModConfigSpec.DoubleValue STICKDRIFT_INTENSITY_MIN = BUILDER
+            .comment("Stick Drift: weakest episode intensity, 0..1.")
+            .defineInRange("stickDriftIntensityMin", 0.2, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue STICKDRIFT_INTENSITY_MAX = BUILDER
+            .comment("Stick Drift: strongest episode intensity, 0..1.")
+            .defineInRange("stickDriftIntensityMax", 1.0, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue STICKDRIFT_DURATION_PRODUCT = BUILDER
+            .comment("Stick Drift: intensity × duration is held roughly constant at this many tick-units, so a",
+                    "stronger drift lasts a shorter time and vice versa (the controller-drift joke). Episode",
+                    "length = this ÷ intensity, clamped to the bounds below.")
+            .defineInRange("stickDriftDurationProduct", 60.0, 1.0, 6000.0);
+
+    public static final ModConfigSpec.IntValue STICKDRIFT_DURATION_MIN = BUILDER
+            .comment("Stick Drift: shortest an episode can last regardless of intensity, in ticks.")
+            .defineInRange("stickDriftDurationMinTicks", 20, 1, 6000);
+
+    public static final ModConfigSpec.IntValue STICKDRIFT_DURATION_MAX = BUILDER
+            .comment("Stick Drift: longest an episode can last regardless of intensity, in ticks.")
+            .defineInRange("stickDriftDurationMaxTicks", 300, 1, 6000);
+
+    public static final ModConfigSpec.DoubleValue STICKDRIFT_MOVE_SCALE = BUILDER
+            .comment("Stick Drift: movement drift at full intensity, as a fraction of full stick input.")
+            .defineInRange("stickDriftMoveScale", 0.7, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue STICKDRIFT_CAMERA_SCALE = BUILDER
+            .comment("Stick Drift: camera drift at full intensity, in degrees per tick.")
+            .defineInRange("stickDriftCameraScale", 2.0, 0.0, 20.0);
+
+    // --- Wonky -----------------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue WONKY_DRIFT_STRENGTH = BUILDER
+            .comment("Wonky: how hard your movement wanders sideways while walking, as a fraction of full",
+                    "strafe. Kept small — it should feel like you can't quite hold a line, not like being",
+                    "shoved.")
+            .defineInRange("wonkyDriftStrength", 0.18, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue WONKY_SPRINT_MULTIPLIER = BUILDER
+            .comment("Wonky: how much the sideways wander is amplified while sprinting — you commit harder, so",
+                    "the wobble is worse.")
+            .defineInRange("wonkySprintMultiplier", 2.2, 1.0, 6.0);
+
+    public static final ModConfigSpec.DoubleValue WONKY_PERIOD_TICKS = BUILDER
+            .comment("Wonky: how many ticks one full left-right wander cycle takes. Longer = a lazier weave",
+                    "that's harder to consciously correct for; shorter = a jitterier stagger.")
+            .defineInRange("wonkyPeriodTicks", 34.0, 4.0, 200.0);
+
+    // --- Flat Footed -----------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue FLATFOOT_STEP_DISTANCE = BUILDER
+            .comment("Flat Footed: blocks of travel between amplified footfalls. Lower = more frequent stomps.")
+            .defineInRange("flatFootedStepDistance", 1.8, 0.5, 8.0);
+
+    public static final ModConfigSpec.DoubleValue FLATFOOT_VOLUME = BUILDER
+            .comment("Flat Footed: volume of the amplified footstep. Vanilla steps are ~0.15, so this is",
+                    "cartoonishly loud — that's the joke, and it's what makes you trackable.")
+            .defineInRange("flatFootedVolume", 3.0, 0.1, 10.0);
+
+    public static final ModConfigSpec.DoubleValue FLATFOOT_SNEAK_VOLUME_MULT = BUILDER
+            .comment("Flat Footed: multiplier applied while sneaking. Below 1 so tiptoeing is a bit quieter —",
+                    "but never silent, so sneaking away still gives you away.")
+            .defineInRange("flatFootedSneakVolumeMultiplier", 0.45, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue FLATFOOT_SHAKE_RADIUS = BUILDER
+            .comment("Flat Footed: how close another player must be to feel the footstep camera-shudder.")
+            .defineInRange("flatFootedShakeRadius", 8.0, 0.0, 48.0);
+
+    public static final ModConfigSpec.DoubleValue FLATFOOT_SHAKE_STRENGTH = BUILDER
+            .comment("Flat Footed: peak footstep camera-shudder amplitude in degrees. Slight — a nudge, not the",
+                    "Heavyweight jolt.")
+            .defineInRange("flatFootedShakeStrength", 0.6, 0.0, 10.0);
+
+    public static final ModConfigSpec.IntValue FLATFOOT_SHAKE_TICKS = BUILDER
+            .comment("Flat Footed: how long each footstep shudder lasts, in ticks.")
+            .defineInRange("flatFootedShakeTicks", 5, 1, 100);
+
+    public static final ModConfigSpec.DoubleValue FLATFOOT_DETECTION_BONUS = BUILDER
+            .comment("Flat Footed: extra blocks of FOLLOW_RANGE handed to nearby hostile mobs, so your racket",
+                    "reaches their ears from further off. Slight on purpose.")
+            .defineInRange("flatFootedDetectionBonus", 8.0, 0.0, 48.0);
+
+    public static final ModConfigSpec.DoubleValue FLATFOOT_DETECTION_RADIUS = BUILDER
+            .comment("Flat Footed: how far out hostile mobs get that detection bonus applied, in blocks.")
+            .defineInRange("flatFootedDetectionRadius", 24.0, 1.0, 64.0);
+
+    // --- Broken Bonds ----------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue BROKEN_BONDS_CHECK_INTERVAL = BUILDER
+            .comment("Broken Bonds: ticks between hate-meter updates on nearby owned pets.")
+            .defineInRange("brokenBondsCheckIntervalTicks", 20, 1, 200);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_RADIUS = BUILDER
+            .comment("Broken Bonds: how close one of your pets must be for its resentment to build, in blocks.",
+                    "Beyond this its meter cools off instead.")
+            .defineInRange("brokenBondsRadius", 16.0, 1.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_LIMIT = BUILDER
+            .comment("Broken Bonds: how much hate a pet must accumulate before it snaps and untames.")
+            .defineInRange("brokenBondsLimit", 100.0, 1.0, 100000.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_PROXIMITY_GAIN = BUILDER
+            .comment("Broken Bonds: hate per check while a pet is RIGHT next to you (it scales down with",
+                    "distance, so being across the radius barely registers). Deliberately slow.")
+            .defineInRange("brokenBondsProximityGain", 2.0, 0.0, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_FOLLOW_GAIN = BUILDER
+            .comment("Broken Bonds: extra hate per check while a pet is actively trailing you around (standing,",
+                    "not sitting) — spending time in your company wears on it.")
+            .defineInRange("brokenBondsFollowGain", 1.5, 0.0, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_RIDE_GAIN = BUILDER
+            .comment("Broken Bonds: extra hate per check while you are RIDING the pet. Being sat on is the",
+                    "fastest way to lose a friend.")
+            .defineInRange("brokenBondsRideGain", 4.0, 0.0, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_DECAY = BUILDER
+            .comment("Broken Bonds: hate lost per check when a pet is out of range or otherwise not building.",
+                    "Similar to the proximity rate, so leaving it alone genuinely calms it down.")
+            .defineInRange("brokenBondsDecay", 2.0, 0.0, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_RANDOMNESS = BUILDER
+            .comment("Broken Bonds: +/- fraction of jitter on each hate change, so the exact moment a pet",
+                    "snaps is never perfectly predictable. 0.3 = up to 30% either way.")
+            .defineInRange("brokenBondsRandomness", 0.3, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue BROKEN_BONDS_FLEE_TICKS = BUILDER
+            .comment("Broken Bonds: how long a freshly-untamed pet's legs are hijacked to storm off. 200 = 10s.")
+            .defineInRange("brokenBondsFleeTicks", 200, 20, 2400);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_FLEE_DISTANCE = BUILDER
+            .comment("Broken Bonds: how far ahead it aims each leg of that escape, in blocks.")
+            .defineInRange("brokenBondsFleeDistance", 12.0, 1.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue BROKEN_BONDS_FLEE_SPEED = BUILDER
+            .comment("Broken Bonds: movement speed multiplier while storming off.")
+            .defineInRange("brokenBondsFleeSpeed", 1.3, 0.1, 5.0);
+
     // --- Oversharer ------------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue OVERSHARER_INTERVAL_MIN = BUILDER
             .comment("Oversharer: shortest gap between leaks, in ticks. 1800 = 1.5min.")
