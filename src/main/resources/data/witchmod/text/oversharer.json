@@ -1,0 +1,66 @@
+{
+  "coords": [
+    "DROP PARTY AT {value}",
+    "Come find me at {value}!",
+    "Single and ready to mingle over at {value}",
+    "Hi there, here's my coords: {value}",
+    "FYI I'm at {value}",
+    "WISH YOU WERE HERE AT {value} <3333",
+    "meet and greet at {value}"
+  ],
+  "y": [
+    "The air is real nice at Y {value}",
+    "My elevation is {value}",
+    "DID YOU KNOW: I'm at Y {value} :P"
+  ],
+  "biome": [
+    "The {value} is honestly lovely this time of day",
+    "I like the {value} biome",
+    "Come to my {value}, for a kiss!",
+    "love the look of this {value} !",
+    "Currently in {value}."
+  ],
+  "spawn": [
+    "My bed is at {value}",
+    "If I die DO NOT come to {value}",
+    "come place your bed next to mine at {value}"
+  ],
+  "held": [
+    "currently holding a {value}!",
+    "I've got a tight grip on my {value}",
+    "You can't afford afford my {value} {value}",
+    "Swinging around my {value} rn"
+  ],
+  "armour": [
+    "drip check: {value}",
+    "Wearing {value}, rate my fit",
+    "Protection status: {value}, no flex ;)",
+    "Covered in {value} rn"
+  ],
+  "health": [
+    "If you were wondering I have {value} hearts",
+    "ladies ladies please i still have {value} health to go around...",
+    "My HP: {value}"
+  ],
+  "facing": [
+    "I am currently facing {value}",
+    "Pointed {value}, don't hmu",
+    "Heading {value}, come say hi!!!"
+  ],
+  "dimension": [
+    "the {value} is real nice today today!",
+    "HELP IM TRAPPED IN THE {value}",
+    "Anyone wanna meet in {value}?"
+  ],
+  "standing": [
+    "I'm standing on {value}.",
+    "my feet feel really nice on this {value}",
+    "Ground report: {value}."
+  ],
+  "xp": [
+    "No flex buttttt I'm level {value}",
+    "Did you know I am level {value}",
+    "I'm a proud level {value}",
+    "boutta blow all {value} levels on depth strider!"
+  ]
+}

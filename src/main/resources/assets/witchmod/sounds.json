@@ -1,0 +1,93 @@
+{
+  "curse.loading.music_1": {
+    "subtitle": "witchmod.subtitle.loading_music",
+    "sounds": [
+      "witchmod:curse/loading/loading1"
+    ]
+  },
+  "curse.loading.music_2": {
+    "subtitle": "witchmod.subtitle.loading_music",
+    "sounds": [
+      "witchmod:curse/loading/loading2"
+    ]
+  },
+  "curse.loading.music_3": {
+    "subtitle": "witchmod.subtitle.loading_music",
+    "sounds": [
+      "witchmod:curse/loading/loading3"
+    ]
+  },
+  "curse.loading.music_goofy": {
+    "subtitle": "witchmod.subtitle.loading_music",
+    "sounds": [
+      "witchmod:curse/loading/loadinggoofy"
+    ]
+  },
+  "curse.pacing.theme": {
+    "subtitle": "witchmod.subtitle.pacing_theme",
+    "sounds": [
+      {
+        "name": "witchmod:curse/pacing/pacingtheme",
+        "stream": true
+      }
+    ]
+  },
+  "curse.pacing.click": {
+    "subtitle": "witchmod.subtitle.pacing_click",
+    "sounds": [
+      "witchmod:curse/pacing/click"
+    ]
+  },
+  "curse.pacing.theonepiece": {
+    "subtitle": "witchmod.subtitle.pacing_theonepiece",
+    "sounds": [
+      "witchmod:curse/pacing/theonepiece"
+    ]
+  },
+  "curse.echoes.ping": {
+    "subtitle": "witchmod.subtitle.echoes_ping",
+    "sounds": [
+      "witchmod:curse/echoes/ping"
+    ]
+  },
+  "curse.gassy.fart_small": {
+    "subtitle": "witchmod.subtitle.gassy_fart",
+    "sounds": [
+      "witchmod:curse/gassy/fart1",
+      "witchmod:curse/gassy/fart2",
+      "witchmod:curse/gassy/fart3",
+      "witchmod:curse/gassy/fart4"
+    ]
+  },
+  "curse.gassy.fart_large": {
+    "subtitle": "witchmod.subtitle.gassy_fart_big",
+    "sounds": [
+      "witchmod:curse/gassy/fartbig"
+    ]
+  },
+  "curse.slippery.slide_whistle": {
+    "subtitle": "witchmod.subtitle.slippery_slide",
+    "sounds": [
+      "witchmod:curse/slippery/slide1",
+      "witchmod:curse/slippery/slide2",
+      "witchmod:curse/slippery/slide3"
+    ]
+  },
+  "curse.unhygienic.flies": {
+    "subtitle": "witchmod.subtitle.unhygienic_flies",
+    "sounds": [
+      "witchmod:curse/unhygienic/fly1",
+      "witchmod:curse/unhygienic/fly2",
+      "witchmod:curse/unhygienic/fly3"
+    ]
+  },
+  "curse.trumpet.walk_loop": {
+    "subtitle": "witchmod.subtitle.trumpet_walk",
+    "sounds": [
+      {
+        "name": "witchmod:curse/trumpet/trumpetwalk",
+        "stream": false
+      }
+    ]
+  }
+}
