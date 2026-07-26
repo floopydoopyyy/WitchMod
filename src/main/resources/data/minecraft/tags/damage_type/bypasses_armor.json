@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "witchmod:dehydration",
+    "witchmod:sunburn",
+    "witchmod:cave_dread",
+    "witchmod:soul_bond"
+  ]
+}

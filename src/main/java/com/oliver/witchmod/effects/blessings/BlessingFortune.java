@@ -1,29 +1,29 @@
 package com.oliver.witchmod.effects.blessings;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Items;
 
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
-import com.oliver.witchmod.data.EffectUtil;
 
-/** Loot just seems to favor you right now. */
+/**
+ * Ore just gives you more (master-spec Fortune, sacrificial item DIAMOND). Breaking an ore-tag block yields
+ * a few EXTRA drops on top of whatever it would normally give — and it's <b>additive</b>, applied after the
+ * item's own enchantment Fortune has already rolled, so the two stack without multiplying into absurdity.
+ * You get 0–{@code fortuneExtraMax} extra, biased toward {@code fortuneExtraMode} (usually one).
+ *
+ * <p>The actual drop-boosting lives in {@code effects/BlessingEventHandler} on {@code BlockDropsEvent} — the
+ * one place the finished drop list is in hand. This class only declares the blessing and defers discovery to
+ * the first time it actually pays out.
+ */
 public final class BlessingFortune extends Effect {
     public BlessingFortune() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.DIAMOND);
     }
 
+    /** You notice it the first time an ore hands you more than it should. */
     @Override
-    public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
-        EffectUtil.addTimedEffect(target, MobEffects.LUCK, durationTicks, 1);
-    }
-
-    @Override
-    public void onRemove(ServerPlayer target) {
-        EffectUtil.removeTimedEffect(target, MobEffects.LUCK);
+    public boolean discoversOnTrigger() {
+        return true;
     }
 }

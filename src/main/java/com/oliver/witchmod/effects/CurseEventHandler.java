@@ -15,6 +15,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.monster.Drowned;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
@@ -31,6 +32,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
@@ -76,6 +78,24 @@ public final class CurseEventHandler {
     private static final Map<UUID, float[]> PRE_EAT_FOOD = new ConcurrentHashMap<>();
 
     private CurseEventHandler() {}
+
+    /**
+     * Siren's Call: a Drowned near a soothed victim protects its own — it can't even acquire the victim as a
+     * target. Vetoed at the source (its goals never lock on), rather than clearing the target each tick, which
+     * flickered against those goals and let the Drowned get hits in between sweeps.
+     */
+    @SubscribeEvent
+    static void onSirenChangeTarget(LivingChangeTargetEvent event) {
+        if (!(event.getNewAboutToBeSetTarget() instanceof ServerPlayer player)
+                || !(event.getEntity() instanceof Drowned drowned)
+                || !EffectManager.isActive(player, Curses.SIRENS_CALL)) {
+            return;
+        }
+        double radius = Config.SIREN_DROWNED_SOOTHE_RADIUS.get();
+        if (drowned.distanceToSqr(player) <= radius * radius) {
+            event.setCanceled(true);
+        }
+    }
 
     /**
      * Glass Cannon runs FIRST and on its own, because it applies to any damaged entity (not just the cursed

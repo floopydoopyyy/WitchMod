@@ -35,6 +35,16 @@ public final class WitchModMobEffects {
     public static final DeferredHolder<MobEffect, MobEffect> DEHYDRATION =
             MOB_EFFECTS.register("dehydration", () -> new SimpleMobEffect(MobEffectCategory.HARMFUL, 0x4A90C2));
 
+    /**
+     * Soul Bond's marker on the tethered entity — nearest living thing to the caster. It carries no behaviour
+     * of its own (the damage-sharing and particles are driven by {@code BlessingSoulBond} on the caster);
+     * this is the icon and the "you are bound" tell. Applied {@code visible=false} so it shows no vanilla
+     * swirls — the bond has its own custom golden particles instead — but {@code showIcon=true} for the bar.
+     * Gold, to match the Totem of Undying it's cast with.
+     */
+    public static final DeferredHolder<MobEffect, MobEffect> SOUL_BOUND =
+            MOB_EFFECTS.register("soul_bound", () -> new SimpleMobEffect(MobEffectCategory.NEUTRAL, 0xFFC83C));
+
     private WitchModMobEffects() {}
 
     public static void register(IEventBus modEventBus) {

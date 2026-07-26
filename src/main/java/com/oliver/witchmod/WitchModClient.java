@@ -28,6 +28,7 @@ import com.oliver.witchmod.client.GluttonyHudLayer;
 import com.oliver.witchmod.client.LoadingScreenOverlay;
 import com.oliver.witchmod.client.SirenShaderOverlay;
 import com.oliver.witchmod.client.ThirstHudLayer;
+import com.oliver.witchmod.client.BodyguardRenderer;
 import com.oliver.witchmod.client.TaxManRenderer;
 import com.oliver.witchmod.client.UglySkinManager;
 import com.oliver.witchmod.entities.WitchModEntities;
@@ -70,15 +71,17 @@ public class WitchModClient {
         event.registerReloadListener((ResourceManagerReloadListener) manager -> UglySkinManager.reload());
     }
 
-    /** The Tax Man's humanoid model and renderer. */
+    /** The custom entities' model layers. */
     @SubscribeEvent
     static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(TaxManRenderer.LAYER, TaxManRenderer::createBodyLayer);
+        event.registerLayerDefinition(BodyguardRenderer.SUNGLASSES_LAYER, BodyguardRenderer::createSunglassesLayer);
     }
 
     @SubscribeEvent
     static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(WitchModEntities.TAX_MAN.get(), TaxManRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.BODYGUARD.get(), BodyguardRenderer::new);
     }
 
     @SubscribeEvent

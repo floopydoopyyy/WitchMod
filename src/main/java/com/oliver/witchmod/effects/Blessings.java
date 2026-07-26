@@ -16,7 +16,7 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingFortune> FORTUNE = register("fortune", BlessingFortune::new);
     public static final DeferredHolder<Effect, BlessingPeace> PEACE = register("peace", BlessingPeace::new);
     public static final DeferredHolder<Effect, BlessingLuck> LUCK = register("luck", BlessingLuck::new);
-    public static final DeferredHolder<Effect, BlessingFull> FULL = register("full", BlessingFull::new);
+    public static final DeferredHolder<Effect, BlessingFullness> FULLNESS = register("fullness", BlessingFullness::new);
     public static final DeferredHolder<Effect, BlessingArmy> ARMY = register("army", BlessingArmy::new);
     public static final DeferredHolder<Effect, BlessingReflect> REFLECT = register("reflect", BlessingReflect::new);
     public static final DeferredHolder<Effect, BlessingSoulBond> SOUL_BOND = register("soul_bond", BlessingSoulBond::new);

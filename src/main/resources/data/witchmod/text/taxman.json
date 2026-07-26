@@ -1,0 +1,70 @@
+{
+  "arrive": [
+    "Greetings, shall we begin?",
+    "Routine audit, this won't take long.",
+    "Hello, hope you are well.",
+    "Do not try anything funny, I literally cannot take damage.",
+    "Hello there.",
+    "I'm here to collect what you owe.",
+    "I've received reports of some unregistered income.",
+    "It seems you have gone over your personal allowance",
+    "Not claiming benefits, are we?"
+  ],
+  "searching": [
+    "Let's see what we have here then...",
+    "Just having a look through your holdings.",
+    "Standard assessment, please step aside.",
+    "Any undeclared assets on the premises?",
+    "I'll need to see inside that, thank you.",
+    "What have we here then..?",
+    "Hiding anything?"
+  ],
+  "taking": [
+    "Thank you for your contribution.",
+    "I'll be taking that.",
+    "Thank you for your compliance.",
+    "This will not be used on any potholes.",
+    "Consider it an investment.",
+    "Thank you very much!",
+    "Cheers, boss.",
+    "Don't look at me like that.",
+    "Just doing my job."
+  ],
+  "satisfied": [
+    "Thank you, I am satisfied.",
+    "That'll do.",
+    "Pleasure doing business.",
+    "Well, you have a lot more than it looks.",
+    "Much appreciated."
+  ],
+  "empty_handed": [
+    "Dang boy you broke.",
+    "Nothing?",
+    "Suspicious?",
+    "You are not this poor.",
+    "Where is it hidden?",
+    "Excuse me while I remain professional."
+  ],
+  "ender_chest": [
+    "I have just the thing for this...",
+    "Well let's see what you have here.",
+    "I know your tricks...",
+    "I know you're hiding something.",
+    "I see everything."
+  ],
+  "gave_up": [
+    "I'll be filing you as a 'broke boy'.",
+    "I'll be back.",
+    "I'll be telling the boss of your... poverty.",
+    "You are pathetic."
+  ],
+  "refund": [
+    "A rare refund. Don't spend it all at once.",
+    "Turns out you were owed. Here.",
+    "Special delivery. On the house.",
+    "The bureau apologises for the inconvenience. Take it.",
+    "Clerical error in your favour. Enjoy.",
+    "Your taxes, returned. This never happens.",
+    "Consider us even."
+  ]
+}

@@ -813,6 +813,203 @@ public final class Config {
                     "Small enough to catch a walk, large enough to ignore idle jitter.")
             .defineInRange("trumpetWalkThreshold", 0.03, 0.0, 1.0);
 
+    // --- Fortune (blessing) ----------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue FORTUNE_EXTRA_MIN = BUILDER
+            .comment("Fortune: fewest EXTRA drops an ore can give. Additive on top of enchantment Fortune, not",
+                    "multiplicative — so it stacks but doesn't explode. Ore-tag blocks only.")
+            .defineInRange("fortuneExtraMin", 0, 0, 64);
+
+    public static final ModConfigSpec.IntValue FORTUNE_EXTRA_MODE = BUILDER
+            .comment("Fortune: the MOST LIKELY number of extra drops — the peak of the distribution (a",
+                    "triangular roll between min and max). 1 = usually one bonus, occasionally more or none.")
+            .defineInRange("fortuneExtraMode", 1, 0, 64);
+
+    public static final ModConfigSpec.IntValue FORTUNE_EXTRA_MAX = BUILDER
+            .comment("Fortune: the most extra drops possible from one ore.")
+            .defineInRange("fortuneExtraMax", 3, 0, 64);
+
+    // --- Tax Man (blessing) ----------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue TAXMAN_SAFE_RADIUS = BUILDER
+            .comment("Tax Man blessing: he'll only turn up to pay you back when no hostile mob is within this",
+                    "radius (blocks) — he waits for it to be safe.")
+            .defineInRange("taxmanSafeRadius", 16.0, 1.0, 64.0);
+
+    public static final ModConfigSpec.IntValue TAXMAN_IDLE_TICKS = BUILDER
+            .comment("Tax Man blessing: ticks of you standing roughly still before he'll approach. 60 = 3s.")
+            .defineInRange("taxmanIdleTicks", 60, 1, 600);
+
+    public static final ModConfigSpec.IntValue TAXMAN_GIFT_EMERALDS_MAX = BUILDER
+            .comment("Tax Man blessing: when the tax bank is EMPTY he brings a gift instead. Emeralds: 1..MAX,",
+                    "uniform.")
+            .defineInRange("taxmanGiftEmeraldsMax", 10, 1, 64);
+
+    public static final ModConfigSpec.IntValue TAXMAN_GIFT_GOLD_MAX = BUILDER
+            .comment("Tax Man blessing gift: gold ingots 1..MAX, uniform.")
+            .defineInRange("taxmanGiftGoldMax", 8, 1, 64);
+
+    public static final ModConfigSpec.IntValue TAXMAN_GIFT_DIAMONDS_MAX = BUILDER
+            .comment("Tax Man blessing gift: diamonds 0..MAX, BIASED toward 0 (min of two rolls), so a fistful",
+                    "of diamonds is a rare treat.")
+            .defineInRange("taxmanGiftDiamondsMax", 3, 0, 64);
+
+    // --- Bodyguard (blessing) --------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue BODYGUARD_HEALTH = BUILDER
+            .comment("Bodyguard: the skeleton's max health. Tough — it's meant to soak a beating.")
+            .defineInRange("bodyguardHealth", 60.0, 1.0, 1024.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_DAMAGE = BUILDER
+            .comment("Bodyguard: melee damage it deals once it's actually ATTACKING an aggressor.")
+            .defineInRange("bodyguardDamage", 6.0, 0.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_ARMOR = BUILDER
+            .comment("Bodyguard: armour attribute (on top of any worn armour) — the 'armoured' in the brief.")
+            .defineInRange("bodyguardArmor", 12.0, 0.0, 30.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_SPEED = BUILDER
+            .comment("Bodyguard: movement speed. A touch quicker than a player so it can keep up and cut people off.")
+            .defineInRange("bodyguardSpeed", 0.34, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_FOLLOW_DISTANCE = BUILDER
+            .comment("Bodyguard: how far from the anchor it's happy to sit before trailing back to them (blocks).")
+            .defineInRange("bodyguardFollowDistance", 4.0, 1.0, 32.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_TELEPORT_DISTANCE = BUILDER
+            .comment("Bodyguard: if it strays (or the anchor pearls/flies) beyond this, it blinks back to the",
+                    "anchor's side like a tamed wolf (blocks).")
+            .defineInRange("bodyguardTeleportDistance", 12.0, 4.0, 96.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_WARNING_RADIUS = BUILDER
+            .comment("Bodyguard: an intruder this close to the anchor gets WARNED to back off (blocks).")
+            .defineInRange("bodyguardWarningRadius", 8.0, 1.0, 48.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_AGGRESSION_RADIUS = BUILDER
+            .comment("Bodyguard: an intruder this close, ignoring the warnings, earns AGGRESSION — shoves and",
+                    "warning hits (blocks).")
+            .defineInRange("bodyguardAggressionRadius", 4.0, 1.0, 48.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_LEASH_RANGE = BUILDER
+            .comment("Bodyguard: while ATTACKING, it gives up and returns once the aggressor is this far from the",
+                    "anchor (blocks) — it guards a place, it doesn't chase to the ends of the earth.")
+            .defineInRange("bodyguardLeashRange", 32.0, 4.0, 128.0);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_WARNING_HIT_DAMAGE = BUILDER
+            .comment("Bodyguard: damage of a non-committal 'warning hit' during AGGRESSION. Low — it's a shove,",
+                    "not an execution.")
+            .defineInRange("bodyguardWarningHitDamage", 1.0, 0.0, 20.0);
+
+    public static final ModConfigSpec.IntValue BODYGUARD_WARNING_HIT_INTERVAL = BUILDER
+            .comment("Bodyguard: minimum ticks between warning hits.")
+            .defineInRange("bodyguardWarningHitIntervalTicks", 30, 1, 200);
+
+    public static final ModConfigSpec.IntValue BODYGUARD_PATIENCE = BUILDER
+            .comment("Bodyguard: ticks an intruder can keep crowding at AGGRESSION range before the bodyguard",
+                    "loses patience, draws its sword and actually attacks them (no attack from them needed).",
+                    "100 = 5s. This is what makes it engage instead of shoving forever.")
+            .defineInRange("bodyguardPatienceTicks", 100, 20, 1200);
+
+    public static final ModConfigSpec.IntValue BODYGUARD_WARNINGS_BEFORE_ATTACK = BUILDER
+            .comment("Bodyguard: how many spoken warnings it must actually deliver to a lingering intruder",
+                    "before patience is allowed to draw steel — so it never silently jumps to violence.",
+                    "(Being physically attacked still triggers immediate self-defence, warnings or not.)")
+            .defineInRange("bodyguardWarningsBeforeAttack", 2, 0, 10);
+
+    public static final ModConfigSpec.DoubleValue BODYGUARD_CHAT_RADIUS = BUILDER
+            .comment("Bodyguard: only players within this radius hear it speak (blocks) — its lines are local,",
+                    "not server-wide.")
+            .defineInRange("bodyguardChatRadius", 24.0, 1.0, 128.0);
+
+    public static final ModConfigSpec.IntValue BODYGUARD_DIALOGUE_COOLDOWN = BUILDER
+            .comment("Bodyguard: minimum ticks between one spoken dialogue tree and the next during a",
+                    "confrontation (idle 'ambient' chatter is 3x rarer). 100 = ~5s — chatty enough to feel",
+                    "alive without talking over itself.")
+            .defineInRange("bodyguardDialogueCooldownTicks", 100, 20, 2000);
+
+    public static final ModConfigSpec.IntValue BODYGUARD_DIALOGUE_LINE_GAP = BUILDER
+            .comment("Bodyguard: ticks between successive lines WITHIN one dialogue tree.")
+            .defineInRange("bodyguardDialogueLineGapTicks", 30, 1, 200);
+
+    // --- Soul Bond (blessing) --------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue SOULBOND_RADIUS = BUILDER
+            .comment("Soul Bond: how close the nearest living thing must be to become your bound (blocks). The",
+                    "bond continuously re-picks the nearest, so in a 1v1 it latches onto your opponent and with",
+                    "a pet at your heels it latches onto the pet — which is the whole deterrent.")
+            .defineInRange("soulBondRadius", 16.0, 1.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue SOULBOND_DAMAGE_SHARE = BUILDER
+            .comment("Soul Bond: fraction of the damage YOU take that your bound takes instead. 0.4 = they eat",
+                    "40%, you eat the remaining 60%. Their share bypasses armour (it's a soul tether).")
+            .defineInRange("soulBondDamageShare", 0.4, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue SOULBOND_REBIND_INTERVAL = BUILDER
+            .comment("Soul Bond: ticks between re-picking the nearest living thing to bind. 20 = once a second.")
+            .defineInRange("soulBondRebindIntervalTicks", 20, 1, 200);
+
+    public static final ModConfigSpec.IntValue SOULBOND_PARTICLE_INTERVAL = BUILDER
+            .comment("Soul Bond: ticks between the constant golden particles emitted on the bound entity.")
+            .defineInRange("soulBondParticleIntervalTicks", 4, 1, 100);
+
+    // --- Fullness (blessing) ---------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue FULLNESS_DRAIN_RATE = BUILDER
+            .comment("Fullness: fraction of the NORMAL hunger drain that actually sticks. 0.2 = hunger (and its",
+                    "hidden saturation) deplete at a fifth of the usual rate, so you rarely need to eat.")
+            .defineInRange("fullnessDrainRate", 0.2, 0.0, 1.0);
+
+    // --- Army (blessing) -------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue ARMY_RADIUS = BUILDER
+            .comment("Army: radius (blocks) within which hostile mobs go neutral toward you and rally to your",
+                    "defence when something hits you.")
+            .defineInRange("armyRadius", 24, 1, 128);
+
+    public static final ModConfigSpec.IntValue ARMY_DEFEND_DURATION = BUILDER
+            .comment("Army: ticks the nearby horde keeps swarming whatever last hit you. 600 = 30s.")
+            .defineInRange("armyDefendDurationTicks", 600, 20, 12000);
+
+    public static final ModConfigSpec.IntValue ARMY_CHECK_INTERVAL = BUILDER
+            .comment("Army: ticks between sweeps that keep hostiles off you (and re-aim the swarm). Low, so mobs",
+                    "barely get a swing in before being pacified.")
+            .defineInRange("armyCheckIntervalTicks", 5, 1, 100);
+
+    public static final ModConfigSpec.BooleanValue ARMY_SAME_TYPE_EXCLUDED = BUILDER
+            .comment("Army: if true, the swarm won't turn on its OWN kind — a zombie that hit you won't be",
+                    "attacked by other zombies, but skeletons etc. still will.")
+            .define("armySameTypeExcluded", true);
+
+    // --- Reflect (blessing) ----------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue REFLECT_VELOCITY_MULT = BUILDER
+            .comment("Reflect: speed multiplier on a projectile sent back at its shooter. 1.5 = it returns half",
+                    "again as fast as it arrived — harder to dodge, but dodgeable (it doesn't home).")
+            .defineInRange("reflectVelocityMultiplier", 1.5, 0.1, 10.0);
+
+    public static final ModConfigSpec.DoubleValue REFLECT_INACCURACY = BUILDER
+            .comment("Reflect: spread on the return shot. 0.0 = dead-precise at the attacker; raise for sloppier",
+                    "aim (vanilla arrows use ~1.0).")
+            .defineInRange("reflectInaccuracy", 0.0, 0.0, 20.0);
+
+    // --- Peace (blessing) ------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue PEACE_SPAWN_RATE_MULT = BUILDER
+            .comment("Peace: fraction of hostile NATURAL spawns near you that are still ALLOWED. 0.3 = ~70% of",
+                    "them are quietly cancelled, so far fewer monsters appear around you.")
+            .defineInRange("peaceSpawnRateMultiplier", 0.3, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue PEACE_RADIUS = BUILDER
+            .comment("Peace: radius (blocks) around you that spawn suppression and detection reduction apply.")
+            .defineInRange("peaceRadius", 48, 1, 128);
+
+    public static final ModConfigSpec.DoubleValue PEACE_DETECTION_MULT = BUILDER
+            .comment("Peace: fraction of a hostile's NORMAL follow range at which it can still notice you. 0.4 =",
+                    "mobs only lock onto you at 40% of the usual distance — the opposite of Popularity.")
+            .defineInRange("peaceDetectionMultiplier", 0.4, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue PEACE_CHECK_INTERVAL = BUILDER
+            .comment("Peace: ticks between sweeps that strip too-distant aggro and check for the discovery moment.")
+            .defineInRange("peaceCheckIntervalTicks", 20, 1, 200);
+
+    // --- Luck (blessing) -------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue LUCK_ATTRIBUTE_BONUS = BUILDER
+            .comment("Luck: how much is added to your vanilla LUCK attribute. Nudges loot-table rolls (fishing,",
+                    "chests) toward better outcomes. 5.0 is a big, if quiet, boost.")
+            .defineInRange("luckAttributeBonus", 5.0, 0.0, 1024.0);
+
     // --- Siren's Call ----------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue SIREN_CHECK_INTERVAL = BUILDER
             .comment("Siren's Call: ticks between longing updates. 10 = twice a second.")
