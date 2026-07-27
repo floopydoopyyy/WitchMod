@@ -18,6 +18,7 @@ import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -35,7 +36,10 @@ import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockDropsEvent;
 
@@ -46,6 +50,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.effects.blessings.BlessingArmy;
 import com.oliver.witchmod.effects.blessings.BlessingBodyguard;
+import com.oliver.witchmod.effects.blessings.BlessingHypeMan;
 import com.oliver.witchmod.effects.blessings.BlessingSoulBond;
 import com.oliver.witchmod.entities.BodyguardEntity;
 import com.oliver.witchmod.effects.blessings.BlessingBlacksmith;
@@ -367,6 +372,34 @@ public final class BlessingEventHandler {
         for (int i = 0; i <= points; i++) {
             Vec3 p = from.add(delta.scale((double) i / points));
             level.sendParticles(BlessingSoulBond.GOLD, p.x, p.y, p.z, 1, 0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+    // --- Hype Man: the crowd praises the blessed player for what they do ---------------------------------
+
+    /** Combat — swinging on anything earns a cheer. */
+    @SubscribeEvent
+    static void onHypeManCombat(AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
+            BlessingHypeMan.praise(player, "combat");
+        }
+    }
+
+    /** Picking an item up off the floor. */
+    @SubscribeEvent
+    static void onHypeManPickup(ItemEntityPickupEvent.Post event) {
+        if (event.getPlayer() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
+            BlessingHypeMan.praise(player, "pickup");
+        }
+    }
+
+    /** Opening a chest/barrel (a ChestMenu) — "looting". */
+    @SubscribeEvent
+    static void onHypeManLoot(PlayerContainerEvent.Open event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && event.getContainer() instanceof ChestMenu
+                && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
+            BlessingHypeMan.praise(player, "loot");
         }
     }
 }

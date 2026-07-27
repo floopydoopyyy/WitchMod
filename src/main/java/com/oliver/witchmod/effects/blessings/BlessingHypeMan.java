@@ -1,50 +1,111 @@
 package com.oliver.witchmod.effects.blessings;
 
-import org.jetbrains.annotations.Nullable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffects;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
+import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import com.oliver.witchmod.data.HypeManMessages;
 
-/** Someone's hyping you up, loudly, whether or not anyone else can see them. */
+/**
+ * You've got a personal hype man — a crowd, really (master-spec Hype Man, sacrificial item ANY MUSIC DISC, a
+ * Rule 9 tag exception). Your every move makes nearby players gush about you in chat, addressing you by name,
+ * sometimes to an unhinged degree. It does NOTHING mechanical — it's purely for the comedy — hence it's cheap.
+ *
+ * <p>Praise is triggered by what you do: <b>combat</b>, <b>picking items up</b>, <b>looting a chest</b>, and
+ * just <b>being around</b> (ambient). The action hooks live in {@code BlessingEventHandler}; the ambient one is
+ * this class's tick. Every trigger routes through {@link #praise}, which shares one cooldown so a busy moment
+ * can't spam chat, rolls {@code hypemanChance} so it stays a treat, and speaks the line in the mouth of a
+ * random nearby player (or "a fan" if you're alone) so it reads as the crowd, not the game.
+ *
+ * <p>Lines come from the writable {@code data/witchmod/text/hypeman.json}, keyed by trigger, with {@code
+ * {player}} filled in with your username.
+ */
 public final class BlessingHypeMan extends Effect {
-    private static final int INTERVAL_TICKS = 500;
-    private static final double RADIUS = 12.0;
-    private static final String[] HYPE = {
-            "LET'S GOOOO!",
-            "THAT'S MY PLAYER RIGHT THERE!",
-            "UNSTOPPABLE. ABSOLUTELY UNSTOPPABLE.",
-            "RUN IT BACK!"
-    };
+    /** blessed player -> game tick of their last praise, so all triggers share one cooldown. */
+    private static final Map<UUID, Long> LAST_PRAISE = new HashMap<>();
+
+    /** When nobody real is nearby to do the hyping (e.g. singleplayer), the line gets one of these names. */
+    private static final String[] ANON_FANS = {"a fan", "some guy", "a bystander", "your biggest fan",
+            "a passer-by", "the crowd"};
+
+    /** The vanilla music-disc tag — any disc selects this blessing at the Table. */
+    private static final TagKey<Item> MUSIC_DISCS =
+            TagKey.create(Registries.ITEM, ResourceLocation.withDefaultNamespace("music_discs"));
 
     public BlessingHypeMan() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.MUSIC_DISC_CAT);
     }
 
     @Override
-    public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
-        EffectUtil.addTimedEffect(target, MobEffects.DAMAGE_BOOST, durationTicks, 0);
+    public Optional<TagKey<Item>> sacrificialTag() {
+        return Optional.of(MUSIC_DISCS);
     }
 
     @Override
     public void onRemove(ServerPlayer target) {
-        EffectUtil.removeTimedEffect(target, MobEffects.DAMAGE_BOOST);
+        LAST_PRAISE.remove(target.getUUID());
     }
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        if (EffectUtil.every(ticksRemaining, INTERVAL_TICKS)) {
-            ServerLevel level = target.serverLevel();
-            String line = HYPE[target.getRandom().nextInt(HYPE.length)];
-            level.getPlayers(p -> p.distanceToSqr(target) <= RADIUS * RADIUS)
-                    .forEach(p -> p.sendSystemMessage(Component.literal(line)));
+        // Unprompted "just being here" praise, gated by the shared cooldown + chance inside praise().
+        if (EffectUtil.every(ticksRemaining, Config.HYPEMAN_AMBIENT_INTERVAL.get())) {
+            praise(target, "nearby");
         }
+    }
+
+    /**
+     * Have the nearby crowd praise {@code blessed} for a {@code key} action, if the shared cooldown is up and
+     * the chance roll passes. Safe to call from any trigger.
+     */
+    public static void praise(ServerPlayer blessed, String key) {
+        if (!(blessed.level() instanceof ServerLevel level)) {
+            return;
+        }
+        long now = level.getGameTime();
+        Long last = LAST_PRAISE.get(blessed.getUUID());
+        if (last != null && now - last < Config.HYPEMAN_COOLDOWN.get()) {
+            return; // too soon since the last cheer
+        }
+        RandomSource random = blessed.getRandom();
+        if (random.nextDouble() >= Config.HYPEMAN_CHANCE.get()) {
+            return; // not this time
+        }
+        String line = HypeManMessages.pick(key, random);
+        if (line == null) {
+            return;
+        }
+        LAST_PRAISE.put(blessed.getUUID(), now);
+
+        double radius = Config.HYPEMAN_RADIUS.get();
+        List<ServerPlayer> nearby = level.getPlayers(p -> p != blessed
+                && p.distanceToSqr(blessed) <= radius * radius);
+        String speaker = nearby.isEmpty()
+                ? ANON_FANS[random.nextInt(ANON_FANS.length)]
+                : nearby.get(random.nextInt(nearby.size())).getGameProfile().getName();
+
+        Component message = Component.literal("<" + speaker + "> "
+                + line.replace("{player}", blessed.getGameProfile().getName()));
+
+        // Everyone in earshot hears it — including the blessed player, the subject of the adoration.
+        level.getPlayers(p -> p.distanceToSqr(blessed) <= radius * radius)
+                .forEach(p -> p.sendSystemMessage(message));
     }
 }

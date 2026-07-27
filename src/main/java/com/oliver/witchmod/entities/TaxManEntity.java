@@ -77,6 +77,7 @@ public final class TaxManEntity extends Mob {
     @Nullable
     private ItemEntity targetItem;
     private boolean targetingVictim;
+    private boolean enderChestTarget; // the current container target is his placed ender chest (rifles YOUR ender inv)
     @Nullable
     private UUID victimId;
     private final List<BlockPos> searched = new ArrayList<>();
@@ -310,7 +311,7 @@ public final class TaxManEntity extends Mob {
         }
 
         // Couldn't get there — give up on this one rather than pathing into a wall forever.
-        if (phaseTicks > 120) {
+        if (phaseTicks > 60) {
             markSearched(targetContainer);
             chooseNextTarget(level, victim);
         }
@@ -329,8 +330,14 @@ public final class TaxManEntity extends Mob {
         if (phaseTicks % Config.TAXES_COLLECT_INTERVAL.get() != 0) {
             return;
         }
-        BlockEntity blockEntity = level.getBlockEntity(targetContainer);
-        boolean took = blockEntity instanceof Container container && takeOneFrom(container, victim);
+        // His placed ender chest shows YOUR ender inventory, not a block container of its own — so rifle that.
+        boolean took;
+        if (enderChestTarget) {
+            took = victim != null && takeOneFrom(victim.getEnderChestInventory(), victim);
+        } else {
+            BlockEntity blockEntity = level.getBlockEntity(targetContainer);
+            took = blockEntity instanceof Container container && takeOneFrom(container, victim);
+        }
         if (took) {
             swing(InteractionHand.MAIN_HAND);
             level.playSound(null, blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.NEUTRAL, 0.6F, 0.8F);
@@ -351,6 +358,7 @@ public final class TaxManEntity extends Mob {
         targetContainer = null;
         targetItem = null;
         targetingVictim = false;
+        enderChestTarget = false;
 
         targetContainer = nearestUnsearchedContainer(level);
         if (targetContainer != null) {
@@ -542,18 +550,37 @@ public final class TaxManEntity extends Mob {
 
     private void placeEnderChest(ServerLevel level, @Nullable ServerPlayer victim) {
         placedEnderChest = true;
-        BlockPos spot = blockPosition().relative(getDirection());
-        if (level.getBlockState(spot).canBeReplaced()) {
-            level.setBlockAndUpdate(spot, Blocks.ENDER_CHEST.defaultBlockState());
-            enderChestPos = spot;
-            level.playSound(null, spot, SoundEvents.ENDER_CHEST_OPEN, SoundSource.BLOCKS, 0.8F, 1.0F);
-        }
         say(victim, "ender_chest");
 
-        // The point of the gambit: it reaches the one stash you thought was out of his jurisdiction.
-        if (victim != null) {
-            takeOneFrom(victim.getEnderChestInventory(), victim);
+        BlockPos spot = findEnderChestSpot(level);
+        if (spot != null) {
+            level.setBlockAndUpdate(spot, Blocks.ENDER_CHEST.defaultBlockState());
+            enderChestPos = spot;
+            // Route it through the SAME walk -> open (real lid) -> rifle -> close flow as any other chest,
+            // so it no longer teleport-grabs. tickRifling reads the victim's ender inventory for it.
+            targetContainer = spot;
+            enderChestTarget = true;
+        } else if (victim != null) {
+            // Nowhere to set it down (rare) — reach in directly rather than lose the gambit entirely.
+            Container ender = victim.getEnderChestInventory();
+            while (takeOneFrom(ender, victim)) {
+                swing(InteractionHand.MAIN_HAND);
+            }
         }
+    }
+
+    /** A replaceable cell with solid ground under it, next to him, to set the ender chest down on. */
+    @Nullable
+    private BlockPos findEnderChestSpot(ServerLevel level) {
+        BlockPos self = blockPosition();
+        for (BlockPos pos : new BlockPos[]{self.relative(getDirection()),
+                self.north(), self.south(), self.east(), self.west()}) {
+            if (level.getBlockState(pos).canBeReplaced()
+                    && !level.getBlockState(pos.below()).getCollisionShape(level, pos.below()).isEmpty()) {
+                return pos.immutable();
+            }
+        }
+        return null;
     }
 
     private void depart(ServerLevel level) {

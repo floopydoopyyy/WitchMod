@@ -828,6 +828,27 @@ public final class Config {
             .comment("Fortune: the most extra drops possible from one ore.")
             .defineInRange("fortuneExtraMax", 3, 0, 64);
 
+    // --- Hype Man (blessing) ---------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue HYPEMAN_RADIUS = BUILDER
+            .comment("Hype Man: how close a player must be to be dragged in as a hype-man and to hear the praise",
+                    "(blocks). Also the pool the random 'speaker' of each line is picked from.")
+            .defineInRange("hypemanRadius", 16.0, 1.0, 64.0);
+
+    public static final ModConfigSpec.IntValue HYPEMAN_COOLDOWN = BUILDER
+            .comment("Hype Man: minimum ticks between any two praises, across ALL trigger types, so a fight or a",
+                    "pickup spree doesn't turn into a wall of text. 160 = ~8s.")
+            .defineInRange("hypemanCooldownTicks", 160, 0, 6000);
+
+    public static final ModConfigSpec.DoubleValue HYPEMAN_CHANCE = BUILDER
+            .comment("Hype Man: chance (0..1) that an eligible action actually earns praise once the cooldown is",
+                    "up. Below 1 so it stays a treat rather than clockwork.")
+            .defineInRange("hypemanChance", 0.6, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue HYPEMAN_AMBIENT_INTERVAL = BUILDER
+            .comment("Hype Man: ticks between checks for unprompted 'just being here' praise (still gated by the",
+                    "cooldown and chance above). 120 = every 6s.")
+            .defineInRange("hypemanAmbientIntervalTicks", 120, 20, 6000);
+
     // --- Tax Man (blessing) ----------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue TAXMAN_SAFE_RADIUS = BUILDER
             .comment("Tax Man blessing: he'll only turn up to pay you back when no hostile mob is within this",
@@ -1377,26 +1398,26 @@ public final class Config {
             .defineInRange("taxesCooldownTicks", 6000, 100, 72000);
 
     public static final ModConfigSpec.IntValue TAXES_COLLECT_INTERVAL = BUILDER
-            .comment("Taxes: ticks between individual seizures. Deliberately item-by-item so you can watch it",
-                    "happen and swear at him, rather than everything vanishing in one frame.")
-            .defineInRange("taxesCollectIntervalTicks", 20, 1, 200);
+            .comment("Audit: ticks between individual seizures. Item-by-item so you can watch it happen and",
+                    "swear at him, but brisk (7 = ~0.35s) so a full chest doesn't take an age.")
+            .defineInRange("taxesCollectIntervalTicks", 7, 1, 200);
 
     public static final ModConfigSpec.IntValue TAXES_ARRIVE_TICKS = BUILDER
-            .comment("Taxes: how long he stands there ominously before starting work.")
-            .defineInRange("taxesArriveTicks", 60, 0, 600);
+            .comment("Audit: how long he stands there ominously before starting work. 20 = 1s.")
+            .defineInRange("taxesArriveTicks", 20, 0, 600);
 
     public static final ModConfigSpec.IntValue TAXES_LEAVE_TICKS = BUILDER
-            .comment("Taxes: how long he lingers after finishing before vanishing.")
-            .defineInRange("taxesLeaveTicks", 60, 0, 600);
+            .comment("Audit: how long he lingers after finishing before vanishing. 25 = ~1.25s.")
+            .defineInRange("taxesLeaveTicks", 25, 0, 600);
 
     public static final ModConfigSpec.IntValue TAXES_GIVE_UP_SWEEPS = BUILDER
-            .comment("Taxes: how many fruitless sweeps before he gives up and leaves.")
+            .comment("Audit: how many fruitless sweeps before he gives up and leaves.")
             .defineInRange("taxesGiveUpSweeps", 8, 1, 100);
 
     public static final ModConfigSpec.IntValue TAXES_ENDER_CHEST_AFTER = BUILDER
-            .comment("Taxes: fruitless sweeps before he places his OWN ender chest to go through yours — the",
+            .comment("Audit: fruitless sweeps before he places his OWN ender chest to go through yours — the",
                     "answer to hiding everything in the one container he can't otherwise reach.")
-            .defineInRange("taxesEnderChestAfterSweeps", 3, 1, 100);
+            .defineInRange("taxesEnderChestAfterSweeps", 2, 1, 100);
 
     public static final ModConfigSpec.DoubleValue TAXES_CHAT_RADIUS = BUILDER
             .comment("Taxes: how far away other players can hear him narrating, in blocks.")

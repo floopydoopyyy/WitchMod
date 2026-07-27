@@ -1,0 +1,53 @@
+{
+  "_comment": "Hype Man praise. Keyed by what the blessed player did. {player} = their username. Each line is spoken in chat by a nearby player (or 'A fan' if you're alone). Write freely.",
+  "combat": [
+    "{player} IS ON A RAMPAGE!",
+    "did you SEE that?? {player} is HIM",
+    "GET EM {player}!!!",
+    "{player} does NOT miss",
+    "someone check on {player}'s opponent... actually don't, they're gone",
+    "COMBAT LEGEND {player}",
+    "{player} cooking AGAIN",
+    "that's a war crime {player}, respectfully",
+    "{player} fears NO mob",
+    "put {player} in the history books",
+    "violence has a name and it's {player}",
+    "{player} just made that look EASY"
+  ],
+  "pickup": [
+    "{player} keeping it TIDY",
+    "not a single item safe from {player}",
+    "{player} really said 'that's mine now'",
+    "look at {player} out here providing",
+    "grab it {player}! secure the bag!",
+    "{player} the collector, the hoarder, the LEGEND",
+    "economy carried by {player} single-handedly",
+    "{player} leaves NOTHING behind",
+    "loot goblin behaviour and we STAN {player}",
+    "{player} picking up more than my self-esteem"
+  ],
+  "loot": [
+    "{player} cracking that chest like a PRO",
+    "whatever's in there belongs to {player} now",
+    "{player} auditing the storage, love to see it",
+    "chest never stood a chance against {player}",
+    "{player} finding the GOOD stuff, I can feel it",
+    "open sesame? nah. open, {player} said so.",
+    "{player} treats every chest like a personal ATM",
+    "somebody's getting robbed and it's ROYAL, go {player}"
+  ],
+  "nearby": [
+    "just standing near {player} and honestly? honoured",
+    "is that {player}?? THE {player}??",
+    "{player} radiates main character energy",
+    "we don't deserve {player}",
+    "hi {player} big fan huge fan",
+    "the weather's nicer when {player}'s around",
+    "{player} could ask me for anything rn",
+    "everyone act normal, {player}'s here",
+    "{player} my roman empire fr",
+    "i'd take a creeper for {player} no cap",
+    "{player} looking CRAZY good today",
+    "sighting of the day: {player}"
+  ]
+}
