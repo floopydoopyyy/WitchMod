@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 
 /**
@@ -43,6 +44,16 @@ public abstract class Effect {
     /** The item that must be placed in the Bewitching Table's Sacrificial Item slot to select this effect. */
     public Item sacrificialItem() {
         return sacrificialItem.get();
+    }
+
+    /**
+     * A tag whose members ALL select this effect at the Table, as the explicit exception to exact-item
+     * matching (master-spec Rule 9): only Hype Man (any music disc) and Party Time (any candle) use it. Empty
+     * by default. {@link SacrificialItems#findEffect} checks it only when no exact-item match is found, and
+     * {@link #sacrificialItem()} still returns a representative member for the icon/preview.
+     */
+    public Optional<TagKey<Item>> sacrificialTag() {
+        return Optional.empty();
     }
 
     /**

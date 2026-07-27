@@ -41,7 +41,7 @@ import com.oliver.witchmod.data.EventCategory;
 import com.oliver.witchmod.data.LedgerLog;
 import com.oliver.witchmod.data.TaxBank;
 import com.oliver.witchmod.data.WitchModRegistries;
-import com.oliver.witchmod.effects.curses.CurseTaxes;
+import com.oliver.witchmod.effects.curses.CurseAudit;
 
 /**
  * The {@code /bewitch} command tree (CLAUDE.md section 8). The only entry point into curse/blessing/
@@ -135,7 +135,7 @@ public final class BewitchCommand {
 
         // ⚠ Taxes is refused when the tax bank has hit its MEMORY ceiling — never cast it into a state where
         // the Tax Man would have to void what he takes. See TaxBank.isFull().
-        if (effect.value() instanceof CurseTaxes) {
+        if (effect.value() instanceof CurseAudit) {
             TaxBank bank = TaxBank.get(ctx.getSource().getServer());
             if (bank.isFull()) {
                 ctx.getSource().sendFailure(Component.literal(

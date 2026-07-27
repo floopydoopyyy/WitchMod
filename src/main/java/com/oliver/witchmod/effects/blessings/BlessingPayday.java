@@ -23,17 +23,18 @@ import com.oliver.witchmod.entities.TaxManEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * The Tax Man, but this time he owes YOU (master-spec Tax Man blessing, sacrificial item GOLD INGOT). He
- * turns up, walks over, drops your money in front of you, and leaves — and that <b>one delivery consumes the
- * blessing</b>. What he hands over is everything the {@link com.oliver.witchmod.data.TaxBank} has confiscated
- * (across the whole world, memory-capped) — or, if the bank is empty, a random consolation gift.
+ * The Tax Man, but this time he owes YOU (master-spec Payday, formerly "Tax Man" the blessing — renamed to
+ * be clearly distinct from the {@code audit} curse and from the Tax Man CHARACTER himself; sacrificial item
+ * GOLD INGOT). He turns up, walks over, drops your money in front of you, and leaves — and that <b>one
+ * delivery consumes the blessing</b>. What he hands over is everything the {@link com.oliver.witchmod.data.TaxBank}
+ * has confiscated (across the whole world, memory-capped) — or, if the bank is empty, a random consolation gift.
  *
  * <p><b>He waits for a good moment</b> rather than barging in: no hostile mob within {@code taxmanSafeRadius}
  * AND you standing roughly still for {@code taxmanIdleTicks}. Until then the blessing just watches. The
  * payout itself (draining the bank, or rolling the gift) happens on the entity at the instant of hand-off, so
  * the bank is only ever drained on a genuine, completed delivery.
  */
-public final class BlessingTaxMan extends Effect {
+public final class BlessingPayday extends Effect {
     /** Per-recipient waiting state: how long they've been still, where they were, and the summoned entity. */
     private static final class Watch {
         int idleTicks;
@@ -49,7 +50,7 @@ public final class BlessingTaxMan extends Effect {
     private static final Map<UUID, Watch> WATCHES = new HashMap<>();
     private static final double MOVE_EPSILON = 0.05; // per-tick displacement that counts as "moving"
 
-    public BlessingTaxMan() {
+    public BlessingPayday() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.GOLD_INGOT);
     }
 
@@ -74,7 +75,7 @@ public final class BlessingTaxMan extends Effect {
             // He's gone. If he actually paid out, the one use is spent; if he vanished first (a relog before
             // he arrived), forget him so a fresh one is sent when the moment's right again.
             if (watch.delivered) {
-                EffectManager.remove(target, Blessings.TAX_MAN);
+                EffectManager.remove(target, Blessings.PAYDAY);
             } else {
                 watch.entityId = null;
             }

@@ -29,30 +29,28 @@ import com.oliver.witchmod.entities.TaxManEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * Somebody has noticed how much you're carrying (master-spec Taxes). While the curse is active the victim is
- * periodically assessed — chests nearby, items on the floor, and what's in their pockets — and once there's
- * enough within reach to be worth the paperwork, the {@link TaxManEntity} turns up and starts confiscating.
+ * Somebody has noticed how much you're hoarding (master-spec Audit, formerly "Taxes" — renamed to be clearly
+ * distinct from the {@code payday} blessing, sacrificial item EMERALD). While the curse is active the victim's
+ * surroundings are periodically assessed, and once there's enough loot <b>in nearby chests or on the floor</b>
+ * to be worth the paperwork, the {@link TaxManEntity} turns up and starts confiscating.
  *
- * <p><b>The trigger IS the counterplay.</b> Nothing happens at all until {@code MIN_VALUE_TRIGGER} valuables
- * are within {@code SCAN_RADIUS}, so a victim who keeps their hoard somewhere they aren't, and doesn't walk
- * around wearing their net worth, genuinely never sees him. That's the intended answer to the curse, and it
- * costs them real convenience — which is the point.
+ * <p><b>The trigger IS the counterplay, and it looks OUTWARD.</b> He only shows up for a stash you've left
+ * lying about — chests and dropped items within {@code SCAN_RADIUS}. He deliberately does NOT come merely
+ * because you're carrying valuables on your person (that was the old behaviour, and it made him turn up
+ * constantly with nothing around to justify it); once he's here for the chests he'll still frisk your pockets
+ * as a last resort, but your pockets alone won't summon him. Keep your hoard somewhere you aren't and he
+ * never comes.
  *
- * <p>Valuables are the datapack tag {@link WitchModTags#VALUABLES} — every ore line and its ingots, gems and
- * blocks, deliberately excluding redstone and coal. Being a tag rather than a hardcoded list means modded
- * ores can be added without touching code.
- *
- * <p>After a visit he goes on {@code COOLDOWN} but is not spent: the curse keeps assessing, and he will come
- * back. Everything he takes goes into the world-persistent {@code TaxBank} for the Tax Man BLESSING to hand
- * back out later, possibly to somebody else entirely.
+ * <p>Valuables are the datapack tag {@link WitchModTags#VALUABLES}. Everything he takes goes into the
+ * world-persistent {@code TaxBank} for the Payday blessing to hand back out later, possibly to somebody else.
  */
-public final class CurseTaxes extends Effect {
+public final class CurseAudit extends Effect {
     /** victim -> game tick the Tax Man may next appear. */
     private static final Map<UUID, Long> COOLDOWN = new HashMap<>();
     /** victim -> the Tax Man currently visiting them, if any. */
     private static final Map<UUID, TaxManEntity> ACTIVE = new HashMap<>();
 
-    public CurseTaxes() {
+    public CurseAudit() {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 80, () -> Items.EMERALD);
     }
 
@@ -78,7 +76,6 @@ public final class CurseTaxes extends Effect {
         }
         UUID id = target.getUUID();
 
-        // Still being audited? Nothing to do but let him work.
         TaxManEntity visiting = ACTIVE.get(id);
         if (visiting != null) {
             if (visiting.isAlive()) {
@@ -97,17 +94,20 @@ public final class CurseTaxes extends Effect {
         if (TaxBank.get(target.server).isFull()) {
             return; // bank at its memory ceiling — he stops taking rather than voiding anything
         }
-        if (valueNear(target) < Config.TAXES_MIN_VALUE_TRIGGER.get()) {
-            return; // not worth the paperwork — this is the counterplay working
+        if (externalValueNear(target) < Config.TAXES_MIN_VALUE_TRIGGER.get()) {
+            return; // nothing worth taking lying around — this is the counterplay working
         }
         summon(target);
     }
 
-    /** Everything within reach that he'd want: chests, the floor, and the victim's own pockets. */
-    private static int valueNear(ServerPlayer target) {
+    /**
+     * Loot lying about that he'd come for: nearby chests and dropped items. <b>Deliberately excludes the
+     * victim's own inventory</b> — carrying valuables shouldn't summon him, only leaving a stash out should.
+     */
+    private static int externalValueNear(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         int radius = Config.TAXES_SCAN_RADIUS.get();
-        int total = countIn(target.getInventory());
+        int total = 0;
 
         AABB area = target.getBoundingBox().inflate(radius);
         for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, area)) {
@@ -168,7 +168,7 @@ public final class CurseTaxes extends Effect {
         return target.position();
     }
 
-    /** Used by the Tax Man blessing to know whether there's anything to hand back. */
+    /** Used by the Payday blessing to know whether there's anything to hand back. */
     @Nullable
     public static TaxManEntity visiting(ServerPlayer target) {
         return ACTIVE.get(target.getUUID());

@@ -21,7 +21,7 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingReflect> REFLECT = register("reflect", BlessingReflect::new);
     public static final DeferredHolder<Effect, BlessingSoulBond> SOUL_BOND = register("soul_bond", BlessingSoulBond::new);
     public static final DeferredHolder<Effect, BlessingBodyguard> BODYGUARD = register("bodyguard", BlessingBodyguard::new);
-    public static final DeferredHolder<Effect, BlessingTaxMan> TAX_MAN = register("tax_man", BlessingTaxMan::new);
+    public static final DeferredHolder<Effect, BlessingPayday> PAYDAY = register("payday", BlessingPayday::new);
     public static final DeferredHolder<Effect, BlessingHypeMan> HYPE_MAN = register("hype_man", BlessingHypeMan::new);
     public static final DeferredHolder<Effect, BlessingToolsDontUseDurability> TOOLS_DONT_USE_DURABILITY =
             register("tools_dont_use_durability", BlessingToolsDontUseDurability::new);

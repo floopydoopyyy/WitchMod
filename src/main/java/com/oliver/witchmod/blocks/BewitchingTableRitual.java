@@ -29,7 +29,7 @@ import com.oliver.witchmod.data.SacrificialItems;
 import com.oliver.witchmod.data.TaxBank;
 import com.oliver.witchmod.data.WitchModDataComponents;
 import com.oliver.witchmod.data.WitchModRegistries;
-import com.oliver.witchmod.effects.curses.CurseTaxes;
+import com.oliver.witchmod.effects.curses.CurseAudit;
 import com.oliver.witchmod.items.WitchModItems;
 
 /**
@@ -119,7 +119,7 @@ public final class BewitchingTableRitual {
         if (roll < successChance) {
             // ⚠ Taxes is refused outright when the tax bank has hit its memory ceiling. It must never be
             // cast into a state where the Tax Man would have to void what he takes — see TaxBank.isFull().
-            if (effect.value() instanceof CurseTaxes && TaxBank.get(caster.server).isFull()) {
+            if (effect.value() instanceof CurseAudit && TaxBank.get(caster.server).isFull()) {
                 caster.displayClientMessage(Component.literal(
                         "The ritual fizzles — the tax vaults are full.").withStyle(ChatFormatting.RED), false);
                 LedgerLog.log(Optional.of(caster.getName().getString()), target.getName().getString(),

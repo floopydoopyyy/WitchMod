@@ -44,7 +44,7 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseAllergic> ALLERGIC = register("allergic", CurseAllergic::new);
     public static final DeferredHolder<Effect, CurseComicRelief> COMIC_RELIEF = register("comic_relief", CurseComicRelief::new);
     public static final DeferredHolder<Effect, CurseUgly> UGLY = register("ugly", CurseUgly::new);
-    public static final DeferredHolder<Effect, CurseTaxes> TAXES = register("taxes", CurseTaxes::new);
+    public static final DeferredHolder<Effect, CurseAudit> AUDIT = register("audit", CurseAudit::new);
     public static final DeferredHolder<Effect, CurseSticky> STICKY = register("sticky", CurseSticky::new);
     public static final DeferredHolder<Effect, CurseBackseatDriver> BACKSEAT_DRIVER = register("backseat_driver", CurseBackseatDriver::new);
     public static final DeferredHolder<Effect, CurseClumsy> CLUMSY = register("clumsy", CurseClumsy::new);

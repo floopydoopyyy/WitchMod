@@ -1112,7 +1112,7 @@ one-off "apply" moment to miss.
 (no config values — the skin list is whatever is in the folder)
 ```
 
-### Taxes — Emerald  ✅ REFINED
+### Audit — Emerald  ✅ REFINED  (renamed from "Taxes"; id `taxes` → `audit`)
 Somebody has noticed how much you're carrying. The victim is periodically assessed — chests nearby, items on
 the floor, their own pockets — and once there's enough VALUE within `SCAN_RADIUS`, the **Tax Man** turns up
 and starts confiscating. The mod's first custom entity.
@@ -1148,7 +1148,7 @@ far larger than one visit's haul (`taxesBankCapacityStacks`, 512) so it comforta
 and when it fills the correct behaviour everywhere is to **STOP TAKING**:
 - `deposit()` returns false and stores nothing; the Tax Man leaves the items exactly where they are and
   departs with a `bank_full` line.
-- The **Bewitching Table refuses** to apply Taxes ("the ritual fizzles").
+- The **Bewitching Table refuses** to apply Audit ("the ritual fizzles").
 - **`/bewitch apply` refuses** it, and warns from `taxesBankWarnAtPercent` (80%) that it is filling up.
 Discarding items to make room would be a silent, unrecoverable loss of somebody's diamonds.
 **Any future code touching the bank must preserve this invariant.**
@@ -1622,67 +1622,132 @@ heavyHandedDurabilityMultiplier=4.0
 
 ## 6. BLESSINGS (45)
 
-### Fortune — Diamond
+### Fortune — Diamond  ✅ REFINED
+Ore-tag blocks (`Tags.Blocks.ORES`, so modded ores count) give **0..max EXTRA drops** on top of the normal
+roll, on `BlockDropsEvent` (which hands over the already-Fortune-enchanted drop list — so it's **additive,
+never multiplicative**, and stacks cleanly with enchantment Fortune). The extra count is a **triangular roll
+peaked at `fortuneExtraMode` (1)**, so most breaks give one bonus. It grows the resource stack in place and
+**skips a silk-touched ore-BLOCK drop** so it can't be duplicated. Discovers on the first extra drop.
 ```
-FORTUNE_BONUS_DROPS_MIN=1  FORTUNE_BONUS_DROPS_MAX=2  (additive AFTER enchant Fortune, never multiplicative)
-Applies to ore-tag blocks only
-```
-
-### Peace — Poppy
-```
-PEACE_SPAWN_RATE_MULT=0.3  PEACE_RADIUS=48  PEACE_DETECTION_MULT=0.4
-```
-
-### Luck — Rabbit's Foot
-```
-LUCK_ATTRIBUTE_BONUS=5.0
+fortuneExtraMin=0  fortuneExtraMode=1  fortuneExtraMax=3   (additive AFTER enchant Fortune; ore-tag blocks only)
 ```
 
-### Full — Bread
+### Peace — Poppy  ✅ REFINED
+The opposite of Popularity. **Fewer spawns:** most hostile NATURAL/CHUNK spawns within `peaceRadius` are
+cancelled via `FinalizeSpawnEvent` (monsters only; `peaceSpawnRateMultiplier` = fraction allowed).
+**Shrunken detection:** a hostile only notices you at `peaceDetectionMultiplier` of its normal follow range,
+enforced each sweep by dropping too-distant aggro. Discovers when a hostile inside its normal aggro range,
+in line of sight, conspicuously isn't hunting you.
 ```
-FULL_HUNGER_FROZEN=true  FULL_SATURATION_FROZEN=true
-```
-
-### Army — Shield
-Hostiles neutral to you; attack different-type entities that damage you.
-```
-ARMY_RADIUS=24  ARMY_DEFEND_DURATION=600  ARMY_SAME_TYPE_EXCLUDED=true
-```
-
-### Reflect — Turtle Shell
-```
-REFLECT_RETURN_VELOCITY_MULT=1.5  REFLECT_DAMAGE_NEGATED=true  REFLECT_ACCURACY=0.85
+peaceSpawnRateMultiplier=0.3  peaceRadius=48  peaceDetectionMultiplier=0.4  peaceCheckIntervalTicks=20
 ```
 
-### Soul Bond — Totem of Undying
-Nearest player becomes the bond victim (takes half your damage); treated as a CURSE on them
-(counts toward their limit, shows Cursed status); continuously rebinds to nearest.
+### Luck — Rabbit's Foot  ✅ REFINED
+Greatly amplified vanilla LUCK attribute (`ADD_VALUE` modifier, transient + self-healed on reload), nudging
+loot-table rolls your way. Discovers the first time it could matter: reeling in a fish (`ItemFishedEvent`) or
+opening a loot-tabled chest (detected by its still-pending `getLootTable()` at right-click).
 ```
-SOULBOND_DAMAGE_SHARE=0.5  SOULBOND_REBIND_INTERVAL=100  SOULBOND_MAX_RANGE=32  SOULBOND_VICTIM_IS_CURSED=true
-```
-
-### Bodyguard — Bone (CUSTOM ENTITY)
-Armoured sunglasses-skeleton. WARNING (chat dialogue trees) → AGGRESSION (warning hits) →
-ATTACKING (pursue until death or leash). Chats between all stages. Its death breaks the blessing
-instantly.
-```
-BODYGUARD_HEALTH=60.0  BODYGUARD_DAMAGE=6.0  BODYGUARD_WARNING_RADIUS=8  BODYGUARD_AGGRESSION_RADIUS=4
-BODYGUARD_WARNING_HIT_DAMAGE=1.0  BODYGUARD_LEASH_RANGE=32  BODYGUARD_DIALOGUE_COOLDOWN=200
-List: data/bewitchment/text/bodyguard.json
+luckAttributeBonus=5.0
 ```
 
-### Tax Man — Gold Ingot
-Delivers your banked taxed valuables. Waits for safety (no hostiles) + slight idle; Tax Man walks
-up, drops haul, despawns; blessing breaks.
+### Fullness — Bread  ✅ REFINED  (renamed from "Full"; id `full` → `fullness`)
+Hunger — and the hidden saturation behind it — drains at `fullnessDrainRate` (20%) of normal. No event
+scales hunger drain, so it WATCHES the outputs on `PlayerTickEvent.Post` (after vanilla's `FoodData.tick`,
+which drops one thing per tick): saturation (a float) refunded 80% of any natural drop; food (whole numbers)
+undone and banked, releasing one real point only once `1/rate` have accrued — exact 20%. Eating (positive
+deltas) untouched. Discovers on the first slowed drain.
 ```
-TAXMAN_SAFE_RADIUS=16  TAXMAN_IDLE_REQUIRED=100  TAXMAN_DELIVERY_CAP=512  TAXMAN_WALK_IN_DISTANCE=12
+fullnessDrainRate=0.2
 ```
 
-### Hype Man — Any Music Disc (tag: minecraft:music_discs — EXPLICIT TAG EXCEPTION)
-Actions trigger nearby-player praise: combat, pickups, chest looting, existing nearby.
+### Army — Shield  ✅ REFINED
+Nearby hostile MONSTER mobs (never `NeutralMob`s) go neutral toward you — acquisition is **vetoed at the
+source** via `LivingChangeTargetEvent` (their goals can't lock on), with their damage cancelled as a
+backstop, so they genuinely can't hurt you (replaced a per-tick target-clear that flickered). Being hit by a
+GENUINE aggressor (a player, a golem — not a pacified hostile, so the swarm never cascades onto its own)
+rallies every nearby hostile onto it for `armyDefendDurationTicks`, re-aimed each sweep; `armySameTypeExcluded`
+spares the attacker's own kind. Discovers when a hostile in normal range + LoS isn't attacking you.
 ```
-HYPEMAN_TRIGGER_COOLDOWN=900  HYPEMAN_TRIGGER_CHANCE=0.35  HYPEMAN_RADIUS=16
-List: data/bewitchment/text/hypeman.json
+armyRadius=24  armyDefendDurationTicks=600  armyCheckIntervalTicks=5  armySameTypeExcluded=true
+```
+
+### Reflect — Turtle Shell  ✅ REFINED
+Projectiles are caught on `ProjectileImpactEvent` (before damage) and sent **precisely back at the shooter,
+`reflectVelocityMultiplier` faster** — no homing, so it's dodgeable. The impact is cancelled (no damage,
+keeps flying), the projectile is **re-ownered to you** (can't re-hit you, CAN hurt the shooter) and nudged
+clear of your hitbox. Your own and owner-less shots are ignored. Discovers on the first reflect.
+```
+reflectVelocityMultiplier=1.5  reflectInaccuracy=0.0
+```
+
+### Soul Bond — Totem of Undying  ✅ REFINED
+The nearest LivingEntity within `soulBondRadius` (mob/pet/player; armour stands + spectators excluded) gets a
+custom **Soul Bound** MobEffect (own gold icon, `visible=false` so no vanilla swirls — it has its own constant
+golden particles) and takes `soulBondDamageShare` (40%) of every hit YOU take (you eat 60%); a golden trail
+flicks to whoever paid. **It STICKS** — only re-picks once the current bound leaves `soulBondRadius` entirely,
+so it commits to a victim rather than snapping to whoever hit you last (not a worse Thorns). In a 1v1 it
+latches onto your opponent; a trailing pet becomes the bound. Custom `witchmod:soul_bond` damage type
+(bypasses armour, no knockback), attributed to the caster, **never re-shared** (no ping-pong). Old "counts as
+a curse on them" idea dropped.
+```
+soulBondRadius=16  soulBondDamageShare=0.4  soulBondRebindIntervalTicks=20  soulBondParticleIntervalTicks=4
+Effect: witchmod:soul_bound (icon supplied) · Damage type: witchmod:soul_bond (bypasses_armor/no_knockback/no_impact)
+```
+
+### Bodyguard — Bone (CUSTOM ENTITY)  ✅ REFINED
+A comical hired-muscle **skeleton in black-dyed leather and sunglasses** (`SunglassesLayer` head box +
+placeholder texture; body baked into a `HumanoidModel` with proper held-item arm posing) bound to you as its
+**anchor**. Three states, narrated to nearby players:
+- **WARNING** — a non-anchor player OR villager within `bodyguardWarningRadius` gets told, by name, to leave
+  (random multi-line dialogue trees).
+- **AGGRESSION** — they crowd within `bodyguardAggressionRadius`: low-damage warning hits (villagers are
+  SHOVED, not hurt, so the iron golem isn't provoked). Keep crowding for `bodyguardPatienceTicks` AND after
+  ≥`bodyguardWarningsBeforeAttack` spoken warnings → it **draws an iron sword** and commits.
+- **ATTACKING** — anything that strikes the anchor OR the bodyguard is chased at full `bodyguardDamage` until
+  dead or dragged beyond `bodyguardLeashRange`, then it stands down.
+
+It's a `PathfinderMob` (not `Monster`/`Enemy` — golems ignore it, no sun burn), all movement manual so it can
+**never target the anchor** and never retaliates against them. **Teleports to the anchor** wolf-style beyond
+`bodyguardTeleportDistance`. **Its death breaks the blessing instantly.** Chat is local (`bodyguardChatRadius`,
+per-player) from `bodyguard.json` (state-keyed trees, `{player}` = intruder). **No duplication:** transient
+(`shouldBeSaved()`→false) + a self-healing `CANONICAL` anchor→bodyguard registry (older copies discard
+themselves) + a dedupe scan on summon.
+```
+bodyguardHealth=60  bodyguardDamage=6  bodyguardArmor=12  bodyguardSpeed=0.34  bodyguardFollowDistance=4
+bodyguardTeleportDistance=12  bodyguardWarningRadius=8  bodyguardAggressionRadius=4  bodyguardLeashRange=32
+bodyguardWarningHitDamage=1.0  bodyguardWarningHitIntervalTicks=30  bodyguardPatienceTicks=100
+bodyguardWarningsBeforeAttack=2  bodyguardChatRadius=24  bodyguardDialogueCooldownTicks=100  bodyguardDialogueLineGapTicks=30
+List: data/witchmod/text/bodyguard.json  ·  Sunglasses: assets/witchmod/textures/entity/bodyguard/sunglasses.png (see §13.7)
+```
+
+### Payday — Gold Ingot  ✅ REFINED  (renamed from "Tax Man" the blessing; id `tax_man` → `payday`)
+The Tax Man CHARACTER (still named "Tax Man" in-world) turns up owing YOU. Reuses `TaxManEntity` in a
+delivery mode: he waits for a safe, idle moment (no `Enemy` within `taxmanSafeRadius`; you still for
+`taxmanIdleTicks`), walks up, drops the goods in front of you, and leaves — one-time use. Hands over the whole
+`TaxBank` (from the Audit curse) or, if empty, a random gift (1–10 emeralds / 1–8 gold / 0–3 diamonds biased
+to 0). Payout computed on the entity at hand-off so the bank only drains on a real delivery; the delivery Tax
+Man is transient and the blessing tells "paid & left" from "vanished before arriving" (relog → re-send).
+```
+taxmanSafeRadius=16  taxmanIdleTicks=60
+taxmanGiftEmeraldsMax=10  taxmanGiftGoldMax=8  taxmanGiftDiamondsMax=3
+```
+
+### Hype Man — Any Music Disc (tag: minecraft:music_discs — EXPLICIT TAG EXCEPTION)  ✅ REFINED
+Your every move makes nearby players gush about you in chat, by name, sometimes unhinged. Purely comedic, no
+mechanical effect — hence cheap. Triggers: **combat** (`AttackEntityEvent`), **pickup**
+(`ItemEntityPickupEvent.Post`), **loot** (opening a `ChestMenu`), and **nearby** (ambient tick). All route
+through `BlessingHypeMan.praise`, which shares ONE cooldown (`hypemanCooldownTicks`) so a busy moment can't
+wall chat, rolls `hypemanChance`, and speaks the line in the mouth of a **random nearby player** (or one of a
+few "a fan" names if you're alone), broadcast to everyone within `hypemanRadius`. Lines from the writable
+`data/witchmod/text/hypeman.json`, keyed by trigger, `{player}` → your username.
+
+**Tag exception (Rule 9):** implemented generically via a new `Effect.sacrificialTag()` hook that
+`SacrificialItems.findEffect` checks only as a fallback after exact-item matching — so ANY music disc selects
+Hype Man at the Table (and `sacrificialItem()` still returns Music Disc 13/Cat for the icon). Party Time
+(candles) can use the same hook when refined.
+```
+hypemanRadius=16  hypemanCooldownTicks=160  hypemanChance=0.6  hypemanAmbientIntervalTicks=120
+List: data/witchmod/text/hypeman.json  (keys: combat, pickup, loot, nearby)
 ```
 
 ### Workman — Netherite Scrap
@@ -2000,7 +2065,7 @@ Pests - Minor - 17
 Allergic - Minor - 20
 Comic Relief - Minor - 25
 Ugly - Minor - 20
-Taxes - Major - 80
+Audit - Major - 80
 Sticky - Moderate - 30
 Backseat Driver - Minor - 17
 Clumsy - Minor - 20
@@ -2032,7 +2097,7 @@ Army - Minor - 35
 Reflect - Minor - 28
 Soul Bond - Major - 100 (manual surcharge applied)
 Bodyguard - Moderate - 42
-Tax Man - Minor - 35
+Payday - Minor - 35
 Hype Man - Minor - 28
 Workman - Minor - 28
 Pickpocket - Minor - 35
@@ -2577,7 +2642,7 @@ prototype stand-ins the build logs list.
 - [x] Allergic — 3 rolled diets (Vegetarian/Carnivore/Clean Eater) via vanilla categories (`minecraft:meat` tag + effect-granting = magic + the remainder = natural) so modded foods work; forbidden food ⇒ Blindness+Poison and only 50% of the REAL hunger/saturation gain; Clean Eaters get no positive potion effects; Scrying Mirror names the exact diet (new `Effect.scryingDetail` hook); victim discovers on first bad reaction. All 4 numbers config-exposed.
 - [ ] Comic Relief
 - [ ] Ugly
-- [ ] Taxes
+- [x] Audit (renamed from Taxes) — trigger now requires nearby chest/floor loot (not your pockets); snappier arrive/loot/leave timings; ender chest reworked to walk-open-rifle-close properly.
 - [ ] Sticky
 - [x] Backseat Driver — rebuilt to steer the RIDER (mount reads rider yaw + forward input) so the animal
       walks under its own movement code instead of being shoved by velocity (which slid/hovered); non-rider-steered
@@ -2638,16 +2703,16 @@ prototype stand-ins the build logs list.
 
 **BLESSINGS (44 listed; header says 45 — reconcile if a 45th is intended)** — renamed ids: Workman =
 `tools_dont_use_durability`, Personal Trainer = `trainer`, Hawk Guy = `locked_in`.
-- [ ] Fortune
-- [ ] Peace
-- [ ] Luck
-- [ ] Full
-- [ ] Army
-- [ ] Reflect
-- [ ] Soul Bond
-- [ ] Bodyguard
-- [ ] Tax Man
-- [ ] Hype Man
+- [x] Fortune — ore-tag blocks give 0..max EXTRA drops via BlockDropsEvent, additive after enchant Fortune (triangular roll peaked at 1), grows the resource stack, skips silk-touched ore blocks. Discovers on first extra.
+- [x] Peace — opposite of Popularity: FinalizeSpawnEvent cancels most hostile natural spawns nearby; hostiles only aggro at 40% of normal follow range (too-distant aggro dropped each sweep). Discovers when a hostile in range+LoS isnt hunting you.
+- [x] Luck — amplified vanilla LUCK attribute (transient ADD_VALUE, self-healed). Discovers on first fish (ItemFishedEvent) or opening a loot-tabled chest (pending getLootTable on right-click).
+- [x] Fullness (renamed from Full; id full→fullness) — hunger+hidden saturation drain at 20%. Watches outputs on PlayerTickEvent.Post: saturation refunded 80% of drops, food undone+banked releasing one per 1/rate. Eating untouched. Discovers on first slowed drain.
+- [x] Army — nearby hostile MONSTER mobs (not NeutralMobs) go neutral: acquisition vetoed via LivingChangeTargetEvent + damage cancelled backstop; getting hit by a genuine aggressor rallies the horde onto it (re-aimed each sweep), sparing its own kind. Discovers when a hostile in range+LoS isnt attacking you.
+- [x] Reflect — projectiles caught on ProjectileImpactEvent, sent precisely back at the shooter 1.5x faster (no homing); impact cancelled, re-ownered to you (cant re-hit you, can hurt shooter), nudged clear. Own/owner-less ignored. Discovers on first reflect.
+- [x] Soul Bond — nearest LivingEntity (mob/pet/player) gets custom soul_bound MobEffect + golden particles and takes 40% of hits you take (you eat 60%); golden trail to whoever paid. STICKS until the bound leaves radius (not a worse Thorns). Custom soul_bond damage type, never re-shared.
+- [x] Bodyguard (CUSTOM ENTITY) — black-leather sunglasses skeleton bound to you: WARNING (players+villagers by name) → AGGRESSION (warning hits/shoves; patience+2 warnings → draws sword) → ATTACKING (anything that hits you/it, until dead or past leash). Teleports to you, never targets/retaliates the anchor, death breaks blessing. No dupes (transient + CANONICAL self-heal). Local chat from bodyguard.json.
+- [x] Payday (renamed from Tax Man blessing) — see §6 entry.
+- [x] Hype Man — actions make nearby players (or "a fan" solo) praise you by name in chat: combat (AttackEntityEvent), pickup (ItemEntityPickupEvent), loot (ChestMenu open), ambient. Shared cooldown + chance, writable hypeman.json (combat/pickup/loot/nearby). Any music disc via new Effect.sacrificialTag() Rule-9 hook. No mechanical effect. 4 knobs.
 - [ ] Workman
 - [ ] Pickpocket
 - [ ] Windfall

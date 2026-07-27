@@ -19,5 +19,6 @@ public final class WitchModDataReload {
         event.addListener(new OversharerMessages());
         event.addListener(new InsomniacMessages());
         event.addListener(new BodyguardLines());
+        event.addListener(new HypeManMessages());
     }
 }
