@@ -42,6 +42,12 @@ public final class CurseLoadingScreen extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        trigger(target);
+        return "loading screen shown";
+    }
+
+    @Override
     public void onRemove(ServerPlayer target) {
         target.setData(WitchModAttachments.LOADING_SCREEN_SESSION, 0L); // dismiss any screen in progress
     }

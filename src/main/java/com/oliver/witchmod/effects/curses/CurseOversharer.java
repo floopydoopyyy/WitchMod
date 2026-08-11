@@ -55,6 +55,12 @@ public final class CurseOversharer extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, @Nullable String arg) {
+        overshare(target);
+        return "overshared a personal detail into chat";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         int min = Config.OVERSHARER_INTERVAL_MIN.get();
         int max = Math.max(min, Config.OVERSHARER_INTERVAL_MAX.get());

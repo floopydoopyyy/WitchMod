@@ -30,7 +30,14 @@ public final class BlessingOrganised extends Effect {
 
     @Override
     public void onRemove(ServerPlayer target) {
-        OrganisedStash.dropAll(target); // ORGANISED_DROP_ON_EXPIRE
+        // When lost, the extra row's items try to go into the main inventory first; overflow is dropped.
+        OrganisedStash.returnOrDrop(target);
+    }
+
+    @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        com.oliver.witchmod.data.OrganisedStash.openMenu(target);
+        return "opened your 9-slot stash — note: normally you'd open it with the survival keybind (/bewitch organised for now)";
     }
 
     @Override

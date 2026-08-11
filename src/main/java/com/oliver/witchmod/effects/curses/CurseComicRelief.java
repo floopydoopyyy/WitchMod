@@ -52,6 +52,12 @@ public final class CurseComicRelief extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        strikeVictim(target, target.serverLevel());
+        return "comedic lightning called down (low-health condition bypassed)";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         if (!EffectUtil.every(ticksRemaining, Config.COMIC_CHECK_INTERVAL.get())
                 || target.isCreative() || target.isSpectator()) {

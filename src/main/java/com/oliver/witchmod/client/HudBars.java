@@ -25,8 +25,17 @@ final class HudBars {
         return player.getData(WitchModAttachments.THIRST) >= 0;
     }
 
-    static int topForRow(int guiHeight, int row) {
-        return guiHeight - ROW0_FROM_BOTTOM - row * ROW_HEIGHT;
+    /**
+     * Whether vanilla's air (bubble) bar is currently showing — it occupies row 0's space on the right, so
+     * when it's up the mod bars shift one row higher to sit ABOVE it instead of overlapping.
+     */
+    static boolean airVisible(LocalPlayer player) {
+        return player.getAirSupply() < player.getMaxAirSupply();
+    }
+
+    static int topForRow(LocalPlayer player, int guiHeight, int row) {
+        int airOffset = airVisible(player) ? ROW_HEIGHT : 0;
+        return guiHeight - ROW0_FROM_BOTTOM - airOffset - row * ROW_HEIGHT;
     }
 
     /** Gluttony is the bottom bar (it IS a hunger row), so always row 0 when shown. */

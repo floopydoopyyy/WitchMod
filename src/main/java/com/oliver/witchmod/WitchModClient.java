@@ -1,7 +1,12 @@
 package com.oliver.witchmod;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import org.lwjgl.glfw.GLFW;
+
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -24,8 +29,12 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.blocks.WitchModFluids;
 import com.oliver.witchmod.client.ChatOverlayLayer;
+import com.oliver.witchmod.client.GladiatorClientHandler;
+import com.oliver.witchmod.client.GladiatorParryLayer;
 import com.oliver.witchmod.client.GluttonyHudLayer;
+import com.oliver.witchmod.client.ImmortalityRecoveryOverlay;
 import com.oliver.witchmod.client.LoadingScreenOverlay;
+import com.oliver.witchmod.client.ReviveFlashOverlay;
 import com.oliver.witchmod.client.SirenShaderOverlay;
 import com.oliver.witchmod.client.ThirstHudLayer;
 import com.oliver.witchmod.client.BodyguardRenderer;
@@ -40,11 +49,20 @@ import com.oliver.witchmod.ui.WitchModMenus;
 // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
 @EventBusSubscriber(modid = WitchMod.MODID, value = Dist.CLIENT)
 public class WitchModClient {
+    /** Opens the Organised blessing's extra inventory row (default: O). Only does anything if you have it. */
+    public static final KeyMapping ORGANISED_KEY = new KeyMapping(
+            "key.witchmod.organised", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, "key.categories.witchmod");
+
     public WitchModClient(ModContainer container) {
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+    }
+
+    @SubscribeEvent
+    static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+        event.register(ORGANISED_KEY);
     }
 
     @SubscribeEvent
@@ -76,12 +94,18 @@ public class WitchModClient {
     static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(TaxManRenderer.LAYER, TaxManRenderer::createBodyLayer);
         event.registerLayerDefinition(BodyguardRenderer.SUNGLASSES_LAYER, BodyguardRenderer::createSunglassesLayer);
+        event.registerLayerDefinition(com.oliver.witchmod.client.SnailRenderer.LAYER, com.oliver.witchmod.client.SnailModel::createLayer);
+        event.registerLayerDefinition(com.oliver.witchmod.client.MindDwellerRenderer.LAYER, com.oliver.witchmod.client.MindDwellerModel::createLayer);
+        event.registerLayerDefinition(com.oliver.witchmod.client.WatcherEyesRenderer.LAYER, com.oliver.witchmod.client.WatcherEyesModel::createLayer);
     }
 
     @SubscribeEvent
     static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(WitchModEntities.TAX_MAN.get(), TaxManRenderer::new);
         event.registerEntityRenderer(WitchModEntities.BODYGUARD.get(), BodyguardRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.SNAIL.get(), com.oliver.witchmod.client.SnailRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.MIND_DWELLER.get(), com.oliver.witchmod.client.MindDwellerRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.WATCHER_EYES.get(), com.oliver.witchmod.client.WatcherEyesRenderer::new);
     }
 
     @SubscribeEvent
@@ -100,8 +124,15 @@ public class WitchModClient {
         // Chat blessing's Twitch overlay (a side panel, above the HUD but below any fullscreen overlay).
         event.registerAbove(VanillaGuiLayers.FOOD_LEVEL,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "chat_overlay"), new ChatOverlayLayer());
+        // Gladiator parry-stage bar, drawn near the crosshair (below the vanilla attack indicator).
+        event.registerAbove(VanillaGuiLayers.CROSSHAIR,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "gladiator_parry"), new GladiatorParryLayer());
         // Siren's Call magenta mind-control tint — over the HUD but below the loading-screen prank.
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "siren_shader"), new SirenShaderOverlay());
+        // Immortality's gold->white rebuild wash while recovering from a death.
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "immortality_recovery"), new ImmortalityRecoveryOverlay());
+        // The Last Stand / Immortality revive "totem" pop (Blessed icon, gold->white).
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "revive_flash"), new ReviveFlashOverlay());
         // Loading Screen prank overlay sits above everything (it's a fake fullscreen loading screen).
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "loading_screen"), new LoadingScreenOverlay());
     }
@@ -124,5 +155,12 @@ public class WitchModClient {
                 return WitchModFluids.TINT_COLOR;
             }
         }, WitchModFluids.PURIFYING_WATER_TYPE.get());
+
+        // Gladiator: give every sword/axe the parry block-pose extension (it only poses while parrying).
+        for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+            if (item instanceof net.minecraft.world.item.SwordItem || item instanceof net.minecraft.world.item.AxeItem) {
+                event.registerItem(GladiatorClientHandler.PARRY_POSE, item);
+            }
+        }
     }
 }

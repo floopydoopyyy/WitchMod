@@ -69,7 +69,7 @@ public final class GluttonyHudLayer implements LayeredDraw.Layer {
 
         int right = guiGraphics.guiWidth() / 2 + 91;   // vanilla food-bar right edge
         int lowerTop = guiGraphics.guiHeight() - VANILLA_ROW_FROM_BOTTOM;
-        int upperTop = HudBars.topForRow(guiGraphics.guiHeight(), HudBars.gluttonyRow(player));
+        int upperTop = HudBars.topForRow(player, guiGraphics.guiHeight(), HudBars.gluttonyRow(player));
 
         RenderSystem.enableBlend();
         drawRow(guiGraphics, player, right, lowerTop, lower);

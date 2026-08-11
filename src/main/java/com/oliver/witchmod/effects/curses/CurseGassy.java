@@ -114,6 +114,13 @@ public final class CurseGassy extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, @Nullable String arg) {
+        boolean big = arg != null && arg.equalsIgnoreCase("big");
+        fart(target, big, 1.0);
+        return big ? "big fart launched" : "fart launched (arg 'big' for the loud one)";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         long now = target.level().getGameTime();
         trackFireworks(target, now);

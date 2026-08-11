@@ -74,6 +74,12 @@ public final class CurseSirensCall extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        LONGING.put(target.getUUID(), Config.SIREN_LONGING_MAX.get().floatValue());
+        return "longing maxed — the sea is calling and the march begins";
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         UUID id = target.getUUID();
         LONGING.put(id, 0.0F);
@@ -234,17 +240,25 @@ public final class CurseSirensCall extends Effect {
         int radius = Config.SIREN_WATER_SEARCH_RADIUS.get();
         BlockPos origin = target.blockPosition();
         BlockPos best = null;
-        double bestDist = Double.MAX_VALUE;
+        double bestHoriz = Double.MAX_VALUE;
         for (int dx = -radius; dx <= radius; dx += 2) {
             for (int dz = -radius; dz <= radius; dz += 2) {
+                // ⚠ Skip water basically straight below/above us: with no horizontal bearing the march yaw
+                // flips around and you spin on the spot — the "goofy circle on a platform over water" bug.
+                double horiz = dx * dx + dz * dz;
+                if (horiz < 4.0 || horiz >= bestHoriz) {
+                    continue;
+                }
                 for (int dy = -radius / 2; dy <= radius / 2; dy += 2) {
                     BlockPos pos = origin.offset(dx, dy, dz);
-                    if (level.getFluidState(pos).is(FluidTags.WATER)) {
-                        double dist = pos.distSqr(origin);
-                        if (dist < bestDist) {
-                            bestDist = dist;
-                            best = pos;
-                        }
+                    BlockPos above = pos.above();
+                    // ⚠ Only water you can actually get INTO — the surface must be OPEN, not sealed under a
+                    // solid block. This is what stops it dragging you toward water trapped beneath a platform.
+                    if (level.getFluidState(pos).is(FluidTags.WATER)
+                            && level.getBlockState(above).getCollisionShape(level, above).isEmpty()) {
+                        bestHoriz = horiz;
+                        best = pos;
+                        break; // this column qualifies; no need to check deeper here
                     }
                 }
             }

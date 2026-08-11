@@ -72,6 +72,12 @@ public final class CurseEchoes extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        hallucinate(target, target.serverLevel(), target.serverLevel().getGameTime());
+        return "played a hallucination";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         ServerLevel level = target.serverLevel();
         long now = level.getGameTime();

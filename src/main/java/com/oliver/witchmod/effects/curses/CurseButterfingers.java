@@ -41,6 +41,11 @@ public final class CurseButterfingers extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        return dropSomething(target) ? "fumbled something out of your hands" : "nothing droppable in hand/hotbar";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         if (EffectUtil.every(ticksRemaining, Config.BUTTERFINGERS_PASSIVE_INTERVAL_TICKS.get())) {
             tryFumble(target, Config.BUTTERFINGERS_PASSIVE_CHANCE_PERCENT.get());

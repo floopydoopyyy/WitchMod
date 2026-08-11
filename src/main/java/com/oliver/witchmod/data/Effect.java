@@ -109,6 +109,24 @@ public abstract class Effect {
         return 1.0F;
     }
 
+    /**
+     * DEBUG: force this effect's signature event (or, with {@code arg}, a named sub-event / parameter) on
+     * {@code target}, for testing via {@code /bewitch debug force}. Returns a human-readable feedback line —
+     * including when a precondition wasn't met but it fired anyway, or when the arg named no valid sub-event.
+     * Returns {@code null} (the default) for effects that have no discrete, forcible event.
+     *
+     * <p><b>PROJECT RULE (see CLAUDE.md §16.4):</b> any curse/blessing/event with a discrete, observable
+     * moment MUST override this so the moment is forcible for hands-on testing. Effects whose event fires from
+     * an internal method should expose a small package-visible trigger the override can call; if a precondition
+     * genuinely can't be satisfied, still do as much as possible and say so in the returned message.
+     *
+     * @param arg optional free-text argument (a sub-event name, a stat value, etc.); may be null/blank.
+     */
+    @Nullable
+    public String debugForce(ServerPlayer target, @Nullable String arg) {
+        return null;
+    }
+
     /** Marks this effect discovered for {@code target}, alerting them — call at the real trigger moment. */
     public void markDiscoveredByVictim(ServerPlayer target) {
         ResourceLocation id = WitchModRegistries.EFFECT_REGISTRY.getKey(this);

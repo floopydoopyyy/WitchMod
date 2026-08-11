@@ -48,7 +48,15 @@ public final class BlessingSoulBond extends Effect {
             new DustParticleOptions(new Vector3f(1.0F, 0.82F, 0.24F), 1.0F);
 
     public BlessingSoulBond() {
-        super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 63, () -> Items.TOTEM_OF_UNDYING);
+        // Moved off Totem of Undying onto Enchanted Golden Apple (Last Stand's old item) — Oliver's call —
+        // so Last Stand can take the thematically-fitting Totem; clean 1:1 swap, both stay castable (§11).
+        super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 63, () -> Items.ENCHANTED_GOLDEN_APPLE);
+    }
+
+    /** You find out the first time your bond actually takes a share of a hit for you (Rule 2). */
+    @Override
+    public boolean discoversOnTrigger() {
+        return true;
     }
 
     /** The living entity {@code caster} currently has bound, or null if none (out of range / gone). */

@@ -26,6 +26,12 @@ public final class CursePacing extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        PacingManager.debugTrigger(target);
+        return "a dramatic time-stop moment begins";
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         PacingManager.onApply(target); // pre-charge the ramp so the chance starts high
     }

@@ -22,7 +22,9 @@ public final class CurseMansplainer extends Effect {
     };
 
     public CurseMansplainer() {
-        super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.BOOK);
+        // CUT/retired (§5), but moved off Book onto its spec item Written Book to free Book for Studious
+        // (§11 Book clash: Studious keeps Book, Mansplainer → Written Book). Nothing else uses Written Book.
+        super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.WRITTEN_BOOK);
     }
 
     @Override

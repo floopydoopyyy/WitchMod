@@ -1,4 +1,42 @@
 {
+  "blessing.laughtrack.laugh": {
+    "subtitle": "witchmod.subtitle.laughtrack",
+    "sounds": [
+      { "name": "witchmod:blessing/laughtrack/crowdlaugh1", "stream": false },
+      { "name": "witchmod:blessing/laughtrack/crowdlaugh2", "stream": false },
+      { "name": "witchmod:blessing/laughtrack/crowdlaugh3", "stream": false }
+    ]
+  },
+  "blessing.laughtrack.cheer": {
+    "subtitle": "witchmod.subtitle.laughtrack",
+    "sounds": [
+      { "name": "witchmod:blessing/laughtrack/cheer1", "stream": false },
+      { "name": "witchmod:blessing/laughtrack/cheer2", "stream": false }
+    ]
+  },
+  "blessing.brute.impact": {
+    "subtitle": "witchmod.subtitle.brute_impact",
+    "sounds": [
+      { "name": "witchmod:blessing/brute/impact", "stream": false }
+    ]
+  },
+  "blessing.bouncy.boing": {
+    "subtitle": "witchmod.subtitle.bouncy_boing",
+    "sounds": [
+      { "name": "witchmod:blessing/bouncy/boing1", "stream": false },
+      { "name": "witchmod:blessing/bouncy/boing2", "stream": false },
+      { "name": "witchmod:blessing/bouncy/boing3", "stream": false }
+    ]
+  },
+  "blessing.mainchar.theme": {
+    "subtitle": "witchmod.subtitle.mainchar_theme",
+    "sounds": [
+      {
+        "name": "witchmod:blessing/mainchar/theme",
+        "stream": false
+      }
+    ]
+  },
   "curse.loading.music_1": {
     "subtitle": "witchmod.subtitle.loading_music",
     "sounds": [
@@ -86,6 +124,35 @@
     "sounds": [
       {
         "name": "witchmod:curse/trumpet/trumpetwalk",
+        "stream": false
+      }
+    ]
+  },
+  "blessing.gladiator.parry": {
+    "subtitle": "witchmod.subtitle.gladiator_parry",
+    "sounds": ["witchmod:blessing/gladiator/parry"]
+  },
+  "blessing.gladiator.whiff": {
+    "subtitle": "witchmod.subtitle.gladiator_whiff",
+    "sounds": ["witchmod:blessing/gladiator/whiff"]
+  },
+  "blessing.gladiator.riposte": {
+    "subtitle": "witchmod.subtitle.gladiator_riposte",
+    "sounds": ["witchmod:blessing/gladiator/riposte"]
+  },
+  "blessing.gladiator.perfect": {
+    "subtitle": "witchmod.subtitle.gladiator_perfect",
+    "sounds": ["witchmod:blessing/gladiator/perfect"]
+  },
+  "blessing.gladiator.reflect": {
+    "subtitle": "witchmod.subtitle.gladiator_reflect",
+    "sounds": ["witchmod:blessing/gladiator/reflect"]
+  },
+  "curse.snail.music": {
+    "subtitle": "witchmod.subtitle.snail_music",
+    "sounds": [
+      {
+        "name": "witchmod:curse/snail/snailmusic",
         "stream": false
       }
     ]

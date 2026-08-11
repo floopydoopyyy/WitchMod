@@ -67,6 +67,12 @@ public final class CurseYap extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, @Nullable String arg) {
+        beginOutburst(target, YapMessages.pickOutburst(target.getRandom()));
+        return "yapped an outburst";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         UUID id = target.getUUID();
         long now = target.serverLevel().getGameTime();

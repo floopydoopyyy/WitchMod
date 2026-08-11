@@ -58,7 +58,8 @@
     "Clear the way.",
     "Move.",
     "Shoo.",
-    "go home lil bro"
+    "go home lil bro",
+    "I will give you a knuckle sandwich."
   ],
   "aggression": [
     ["Final warning, {player}.", "I will kill you."],

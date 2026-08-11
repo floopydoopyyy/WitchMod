@@ -54,9 +54,22 @@ public final class BlessingPayday extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.GOLD_INGOT);
     }
 
+    /** You find out when the Tax Man actually turns up and pays out (Rule 2), not when it's cast. */
+    @Override
+    public boolean discoversOnTrigger() {
+        return true;
+    }
+
     @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         WATCHES.put(target.getUUID(), new Watch(target.position()));
+    }
+
+    @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        Watch watch = WATCHES.computeIfAbsent(target.getUUID(), k -> new Watch(target.position()));
+        summonDelivery(target, watch);
+        return "Payday: the Tax Man is on his way to pay you";
     }
 
     @Override
@@ -68,6 +81,9 @@ public final class BlessingPayday extends Effect {
             TaxManEntity taxMan = find(target, watch.entityId);
             if (taxMan != null) {
                 if (taxMan.hasPaidOut()) {
+                    if (!watch.delivered) {
+                        Blessings.PAYDAY.get().markDiscoveredByVictim(target); // discovered on the payout
+                    }
                     watch.delivered = true; // remember it happened; he'll leave under his own steam
                 }
                 return;

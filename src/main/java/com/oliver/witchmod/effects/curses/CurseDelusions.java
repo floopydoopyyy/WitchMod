@@ -51,6 +51,12 @@ public final class CurseDelusions extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        target.setData(WitchModAttachments.DELUSIONS_SIGNAL, freshSignal(target));
+        return "signalled a delusion (fake player) to appear";
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         // A non-zero signal switches the client side on; the first delusion follows on the usual interval
         // rather than immediately, so the curse doesn't announce itself the second it lands.

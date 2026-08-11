@@ -17,5 +17,8 @@ public final class WitchModEntityAttributes {
     private static void onCreateAttributes(EntityAttributeCreationEvent event) {
         event.put(WitchModEntities.TAX_MAN.get(), TaxManEntity.createAttributes().build());
         event.put(WitchModEntities.BODYGUARD.get(), BodyguardEntity.createAttributes().build());
+        event.put(WitchModEntities.SNAIL.get(), SnailEntity.createAttributes().build());
+        event.put(WitchModEntities.MIND_DWELLER.get(), MindDwellerEntity.createAttributes().build());
+        event.put(WitchModEntities.WATCHER_EYES.get(), WatcherEyesEntity.createAttributes().build());
     }
 }

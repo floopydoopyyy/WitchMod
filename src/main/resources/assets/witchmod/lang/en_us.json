@@ -60,8 +60,21 @@
   "death.attack.witchmod.dehydration.player": "%1$s dried up whilst trying to escape %2$s",
   "entity.witchmod.tax_man": "Tax Man",
   "entity.witchmod.bodyguard": "Bodyguard",
+  "entity.witchmod.mind_dweller": "The Dweller",
   "death.attack.witchmod.sunburn": "%1$s could not handle the sun",
   "death.attack.witchmod.sunburn.player": "%1$s forgot their sunscreen fleeing %2$s",
   "death.attack.witchmod.cave_dread": "%1$s let the walls get too close",
-  "death.attack.witchmod.cave_dread.player": "%1$s was boxed in by %2$s"
+  "death.attack.witchmod.cave_dread.player": "%1$s was boxed in by %2$s",
+  "key.categories.witchmod": "WitchMod",
+  "key.witchmod.organised": "Open Stash",
+  "witchmod.subtitle.mainchar_theme": "An intense theme plays",
+  "witchmod.subtitle.brute_impact": "Heavy impact",
+  "witchmod.subtitle.bouncy_boing": "Boing!",
+  "witchmod.subtitle.laughtrack": "The crowd reacts",
+  "witchmod.subtitle.gladiator_parry": "Blades clash",
+  "witchmod.subtitle.gladiator_whiff": "Blade swishes",
+  "witchmod.subtitle.gladiator_riposte": "Riposte lands",
+  "witchmod.subtitle.gladiator_perfect": "Perfect parry!",
+  "witchmod.subtitle.gladiator_reflect": "Projectile deflected",
+  "witchmod.subtitle.snail_music": "Something slithers closer..."
 }

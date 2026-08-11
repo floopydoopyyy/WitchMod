@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
  */
 public final class CurseClaustrophobia extends Effect {
     public CurseClaustrophobia() {
-        super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.COBBLED_DEEPSLATE);
+        super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.DEEPSLATE); // moved off Cobbled Deepslate → freed it for Tank (still cave-thematic)
     }
 
     /** You find out the first time the walls close in (Rule 2). */

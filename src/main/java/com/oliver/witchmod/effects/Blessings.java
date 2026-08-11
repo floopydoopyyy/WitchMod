@@ -7,10 +7,11 @@ import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.blessings.*;
 
 /**
- * Registers all 45 blessings (master-spec Section 6). {@code locked_in} is the prototype id for "Hawk
- * Guy" (Target Block); {@code tools_dont_use_durability} is "Workman"; {@code trainer} is "Personal
- * Trainer" — ids kept stable to avoid breaking saved data, display names are a lang concern. The final
- * block is Phase A's 15 newly-built blessings.
+ * Registers the blessings (master-spec Section 6; Company was CUT on Oliver's call). {@code locked_in} was renamed to {@code hawk_guy}
+ * (Target Block) so its display name reads "Hawk Guy" (names derive from the id path); {@code trainer} is
+ * still the prototype id for "Personal Trainer" — ids kept stable to
+ * avoid breaking saved data, display names are a lang concern. (Workman was renamed from its old
+ * {@code tools_dont_use_durability} id to {@code workman}.) The final block is Phase A's newly-built blessings.
  */
 public final class Blessings {
     public static final DeferredHolder<Effect, BlessingFortune> FORTUNE = register("fortune", BlessingFortune::new);
@@ -23,8 +24,8 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingBodyguard> BODYGUARD = register("bodyguard", BlessingBodyguard::new);
     public static final DeferredHolder<Effect, BlessingPayday> PAYDAY = register("payday", BlessingPayday::new);
     public static final DeferredHolder<Effect, BlessingHypeMan> HYPE_MAN = register("hype_man", BlessingHypeMan::new);
-    public static final DeferredHolder<Effect, BlessingToolsDontUseDurability> TOOLS_DONT_USE_DURABILITY =
-            register("tools_dont_use_durability", BlessingToolsDontUseDurability::new);
+    public static final DeferredHolder<Effect, BlessingWorkman> WORKMAN =
+            register("workman", BlessingWorkman::new);
     public static final DeferredHolder<Effect, BlessingPickpocket> PICKPOCKET = register("pickpocket", BlessingPickpocket::new);
     public static final DeferredHolder<Effect, BlessingWindfall> WINDFALL = register("windfall", BlessingWindfall::new);
     public static final DeferredHolder<Effect, BlessingImmortality> IMMORTALITY = register("immortality", BlessingImmortality::new);
@@ -36,11 +37,10 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingTrainer> TRAINER = register("trainer", BlessingTrainer::new);
     public static final DeferredHolder<Effect, BlessingStudious> STUDIOUS = register("studious", BlessingStudious::new);
     public static final DeferredHolder<Effect, BlessingTwistOfFate> TWIST_OF_FATE = register("twist_of_fate", BlessingTwistOfFate::new);
-    public static final DeferredHolder<Effect, BlessingCompany> COMPANY = register("company", BlessingCompany::new);
     public static final DeferredHolder<Effect, BlessingOrganised> ORGANISED = register("organised", BlessingOrganised::new);
     public static final DeferredHolder<Effect, BlessingNightowl> NIGHTOWL = register("nightowl", BlessingNightowl::new);
     public static final DeferredHolder<Effect, BlessingSteadyHands> STEADY_HANDS = register("steady_hands", BlessingSteadyHands::new);
-    public static final DeferredHolder<Effect, BlessingLockedIn> LOCKED_IN = register("locked_in", BlessingLockedIn::new);
+    public static final DeferredHolder<Effect, BlessingHawkGuy> HAWK_GUY = register("hawk_guy", BlessingHawkGuy::new);
     public static final DeferredHolder<Effect, BlessingMainCharacter> MAIN_CHARACTER = register("main_character", BlessingMainCharacter::new);
     public static final DeferredHolder<Effect, BlessingJesus> JESUS = register("jesus", BlessingJesus::new);
 
@@ -58,8 +58,20 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingAngler> ANGLER = register("angler", BlessingAngler::new);
     public static final DeferredHolder<Effect, BlessingLaughTrack> LAUGH_TRACK = register("laugh_track", BlessingLaughTrack::new);
     public static final DeferredHolder<Effect, BlessingChat> CHAT = register("chat", BlessingChat::new);
-    public static final DeferredHolder<Effect, BlessingCivilisation> CIVILISATION = register("civilisation", BlessingCivilisation::new);
+    public static final DeferredHolder<Effect, BlessingCoyote> COYOTE = register("coyote", BlessingCoyote::new);
     public static final DeferredHolder<Effect, BlessingLowGravity> LOW_GRAVITY = register("low_gravity", BlessingLowGravity::new);
+    public static final DeferredHolder<Effect, BlessingBuilder> BUILDER = register("builder", BlessingBuilder::new);
+    public static final DeferredHolder<Effect, BlessingBerserker> BERSERKER = register("berserker", BlessingBerserker::new);
+    public static final DeferredHolder<Effect, BlessingEnchanter> ENCHANTER = register("enchanter", BlessingEnchanter::new);
+    public static final DeferredHolder<Effect, BlessingPacifier> PACIFIER = register("pacifier", BlessingPacifier::new);
+    public static final DeferredHolder<Effect, BlessingOceansBlessing> OCEANS_BLESSING = register("oceans_blessing", BlessingOceansBlessing::new);
+    public static final DeferredHolder<Effect, BlessingGladiator> GLADIATOR = register("gladiator", BlessingGladiator::new);
+    public static final DeferredHolder<Effect, BlessingCow> COW = register("cow", BlessingCow::new);
+    public static final DeferredHolder<Effect, BlessingTank> TANK = register("tank", BlessingTank::new);
+    public static final DeferredHolder<Effect, BlessingSpider> SPIDER = register("spider", BlessingSpider::new);
+    public static final DeferredHolder<Effect, BlessingNinja> NINJA = register("ninja", BlessingNinja::new);
+    public static final DeferredHolder<Effect, BlessingBackstabbing> BACKSTABBING = register("backstabbing", BlessingBackstabbing::new);
+    public static final DeferredHolder<Effect, BlessingPropHunt> PROP_HUNT = register("prop_hunt", BlessingPropHunt::new);
     public static final DeferredHolder<Effect, BlessingLastStand> LAST_STAND = register("last_stand", BlessingLastStand::new);
 
     private Blessings() {}

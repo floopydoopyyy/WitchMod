@@ -36,6 +36,12 @@ public final class CurseUgly extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        target.setData(WitchModAttachments.UGLY_SKIN, target.getRandom().nextInt(1 << 20));
+        return "rolled a new ugly face";
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         // Non-negative and otherwise arbitrary; the client does the modulo.
         target.setData(WitchModAttachments.UGLY_SKIN, target.getRandom().nextInt(1 << 20));

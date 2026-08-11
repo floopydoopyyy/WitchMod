@@ -32,8 +32,17 @@ import net.neoforged.neoforge.client.event.MovementInputUpdateEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
+import net.neoforged.neoforge.client.event.RenderPlayerEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
@@ -68,6 +77,213 @@ public final class ClientCurseHandler {
     private static int nextRenameTick;
 
     private static int tickCounter;
+
+    // Builder: cached reflection into the two private client-side place/break delay counters.
+    private static java.lang.reflect.Field rightClickDelayField;
+    private static java.lang.reflect.Field destroyDelayField;
+    private static boolean builderReflectInit;
+
+    // Gladiator: the hotbar slot held when the parry input-lock began (so switching is reverted).
+    private static int gladiatorLockSlot = -1;
+    // Gladiator: mirror the server's parry weapon-cooldown onto the CLIENT ticker so the attack indicator shows it.
+    private static long gladiatorWeaponReadySeen = Long.MIN_VALUE;
+    private static java.lang.reflect.Field clientAttackTickerField;
+    private static boolean clientAttackTickerResolved;
+
+    private static void setClientAttackTicker(LocalPlayer player, int ticks) {
+        if (!clientAttackTickerResolved) {
+            clientAttackTickerResolved = true;
+            try {
+                clientAttackTickerField = LivingEntity.class.getDeclaredField("attackStrengthTicker");
+                clientAttackTickerField.setAccessible(true);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                clientAttackTickerField = null;
+            }
+        }
+        if (clientAttackTickerField != null) {
+            try {
+                clientAttackTickerField.setInt(player, ticks);
+            } catch (ReflectiveOperationException ignored) {
+                // non-fatal
+            }
+        }
+    }
+
+    /** Prop Hunt: lift the disguise block back up by vanilla's sneak render offset (2px) while crouched-anchored. */
+    private static final double PROPHUNT_CROUCH_LIFT = 0.125;
+
+    private static int spiderWallJumpCooldown;
+    private static boolean spiderJumpWasDown;
+    private static boolean spiderAttached; // must attach (climb/cling) before a wall-jump is allowed
+
+    /** True if there's a wall within reach (adjacency, so clinging works without pushing into it). */
+    private static boolean spiderNearWall(LocalPlayer player) {
+        return !player.level().noCollision(player, player.getBoundingBox().inflate(0.12, 0.0, 0.12));
+    }
+
+    // Ninja state.
+    private static boolean ninjaCanDoubleJump = true;
+    private static boolean ninjaJumpWasDown;
+    private static boolean ninjaWasSwinging;
+    private static boolean ninjaJumpArmed; // must RELEASE jump mid-air before the double jump can fire
+
+    /** Ninja: mid-air double jump, a sharp woosh on every swing, and ninja-smoke FX. Client-authoritative. */
+    private static void tickNinja(Minecraft mc, LocalPlayer player) {
+        boolean active = player.getData(WitchModAttachments.NINJA_ACTIVE) >= 0;
+        boolean jumpDown = mc.options.keyJump.isDown();
+        boolean jumpPressed = jumpDown && !ninjaJumpWasDown;
+        ninjaJumpWasDown = jumpDown;
+        if (!active) {
+            ninjaWasSwinging = player.swinging;
+            return;
+        }
+        if (player.onGround() || player.onClimbable() || player.isInWater()) {
+            ninjaCanDoubleJump = true;
+            ninjaJumpArmed = false; // reset — you must leave the ground and release jump to arm the second jump
+        } else if (!jumpDown) {
+            ninjaJumpArmed = true; // released mid-air → a fresh press can now double-jump
+        }
+        if (jumpPressed && ninjaJumpArmed && !player.onGround() && !player.onClimbable() && !player.isInWater()
+                && !player.getAbilities().flying && ninjaCanDoubleJump) {
+            Vec3 v = player.getDeltaMovement();
+            player.setDeltaMovement(v.x, Config.NINJA_DOUBLE_JUMP_POWER.get(), v.z);
+            player.hurtMarked = true;
+            player.fallDistance = 0;
+            ninjaCanDoubleJump = false;
+            ninjaDoubleJumpFx(player);
+        }
+        if (player.swinging && !ninjaWasSwinging) {
+            player.level().playLocalSound(player.getX(), player.getY(), player.getZ(),
+                    WitchModSounds.GLADIATOR_WHIFF.get(), SoundSource.PLAYERS, 0.6F, Config.NINJA_SWING_PITCH.get().floatValue(), false);
+        }
+        ninjaWasSwinging = player.swinging;
+        if (player.isSprinting() && tickCounter % 3 == 0) {
+            player.level().addParticle(ParticleTypes.SMOKE, player.getX(), player.getY() + 0.15, player.getZ(), 0, 0.01, 0);
+        }
+    }
+
+    private static void ninjaDoubleJumpFx(LocalPlayer player) {
+        for (int i = 0; i < 22; i++) {
+            double a = i / 22.0 * Math.PI * 2.0;
+            player.level().addParticle(ParticleTypes.CLOUD,
+                    player.getX() + Math.cos(a) * 0.7, player.getY() + 0.1, player.getZ() + Math.sin(a) * 0.7,
+                    Math.cos(a) * 0.14, 0.03, Math.sin(a) * 0.14);
+        }
+        player.level().addParticle(ParticleTypes.POOF, player.getX(), player.getY() + 0.3, player.getZ(), 0, 0.1, 0);
+        player.level().playLocalSound(player.getX(), player.getY(), player.getZ(),
+                WitchModSounds.GLADIATOR_WHIFF.get(), SoundSource.PLAYERS, 0.8F, 0.85F, false);
+    }
+
+    /** Prop Hunt: render the disguised player as their chosen block instead of the player model. */
+    @SubscribeEvent
+    static void onPropHuntRender(RenderPlayerEvent.Pre event) {
+        int id = event.getEntity().getData(WitchModAttachments.PROPHUNT_BLOCK);
+        if (id < 0) {
+            return;
+        }
+        event.setCanceled(true); // no player model or nametag while disguised
+        BlockState state = Block.stateById(id);
+        var player = event.getEntity();
+        float pt = event.getPartialTick();
+        double px = Mth.lerp(pt, player.xOld, player.getX());
+        double py = Mth.lerp(pt, player.yOld, player.getY());
+        double pz = Mth.lerp(pt, player.zOld, player.getZ());
+
+        PoseStack pose = event.getPoseStack();
+        pose.pushPose();
+        long anchor = player.getData(WitchModAttachments.PROPHUNT_ANCHOR);
+        if (anchor != Long.MIN_VALUE) {
+            // Anchored (crouched): render at the EXACT world cell the server pinned. Crouching only happens
+            // here, and vanilla's sneak pose drops the render ~2px AFTER this event fires — add it back so the
+            // block sits at true block height instead of sinking into the floor.
+            BlockPos bp = BlockPos.of(anchor);
+            pose.translate(bp.getX() - px, bp.getY() - py + PROPHUNT_CROUCH_LIFT, bp.getZ() - pz);
+        } else {
+            // Moving: the block follows you, centred on your feet.
+            pose.translate(-0.5, 0.0, -0.5);
+        }
+        Minecraft.getInstance().getBlockRenderer().renderSingleBlock(state, pose, event.getMultiBufferSource(),
+                event.getPackedLight(), OverlayTexture.NO_OVERLAY);
+        pose.popPose();
+    }
+
+    /**
+     * Spider: climb a wall you push into, CLING to it (hang on the edge) while crouching, and WALL-JUMP off
+     * it — a fresh jump press kicks you up and away, so you can bounce between walls. Client-authoritative.
+     */
+    private static void tickSpider(Minecraft mc, LocalPlayer player) {
+        if (spiderWallJumpCooldown > 0) {
+            spiderWallJumpCooldown--;
+        }
+        boolean jumpDown = mc.options.keyJump.isDown();
+        boolean jumpPressed = jumpDown && !spiderJumpWasDown; // rising edge
+        spiderJumpWasDown = jumpDown;
+
+        if (player.getData(WitchModAttachments.SPIDER_ACTIVE) < 0
+                || player.onGround() || player.isInWater() || player.getAbilities().flying
+                || !spiderNearWall(player)) {
+            spiderAttached = false; // on the ground / off the wall — must re-attach before jumping off
+            return;
+        }
+        Vec3 v = player.getDeltaMovement();
+
+        // Wall jump — ONLY once attached (so running into a wall can't fling you), launching where you LOOK.
+        if (jumpPressed && spiderAttached && spiderWallJumpCooldown <= 0) {
+            Vec3 look = player.getLookAngle();
+            Vec3 flat = new Vec3(look.x, 0, look.z);
+            if (flat.lengthSqr() > 1.0e-4) {
+                flat = flat.normalize().scale(Config.SPIDER_WALL_JUMP_AWAY.get());
+            }
+            player.setDeltaMovement(flat.x, Config.SPIDER_WALL_JUMP_UP.get(), flat.z);
+            player.hurtMarked = true;
+            player.fallDistance = 0;
+            spiderAttached = false;
+            spiderWallJumpCooldown = Config.SPIDER_WALL_JUMP_COOLDOWN.get();
+            player.level().playLocalSound(player.getX(), player.getY(), player.getZ(),
+                    net.minecraft.sounds.SoundEvents.SPIDER_STEP, net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 1.4F, false);
+            return;
+        }
+
+        if (mc.options.keyUp.isDown()) {
+            player.setDeltaMovement(v.x, Config.SPIDER_CLIMB_SPEED.get(), v.z); // climb up
+            player.fallDistance = 0;
+            spiderAttached = true;
+        } else if (player.isShiftKeyDown()) {
+            player.setDeltaMovement(v.x, 0.0, v.z); // cling / stay put on the wall
+            player.fallDistance = 0;
+            spiderAttached = true;
+        }
+    }
+
+    /** Gladiator: true while the hand is committed to a parry (no switch/swing/use). */
+    private static boolean gladiatorLocked(LocalPlayer player) {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.level != null && player.getData(WitchModAttachments.GLADIATOR_LOCK_END) > mc.level.getGameTime();
+    }
+
+    /** Blocks attack/use/pick while parrying; the slot revert + swap/drop drain live in the tick handlers. */
+    @SubscribeEvent
+    static void onGladiatorInputLock(InputEvent.InteractionKeyMappingTriggered event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null && gladiatorLocked(player) && (event.isAttack() || event.isUseItem() || event.isPickBlock())) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** Drains swap-offhand / drop before the tick processes them, while parrying. */
+    @SubscribeEvent
+    static void onGladiatorLockPre(ClientTickEvent.Pre event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || !gladiatorLocked(mc.player)) {
+            return;
+        }
+        while (mc.options.keySwapOffhand.consumeClick()) {
+            // discard
+        }
+        while (mc.options.keyDrop.consumeClick()) {
+            // discard
+        }
+    }
     private static boolean screensaverSeen;
 
     private static boolean minorSeen;
@@ -124,6 +340,50 @@ public final class ClientCurseHandler {
      */
     @SubscribeEvent
     static void onRenderLiving(RenderLivingEvent.Pre<?, ?> event) {
+        // The Dweller: the Mind Dweller is a private horror — it's only ever drawn for its VICTIM (whose UUID
+        // it carries, synced). Everyone else's client refuses to render it, so it exists solely in the
+        // victim's world.
+        if (event.getEntity() instanceof com.oliver.witchmod.entities.MindDwellerEntity dweller) {
+            LocalPlayer me = Minecraft.getInstance().player;
+            if (me == null || dweller.getVictim().map(id -> !id.equals(me.getUUID())).orElse(true)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+        if (event.getEntity() instanceof com.oliver.witchmod.entities.WatcherEyesEntity watcher) {
+            LocalPlayer me = Minecraft.getInstance().player;
+            if (me == null || watcher.getVictim().map(id -> !id.equals(me.getUUID())).orElse(true)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+
+        // Immortality: while a player is rebuilding, their MODEL is hidden so the gold→white particle
+        // silhouette stands in its place until they pop back. Visible to everyone (the recovery flags are
+        // synced to trackers), so any onlooker sees the particle-body too.
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player p && isImmortalityRebuilding(p)) {
+            event.setCanceled(true);
+            return;
+        }
+
+        // Unseen: another player who's cloaked is hidden entirely from you unless you're within the reveal
+        // distance; a cloak/uncloak puff fires as they cross it, so both parties get clear feedback.
+        LocalPlayer viewer = Minecraft.getInstance().player;
+        if (viewer != null && event.getEntity() instanceof net.minecraft.world.entity.player.Player other
+                && other != viewer && other.getData(WitchModAttachments.UNSEEN_ACTIVE) >= 0) {
+            double reveal = Config.UNSEEN_REVEAL_DISTANCE.get();
+            boolean shouldRender = viewer.distanceToSqr(other) <= reveal * reveal;
+            boolean wasRendered = UNSEEN_RENDERED.getOrDefault(other.getId(), Boolean.TRUE);
+            if (shouldRender != wasRendered) {
+                UNSEEN_RENDERED.put(other.getId(), shouldRender);
+                spawnUnseenTransition(other, shouldRender);
+            }
+            if (!shouldRender) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null || player.getData(WitchModAttachments.SOCIAL_OUTCAST_ACTIVE) < 0) {
             return;
@@ -189,7 +449,7 @@ public final class ClientCurseHandler {
         Input input = event.getInput();
 
         // Loading Screen / Pacing: you are not playing right now. Movement, jumping and sneaking all go dead.
-        if (LoadingScreenState.isActive() || pacingCamActive) {
+        if (LoadingScreenState.isActive() || pacingCamActive || isImmortalityRebuilding(event.getEntity())) {
             input.forwardImpulse = 0.0F;
             input.leftImpulse = 0.0F;
             input.up = false;
@@ -295,6 +555,384 @@ public final class ClientCurseHandler {
         }
     }
 
+    /** True while this player is mid-rebuild for the Immortality blessing — movement input is locked. */
+    private static boolean isImmortalityRebuilding(net.minecraft.world.entity.player.Player player) {
+        long end = player.getData(WitchModAttachments.IMMORTALITY_RECOVERY_END);
+        return end > 0L && player.level().getGameTime() < end;
+    }
+
+    /**
+     * Jesus: hold the player on the water surface. Not crouching = you stand on / float up to the top; crouching
+     * (or flying) skips this, so sneaking drops you under. Water only. Client-side, since player movement is
+     * client-authoritative — the resulting position syncs up so others see you on the water.
+     */
+    private static void tickJesus(LocalPlayer player) {
+        if (player.getData(WitchModAttachments.JESUS_ACTIVE) < 0
+                || player.isShiftKeyDown() || player.getAbilities().flying) {
+            return;
+        }
+        Double surface = waterSurfaceAt(player.level(), player.getX(), player.getY(), player.getZ());
+        if (surface == null || player.getY() > surface + 0.2) {
+            return; // no water column here, or you're still up in the air above it — fall onto it normally
+        }
+        net.minecraft.world.phys.Vec3 dm = player.getDeltaMovement();
+        if (player.getY() < surface - 0.05) {
+            // Below the surface: buoy up toward it rather than sinking.
+            player.setDeltaMovement(dm.x, Math.max(dm.y, 0.15), dm.z);
+        } else {
+            // At the surface: stand on it.
+            player.setPos(player.getX(), surface, player.getZ());
+            if (dm.y < 0.0) {
+                player.setDeltaMovement(dm.x, 0.0, dm.z);
+            }
+            player.setOnGround(true);
+            player.resetFallDistance();
+        }
+    }
+
+    private static net.minecraft.world.phys.Vec3 bouncyPrevVel;
+    private static boolean bouncyPrevGround;
+
+    private static int coyoteLastGroundTick = -100;
+    private static boolean coyoteUsed;
+    private static boolean coyoteDepartedByJump;
+    private static boolean coyotePrevGround;
+
+    /**
+     * Coyote: a late jump for {@code coyoteTicks} after you WALK off a ledge (not after you jump — no double
+     * jumps), plus a gentle forward pull toward a ledge edge ahead you're falling just short of. All
+     * client-side, since movement is client-authoritative.
+     */
+    private static void tickCoyote(Minecraft mc, LocalPlayer player) {
+        if (player.getData(WitchModAttachments.COYOTE_ACTIVE) < 0) {
+            return;
+        }
+        boolean ground = player.onGround();
+        net.minecraft.world.phys.Vec3 cur = player.getDeltaMovement();
+
+        if (ground) {
+            coyoteLastGroundTick = tickCounter;
+            coyoteUsed = false;
+        } else if (coyotePrevGround) {
+            coyoteDepartedByJump = cur.y > 0.15; // left the ground rising = a real jump; ~0 = walked off
+        }
+
+        if (!ground && !coyoteDepartedByJump && !coyoteUsed
+                && tickCounter - coyoteLastGroundTick <= Config.COYOTE_TICKS.get()
+                && mc.options.keyJump.isDown() && cur.y < 0.3) {
+            player.setDeltaMovement(cur.x, 0.42, cur.z); // vanilla jump velocity
+            coyoteUsed = true;
+        }
+
+        if (!ground) {
+            edgeMagnetism(player, cur);
+        }
+        coyotePrevGround = ground;
+    }
+
+    /**
+     * Bias the player onto a landable ledge just ahead — but only while DESCENDING, only up to a modest
+     * horizontal speed cap, and only if they're below it. So a short/slow jump gets nudged onto the ledge,
+     * while a sprint jump (already at/above the cap) gets nothing — no accelerating "flash", no huge distance.
+     */
+    private static void edgeMagnetism(LocalPlayer player, net.minecraft.world.phys.Vec3 cur) {
+        if (cur.y >= 0.0) {
+            return; // only assist on the way DOWN toward a landing
+        }
+        net.minecraft.world.phys.Vec3 flat = new net.minecraft.world.phys.Vec3(cur.x, 0.0, cur.z);
+        double speed = flat.length();
+        double cap = Config.COYOTE_ASSIST_MAX_SPEED.get();
+        if (speed < 0.03 || speed >= cap) {
+            return; // not moving, or already fast enough that it doesn't need (and shouldn't get) a boost
+        }
+        net.minecraft.world.phys.Vec3 dir = flat.scale(1.0 / speed);
+        if (!landableLedgeAhead(player, dir)) {
+            return;
+        }
+        // Nudge the horizontal speed up TOWARD the cap (never past it) in the direction you're already going.
+        double target = Math.min(cap, speed + Config.COYOTE_EDGE_MAGNETISM.get());
+        player.setDeltaMovement(dir.x * target, cur.y, dir.z * target);
+    }
+
+    /** True if there's a landable ledge top a short way ahead in {@code dir}, at or below the player's feet. */
+    private static boolean landableLedgeAhead(LocalPlayer player, net.minecraft.world.phys.Vec3 dir) {
+        var level = player.level();
+        double feetY = player.getY();
+        for (double d = 0.5; d <= 2.0; d += 0.5) {
+            int bx = net.minecraft.util.Mth.floor(player.getX() + dir.x * d);
+            int bz = net.minecraft.util.Mth.floor(player.getZ() + dir.z * d);
+            for (int topY = net.minecraft.util.Mth.floor(feetY + 0.3); topY >= net.minecraft.util.Mth.floor(feetY - 1.5); topY--) {
+                net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(bx, topY, bz);
+                boolean solid = !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+                boolean airAbove = level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty();
+                if (solid && airAbove && feetY >= topY + 0.8) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Bouncy: rebound off floors (scaled by the accumulated fall speed, and HOLDING JUMP adds on top so
+     * repeated jumps build height), off walls (sprint into one and ping back the opposite way) and off ceilings
+     * (bonk and drop). All client-side because player movement is client-authoritative. Every bounce tells the
+     * server (via a packet) so it plays the boing + particles for everyone nearby.
+     */
+    private static void tickBouncy(Minecraft mc, LocalPlayer player) {
+        if (player.getData(WitchModAttachments.BOUNCY_ACTIVE) < 0) {
+            bouncyPrevVel = null;
+            return;
+        }
+        net.minecraft.world.phys.Vec3 prev = bouncyPrevVel;
+        net.minecraft.world.phys.Vec3 cur = player.getDeltaMovement();
+        boolean ground = player.onGround();
+        double rest = Config.BOUNCY_RESTITUTION.get();
+        double cap = Config.BOUNCY_LANDING_MAX.get();
+
+        // The speed you were falling at ENTERING this tick (last tick's downward velocity).
+        double impactSpeed = prev != null ? -prev.y : 0.0;
+        double minBounce = Config.BOUNCY_MIN_FALL_VELOCITY.get();
+
+        // A landing is either: you touched down normally (ground now, airborne last tick), OR you touched down
+        // and the auto-jump fired the SAME tick (still falling last tick, now rising) — both need catching, or
+        // holding jump would hide the landing behind the jump. Sneak to land without bouncing.
+        boolean landedGrounded = ground && !bouncyPrevGround;
+        boolean landedJumped = !ground && prev != null && prev.y < -0.1 && cur.y > 0.05;
+
+        // When you're NOT holding jump, only a real fall bounces (so normal jumping/landing doesn't spam little
+        // bounces). Holding jump drops the bar so you can trampoline and build height. Sneak never bounces.
+        double threshold = mc.options.keyJump.isDown() ? 0.1 : minBounce;
+
+        boolean bounced = false;
+        if ((landedGrounded || landedJumped) && impactSpeed > threshold && !player.isShiftKeyDown()) {
+            // cur.y already holds the auto-jump if you held jump this tick, so it stacks onto the rebound and
+            // continuously holding jump compounds into more height; without a jump it just decays and settles.
+            double up = Math.max(0.0, cur.y) + Math.min(cap, impactSpeed * rest);
+            player.setDeltaMovement(cur.x, Math.min(cap + 0.5, up), cur.z);
+            bounced = true;
+        } else if (prev != null && player.horizontalCollision && prev.horizontalDistanceSqr() > 0.15 * 0.15) {
+            player.setDeltaMovement(-prev.x * rest, cur.y, -prev.z * rest); // wall: ping back the way you came
+            bounced = true;
+        } else if (prev != null && player.verticalCollision && !ground && prev.y > 0.15) {
+            player.setDeltaMovement(cur.x, -prev.y * rest, cur.z); // ceiling: bonk and drop
+            bounced = true;
+        }
+        if (bounced) {
+            player.hurtMarked = true;
+            player.resetFallDistance();
+            // Tell the server so EVERYONE hears/sees the bounce, not just us.
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                    new com.oliver.witchmod.network.WitchModNetwork.BouncyBoingPayload(
+                            player.getX(), player.getY(), player.getZ()));
+        }
+        bouncyPrevVel = player.getDeltaMovement();
+        bouncyPrevGround = ground;
+    }
+
+    /** Top of the water column at the player's feet (scanning up for the surface), or null if no water here. */
+    private static Double waterSurfaceAt(net.minecraft.world.level.Level level, double px, double py, double pz) {
+        int x = net.minecraft.util.Mth.floor(px);
+        int z = net.minecraft.util.Mth.floor(pz);
+        int startY = net.minecraft.util.Mth.floor(py);
+        int baseY;
+        if (level.getFluidState(new net.minecraft.core.BlockPos(x, startY, z)).is(net.minecraft.tags.FluidTags.WATER)) {
+            baseY = startY;
+        } else if (level.getFluidState(new net.minecraft.core.BlockPos(x, startY - 1, z)).is(net.minecraft.tags.FluidTags.WATER)) {
+            baseY = startY - 1;
+        } else {
+            return null;
+        }
+        int y = baseY;
+        for (int i = 0; i < 24 && level.getFluidState(new net.minecraft.core.BlockPos(x, y + 1, z)).is(net.minecraft.tags.FluidTags.WATER); i++) {
+            y++;
+        }
+        net.minecraft.core.BlockPos top = new net.minecraft.core.BlockPos(x, y, z);
+        return top.getY() + (double) level.getFluidState(top).getHeight(level, top);
+    }
+
+    /** Per-viewer render state of Unseen players (entity id -> was rendered last frame), for the transition puff. */
+    private static final java.util.Map<Integer, Boolean> UNSEEN_RENDERED = new java.util.HashMap<>();
+
+    /** Client-side subtle black-smoke burst at an Unseen player as they cross the reveal edge (both directions). */
+    private static void spawnUnseenTransition(net.minecraft.world.entity.player.Player other, boolean uncloak) {
+        var level = other.level();
+        int count = uncloak ? 10 : 6; // reveal a touch heavier than the faint cloak
+        for (int i = 0; i < count; i++) {
+            double px = other.getX() + (level.random.nextDouble() - 0.5) * other.getBbWidth() * 1.2;
+            double py = other.getY() + level.random.nextDouble() * other.getBbHeight();
+            double pz = other.getZ() + (level.random.nextDouble() - 0.5) * other.getBbWidth() * 1.2;
+            level.addParticle(com.oliver.witchmod.effects.blessings.BlessingUnseen.BLACK, px, py, pz, 0.0, 0.01, 0.0);
+        }
+    }
+
+    private static Double nightowlSavedGamma = null;
+    private static java.lang.reflect.Field gammaValueField;
+
+    private static Integer bedrockSavedRenderDistance = null;
+    private static net.minecraft.client.CameraType bedrockSavedCamera = null;
+    private static boolean bedrockSplitActive = false;
+    private static long bedrockLastMarketNonce = 0L;
+
+    /** Bedrock Moment per-tick client bugs: hotbar drift, perspective flip, split-screen POV, ad popup, sound delay. */
+    private static void tickBedrockClientBugs(Minecraft mc, LocalPlayer player) {
+        boolean active = player.getData(WitchModAttachments.BEDROCK_ACTIVE) >= 0;
+        long now = mc.level != null ? mc.level.getGameTime() : 0L;
+
+        // Replay any delayed sounds whose beat has come.
+        if (!bedrockDelayQueue.isEmpty()) {
+            java.util.Iterator<DelayedSound> it = bedrockDelayQueue.iterator();
+            while (it.hasNext()) {
+                DelayedSound d = it.next();
+                if (--d.ticks <= 0) {
+                    bedrockDelayPass.add(d.sound);
+                    mc.getSoundManager().play(d.sound);
+                    it.remove();
+                }
+            }
+        }
+
+        // Hotbar drift — your selected slot wanders on its own.
+        if (active && player.tickCount % 30 == 0 && Math.random() < Config.BEDROCK_HOTBAR_DRIFT_CHANCE.get()) {
+            int slot = (int) (Math.random() * 9);
+            player.getInventory().selected = slot;
+            if (mc.getConnection() != null) {
+                mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(slot));
+            }
+        }
+
+        // Perspective flip — the camera is yanked to a disorienting front third-person view for a bit.
+        long perspEnd = player.getData(WitchModAttachments.BEDROCK_PERSPECTIVE);
+        boolean flip = perspEnd != Long.MIN_VALUE && now < perspEnd;
+        if (flip && bedrockSavedCamera == null) {
+            bedrockSavedCamera = mc.options.getCameraType();
+            mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+        } else if (!flip && bedrockSavedCamera != null) {
+            mc.options.setCameraType(bedrockSavedCamera);
+            bedrockSavedCamera = null;
+        }
+
+        // Split screen — your view is hijacked into another entity's POV.
+        long splitEnd = player.getData(WitchModAttachments.BEDROCK_SPLIT_END);
+        int splitId = player.getData(WitchModAttachments.BEDROCK_SPLIT_ID);
+        boolean split = splitEnd != Long.MIN_VALUE && now < splitEnd && splitId >= 0 && mc.level != null;
+        if (split) {
+            net.minecraft.world.entity.Entity cam = mc.level.getEntity(splitId);
+            if (cam != null && mc.getCameraEntity() != cam) {
+                mc.setCameraEntity(cam);
+            }
+            bedrockSplitActive = true;
+        } else if (bedrockSplitActive) {
+            mc.setCameraEntity(mc.player);
+            bedrockSplitActive = false;
+        }
+
+        // Marketplace popup — a changing nonce means a fresh ad wants your attention.
+        long nonce = player.getData(WitchModAttachments.BEDROCK_MARKETPLACE);
+        if (nonce != 0L && nonce != bedrockLastMarketNonce) {
+            bedrockLastMarketNonce = nonce;
+            if (!(mc.screen instanceof com.oliver.witchmod.client.MarketplaceAdScreen)) {
+                int count = Math.max(1, Config.BEDROCK_MARKETPLACE_AD_COUNT.get());
+                int ad = (int) Math.floorMod(nonce, count) + 1;
+                mc.setScreen(new com.oliver.witchmod.client.MarketplaceAdScreen(ad));
+            }
+        }
+    }
+
+
+    /** Bedrock Moment (Chunk Rejection): while the window is up, slam render distance to 2 so chunks unload. */
+    private static void tickBedrockChunkReject(Minecraft mc, LocalPlayer player) {
+        long end = player.getData(WitchModAttachments.BEDROCK_CHUNK_REJECT);
+        boolean reject = end != Long.MIN_VALUE && mc.level != null && mc.level.getGameTime() < end;
+        if (reject && bedrockSavedRenderDistance == null) {
+            bedrockSavedRenderDistance = mc.options.renderDistance().get();
+            mc.options.renderDistance().set(2);
+        } else if (!reject && bedrockSavedRenderDistance != null) {
+            mc.options.renderDistance().set(bedrockSavedRenderDistance);
+            bedrockSavedRenderDistance = null;
+        }
+    }
+
+    private static boolean dwellerShaderActive = false;
+    private static boolean dwellerShaderFailed = false;
+    private static java.lang.reflect.Field postEffectField;
+    private static final net.minecraft.resources.ResourceLocation DWELLER_SHADER =
+            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(com.oliver.witchmod.WitchMod.MODID, "shaders/post/dweller.json");
+
+    /**
+     * The Dweller: a black-and-white post shader that drains the world's colour GRADUALLY as dread rises (via a
+     * {@code DreadAmount} uniform set each tick), rather than snapping on — the world looks completely normal
+     * early, so the rare first glimpse has nothing to soften it. No vanilla desaturate effect exists, so the mod
+     * ships its own ({@code assets/witchmod/shaders/...}); a load failure degrades silently (fog + audio still
+     * carry the dread) and is never retried.
+     */
+    private static void tickDwellerShader(Minecraft mc, LocalPlayer player) {
+        float dread = player.getData(WitchModAttachments.DWELLER_DREAD);
+        boolean want = dread > 0.06F;
+        if (want && !dwellerShaderActive && !dwellerShaderFailed) {
+            try {
+                mc.gameRenderer.loadEffect(DWELLER_SHADER);
+                dwellerShaderActive = true;
+            } catch (Throwable t) {
+                dwellerShaderFailed = true;
+            }
+        } else if (!want && dwellerShaderActive) {
+            mc.gameRenderer.shutdownEffect();
+            dwellerShaderActive = false;
+        }
+        if (dwellerShaderActive) {
+            float amount = net.minecraft.util.Mth.clamp((dread - 0.06F) / (0.85F - 0.06F), 0.0F, 1.0F);
+            try {
+                if (postEffectField == null) {
+                    postEffectField = net.minecraft.client.renderer.GameRenderer.class.getDeclaredField("postEffect");
+                    postEffectField.setAccessible(true);
+                }
+                Object pc = postEffectField.get(mc.gameRenderer);
+                if (pc instanceof net.minecraft.client.renderer.PostChain chain) {
+                    chain.setUniform("DreadAmount", amount);
+                }
+            } catch (Throwable ignored) {
+                // uniform drive unavailable — the shader still runs at its default full strength
+            }
+        }
+
+        // Past a certain depth, all in-game music dies — jukeboxes/records, the ambient background, the lot.
+        if (player.getData(WitchModAttachments.DWELLER_ACTIVE) >= 2) {
+            mc.getMusicManager().stopPlaying();
+        }
+    }
+
+    /**
+     * Nightowl full-bright: forces the gamma option's value past its normal 0..1 slider clamp (via the same
+     * reflection approach the project already uses elsewhere), saving the player's real gamma and restoring it
+     * when the blessing ends. Nothing is written to options.txt, so it never permanently changes their setting.
+     */
+    private static void tickNightowlBrightness(Minecraft mc, LocalPlayer player) {
+        boolean active = player.getData(WitchModAttachments.NIGHTOWL_ACTIVE) >= 0;
+        net.minecraft.client.OptionInstance<Double> gamma = mc.options.gamma();
+        if (active) {
+            if (nightowlSavedGamma == null) {
+                nightowlSavedGamma = gamma.get();
+            }
+            setGammaRaw(gamma, 15.0); // re-assert each tick in case something resets it
+        } else if (nightowlSavedGamma != null) {
+            setGammaRaw(gamma, nightowlSavedGamma);
+            nightowlSavedGamma = null;
+        }
+    }
+
+    private static void setGammaRaw(net.minecraft.client.OptionInstance<Double> gamma, double value) {
+        try {
+            if (gammaValueField == null) {
+                gammaValueField = net.minecraft.client.OptionInstance.class.getDeclaredField("value");
+                gammaValueField.setAccessible(true);
+            }
+            gammaValueField.set(gamma, value);
+        } catch (ReflectiveOperationException e) {
+            gamma.set(value); // fallback: clamps to 1.0, still brighter than nothing
+        }
+    }
+
     /** Current Stick Drift episode intensity for this player, or 0 when between episodes. */
     private static float stickDriftIntensity(LocalPlayer player, long now) {
         if (now >= player.getData(WitchModAttachments.STICK_DRIFT_END)) {
@@ -351,6 +989,152 @@ public final class ClientCurseHandler {
         }
     }
 
+    /** Nightowl: strip fog everywhere (distance, water, lava) by pushing the fog planes out of view. */
+    @SubscribeEvent
+    static void onRenderFog(ViewportEvent.RenderFog event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        // The Dweller: a hard FLICKER — the lights go out for a beat (Shadow-Pass / Lights-Out) — slams the fog
+        // right in, then it snaps back.
+        long flicker = player.getData(WitchModAttachments.DWELLER_FLICKER);
+        if (flicker != Long.MIN_VALUE && player.level().getGameTime() < flicker) {
+            event.setNearPlaneDistance(0.1F);
+            event.setFarPlaneDistance(2.5F);
+            event.setCanceled(true);
+            return;
+        }
+        // The Dweller: a murk that closes in GRADUALLY as the curse's dread rises — so you can never see far
+        // enough to keep track of where it is. It's barely there early (the world looks fine, which makes a rare
+        // glimpse far worse) and suffocates to ~8 blocks by the end. Only ever pulls the fog IN, never pushes it
+        // out past vanilla.
+        float dread = player.getData(WitchModAttachments.DWELLER_DREAD);
+        if (dread > 0.02F) {
+            float t = net.minecraft.util.Mth.clamp((dread - 0.05F) / 0.95F, 0.0F, 1.0F);
+            t = t * t * (3.0F - 2.0F * t); // smoothstep
+            float far = net.minecraft.util.Mth.lerp(t, 110.0F, 8.0F);
+            if (far < event.getFarPlaneDistance()) {
+                event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance(), 1.0F));
+                event.setFarPlaneDistance(far);
+                event.setCanceled(true);
+            }
+            return;
+        }
+        if (player.getData(WitchModAttachments.NIGHTOWL_ACTIVE) >= 0) {
+            event.setNearPlaneDistance(-8.0F);
+            event.setFarPlaneDistance(1_000_000.0F);
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * The Dweller (deep tier): kills all music — jukebox records, the ambient background score, everything on
+     * the MUSIC/RECORDS channels — so the only thing you ever hear is it. (The title screen can't be gated by a
+     * per-player curse, so that's left alone.)
+     */
+    @SubscribeEvent
+    static void onDwellerSilenceMusic(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null || player.getData(WitchModAttachments.DWELLER_ACTIVE) < 2) {
+            return;
+        }
+        net.minecraft.client.resources.sounds.SoundInstance sound = event.getSound();
+        if (sound != null && (sound.getSource() == SoundSource.MUSIC || sound.getSource() == SoundSource.RECORDS)) {
+            event.setSound(null);
+        }
+    }
+
+    /** Bedrock Moment (Nightcore bug): while the window is up, every sound plays back higher-pitched. */
+    @SubscribeEvent
+    static void onBedrockNightcore(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        long end = player.getData(WitchModAttachments.BEDROCK_NIGHTCORE);
+        if (end == Long.MIN_VALUE || player.level().getGameTime() >= end) {
+            return;
+        }
+        net.minecraft.client.resources.sounds.SoundInstance sound = event.getSound();
+        if (sound == null || sound instanceof com.oliver.witchmod.client.NightcoreSoundInstance) {
+            return;
+        }
+        event.setSound(new com.oliver.witchmod.client.NightcoreSoundInstance(sound, Config.BEDROCK_NIGHTCORE_PITCH.get().floatValue()));
+    }
+
+    /** DelayedSound queue for the Bedrock "Sound Delay" bug — sounds we held back and will replay later. */
+    private static final class DelayedSound {
+        final net.minecraft.client.resources.sounds.SoundInstance sound;
+        int ticks;
+        DelayedSound(net.minecraft.client.resources.sounds.SoundInstance sound, int ticks) {
+            this.sound = sound;
+            this.ticks = ticks;
+        }
+    }
+    private static final java.util.List<DelayedSound> bedrockDelayQueue = new java.util.ArrayList<>();
+    private static final java.util.Set<net.minecraft.client.resources.sounds.SoundInstance> bedrockDelayPass =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    /** Bedrock Moment: SILENT CREEPER (always on while cursed) + SOUND DELAY (windowed). */
+    @SubscribeEvent
+    static void onBedrockSoundBugs(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        net.minecraft.client.resources.sounds.SoundInstance sound = event.getSound();
+        if (sound == null) {
+            return;
+        }
+        // Silent creeper — swallow every creeper noise (the classic terror).
+        if (player.getData(WitchModAttachments.BEDROCK_ACTIVE) >= 0 && sound.getLocation().getPath().contains("creeper")) {
+            event.setSound(null);
+            return;
+        }
+        // Sound delay — hold one-shot sounds back and replay them a beat late.
+        if (bedrockDelayPass.remove(sound)) {
+            return; // this IS a replayed one — let it through
+        }
+        long end = player.getData(WitchModAttachments.BEDROCK_SOUND_DELAY);
+        if (end != Long.MIN_VALUE && player.level().getGameTime() < end && !sound.isLooping() && bedrockDelayQueue.size() < 64) {
+            bedrockDelayQueue.add(new DelayedSound(sound, Config.BEDROCK_SOUND_DELAY_AMOUNT.get()));
+            event.setSound(null);
+        }
+    }
+
+    /** Bedrock Moment: PHANTOM DURABILITY — jittering durability bars over your hotbar. */
+    @SubscribeEvent
+    static void onBedrockPhantomDurability(RenderGuiLayerEvent.Post event) {
+        if (!VanillaGuiLayers.HOTBAR.equals(event.getName())) {
+            return;
+        }
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        long end = player.getData(WitchModAttachments.BEDROCK_PHANTOM_DUR);
+        if (end == Long.MIN_VALUE || player.level().getGameTime() >= end) {
+            return;
+        }
+        net.minecraft.client.gui.GuiGraphics g = event.getGuiGraphics();
+        int w = g.guiWidth();
+        int h = g.guiHeight();
+        int itemY = h - 19;
+        for (int slot = 0; slot < 9; slot++) {
+            if (!player.getInventory().getItem(slot).isDamageableItem()) {
+                continue;
+            }
+            int itemX = w / 2 - 90 + slot * 20 + 2;
+            int bx = itemX + 2;
+            int by = itemY + 13;
+            int fill = (int) (Math.random() * 14);
+            int color = 0xFF000000 | (int) (Math.random() * 0x1000000);
+            g.fill(bx, by, bx + 13, by + 2, 0xFF000000);
+            g.fill(bx, by, bx + fill, by + 1, color);
+        }
+    }
+
     @SubscribeEvent
     static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         Minecraft mc = Minecraft.getInstance();
@@ -395,6 +1179,15 @@ public final class ClientCurseHandler {
         // ...and Flat Footed's footstep shudder from a loud player nearby. Both stack additively.
         applyShake(event, now, mc.player.getData(WitchModAttachments.FLAT_FOOTED_SHAKE_END),
                 Config.FLATFOOT_SHAKE_TICKS.get(), Config.FLATFOOT_SHAKE_STRENGTH.get());
+        // ...and Thick Skinned's little "shrugged it off" jolt when a hit is neutralised.
+        applyShake(event, now, mc.player.getData(WitchModAttachments.THICK_SKINNED_SHAKE_END),
+                Config.THICKSKIN_SHAKE_TICKS.get(), Config.THICKSKIN_SHAKE_STRENGTH.get());
+        // ...and Brute's smash jolt when you crash through a wall.
+        applyShake(event, now, mc.player.getData(WitchModAttachments.BRUTE_SHAKE_END),
+                Config.BRUTE_SHAKE_TICKS.get(), Config.BRUTE_SHAKE_STRENGTH.get());
+        // ...and Gladiator's parry jolt (strength is synced per outcome: perfect > normal > whiff).
+        applyShake(event, now, mc.player.getData(WitchModAttachments.GLADIATOR_SHAKE_END),
+                Config.GLADIATOR_SHAKE_TICKS.get(), mc.player.getData(WitchModAttachments.GLADIATOR_SHAKE_STRENGTH));
     }
 
     /** One decaying random jolt on the camera ANGLES (never the real rotation), shared by both shake sources. */
@@ -420,6 +1213,66 @@ public final class ClientCurseHandler {
         }
         tickCounter++;
         Window window = mc.getWindow();
+
+        // Gladiator: while committed to a parry, pin the hotbar slot (revert any switch attempt).
+        if (gladiatorLocked(player)) {
+            if (gladiatorLockSlot < 0) {
+                gladiatorLockSlot = player.getInventory().selected;
+            }
+            player.getInventory().selected = gladiatorLockSlot;
+        } else {
+            gladiatorLockSlot = -1;
+        }
+
+        // Gladiator: when a parry imposed a weapon cooldown, set the CLIENT ticker so the indicator recharges.
+        long weaponReady = player.getData(WitchModAttachments.GLADIATOR_WEAPON_READY);
+        if (weaponReady != gladiatorWeaponReadySeen) {
+            gladiatorWeaponReadySeen = weaponReady;
+            long nowTick = mc.level.getGameTime();
+            if (weaponReady > nowTick) {
+                setClientAttackTicker(player, (int) player.getCurrentItemAttackStrengthDelay() - (int) (weaponReady - nowTick));
+            }
+        }
+
+        // Organised: pressing the keybind asks the server to open the extra-inventory-row stash (menus can
+        // only be opened server-side, so it goes through a tiny C2S packet; the server checks the blessing).
+        while (com.oliver.witchmod.WitchModClient.ORGANISED_KEY.consumeClick()) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                    new com.oliver.witchmod.network.WitchModNetwork.OpenOrganisedPayload());
+        }
+
+        // Nightowl: force full-bright gamma while active, restoring the player's own gamma when it ends.
+        tickNightowlBrightness(mc, player);
+
+        // The Dweller: drain the world of colour while the curse is on you.
+        tickDwellerShader(mc, player);
+
+        // Bedrock Moment (Chunk Rejection bug): force render distance right down so nearby chunks vanish.
+        tickBedrockChunkReject(mc, player);
+
+        // Bedrock Moment: hotbar drift, perspective flip, split-screen POV steal, the ad popup, delayed audio.
+        tickBedrockClientBugs(mc, player);
+
+        // Jesus: walk on the water surface (unless crouching, which drops you under).
+        tickJesus(player);
+
+        // Bouncy: rubbery rebounds off floors/walls/ceilings (client-authoritative movement).
+        tickBouncy(mc, player);
+
+        // Coyote: coyote-time late jump + edge magnetism to make parkour forgiving.
+        tickCoyote(mc, player);
+
+        // Builder: zero the place/break delays so you can build and tear down at click speed.
+        tickBuilder(mc, player);
+
+        // Spider: climb walls when pushing into them (or cling while sneaking).
+        tickSpider(mc, player);
+
+        // Ninja: double jump + swing woosh + smoke.
+        tickNinja(mc, player);
+
+        // Ocean's Blessing: fast forward swim while in water (enhanced by Dolphin's Grace).
+        tickOceansSwim(player);
 
         // Delusions: spawn/retire the fake players and run the "am I being watched" timer.
         DelusionManager.clientTick(mc);
@@ -447,6 +1300,76 @@ public final class ClientCurseHandler {
         tickHeavyAnchor(player);
         tickStickDriftCamera(player);
         tickPacingCamera(mc, player);
+    }
+
+    /**
+     * Builder: zero the two client-side cooldowns vanilla imposes between actions — {@code rightClickDelay}
+     * (place/use) and {@code MultiPlayerGameMode.destroyDelay} (the pause after breaking a block) — so both
+     * happen at click speed. Both fields are private with no setter, so this reflects into them (cached),
+     * degrading gracefully if the fields ever can't be resolved.
+     */
+    private static void tickBuilder(Minecraft mc, LocalPlayer player) {
+        if (player.getData(WitchModAttachments.BUILDER_ACTIVE) < 0) {
+            return;
+        }
+        if (!builderReflectInit) {
+            builderReflectInit = true;
+            try {
+                rightClickDelayField = Minecraft.class.getDeclaredField("rightClickDelay");
+                rightClickDelayField.setAccessible(true);
+            } catch (ReflectiveOperationException ignored) {
+                rightClickDelayField = null;
+            }
+            try {
+                destroyDelayField = net.minecraft.client.multiplayer.MultiPlayerGameMode.class.getDeclaredField("destroyDelay");
+                destroyDelayField.setAccessible(true);
+            } catch (ReflectiveOperationException ignored) {
+                destroyDelayField = null;
+            }
+        }
+        try {
+            if (rightClickDelayField != null) {
+                rightClickDelayField.setInt(mc, 0);
+            }
+            if (destroyDelayField != null && mc.gameMode != null) {
+                destroyDelayField.setInt(mc.gameMode, 0);
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // give up quietly — the field couldn't be written this tick
+        }
+    }
+
+    /**
+     * Ocean's Blessing: a strong forward push while swimming, so water travel is fast. Client-authoritative
+     * movement, so it's applied here off the synced flag; Dolphin's Grace multiplies it, and the boost is
+     * capped so you can't accelerate without limit.
+     */
+    private static void tickOceansSwim(LocalPlayer player) {
+        if (player.getData(WitchModAttachments.OCEANS_ACTIVE) < 0 || !player.isInWater() || player.zza <= 0.0F) {
+            return; // only while active, wet, and actually swimming forward
+        }
+        Vec3 v = player.getDeltaMovement();
+        if (v.length() >= Config.OCEANS_MAX_SPEED.get()) {
+            return;
+        }
+        double boost = Config.OCEANS_SWIM_BOOST.get();
+        if (player.hasEffect(net.minecraft.world.effect.MobEffects.DOLPHINS_GRACE)) {
+            boost *= Config.OCEANS_DOLPHIN_MULT.get();
+        }
+        player.setDeltaMovement(v.add(player.getLookAngle().scale(boost)));
+    }
+
+    /**
+     * Berserker: an air-swing (nothing in reach) is a MISS, and misses reset the frenzy. Whether a swing
+     * connected is client-authoritative, so the client reports the miss and the server resets the stacks.
+     */
+    @SubscribeEvent
+    static void onBerserkerMiss(PlayerInteractEvent.LeftClickEmpty event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null && player.getData(WitchModAttachments.BERSERKER_ACTIVE) >= 0) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                    new com.oliver.witchmod.network.WitchModNetwork.BerserkerMissPayload());
+        }
     }
 
     /**
