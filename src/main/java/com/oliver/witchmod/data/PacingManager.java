@@ -101,6 +101,11 @@ public final class PacingManager {
         return min + (int) Math.round((max - min) * biased);
     }
 
+    /** Debug: force a dramatic time-stop moment now (used by {@code /bewitch debug force witchmod:pacing}). */
+    public static void debugTrigger(ServerPlayer victim) {
+        trigger(victim);
+    }
+
     private static void trigger(ServerPlayer victim) {
         ServerLevel level = victim.serverLevel();
         long now = level.getGameTime();

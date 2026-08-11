@@ -62,7 +62,7 @@ public final class ThirstHudLayer implements LayeredDraw.Layer {
 
         int max = Config.THIRST_MAX.get();
         int right = guiGraphics.guiWidth() / 2 + 91;                       // vanilla food-bar right edge
-        int top = HudBars.topForRow(guiGraphics.guiHeight(), HudBars.thirstRow(player));
+        int top = HudBars.topForRow(player, guiGraphics.guiHeight(), HudBars.thirstRow(player));
 
         // Vanilla jitters the hunger icons when you're starving; here it's Dehydration that shakes them,
         // seeded off the tick so the whole row doesn't wobble in lockstep.

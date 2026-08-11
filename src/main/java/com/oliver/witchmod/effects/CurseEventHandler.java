@@ -37,6 +37,8 @@ import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import org.jetbrains.annotations.Nullable;
+
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
@@ -79,6 +81,48 @@ public final class CurseEventHandler {
 
     private CurseEventHandler() {}
 
+    /** Flat Footed: you can't help but be LOUD — even your chat comes out in capitals. */
+    @SubscribeEvent
+    static void onFlatFootedShout(net.neoforged.neoforge.event.ServerChatEvent event) {
+        if (EffectManager.isActive(event.getPlayer(), com.oliver.witchmod.effects.Curses.FLAT_FOOTED)) {
+            event.setMessage(net.minecraft.network.chat.Component.literal(
+                    event.getRawText().toUpperCase(java.util.Locale.ROOT)));
+        }
+    }
+
+    // --- Solicitor: kill → instant respawn; completing a trade → it hides for a while ------------------
+    @SubscribeEvent
+    static void onSolicitorKilled(LivingDeathEvent event) {
+        ServerPlayer victim = solicitorVictim(event.getEntity());
+        if (victim != null) {
+            com.oliver.witchmod.effects.curses.CurseSolicitor.onKilled(victim);
+        }
+    }
+
+    @SubscribeEvent
+    static void onSolicitorTraded(net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent event) {
+        ServerPlayer victim = solicitorVictim(event.getAbstractVillager());
+        if (victim != null) {
+            com.oliver.witchmod.effects.curses.CurseSolicitor.onTraded(victim,
+                    (net.minecraft.world.entity.npc.WanderingTrader) event.getAbstractVillager());
+        }
+    }
+
+    /** The still-cursed, online owner of a solicitor trader, or null if {@code e} isn't one / owner is gone. */
+    @Nullable
+    private static ServerPlayer solicitorVictim(net.minecraft.world.entity.Entity e) {
+        if (!com.oliver.witchmod.effects.curses.CurseSolicitor.isSolicitor(e)
+                || !(e.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            return null;
+        }
+        UUID owner = com.oliver.witchmod.effects.curses.CurseSolicitor.ownerOf(e);
+        if (owner == null) {
+            return null;
+        }
+        ServerPlayer victim = level.getServer().getPlayerList().getPlayer(owner);
+        return victim != null && EffectManager.isActive(victim, com.oliver.witchmod.effects.Curses.SOLICITOR) ? victim : null;
+    }
+
     /**
      * Siren's Call: a Drowned near a soothed victim protects its own — it can't even acquire the victim as a
      * target. Vetoed at the source (its goals never lock on), rather than clearing the target each tick, which
@@ -102,6 +146,14 @@ public final class CurseEventHandler {
      * player) — it has to catch both the victim taking a hit AND a cursed attacker landing a melee blow on
      * something else. It scales the amount; the rest of the mod's per-player logic runs afterwards.
      */
+    /** Splitscreen: taking damage while a shared sign is open force-closes it for both players. */
+    @SubscribeEvent
+    static void onSplitscreenDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            com.oliver.witchmod.effects.curses.CurseSplitscreen.onDamaged(player);
+        }
+    }
+
     @SubscribeEvent
     static void onGlassCannon(LivingIncomingDamageEvent event) {
         // Taking a hit: every source counts, at 200%.
@@ -120,6 +172,12 @@ public final class CurseEventHandler {
     @SubscribeEvent
     static void onIncomingDamage(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        // Bedrock Moment: Bluetooth (withhold + store all damage) / Delay (late fall damage). If it swallowed
+        // the hit, nothing else reacts to it this tick.
+        if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)
+                && com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onIncomingDamage(player, event)) {
             return;
         }
         // Super Explosive: a small, constant chance to detonate when taking damage. Guard against explosion
@@ -211,6 +269,10 @@ public final class CurseEventHandler {
                 && event.getLevel() instanceof ServerLevel level
                 && EffectManager.isActive(player, Curses.CLUMSY)) {
             CurseClumsy.onBlockPlaced(player, level, event.getPos(), event.getPlacedBlock());
+        }
+        // Bedrock Moment (Ghost Blocks): a block you place may briefly appear then reject itself.
+        if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
+            com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onBlockPlaced(player, event.getPos());
         }
     }
 
@@ -369,6 +431,14 @@ public final class CurseEventHandler {
             if (EffectManager.isActive(player, Curses.COMIC_RELIEF)) {
                 CurseComicRelief.onDeath(player);
             }
+            // The Dweller: death doesn't end the curse — it just knocks the dread down a tier (two mid-hunt).
+            if (EffectManager.isActive(player, Curses.THE_DWELLER)) {
+                com.oliver.witchmod.effects.curses.dweller.CurseTheDweller.onVictimDeath(player);
+            }
+            // Bedrock Moment: a death clears the fake drowning so it doesn't carry to respawn.
+            if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
+                com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onDeath(player);
+            }
         }
     }
 
@@ -384,9 +454,16 @@ public final class CurseEventHandler {
     /** Butterfingers: same again for swinging at an entity. */
     @SubscribeEvent
     static void onAttackEntity(AttackEntityEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player && isToolSwing(player)
-                && EffectManager.isActive(player, Curses.BUTTERFINGERS)) {
-            CurseButterfingers.onToolSwing(player);
+        if (event.getEntity() instanceof ServerPlayer player) {
+            // The Dweller: swinging at a victim-only fake attacker banishes it (and swallows the real swing).
+            if (EffectManager.isActive(player, Curses.THE_DWELLER)
+                    && com.oliver.witchmod.effects.curses.dweller.CurseTheDweller.onPhantomAttacked(player, event.getTarget())) {
+                event.setCanceled(true);
+                return;
+            }
+            if (isToolSwing(player) && EffectManager.isActive(player, Curses.BUTTERFINGERS)) {
+                CurseButterfingers.onToolSwing(player);
+            }
         }
     }
 

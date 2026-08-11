@@ -5,6 +5,8 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.curses.*;
+import com.oliver.witchmod.effects.curses.dweller.CurseTheDweller;
+import com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment;
 
 /**
  * Registers all 49 curses (master-spec Section 5). Some still carry the prototype's original ids where the
@@ -68,6 +70,12 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseLoadingScreen> LOADING_SCREEN = register("loading_screen", CurseLoadingScreen::new);
     public static final DeferredHolder<Effect, CursePacing> PACING = register("pacing", CursePacing::new);
     public static final DeferredHolder<Effect, CurseTrumpet> TRUMPET = register("trumpet", CurseTrumpet::new);
+    public static final DeferredHolder<Effect, CurseSolicitor> SOLICITOR = register("solicitor", CurseSolicitor::new);
+    public static final DeferredHolder<Effect, CurseSnail> SNAIL = register("snail", CurseSnail::new);
+    public static final DeferredHolder<Effect, CurseTheDweller> THE_DWELLER = register("the_dweller", CurseTheDweller::new);
+    public static final DeferredHolder<Effect, CurseBedrockMoment> BEDROCK_MOMENT = register("bedrock_moment", CurseBedrockMoment::new);
+
+    public static final DeferredHolder<Effect, CurseSplitscreen> SPLITSCREEN = register("splitscreen", CurseSplitscreen::new);
 
     private Curses() {}
 

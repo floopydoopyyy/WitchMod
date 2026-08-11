@@ -66,7 +66,49 @@ public final class BewitchCommand {
                 .then(clearNode())
                 .then(eventNode(context))
                 .then(forcestopNode(context))
+                .then(debugNode(context))
                 .then(Commands.literal("organised").executes(BewitchCommand::openOrganised)));
+    }
+
+    /**
+     * {@code /bewitch debug force <effect> [targets] [arg]} — force a curse/blessing's signature event (or a
+     * named sub-event / parameter via {@code arg}) on the targets, for hands-on testing. Feedback is echoed
+     * per target, including when a precondition wasn't met. Backed by {@link Effect#debugForce}.
+     */
+    private static LiteralArgumentBuilder<CommandSourceStack> debugNode(CommandBuildContext context) {
+        return Commands.literal("debug")
+                .then(Commands.literal("force")
+                        .then(Commands.argument("effect", ResourceArgument.resource(context, WitchModRegistries.EFFECT_REGISTRY_KEY))
+                                .executes(ctx -> debugForce(ctx, Collections.singletonList(ctx.getSource().getPlayerOrException()), null))
+                                .then(Commands.argument("targets", EntityArgument.players())
+                                        .executes(ctx -> debugForce(ctx, EntityArgument.getPlayers(ctx, "targets"), null))
+                                        .then(Commands.argument("arg", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                                .executes(ctx -> debugForce(ctx, EntityArgument.getPlayers(ctx, "targets"),
+                                                        com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "arg")))))));
+    }
+
+    private static int debugForce(CommandContext<CommandSourceStack> ctx, Collection<ServerPlayer> targets, @Nullable String arg) throws CommandSyntaxException {
+        Holder.Reference<Effect> effect = ResourceArgument.getResource(ctx, "effect", WitchModRegistries.EFFECT_REGISTRY_KEY);
+        String id = effect.key().location().toString();
+        int ok = 0;
+        for (ServerPlayer target : targets) {
+            String feedback;
+            try {
+                feedback = effect.value().debugForce(target, arg == null || arg.isBlank() ? null : arg.trim());
+            } catch (Exception e) {
+                ctx.getSource().sendFailure(Component.literal("[debug] " + id + " on " + target.getName().getString() + " threw: " + e));
+                continue;
+            }
+            if (feedback == null) {
+                ctx.getSource().sendFailure(Component.literal(id + " has no debug-forcible event."
+                        + " (Add a debugForce override — see CLAUDE.md §16.4.)"));
+                return ok;
+            }
+            String line = "[debug] " + id + " → " + target.getName().getString() + ": " + feedback;
+            ctx.getSource().sendSuccess(() -> Component.literal(line), false);
+            ok++;
+        }
+        return ok;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> applyNode(CommandBuildContext context) {
@@ -236,11 +278,7 @@ public final class BewitchCommand {
      * the command sits behind the same op gate as the rest of {@code /bewitch}.
      */
     private static int openOrganised(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer player = ctx.getSource().getPlayerOrException();
-        SimpleContainer container = OrganisedStash.openContainer(player);
-        player.openMenu(new SimpleMenuProvider(
-                (id, inv, p) -> new ChestMenu(MenuType.GENERIC_9x1, id, inv, container, 1),
-                Component.literal("Organised")));
+        OrganisedStash.openMenu(ctx.getSource().getPlayerOrException());
         return 1;
     }
 

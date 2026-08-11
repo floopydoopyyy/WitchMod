@@ -1471,6 +1471,10 @@ within `WATER_SEARCH_RADIUS`), syncs a bearing (`SIREN_PULL_YAW`) + active flag,
 victim's yaw onto it and forces forward — client-side because movement is client-authoritative. A small
 server-side `PULL_FORCE` velocity tug rides on top so ice or a fall still drifts you seaward. Sits BELOW the
 Backseat block so a mounted victim's mount steering still wins.
+**⚠ `nearestWater` only targets REACHABLE water:** it skips any water whose block above is solid (sealed
+under a platform) and any water within ~2 blocks horizontally, ranking by horizontal distance. (Bug fix:
+water trapped under the platform you're standing on gave an unreachable, near-straight-down target, so the
+yaw flipped around and you walked in a goofy circle. No qualifying water now = no pull, no spin.)
 
 **Drowned protect their own** (`DROWNED_SOOTHE_RADIUS`): one nearby multiplies the longing gain down
 (`DROWNED_GAIN_MULT`) AND is stripped of the victim as a target — the sea's creatures don't harm one it's
@@ -1701,8 +1705,11 @@ placeholder texture; body baked into a `HumanoidModel` with proper held-item arm
 - **WARNING** — a non-anchor player OR villager within `bodyguardWarningRadius` gets told, by name, to leave
   (random multi-line dialogue trees).
 - **AGGRESSION** — they crowd within `bodyguardAggressionRadius`: low-damage warning hits (villagers are
-  SHOVED, not hurt, so the iron golem isn't provoked). Keep crowding for `bodyguardPatienceTicks` AND after
-  ≥`bodyguardWarningsBeforeAttack` spoken warnings → it **draws an iron sword** and commits.
+  SHOVED, not hurt, so the iron golem isn't provoked). Lingering as an intruder for `bodyguardPatienceTicks`
+  AND after ≥`bodyguardWarningsBeforeAttack` spoken warnings → it **draws an iron sword** and commits. ⚠ The
+  patience clock builds while the SAME intruder is present at ALL (WARNING or AGGRESSION) and resets only when
+  they leave or a new one takes over — NOT on a WARNING⇄AGGRESSION flip. (Bug fix: it used to reset the moment
+  a warning-shove bumped them out of AGGRESSION range, so it only ever attacked while you actively crowded it.)
 - **ATTACKING** — anything that strikes the anchor OR the bodyguard is chased at full `bodyguardDamage` until
   dead or dragged beyond `bodyguardLeashRange`, then it stands down.
 
@@ -1735,11 +1742,17 @@ taxmanGiftEmeraldsMax=10  taxmanGiftGoldMax=8  taxmanGiftDiamondsMax=3
 ### Hype Man — Any Music Disc (tag: minecraft:music_discs — EXPLICIT TAG EXCEPTION)  ✅ REFINED
 Your every move makes nearby players gush about you in chat, by name, sometimes unhinged. Purely comedic, no
 mechanical effect — hence cheap. Triggers: **combat** (`AttackEntityEvent`), **pickup**
-(`ItemEntityPickupEvent.Post`), **loot** (opening a `ChestMenu`), and **nearby** (ambient tick). All route
-through `BlessingHypeMan.praise`, which shares ONE cooldown (`hypemanCooldownTicks`) so a busy moment can't
-wall chat, rolls `hypemanChance`, and speaks the line in the mouth of a **random nearby player** (or one of a
-few "a fan" names if you're alone), broadcast to everyone within `hypemanRadius`. Lines from the writable
-`data/witchmod/text/hypeman.json`, keyed by trigger, `{player}` → your username.
+(`ItemEntityPickupEvent.Post`), **loot** (opening a `ChestMenu`), **building** (`BlockEvent.EntityPlaceEvent`,
+complimenting your builds), and **nearby** (ambient "sighting" tick). All route through
+`BlessingHypeMan.praise`, which shares ONE cooldown (`hypemanCooldownTicks`) so a busy moment can't wall chat,
+rolls `hypemanChance`, and speaks the line in the mouth of a **random nearby player**, broadcast to everyone
+within `hypemanRadius`. Lines from the writable `data/witchmod/text/hypeman.json`, keyed by trigger, `{player}`
+→ your username.
+
+**⚠ The no-player fallback is ONLY for the "nearby" sighting (Oliver's call).** The specific-action praises
+(combat/pickup/loot/building) require a genuine nearby player and stay silent when you're alone — only the
+sighting carries on with nobody around, attributed to a made-up name from the shared
+`data/witchmod/text/usernames.json` (via `Usernames`, also intended for the Chat blessing's fake chatters).
 
 **Tag exception (Rule 9):** implemented generically via a new `Effect.sacrificialTag()` hook that
 `SacrificialItems.findEffect` checks only as a fallback after exact-item matching — so ANY music disc selects
@@ -1747,48 +1760,128 @@ Hype Man at the Table (and `sacrificialItem()` still returns Music Disc 13/Cat f
 (candles) can use the same hook when refined.
 ```
 hypemanRadius=16  hypemanCooldownTicks=160  hypemanChance=0.6  hypemanAmbientIntervalTicks=120
-List: data/witchmod/text/hypeman.json  (keys: combat, pickup, loot, nearby)
+List: data/witchmod/text/hypeman.json  (keys: combat, pickup, loot, building, nearby)
+Names: data/witchmod/text/usernames.json  (shared fallback name pool; also for the Chat blessing)
 ```
 
-### Workman — Netherite Scrap
+### Workman — Obsidian  ✅ REFINED  (id `tools_dont_use_durability` → `workman`; item Netherite Scrap → Obsidian, no collision)
+Tools AND armour take no durability for the duration. **Implemented by WATCHING and healing, not by stamping
+items `Unbreakable`:** each tick the six wearing slots (both hands + four armour pieces) are checked and any
+wear one just took is put straight back (the exact inverse of Heavy Handed). Chosen for safety — it modifies
+no item component, so an abnormal end can never leave permanently-unbreakable gear (same reasoning as Sticky
+restoring armour rather than binding it), and healing every tick means nothing ever accumulates wear or hits
+zero to break. Idle inventory items are ignored (they don't wear). No config values.
 ```
-WORKMAN_TOOLS_NO_DURABILITY=true  WORKMAN_ARMOR_NO_DURABILITY=true
-```
-
-### Pickpocket — String
-```
-PICKPOCKET_RADIUS=1.5  PICKPOCKET_CHECK_INTERVAL=100  PICKPOCKET_BASE_CHANCE=0.05
-PICKPOCKET_BEHIND_MULT=4.0  PICKPOCKET_HOTBAR_WEIGHT=0.1
-```
-
-### Windfall — Wind Charge
-```
-WINDFALL_INTERVAL_MIN=2400  WINDFALL_INTERVAL_MAX=7200  WINDFALL_BENEFICIAL_WEIGHT=0.85
-Loot: data/bewitchment/loot/windfall.json  (drifts by with wind particles; despawns after 600t if ignored)
+(no config — watch-and-heal the 6 equipment slots)
 ```
 
-### Immortality — Ghast Tear
-Death → recovery state: items drop, immobile, slow rebuild, respawn at death spot. Respawn time
-grows per use; breaks after third.
+### Pickpocket — String  ✅ REFINED
+Light fingers. Standing right up against another player (`pickpocketRadius`, ~1.5) has a `pickpocketBaseChance`
+per attempt (`pickpocketCheckIntervalTicks`) to quietly lift a random item into your inventory — **greatly
+higher when you're BEHIND them** (`pickpocketBehindMultiplier`, computed from the victim's look vs the
+direction to you). It **prefers their backpack over their hotbar** — a WEIGHTED pick (`pickpocketHotbarWeight`
+vs 1.0), not a hard exclusion, so what they're holding is rarely taken. Only the 36 main+hotbar slots are
+fair game (armour/offhand left alone). A quiet thief-only pickup sound plays on a successful lift. **Fails if
+YOUR inventory is full** (`add` fits nothing → nothing is moved, no item ever lost). Creative/spectator
+victims are skipped.
 ```
-IMMORTALITY_RECOVERY_BASE=600  IMMORTALITY_RECOVERY_GROWTH=2.0  IMMORTALITY_MAX_USES=3
-IMMORTALITY_VULNERABLE=true  IMMORTALITY_DROPS_ITEMS=true
-```
-
-### Sixth Sense — Compass
-```
-SIXTHSENSE_INTERVAL=1200  SIXTHSENSE_STRUCTURE_RANGE=128  SIXTHSENSE_PLAYER_RANGE=64
-Vagueness: cardinal direction only, actionbar
-```
-
-### Iron Stomach — Raw Chicken
-```
-IRONSTOMACH_NEGATIVE_FOOD_EFFECTS=cancelled  IRONSTOMACH_HUNGER_MULT=1.25  IRONSTOMACH_SATURATION_MULT=1.5
+pickpocketRadius=1.5  pickpocketCheckIntervalTicks=100  pickpocketBaseChance=0.05
+pickpocketBehindMultiplier=4.0  pickpocketHotbarWeight=0.1
 ```
 
-### Iron Lung — Kelp
+### Windfall — Wind Charge  ✅ REFINED
+An ambient "ooo, what's that" moment: as you go about your day a **mostly**-useful item
+(`windfallBeneficialChance`, occasionally junk) comes drifting THROUGH your view — spawned 4–6 blocks off to
+one side, aimed a few blocks ahead of you at ~eye height, and pushed on a steady breeze that crosses your
+path so it **slides across in front of you** rather than dropping on your head. `setNoGravity(true)` so it
+glides horizontally instead of falling; a short pickup grace so it can't be hoovered up instantly; a small
+cloud puff and **no sound cue** (Oliver's call).
+- **Passing, not a handout:** it never spawns on top of you, and before spawning it requires clear,
+  fluid-free air at the spawn point and along the first ~3 blocks of drift — otherwise it skips and retries,
+  which is what stopped the earlier "weird interaction over a covered pool" (items phasing through a
+  platform).
+- **Instant cleanup:** every tick, any drifting item you've walked more than `windfallWalkAwayDistance` from,
+  or that's older than `windfallItemLifespanTicks`, is `discard()`ed immediately (not left as ground
+  clutter); items still airborne when the blessing ends are cleared too. Its vanilla `lifespan` is set to max
+  so removal is solely mod-managed.
+- **Frequency:** a random per-player countdown, and it happens whether or not you're moving — but the timer
+  advances only every OTHER tick while standing still, so stationary windfalls come at HALF the walking rate.
+Pools are curated in-code (beneficial vs junk) rather than a loot table, for now.
 ```
-IRONLUNG_BREATHE_IN_BLOCKS=true  IRONLUNG_BREATHE_IN_WATER=true  (wall-clip damage still blocked)
+windfallIntervalMinTicks=340  windfallIntervalMaxTicks=3000   // 17s .. 2.5min
+windfallBeneficialChance=0.85  windfallItemLifespanTicks=300  windfallWalkAwayDistance=12.0
+```
+
+### Immortality — Nether Star  ✅ REFINED  (item Ghast Tear → Nether Star, Oliver's call)
+Death doesn't take you — a lethal blow instead dissolves you into a hovering cloud of gold→white particles
+that slowly gathers itself back OUT OF THE AIR before you pop back into existence right where you fell —
+**the vanilla respawn screen never appears** (cancelling `LivingDeathEvent` → `BlessingImmortality.beginRecovery`
+is what dodges it). Repeatable with a **linear** growing rebuild (`base + increment×prior deaths` → **8s /
+18s / 28s**), and the blessing **breaks after `immortalityMaxUses` (3)** deaths.
+- **The rebuild** runs from `onTick`: rooted in place (position pinned to the death spot + client
+  movement-input lock via `ClientCurseHandler.isImmortalityRebuilding`), health knit up from 1→max across the
+  recovery, air kept full, fire cleared.
+- **Particle body, not the model.** While rebuilding, the player's MODEL is hidden for everyone
+  (`RenderLivingEvent.Pre` cancelled for any player mid-rebuild — the recovery flags are synced to trackers,
+  so onlookers see it too) and a shimmering gold→white particle SILHOUETTE fills their hitbox instead. Motes
+  also stream INWARD from ~1.6–3.6 blocks out (spawned with a velocity aimed at the body centre, vanilla's
+  `count==0` = "spawn one particle with this velocity") so it reads as gathering yourself from the air. Mix
+  whitens as it completes; a bright `END_ROD`/`FLASH`/totem burst + `PLAYER_LEVELUP` on the pop back.
+- **Discovery is on the SAVE** (Rule 2) — `discoversOnTrigger()` + `markDiscoveredByVictim` in `beginRecovery`,
+  not when the blessing is cast.
+- **The drawback — you can't reclaim your own drops.** The whole inventory spills out on death, each item
+  entity tagged with your UUID (`IMMORTALITY_DROP_OWNER` attachment); anyone else can loot it freely, but
+  YOUR pickup is vetoed (`BlessingEventHandler.onImmortalityDropPickup` → `setCanPickup(FALSE)`). Die in the
+  open and you may stand up to find your things gone.
+- **Can't be finished off mid-rebuild** — incoming damage cancelled while `isRecovering`. Deliberately NOT
+  `setInvulnerable` (that flag would leak permanently if you logged out mid-rebuild).
+- The overlay (`ImmortalityRecoveryOverlay`) is now an EVEN gold→white wash that pulses and fades over the
+  last fifth — the earlier version's edge-gradient vignette read as "less yellow in the middle" and was dropped.
+- State: synced `IMMORTALITY_RECOVERY_START`/`_END` (client lock + model-hide + overlay progress) and a
+  persisted, copy-on-death `IMMORTALITY_USES` counter. Death spot kept in a server-side map.
+```
+immortalityRecoveryBaseTicks=160  immortalityRecoveryIncrementTicks=200  immortalityMaxUses=3   // 8s, 18s, 28s
+```
+
+### Sixth Sense — Compass  ✅ REFINED
+A prickle at the back of your neck: on a randomised gap you get a detailed ACTION-BAR hint (8-point compass
+direction + rough distance) about something nearby — another **player** (named), an ordinary **structure**
+(village/mineshaft/shipwreck/ruined portal/ocean ruins/stronghold/trial chamber), or a **rare biome**
+(mushroom fields, ice spikes, cherry grove, deep dark…). One category is sensed per fire (random order, first
+that resolves), so no single search repeats every tick.
+- **Rare-structure OVERRIDE:** on every scheduled sense it FIRST checks for a high-value structure nearby —
+  **ancient city, end city, bastion remnant, nether fortress, buried treasure** — and if one's in range,
+  announces it (gold text) and then waits the longer `sixthSenseRareCooldown`. So you're reliably told when
+  something valuable is close, without it drowning the ordinary hints. Each rare structure has its own
+  `witchmod:rare_*` structure tag (in `data/witchmod/tags/worldgen/structure/`) so it can be named; they're
+  dimension-aware (end city/fortress only resolve in their dimension). Structure search via
+  `ServerLevel.findNearestMapStructure`, biomes via `findClosestBiome3d`.
+```
+sixthSenseIntervalMinTicks=600  sixthSenseIntervalMaxTicks=1400   // 30s..70s ordinary hints
+sixthSenseRareCooldownMinTicks=1800  sixthSenseRareCooldownMaxTicks=3000   // 90s..150s after a rare hint
+sixthSenseRareRadiusChunks=12  sixthSenseStructureRadiusChunks=8  sixthSensePlayerRange=64  sixthSenseBiomeRadius=2048
+```
+
+### Iron Stomach — Raw Chicken  ✅ REFINED
+Cast-iron guts: eating a "bad" food (rotten flesh, raw chicken, pufferfish, poisonous potato, spider eye —
+a curated set, not effect-reflection, which changed shape across 1.21.x) gives **no penalty** (its
+Hunger/Poison/Nausea are stripped on the eat) AND **more hunger + saturation** than it would for anyone else.
+Handled on `LivingEntityUseItemEvent.Finish` in `BlessingEventHandler`; discovers on the first bad meal.
+Bonus is added on top of the vanilla gain from the food's own nutrition/saturation.
+```
+ironStomachHungerMultiplier=3.0  ironStomachSaturationMultiplier=1.5   // bad foods only
+```
+
+### Iron Lung — Kelp  ✅ REFINED
+You breathe anywhere — underwater AND buried in blocks — done with the mod's own lung-work, NOT a lazy
+vanilla Water Breathing effect (so it can't be milked off and doesn't clutter the effect bar).
+- **Underwater:** `onTick` (PlayerTickEvent.Post, after vanilla decrements air) tops the air supply back up
+  to full every tick, so the bubble bar never drains and drowning never begins.
+- **In blocks:** `in_wall` (suffocation) damage is cancelled in `BlessingEventHandler`, with `drown` cancelled
+  too as a backstop for the odd tick before the air top-up runs.
+No config values.
+```
+(no config — air topped up each tick for underwater + in_wall/drown damage cancelled for blocks)
 ```
 
 ### Anchor — Chain
@@ -1811,7 +1904,9 @@ TRAINER_VILLAGER_XP_MULT=3.0
 STUDIOUS_XP_MULT=2.5
 ```
 
-### Twist of Fate — Nether Star
+### Twist of Fate — Ghast Tear  (item Nether Star → Ghast Tear; see §11)
+Moved off Nether Star (now Immortality's item, Oliver's call) onto Ghast Tear — Immortality's old item, a
+clean 1:1 swap so both stay castable under exact-item matching. Behaviour unchanged.
 ```
 TWIST_NEGATE_CHANCE=0.12 (per incoming damage event, particle burst)
 ```
@@ -1834,10 +1929,31 @@ NIGHTOWL_NO_FOG=true (incl. water/lava)  NIGHTOWL_DARKNESS_IMMUNE=true (blindnes
 NIGHTOWL_GAMMA_OVERRIDE=full-bright equivalent
 ```
 
-### Steady Hands — Spectral Arrow
+### Steady Hands — Spectral Arrow  ✅ REFINED
+A rock-steady draw: bows/crossbows are extremely accurate and charge quicker.
+- **Accuracy:** every arrow/firework you fire is re-aimed (`shootFromRotation`) to your exact line with a tiny
+  `steadyHandsInaccuracy` spread, on `EntityJoinLevelEvent`. This also **compresses multishot** — the three
+  pellets fly together so they can ALL bite one target.
+- **Charge quicker:** while drawing a bow / loading a crossbow, `steadyHandsChargeSpeedupTicks` extra charge
+  ticks are credited each use-tick (`LivingEntityUseItemEvent.Tick.setDuration`) — ~2× at the default 1.
+- **Works for crossbow FIREWORKS** (they're re-aimed too, and the crossbow load is sped up). Logic in
+  `ProjectileBlessingHandler`; discovers on the first straight shot. Prototype's flat Strength dropped.
 ```
-STEADYHANDS_SPREAD_MULT=0.2  STEADYHANDS_CHARGE_TIME_MULT=0.6  STEADYHANDS_MULTISHOT_SPREAD=0.3
-(multishot pellets can hit one target multiple times)
+steadyHandsInaccuracy=0.35  steadyHandsChargeSpeedupTicks=1
+```
+
+### Hawk Guy — Target Block  ✅ REFINED  (renamed from prototype "Locked In"; id `locked_in` → `hawk_guy`)
+Every projectile you loose subtly HOMES on whoever you were aiming at. The instant it spawns
+(`EntityJoinLevelEvent`), a **cone raycast** from you (`hawkGuyAcquireCone` half-angle, `hawkGuyAcquireRange`,
+with line-of-sight) picks the most-aligned living entity as the intended target and stores its id on the
+projectile (`HAWKGUY_TARGET` attachment). Each tick (`EntityTickEvent.Post`) the projectile bends toward that
+target's centre by `hawkGuyHomingStrength`, **speed preserved** (subtle, not a heat-seeker — mirrors the
+Magnet steer), giving up if the target dies or gets past `hawkGuyMaxHomingRange`. Works for **arrows and
+crossbow FIREWORKS** (any Projectile you own except a fishing bobber). Logic in `ProjectileBlessingHandler`;
+discovers on the first shot that acquires a target. Prototype's flat Haste dropped. Registry id renamed so
+the display reads "Hawk Guy" (names derive from the id path).
+```
+hawkGuyHomingStrength=0.09  hawkGuyAcquireConeDegrees=20  hawkGuyAcquireRange=24  hawkGuyMaxHomingRange=64
 ```
 
 ### Hawk Guy — Target Block
@@ -2099,7 +2215,7 @@ Soul Bond - Major - 100 (manual surcharge applied)
 Bodyguard - Moderate - 42
 Payday - Minor - 35
 Hype Man - Minor - 28
-Workman - Minor - 28
+Workman - Minor - 28   (item: Obsidian)
 Pickpocket - Minor - 35
 Windfall - Minor - 24
 Immortality - Major - 100 (manual surcharge applied)
@@ -2167,6 +2283,12 @@ Sacrificial matching is exact-item (Rule 9), so collisions only matter within/be
 share the Sacrificial Item slot (curses + blessings certainly; neutrals and globals are also
 table-forcible, so treat all four pools as one selection space until ruled otherwise).
 
+**HARD — RESOLVED during Immortality refinement (was a LIVE collision once Immortality moved to Nether Star):**
+0e. **Nether Star — Immortality vs Twist of Fate.** Oliver moved Immortality onto Nether Star; Twist of Fate
+   already held it, so the two would have collided under exact-item matching. Resolved by SWAPPING (Oliver's
+   call): Immortality → **Nether Star**, Twist of Fate → **Ghast Tear** (Immortality's old item). Both stay
+   castable; no third item needed. (The Netherstar MODIFIER is a separate slot, so it's unaffected.)
+
 **HARD — RESOLVED (Oliver's say-so, after Bad Swimmer freed Iron Ingot):**
 0. **Heavy and Heavyweight were both on the wrong sacrificial items** — a leftover from how the old
    prototype shuffled around the Iron Block clash. The full spec-correct chain is now applied:
@@ -2204,6 +2326,12 @@ table-forcible, so treat all four pools as one selection space until ruled other
    Fire Charge is used by nothing else, and dropping Main Character off any firework item also retires the
    "match any Firework Star regardless of components" type-match exception. Implemented in
    `BlessingMainCharacter`.
+   **UPDATE (Oliver's call, later): Main Character moved Fire Charge → ANY FIREWORK ROCKET** (`Items.FIREWORK_ROCKET`;
+   "any" is automatic since exact-item matching ignores components). Fire Charge is now free again.
+   ⚠ **Future overlap flagged:** Firework Rocket is §8/§11's intended sacrificial item for the **Firework Show
+   global**. There is NO live collision today (globals aren't table-castable yet — see Phase C log), but if
+   global-by-sacrificial-item is ever wired, Main Character and Firework Show will clash on Firework Rocket and
+   one will need to move. Not fixing now, per report-only Rule 11.
 
 **RESOLVED this revision:** Book clash (Mansplainer → Written Book; Studious keeps Book);
 Firework Rocket clash (Main Character → Firework Star; Firework Show keeps Rocket); Brute item
@@ -2447,6 +2575,16 @@ tntRainWorldDamage- false by default (TNT Rain world damage opt-in)
          player as initiator for Ledger attribution; supports duration override where time-based)
 /bewitch forcestop {neutral|global} {selector} (unstoppable-by-design events silently no-op)
 /bewitch organised                             (added, Phase D: opens the Organised blessing's 9-slot stash)
+/bewitch debug force {attachment} [targets] [arg]
+        (force an effect's signature event, or a named sub-event / stat via {arg}, for testing —
+         backed by Effect.debugForce; see §16.2b. e.g. `force witchmod:the_dweller @s chase`,
+         `force witchmod:the_dweller @s 88` (set dread), `force witchmod:bedrock_moment @s helicopter`.
+         WIRED: the_dweller (dread + ~24 sub-events), bedrock_moment (~19 sub-events + passive info), and every
+         event on Oliver's list — audit, payday, pickpocket, sixth_sense, windfall, backseat_driver,
+         butterfingers, comic_relief, delusions, echoes, gassy, loading_screen, minor_inconvenience, organised,
+         oversharer, pacing, screensaver, sirens_call, slippery_feet, stick_drift, ugly, violence, yap.
+         Client-timed ones (minor_inconvenience, screensaver) re-assert their flag + explain they're
+         client-enforced; sixth_sense forces the real sense on the next tick; the rest fire immediately.)
 ```
 Note: `/bewitch clear` is backed by `EffectManager.removeAll(target, @Nullable category)` (fires each
 effect's onRemove for clean teardown). The Thirst + Gluttony HUD bars now hide in creative/spectator
@@ -2484,6 +2622,27 @@ prototype stand-ins the build logs list.
 - Preserve the no-stacking / discovery / status-wrapper guarantees (they live at shared chokepoints — don't
   re-scatter them while refining a single attachment).
 - Keep this section's checklist current the moment Oliver signs off — it is the live source of progress.
+
+### 16.2b ⚙ DEBUG-FORCE CONTRACT (mandatory for anything with a discrete moment)
+There is a debug command sector: **`/bewitch debug force <effect> [targets] [arg]`** (op-gated, in `BewitchCommand.debugNode`)
+which calls **`Effect.debugForce(ServerPlayer target, @Nullable String arg)`** and echoes the returned feedback line per
+target. This exists so events can be triggered on demand for hands-on testing without waiting for their natural conditions.
+
+**RULE — when refining/adding ANY curse, blessing, neutral, global or event that has a discrete, observable moment
+(a spawn, a scare, a chat line, a screen effect, a stat, an attack…), you MUST override `debugForce` so that moment is
+forcible.** Guidelines:
+- Return a **non-null feedback String** describing what happened. If a precondition genuinely can't be met (no nearby
+  entity, not in water, etc.), do as much as possible and SAY SO in the message ("no ridable nearby — nothing to fling").
+  Return `null` ONLY when the effect truly has no discrete forcible event.
+- If the real trigger lives in a private/internal method, expose a small package-visible or static entry the override
+  (and the natural trigger) both call — don't duplicate logic.
+- Multi-event attachments (The Dweller, Bedrock Moment) dispatch on `arg` = the sub-event name (e.g. `force witchmod:the_dweller @s chase`,
+  `force witchmod:bedrock_moment @s helicopter`); with no `arg` they should pick a sensible default or list the names.
+- The Dweller additionally accepts `arg` = a dread value to **set the dread stat** (clamped to the curse's own limits).
+- Client-driven moments (Loading Screen, Screensaver, Minor Inconvenience, Stick Drift, etc.) force by setting their
+  synced signal/flag from the server side of `debugForce`.
+- **Future "debug modes" with alternate selectors** (e.g. targeting villagers as stand-in players) are planned for
+  curses/blessings not yet built — the `arg` channel is the hook for that when those land.
 
 ### 16.3 Refinement checklists
 
@@ -2700,6 +2859,201 @@ prototype stand-ins the build logs list.
       Unbreaking still mitigates and a piece that crosses its limit breaks properly). Recorded AFTER the
       top-up so the extra isn't compounded next tick. Idle inventory untouched. Item stays Flint. Discovers
       on first extra wear. 1 config knob.
+- [x] Solicitor (NEW) — Bundle (⚠ Emerald Block requested but is Silver Tongue's). A named vanilla `WanderingTrader`
+      hounds you with terrible `MerchantOffers` and pitches them in local chat (names + dialogue from
+      `data/witchmod/text/solicitor.json`, /reload-able). It follows you (re-navigate + teleport if it falls too far
+      behind); marked with scoreboard tags (`witchmod_solicitor` + `solowner_<uuid>`) so `CurseEventHandler` finds it
+      and its owner. KILL it → a fresh one spawns INSTANTLY (new name + cheeky `killed` line, via `LivingDeathEvent`).
+      Actually COMPLETING a trade (`TradeWithVillagerEvent`) → it discards and hides for 1.5–10 min, `sqrt(r)`-biased
+      LONG. Persists/re-adopts across reload via a tag scan. 9 config knobs.
+- [x] The Snail (NEW) — Nautilus Shell. CUSTOM ENTITY (`SnailEntity` + code-baked `SnailModel`/`SnailRenderer`, no
+      Blockbench): a tiny, immortal (`hurt`→false), AI-less snail the curse drives entirely. It owns a VIRTUAL
+      position (advanced every tick even when unloaded — the "illusion of being chased") and only materialises the
+      real entity within `snailMaterialiseRadius`. Chase SPEED is the balance: `snailBaseSpeedBlocksPerSecond` (its
+      speed when on top of you) × (1 + dist×`snailDistanceScale`) capped at `snailMaxSpeed` — slow near, fast far.
+      Touch (`snailTouchDistance`) → `Level.explode` + guaranteed lethal hit, then it reappears far off. Creepy
+      slime-squish that quickens as it nears; discovers on first hearing. ⏳ `textures/entity/snail.png` PENDING (renders
+      missing-texture until supplied). ~10 config knobs.
+- [x] The Dweller (NEW — statement curse) — Oak Boat. ⏸ **PAUSED (Oliver's call, 2026-08-10 — bored of it for now; WILL
+      RETURN to keep refining/tuning it later. NOT abandoned, do not remove.)** A horror parody, OVERHAULED from a whack-a-mole first pass into a
+      proper stalker. CUSTOM ENTITY `MindDwellerEntity` (code-baked `MindDwellerModel` — a LANKY HUMANOID: small head on a
+      long neck, narrow torso, long arms; idle = a head that slowly TRACKS you plus a sudden roll-axis head-COCK twitch on
+      an irregular schedule; + `MindDwellerRenderer` with an emissive glowing-eyes layer, no Blockbench), driven ENTIRELY
+      by `CurseTheDweller`. ONLY the victim sees it (`RenderLivingEvent.Pre` cancelled for anyone but the synced `VICTIM`
+      UUID) and hears/feels it (sounds + particles go down the victim's connection only via `ClientboundSoundPacket` /
+      `ClientboundLevelParticlesPacket`).
+      **Presence comes and goes — it is ABSENT far more than present early on.** A 3-phase machine: DORMANT (no entity at
+      all — long silences broken only by ambient dread: heartbeats, footsteps behind you, a knock, cold-spot ash motes;
+      rarer/quieter at tier 0) → MANIFEST (a single appearance) → CHASE (finale). Absence length HALVES per tier
+      (`dwellerDormant*` × 0.45^tier); appearances grow longer per tier (`dwellerManifest*`).
+      **It stalks like a WEEPING ANGEL, the inverse of the old flee-on-sight:** while manifest it creeps toward you
+      (`dwellerCreepSpeed`, ×tier) ONLY while unobserved and FREEZES the instant you look — so looking PINS it and every
+      glance away it's closer. At tiers 0–1, staring it down for `dwellerStareVanishTicks` makes it simply not be there
+      (the double-take); at tiers 2–3 it holds ground. Watching it also stokes anger (`dwellerWatchAngerPerSecond`) on top
+      of the base creep — the objective is still not to look, but it no longer teleports. Reaching you unseen = a close
+      encounter: a shove + scream (+ Darkness at tier 2) then it's gone; at tier 3 it launches the chase.
+      Manifest SPOTS vary by tier: far glimpse · peripheral (corner of your eye) · window-watch (wall between you) ·
+      straight-in-view (you turn and it's THERE, tier 2+) · bedside when sleeping. Staged mini-EVENTS during a
+      manifestation: bedside vigil (+bed-break, kicks you out), snuff a nearby light (torch/lantern/candle/campfire →
+      creeping dark), break a door/glass, detonate a nearby animal/villager as a warning, a disembodied knock, and FAKE
+      charges that lunge then stop dead. CHASE: rushes through walls (`dwellerChaseSpeed`); touch = finale → bloody
+      eruption (red dust + crimson spore + Warden death cry), drops redstone + your OWN severed head (`PLAYER_HEAD` w/ your
+      profile), 1000 dmg, CONSUMES the curse. Client: fog closes in from tier 1 (tier 0 left normal), and a shipped
+      self-contained desaturate post-shader (`assets/witchmod/shaders/…/dweller.*`, `loadEffect`, try/catch) drains colour
+      from tier 1 — tier 0 stays full-colour so the rare early glimpse has nothing to soften it. Placeholder Warden/
+      Enderman sounds (custom OGGs later, per Oliver). Boots clean. ~30 config knobs. ⏳ custom sounds + nicer entity/eyes
+      textures (dark generated placeholders shipped) pending.
+      **Additions pass:** (1) GRADUAL roll-in — a synced continuous `DWELLER_DREAD` float (anger fraction) drives a
+      smoothstep fog close-in AND a `DreadAmount` uniform on the desaturate shader (set each tick via reflection into
+      `GameRenderer.postEffect` → `PostChain.setUniform`), so colour/fog fade in smoothly instead of snapping per tier.
+      (2) MUSIC KILL — from stage ≥ 2, a client `PlaySoundEvent` cancels all MUSIC/RECORDS sounds (jukeboxes, background
+      score) + `musicManager.stopPlaying()` each tick (title screen can't be gated per-player). (3) KNOCK event — schedules
+      2–3 knock sounds at nearby doors/glass then a delayed SHATTER (a per-victim `Pending` DelayedAct queue ticked in all
+      phases). (4) WATCH event — if ≥ `dwellerWatchMinMobs` passive animals are near, they all `setNoAi` + freeze (velocity
+      zeroed, re-faced at you each tick) and stare for a random window, even when hit; restored after. (5) WATCHERS — a NEW
+      victim-only entity `WatcherEyesEntity` (invisible body + emissive red eyes layer, render-cancelled for non-victims
+      like the Dweller); a dark-only event rings several pairs of glowing eyes around you at distance, re-facing you, that
+      blink out if you approach. (6) HALLUCINATIONS — visual/player hallucinations REUSE the Delusions curse (applied at
+      onApply for the duration; KEEP_LONGER so it stacks with an existing Delusions), and a self-contained AUDITORY
+      hallucination pool (footsteps closing in, mining+break, chest open/close, block place, door, fight swings, eat+burp,
+      item/xp pickup, villager, sculk) plays positional victim-only sounds around you on `dwellerHallucination*` gaps — all
+      independent of Echoes so they stack too. ~20 more config knobs.
+      **Mini-horror-mod overhaul:** progression is now a FLUID multi-factor DREAD engine computed every tick in
+      `dreadDelta` — it RISES in the dark (light ≤ `dwellerDarkLevel`), while alone (no player within `dwellerCompanyRadius`),
+      at night, and while sealed underground; and it FALLS (real COUNTERPLAY) in bright light (≥ `dwellerLightLevel`), near
+      other players, and in open daylight. A slowly-rising inevitable FLOOR (`dwellerDreadFloor*`, capped ~60%) guarantees
+      progression but perfect play caps just short of the hunt, so the worst horrors are EARNED by wandering the dark alone.
+      Tiers 0–3 derive from dread; the client desaturation/fog already ramp off the synced `DWELLER_DREAD`. **AI:** the
+      creep now speeds up when far/slows when near, and — key counterplay — WON'T close past `dwellerLightLurkDistance`
+      while you're lit (it lurks at the edge of your light), and won't manifest close in bright light; staring it down FROM
+      THE LIGHT builds a `dwellerLightRepel` "banish" that drives it off and DROPS dread (in the dark, staring only
+      freezes/double-takes it). **The HUNT is now SURVIVABLE** (not a guaranteed kill): reach bright light or other players
+      and hold `dwellerChaseEscapeLightTicks`, or simply outlast `dwellerChaseMaxTicks`, and it breaks off exhausted —
+      dread drops by `dwellerChaseSurviveDreadDrop` and a `dwellerChaseCooldown` enforces calm before it can hunt again;
+      only being CAUGHT is fatal (the finale). Chase speed ramps slightly the longer it runs. **New events:** Lights-Out
+      (snuff every nearby light at once + Darkness + screen flicker), Phantom Grab (yanks you toward it), Cold Breath
+      (Slowness + snowflakes when it's close), Shadow-Pass (hard screen FLICKER via synced `DWELLER_FLICKER` + fast
+      footsteps circling), Whisper (right at your ear), plus a proximity heartbeat that quickens as it looms. Client fog
+      handles the flicker (slams to ~2.5 blocks for a beat). ~24 more config knobs. Boots clean.
+      **Event-roster expansion:** the manifest mini-events are now a tier-gated WEIGHTED POOL (`Cand`/`runWeighted`, retries
+      past events whose preconditions fail). Added (horror + comedy): Whisper-Line (creepy/funny action-bar text in YOUR
+      name, 20-line pool), Redstone Ghost (phantom button/lever/dispenser clicks), Peekaboo (split-second full-view flash),
+      Door Creak (a door/trapdoor/gate swings itself open — both halves kept in step), Cold Draft (nudge + snowflakes),
+      Levitate/Mass-Levitation (a floating cow / whole herd, gravity restored via a `Pending`), Fake TNT (a fuse that
+      fizzles — "…dud."), Item Poltergeist (your dropped items fling into the air), Fake-Out (scary build-up → harmless
+      sheep/villager/egg + "…huh."), Boo! (point-blank flash + scream + shove), Ceiling Crawler (on the ceiling looking
+      down), The Tilt (Nausea). 5 more config knobs (`dwellerFloat*`, `dwellerTiltTicks`, `dwellerFakeTntFuseTicks`).
+      **Ring-overhaul pass:** REMOVED whisper-line, cold-draft, levitate, fake-TNT, fake-out, cold-breath, the-tilt. NEW
+      events: **Possession** (2 branches — hostiles/neutrals INSTANTLY enrage with Strength+Speed+particles via
+      `setPersistentAngerTarget`/`setTarget`; passives freeze and TWITCH violently 2–5s then rampage — manually navigated +
+      manually damaging via `mobAttack(mob)` so death messages name the mob, and they attack the NEAREST player incl.
+      bystanders); **Isolation** (frequent mid-tier — applies the reused **Social Outcast** curse so other players/villagers
+      go unrendered beyond ~5 blocks, pushing you away from company); **Mimic** (refreshes the reused **Delusions**
+      fake-player system); **Phantom Attack** (victim-only fake attackers = reused `MindDwellerEntity`, rush you; striking one
+      (via `AttackEntityEvent`→`onPhantomAttacked`) or being reached vanishes it + brief Blindness + dread points).
+      **Progression retuned:** base dread 0.30→0.18, isolation 0.25→0.75 (slower overall, MUCH faster alone). **Death is now
+      a reset valve, not an ending:** `onVictimDeath` (LivingDeathEvent) drops dread ONE tier, TWO if mid-chase; the chase
+      finale no longer removes the curse (Ring-like relentlessness) and is now a REAL explosion (`dwellerFinaleExplosionPower`,
+      no terrain dmg) that hurts nearby others. **Contagion** ("presence is a danger to others"): at tier ≥ 2, nearby OTHER
+      players catch Darkness + dread cues; combined with the victim visibly swinging at victim-only phantoms, being around
+      the afflicted is dangerous and unnerving — the Ring dynamic. ~25 more config knobs. Boots clean.
+      **Pacing + chase-escalation + jumpscare pass:** hallucinations made RARE (gap 700–2400t, tier-0 ×2.2) so they're
+      impactful not constant. Manifest DISTANCE now slides CONTINUOUSLY far→close with dread (`manifestDistance` off
+      `dreadFrac`) instead of tier steps, and `dormantDuration` takes a continuous `dreadFrac` with a `1-0.82·f²` curve so
+      close watches start slow and only steepen toward the hunt — a smooth bridge watch→intense-watch→chase. **Chases
+      escalate across a curse:** `chaseCount` persists; the FIRST hunt is a slow (`dwellerChaseSpeedFirst` 4 b/s) telegraphed
+      hazard with proximity WARNING cues (WARDEN_NEARBY_CLOSE/CLOSER/CLOSEST + quickening heartbeat) and NO teleports; each
+      later hunt is faster (`+dwellerChaseSpeedPerChase` up to the cap) with ever-more-frequent TELEPORT switch-ups (blinks
+      to `dwellerChaseTeleportDistance` on a `chaseTeleportInterval` that shrinks per hunt). **New JUMPSCARES:** low-tier
+      Startle (bang behind + flicker; also injected into ambient absence), BackPeek (it's right behind you); mid Face-Flash
+      (point-blank flash) + Lunge-Scare (rushes to your face over 6 ticks then screams); high Ambush (strobing point-blank
+      appearances). Mini-events now fire at tier 0 too. Finale drops now SCATTER (random pop + facing) amid a much bigger
+      blood burst (~500 particles + jets). 6 more config knobs. Boots clean.
+      **Anchoring + atmosphere pass:** FIXED the "hovers in the air / spawns on the world surface in caves" bug — dropped the
+      heightmap for a `surfaceY` that scans DOWN from just above your feet for the first motion-blocking block with air over
+      it (falls back to your Y, never the sky), so it anchors to the LOCAL cave floor/bridge/ledge at your height; used by
+      both `groundSnap` and `placeAt` (so watches AND the creep stay grounded). Far watches are now NOTICEABLE: `pickManifestSpot`
+      biases toward a `visibleInViewSpot` (an in-view spot with a genuinely CLEAR line of sight to you, 8 retries) — heavily
+      at low dread (~80%), easing to stalking-out-of-view (~15%) at high dread. Scarier atmosphere: a continuous oppressive
+      HEARTBEAT (`tickHeartbeat`) that's silent while calm+absent and quickens with dread AND proximity (`dwellerHeartbeat*`);
+      stray self-triggered light FLICKERS at tier 2+ (`dwellerRandomFlickerChance`); and — the panic touch — at tier ≥ 2 in the
+      dark it will LURCH a step closer even while you're staring straight at it ("it moved and I didn't blink"; bright light
+      still holds it). 5 more config knobs. Boots clean.
+      **PER-EVENT-CLASS REFACTOR (2026-08-11 — STRUCTURE COMPLETE, compiles + boots):** `CurseTheDweller` + `CurseBedrockMoment`
+      moved into dedicated packages `effects/curses/dweller/` + `effects/curses/bedrock/` (Curses.java + CurseEventHandler refs
+      updated). Each is now driven by an event interface + registry: `DwellerEvent`/`DwellerEvents` and `BedrockEvent`/
+      `BedrockEvents`. EVERY discrete event is its own class/registry entry (`id()` + `run(curse, target, State, level)`), and
+      the weighted pool AND `/bewitch debug force` BOTH dispatch through the registry (via an `add(pool, weight, EVENT, …)`
+      helper and `Events.byId(arg)`), so adding/forcing an event is uniform. `State` + the shared helpers are PACKAGE-VISIBLE.
+      Three Dweller events are FULLY extracted into their own files with the logic inlined (`LightsOutEvent`, `WhisperEvent`,
+      `RedstoneGhostEvent`) as the reference; the remaining ~20 Dweller events and all ~18 Bedrock active events are registry
+      entries that DELEGATE to their (now isolated + package-visible) trigger methods on the curse — so each event's body can
+      be inlined into its class incrementally with ZERO call-site churn. The state-machine core (dread engine, manifest/chase/
+      creep, tick/clear of watch/eyes/possessed/phantoms) and the PASSIVE Bedrock bugs (aimbot/pause/delay/ghost/silent-creeper/
+      hotbar-drift, hook-driven) intentionally stay on the main class. NEXT (optional polish): inline the delegating events'
+      bodies into their classes one at a time.
+- [x] Bedrock Moment (NEW — statement curse) — Crying Obsidian (free item, no collision). One of the most OVERLOADED,
+      VERY expensive curses with no benefit: plagues the victim's game with pointlessly elaborate "bugs", a parody of old
+      short-form Bedrock-jank clips. `CurseBedrockMoment` (MAJOR, cost 110). PASSIVE (event/scan-driven): **Bluetooth** (all
+      incoming damage withheld+stored during a window, dumped ~1s after via `LivingIncomingDamageEvent` hook in
+      CurseEventHandler → `onIncomingDamage`, guarded by an `APPLYING` set so the re-applied hit passes through);
+      **Delay** (fall damage withheld and re-applied 0.5–4s late, distinct from Bluetooth); **Aimbot** (skeleton arrows near
+      you get ×velocity + home in, scanned each 2 ticks); **Pause** (your own projectiles freeze 0.3–3s then resume, via a
+      per-projectile `Pending`); **Fling** (mounting a rideable has a chance to hurl it along a random axis). ACTIVE
+      (weighted pool on a `bedrockEvent*` timer): **Charged Creeper Boat** (creeper charged via `thunderHit` + a visual
+      LightningBolt, ridden in a Boat driven at you each tick, despawns if it drifts past), **Blitz** (creepers get big
+      Speed + instant no-windup detonation at close range), **Mitosis** (nearby mobs duplicate via `getType().create`, cap-
+      guarded), **Rubberbanding** (saves your spot, `connection.teleport`s you back a few times), **Server Lag** (pins all
+      nearby non-player entities for ~0.8s then releases — fake tick-lag), **Pop** (nearby armour stands/item frames/
+      paintings break), **Nightcore** (synced `BEDROCK_NIGHTCORE` window → client wraps every `PlaySoundEvent` in
+      `NightcoreSoundInstance` for higher pitch), **Inventory Shuffle** (Fisher-Yates over non-hotbar slots), **Desync
+      Drowning** (rare — air set to 0, drown damage on LAND until you submerge to reset), **Chunk Rejection** (synced
+      `BEDROCK_CHUNK_REJECT` window → client slams render distance to 2 so chunks unload/reload), **Helicopter** (a passive
+      mob is anchored, spins + slowly rises 4–15s, then launches up), **Tickspeed** (nearby mobs get big Speed+Haste). ~30
+      config knobs. Boots clean. Sounds are vanilla placeholders.
+      **Tuning pass:** Charged Creeper Boat dropped to RARE (weight 3, like drowning) + much faster (`bedrockCreeperBoatSpeed`
+      3.0, shock-not-kill); Desync Drowning now ends on touching water (`isInWater`), auto-expires after `bedrockDrownTicks`
+      (~20s), and is cleared on death (`onDeath` via the LivingDeathEvent hook); Helicopter now has an on-GROUND spin grace
+      (`bedrockHelicopterGroundTicks`) before it rises and spins far faster (`bedrockHelicopterSpin` 62°/tick).
+      **Batch 2 (8 more bugs):** PASSIVE — **Ghost Blocks** (a placed block pops out after `bedrockGhostBlock*`, item still
+      spent; via the CurseEventHandler `EntityPlaceEvent` hook → `onBlockPlaced`), **Silent Creeper** (client
+      `PlaySoundEvent` swallows any sound whose path contains "creeper" while `BEDROCK_ACTIVE`≥0), **Hotbar Drift** (client
+      randomly re-selects your hotbar slot + `ServerboundSetCarriedItemPacket`). ACTIVE windows (synced end-ticks, client-
+      rendered) — **Sound Delay** (client holds one-shot sounds in a queue and replays them `bedrockSoundDelayAmount` late,
+      guarded by an identity passthrough set), **Phantom Durability** (`RenderGuiLayerEvent.Post` on HOTBAR draws jittering
+      durability bars over damageable hotbar items), **Perspective Flip** (rare — forces `THIRD_PERSON_FRONT`, restores
+      after), **Split Screen** (server picks nearest other player→mob→self, syncs `BEDROCK_SPLIT_ID`; client
+      `setCameraEntity` steals that POV — true split needs render mixins so it's a POV-steal), **Marketplace popup** (server
+      bumps a `BEDROCK_MARKETPLACE` nonce; client opens `MarketplaceAdScreen` — a non-pausing, no-Esc `Screen` you must
+      click the ✕ on with the cursor while the world keeps running; ad art = `assets/witchmod/textures/gui/marketplace/
+      ad_<n>.png`, 256×256, count `bedrockMarketplaceAdCount`, 3 placeholders generated). ~13 more config knobs + 7 synced
+      attachments. Boots clean.
+- [x] Solicitor (NEW) — Bundle (⚠ Emerald Block requested but is Silver Tongue's). A named vanilla `WanderingTrader`
+      hounds you with terrible `MerchantOffers` and pitches them in local chat (names + dialogue from
+      `data/witchmod/text/solicitor.json`, /reload-able). It follows you (re-navigate + teleport if it falls too far
+      behind); marked with scoreboard tags (`witchmod_solicitor` + `solowner_<uuid>`) so `CurseEventHandler` finds it
+      and its owner. KILL it → a fresh one spawns INSTANTLY (new name + cheeky `killed` line, via `LivingDeathEvent`).
+      Actually COMPLETING a trade (`TradeWithVillagerEvent`) → it discards and hides for 1.5–10 min, `sqrt(r)`-biased
+      LONG. Persists/re-adopts across reload via a tag scan. 9 config knobs.
+- [x] Splitscreen (NEW — statement curse) — ANY SIGN (tag exception `ItemTags.SIGNS`, like Hype Man). Pulled out of
+      Bedrock Moment into its own curse. `CurseSplitscreen`: drags the nearest eligible player into a shared, console-style
+      split screen with SOUL-BOND-like STICKINESS — grabs the nearest free player within `splitscreenRange` (22) and holds
+      them until they leave range, then ends (both play normally until someone returns; only ever 2 players). Symmetric: the
+      curse (on the victim) drives BOTH players' synced attachments (`SPLITSCREEN_PARTNER`/`_PHASE`/`_LOAD_END`/`_SIGN_LOCK`/
+      `_SIGN_CLOSE`). Phases 0 off · 1 ENTERING · 2 ACTIVE · 3 EXITING; enter/exit are a fake "Entering/Exiting splitscreen…"
+      loading screen (`splitscreenLoad{Min,Max}Ticks`, 0.4–2s, à la the Loading Screen curse). SHARED-SIGN quirk: the client
+      reports its open sign editor via a `SplitscreenSignPayload` C2S; while EITHER has a sign open both freeze
+      (`SPLITSCREEN_SIGN_LOCK` → client zeroes movement of the non-editor), and taking damage (`CurseEventHandler`
+      `LivingIncomingDamageEvent` → `onDamaged`) bumps `SPLITSCREEN_SIGN_CLOSE` to force-close the sign for both. Client
+      (`SplitscreenClient`): the loading overlay, the sign freeze/force-close, and a right-side split PANEL. **UI call
+      (Oliver's latitude):** a fully-shared screen isn't possible (separate hotbars/inventories/health), so each keeps their
+      OWN HUD and the partner's view is a side PANEL. The panel's LIVE partner POV (`SplitscreenPov`) is a real second
+      `LevelRenderer.renderLevel` pass from the partner's `Camera` into a `TextureTarget`, blitted in — but it's EXPERIMENTAL
+      and `splitscreenLivePov` DEFAULTS OFF (a botched second pass can corrupt GL state, and it's untestable headless); the
+      shipped default is a robust FALLBACK panel (partner name + live coords + facing). Debug: `/bewitch debug force
+      witchmod:splitscreen @s villager` pairs you with the nearest VILLAGER (one-sided, so you can test the render/panel solo
+      — you see its POV; `exit` ends it; no arg pairs the nearest player). Boots clean. 4 config knobs. ⏳ live-POV render
+      needs in-game iteration (enable the flag) — currently fallback-only by default.
 
 **BLESSINGS (44 listed; header says 45 — reconcile if a 45th is intended)** — renamed ids: Workman =
 `tools_dont_use_durability`, Personal Trainer = `trainer`, Hawk Guy = `locked_in`.
@@ -2712,14 +3066,14 @@ prototype stand-ins the build logs list.
 - [x] Soul Bond — nearest LivingEntity (mob/pet/player) gets custom soul_bound MobEffect + golden particles and takes 40% of hits you take (you eat 60%); golden trail to whoever paid. STICKS until the bound leaves radius (not a worse Thorns). Custom soul_bond damage type, never re-shared.
 - [x] Bodyguard (CUSTOM ENTITY) — black-leather sunglasses skeleton bound to you: WARNING (players+villagers by name) → AGGRESSION (warning hits/shoves; patience+2 warnings → draws sword) → ATTACKING (anything that hits you/it, until dead or past leash). Teleports to you, never targets/retaliates the anchor, death breaks blessing. No dupes (transient + CANONICAL self-heal). Local chat from bodyguard.json.
 - [x] Payday (renamed from Tax Man blessing) — see §6 entry.
-- [x] Hype Man — actions make nearby players (or "a fan" solo) praise you by name in chat: combat (AttackEntityEvent), pickup (ItemEntityPickupEvent), loot (ChestMenu open), ambient. Shared cooldown + chance, writable hypeman.json (combat/pickup/loot/nearby). Any music disc via new Effect.sacrificialTag() Rule-9 hook. No mechanical effect. 4 knobs.
-- [ ] Workman
-- [ ] Pickpocket
-- [ ] Windfall
+- [x] Hype Man — nearby players praise you by name in chat: combat (AttackEntityEvent), pickup, loot (ChestMenu open), building (block place), and ambient sighting. Specific actions need a real nearby player; only the sighting has a no-player fallback using a made-up name from the shared usernames.json. Shared cooldown + chance, writable hypeman.json. Any music disc via Effect.sacrificialTag() Rule-9 hook. No mechanical effect.
+- [x] Workman (renamed from Tools Dont Use Durability; item Netherite Scrap→Obsidian) — tools AND armour take no durability: watches the 6 equipment slots and heals any wear straight back (inverse of Heavy Handed), so no permanent Unbreakable component and nothing can break. No config.
+- [x] Pickpocket — being very close to a player has a chance (x4 when behind) to lift a random item into your inventory, weighted away from their hotbar; quiet thief-only sound; fails if your inventory is full; skips creative/spectator. Item String. 5 knobs.
+- [x] Windfall — a mostly-beneficial item drifts in on the wind near you every 2-6min (first one sooner), spawned upwind with a downwind drift + cloud gust + wind sound; puffs away after 30s if ignored. Curated beneficial/junk pools in code. Item Wind Charge. 4 knobs.
 - [ ] Immortality
 - [ ] Sixth Sense
 - [ ] Iron Stomach
-- [ ] Iron Lung
+- [x] Iron Lung — breathe underwater (air topped up to full each tick, so no depletion/drowning) AND in blocks (in_wall suffocation damage cancelled in BlessingEventHandler; drown cancelled as backstop). No vanilla Water Breathing effect. Item Kelp, no config.
 - [ ] Anchor
 - [ ] Twinkletoes
 - [ ] Personal Trainer
@@ -2744,9 +3098,96 @@ prototype stand-ins the build logs list.
 - [ ] Excavation
 - [ ] Angler
 - [ ] Laugh Track
-- [ ] Chat
+- [x] Chat — full personal Twitch overlay. Server-driven ChatLinePayload lines rendered by `client/ChatOverlayLayer`
+      (LIVE header, exponential viewer count, hype bar, sub count, `[SUB]/[MOD]/[VIP]` badges, coloured banners for
+      subs/donations/raids). 30+ category `twitch_chat.json` (/reload-able) + `TwitchChat` loader. Internal
+      entertainment SCORE fed by many actions (PvP kill=highest, kill/clutch/ore/tame/crit/fish/trade/eat/build/mine,
+      taking big hits, fall fails), decaying fast when idle; a combo streak builds a multiplier and chained highlights
+      fire a HYPE TRAIN (sub surge). SUBS accrue from the viewer count (exp. base→max), capped, cashed out at stream's
+      end for EMERALDS ONLY (1 per `chatSubsPerEmerald`). DEAD-chat phase you must crawl out of (hysteresis) with its
+      own pool. Static emote images + animated gif sprite-sheets (`textures/gui/chat/`) spammed by hype; dying WIPES a
+      big chunk of interest and spams dealwithit/trolldance. Eased "shown hype" so climbs/drops are gradual. Persists
+      through death (respawn re-syncs the wrapper; CHAT_OVERLAY/CHAT_SUBS copyOnDeath). ~35 config knobs.
 - [ ] Civilisation
-- [ ] Low Gravity
+- [x] Low Gravity — REFINED off the Jump-Boost/Slow-Falling prototype to real physics: a `GRAVITY` attribute
+      multiplier (`lowGravityGravityMultiplier` 0.55) gives the constant floaty rise+slow-fall, a `JUMP_STRENGTH`
+      multiplier (1.6) launches you higher, and fall damage is cut (`lowGravityFallDamageMultiplier` 0.4) on
+      `LivingFallEvent`. Both modifiers transient + self-healed in onTick. Item Eye of Ender. 3 config knobs.
+- [x] Builder (NEW) — Any Planks (planks-tag sacrificial exception, like Hype Man). Removes the client-side place
+      (`Minecraft.rightClickDelay`) and break (`MultiPlayerGameMode.destroyDelay`) cooldowns via reflection off the
+      synced `BUILDER_ACTIVE` flag, so you build/tear-down at click speed. Self-heals through death. No config.
+- [x] Berserker (NEW) — Iron Axe. Consecutive LANDED hits progressively speed up your attack cooldown
+      (`berserkerReductionPerHit` 7% each, `berserkerMaxReduction` 70% cap) via a growing `ATTACK_SPEED` modifier;
+      hits counted on `AttackEntityEvent`. Resets fully on a MISS (client reports air-swings via a C2S
+      `BerserkerMissPayload`) or after `berserkerResetSeconds` (4.5s) with no hit (onTick timeout). Stacks held
+      server-side per-player; modifier self-heals. 3 config knobs.
+- [x] Enchanter (NEW) — Lapis Lazuli. Three table perks, all event-driven: XP cost softened via
+      `PlayerXpEvent.LevelChange` (gated to `EnchantmentMenu` open, `enchanterXpReduction` 0.8 → small costs free);
+      offered levels bumped (`EnchantmentLevelSetEvent`, gated to a nearby Enchanter, `enchanterLevelBonus` +3); and
+      BAD enchants stripped off the result (`PlayerEnchantItemEvent`) — Smite, Bane of Arthropods, Blast/Projectile/
+      Fire Protection, Piercing, and any curse (via `EnchantmentTags.CURSE`). 2 config knobs.
+- [x] Pacifier (NEW) — Allium (⚠ Poppy was requested but is Peace's item; using Allium, a free flower — swappable).
+      Anti-grief aura: a per-tick sweep discards primed TNT + TNT minecarts, deflates & pacifies creepers
+      (`setSwellDir(-1)`+`setTarget(null)`), discards fireballs, and snuffs spreading fire, each with a protective
+      END_ROD+smoke fizzle + extinguish hiss. Entity/projectile sweep runs EVERY tick (fast fire charges),
+      block sweep on the interval. Harmful projectiles = `AbstractHurtingProjectile` (fire charges/fireballs/wind
+      charges/wither skulls). 3 config knobs (entity radius, block radius, interval).
+- [x] Ocean's Blessing (NEW) — Any Coral (new `witchmod:corals` item tag, tag-exception like Hype Man). MODEST baseline
+      forward swim (client-side off synced `OCEANS_ACTIVE`, `oceansSwimBoost` 0.025, capped at `oceansMaxSpeed`); the big
+      speed comes from DOLPHINS — `onTick` draws every dolphin in a wide range (`oceansDolphinAttractRadius`) and steers
+      them to follow, and a close dolphin grants Dolphin's Grace → ×`oceansDolphinMultiplier` (4.0) swim boost. Aggressive
+      mobs pacified while you're wet (`onTick` clears aggro + `LivingChangeTargetEvent` veto). NO water breathing. 8 knobs.
+- [x] Gladiator (NEW) — Golden Sword (⚠ Iron Axe was requested but is Berserker's; Golden Sword, free + arena-themed).
+      Right-click a sword/axe → 0.5s parry window (`RightClickItem`); a frontal hit during it is fully negated (CLANG) and
+      after a short delay you riposte for `gladiatorRiposteDamageMultiplier` (1.5×) weapon damage + extra knockback (woosh
+      on swing, IMPACT on land), spending only HALF your weapon cooldown (attackStrengthTicker reflection). A whiff = woosh
+      + FULL weapon cooldown + the longer cooldown (3s success / 4.5s whiff). Held shield always wins (`isBlocking()`).
+      Synced parry/cooldown ticks drive a SMALL, translucent crosshair HUD bar just under the attack indicator
+      (`GladiatorParryLayer`: slightly-yellow ready, gold window, grey recharge). Weapon poses into a block guard in
+      BOTH views while parrying, no mixins: third person via a sword/axe `IClientItemExtensions.getArmPose`→`BLOCK`
+      (synced to trackers, so others see it), first person via a `RenderHandEvent` tilt (`GladiatorClientHandler`).
+      Whiff woosh plays on parry START, whiff, and the riposte swing. 5 custom sounds (parry/whiff/riposte/perfect/reflect).
+      Window 0.2s (tight), cooldowns 2.8s/3.05s, modest knockback. HUD gauge is a tiny pixel-art SHIELD that fills with
+      the stage and AUTO-HIDES after a second full (reappears on parry/recharge). Projectile parries get a wider both-ends
+      window (`gladiatorProjectileLeewayTicks`) than melee, surviving the window's whiff. Riposte clears i-frames so it bites.
+      RISK: while parrying your hand is LOCKED client-side off synced `GLADIATOR_LOCK_END` (no switch/swing/use/pick/drop/swap
+      — slot reverted, attack/use cancelled), +0.1s on a whiff. Weapon swing cooldown is then imposed via the attack ticker:
+      SWORD timing on a successful riposte/reflect (`gladiatorSwordCooldownTicks`), slower AXE timing on a whiff
+      (`gladiatorAxeCooldownTicks`), applied to whatever weapon is held. HUD shield lowered + auto-hides after 0.65s full.
+      LEEWAY: an unparried melee hit is remembered (`LivingDamageEvent.Post`) and a parry pressed within
+      `gladiatorLeewayTicks` (4 = ~0.18s) AFTER it retroactively succeeds, refunding the damage (`player.heal`) — timing
+      isn't clunky. PERFECT parry (danger caught within `gladiatorPerfectTicks` of the guard): `gladiatorPerfectDamageMultiplier`
+      1.75× (normal 1.4×), STUNS the foe (Slowness 6 + Weakness, `gladiatorPerfectStunTicks`) so knockback throws them, a
+      shine sound layers on top, and END_ROD/FIREWORK/FLASH FX fire. Impact FX everywhere: directional spark spray toward
+      the attacker, whiff fumble-puff, all with a synced camera SHAKE scaled per outcome (perfect>normal>whiff, reuses
+      `applyShake`). PROJECTILE parries (`ProjectileImpactEvent`): a frontal shot in-window is reflected exactly where you're
+      LOOKING at `gladiatorReflectSpeed` with a SOFT assist-aim toward an entity in your view cone (`gladiatorReflectAim*`,
+      not a hard lock), re-ownered, with a subtle `reflect` clash + spark trail. Melee path uses the source's DIRECT entity
+      so ranged never triggers a melee riposte. The parry weapon-cooldown is mirrored to the CLIENT ticker (synced
+      `GLADIATOR_WEAPON_READY`) so the attack indicator actually shows it. ~19 config knobs.
+- [x] Cow (NEW) — Leather. Right-click nothing with an empty bucket to milk YOURSELF (→ milk bucket), and other players can
+      milk you the same way (`RightClickItem` self + `EntityInteract` other; `ItemUtils.createFilledResult` + cow-milk sound).
+      Purely a joke, no other effect. Discovers on first milk.
+- [x] Tank (NEW) — Cobbled Deepslate (⚠ was requested as Deepslate then corrected; freed by moving Claustrophobia →
+      plain Deepslate). `MAX_HEALTH` attribute modifier (`tankBonusHealth` +20 = an extra bar) — NOT a Health Boost effect,
+      so no status-effect UI anywhere; transient + self-healed. Natural regen significantly slowed via `LivingHealEvent`
+      (small heals ≤1 HP ×`tankRegenMultiplier` 0.35). 2 knobs.
+- [x] Spider (NEW) — Fermented Spider Eye (⚠ Spider Eye is Neutral Aggression's). Client-side wall-climb off synced
+      `SPIDER_ACTIVE`: push into a wall to climb at `spiderClimbSpeed` (0.3), sneak to CLING/hang, and JUMP off a wall
+      (`spiderWallJump*`) to kick up-and-away — wall-jump between walls; fall damage zeroed. 4 knobs.
+- [x] Ninja (NEW, statement) — Black Dye (⚠ Ink Sac is Unseen's). MOVEMENT_SPEED + ATTACK_SPEED attribute modifiers
+      (`ninjaSprintSpeed`/`ninjaAttackSpeed`), a client mid-air DOUBLE JUMP off synced `NINJA_ACTIVE` (smoke-ring + POOF FX),
+      the parry-whiff woosh on every swing at `ninjaSwingPitch` 1.7, and a sprint smoke trail. Attributes self-heal.
+- [x] Backstabbing (NEW) — Nether Brick (⚠ Echo Shard requested but is Echoes'; Nether Brick was the fallback). A MELEE hit
+      from BEHIND (`LivingIncomingDamageEvent`, direct entity = attacker) multiplies the FINAL damage ×`backstabDamageMultiplier`
+      1.6 (stacks with crits/enchants) with reduced knockback (`LivingKnockBackEvent`, per-victim tick mark). Rear arc is far
+      MORE generous for mobs (`backstabMobDot`) than players (`backstabPlayerDot`) since mob AI faces you. Riposte sound ×1.2.
+- [x] Prop Hunt (NEW) — Flower Pot. Crouch + stand still `propHuntStillTicks` (1s) → disguise as the block below (state id
+      synced via `PROPHUNT_BLOCK`); `client/ClientCurseHandler` cancels `RenderPlayerEvent.Pre` and draws that block via
+      `renderSingleBlock`, for everyone. The disguise PERSISTS through walking/jumping (block follows you); CROUCH re-anchors
+      onto the grid + re-samples the block underfoot (borrow other blocks). Only a real ACTION (attack/mine/use/place/interact)
+      pops it back. Exact grid height: the anchor CELL is computed from the SUPPORT block and synced as a `BlockPos`
+      (`PROPHUNT_ANCHOR`), so the render is never sunk by the feet resting below the integer. POP + POOF on each transition.
 
 **NEUTRALS (11)**
 - [ ] Wooliam

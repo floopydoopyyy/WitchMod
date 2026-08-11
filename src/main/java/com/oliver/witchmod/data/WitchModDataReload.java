@@ -20,5 +20,8 @@ public final class WitchModDataReload {
         event.addListener(new InsomniacMessages());
         event.addListener(new BodyguardLines());
         event.addListener(new HypeManMessages());
+        event.addListener(new Usernames());
+        event.addListener(new TwitchChat());
+        event.addListener(new SolicitorLines());
     }
 }

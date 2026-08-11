@@ -57,6 +57,34 @@ public final class WitchModSounds {
      */
     public static final Supplier<SoundEvent> TRUMPET_WALK_LOOP = register("curse.trumpet.walk_loop");
 
+    /** Main Character: the looping "intense drum" battle theme, played (ambient) for the protagonist while active. */
+    public static final Supplier<SoundEvent> MAINCHAR_THEME = register("blessing.mainchar.theme");
+
+    /** Brute: the meaty impact when you plough into an entity or wall. */
+    public static final Supplier<SoundEvent> BRUTE_IMPACT = register("blessing.brute.impact");
+
+    /** Bouncy: the boing when you rebound or fling something (3 variants). */
+    public static final Supplier<SoundEvent> BOUNCY_BOING = register("blessing.bouncy.boing");
+
+    /** Laugh Track: the crowd LAUGH played to everyone when the blessed player speaks (3 variants, the common one). */
+    public static final Supplier<SoundEvent> LAUGHTRACK_LAUGH = register("blessing.laughtrack.laugh");
+    /** Laugh Track: the crowd CHEER (2 variants, the rarer 10% one). */
+    public static final Supplier<SoundEvent> LAUGHTRACK_CHEER = register("blessing.laughtrack.cheer");
+
+    /** Gladiator: a sword-collision CLANG played instantly on a successful parry. */
+    public static final Supplier<SoundEvent> GLADIATOR_PARRY = register("blessing.gladiator.parry");
+    /** Gladiator: a woosh — played on a whiffed parry, and again as the riposte swing leaves. */
+    public static final Supplier<SoundEvent> GLADIATOR_WHIFF = register("blessing.gladiator.whiff");
+    /** Gladiator: a sword IMPACT played when the riposte counter-hit lands. */
+    public static final Supplier<SoundEvent> GLADIATOR_RIPOSTE = register("blessing.gladiator.riposte");
+    /** Gladiator: a bright SHINE layered on top of a PERFECT parry. */
+    public static final Supplier<SoundEvent> GLADIATOR_PERFECT = register("blessing.gladiator.perfect");
+    /** Gladiator: a subtle sword CLASH played when a projectile is reflected. */
+    public static final Supplier<SoundEvent> GLADIATOR_REFLECT = register("blessing.gladiator.reflect");
+
+    /** The Snail: looping dread music while the snail is close (client loop, {@code "stream": false} so it loops seamlessly). */
+    public static final Supplier<SoundEvent> SNAIL_MUSIC = register("curse.snail.music");
+
     private static Supplier<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

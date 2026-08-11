@@ -86,6 +86,25 @@ public final class CurseViolence extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        LivingEntity victim = null;
+        double best = Double.MAX_VALUE;
+        for (LivingEntity e : target.serverLevel().getEntitiesOfClass(LivingEntity.class,
+                target.getBoundingBox().inflate(6.0), e -> e != target && e.isAlive())) {
+            double d = e.distanceToSqr(target);
+            if (d < best) {
+                best = d;
+                victim = e;
+            }
+        }
+        if (victim == null) {
+            return "nothing in range to swing at";
+        }
+        swingAt(target, victim, true);
+        return "forced a swing at " + victim.getName().getString();
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         target.setData(WitchModAttachments.VIOLENCE_LAST_SWING, target.serverLevel().getGameTime());
     }

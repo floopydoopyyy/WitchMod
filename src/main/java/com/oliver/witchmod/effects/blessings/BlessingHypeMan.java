@@ -17,11 +17,13 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 import com.oliver.witchmod.Config;
+import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.HypeManMessages;
+import com.oliver.witchmod.data.Usernames;
 
 /**
  * You've got a personal hype man — a crowd, really (master-spec Hype Man, sacrificial item ANY MUSIC DISC, a
@@ -41,9 +43,8 @@ public final class BlessingHypeMan extends Effect {
     /** blessed player -> game tick of their last praise, so all triggers share one cooldown. */
     private static final Map<UUID, Long> LAST_PRAISE = new HashMap<>();
 
-    /** When nobody real is nearby to do the hyping (e.g. singleplayer), the line gets one of these names. */
-    private static final String[] ANON_FANS = {"a fan", "some guy", "a bystander", "your biggest fan",
-            "a passer-by", "the crowd"};
+    /** The only trigger that fires with NOBODY around (using a made-up name); the rest need a real audience. */
+    private static final String SIGHTING = "nearby";
 
     /** The vanilla music-disc tag — any disc selects this blessing at the Table. */
     private static final TagKey<Item> MUSIC_DISCS =
@@ -56,6 +57,12 @@ public final class BlessingHypeMan extends Effect {
     @Override
     public Optional<TagKey<Item>> sacrificialTag() {
         return Optional.of(MUSIC_DISCS);
+    }
+
+    /** You find out the first time the crowd actually gushes about you (Rule 2), not when it's cast. */
+    @Override
+    public boolean discoversOnTrigger() {
+        return true;
     }
 
     @Override
@@ -85,8 +92,24 @@ public final class BlessingHypeMan extends Effect {
             return; // too soon since the last cheer
         }
         RandomSource random = blessed.getRandom();
+        double radius = Config.HYPEMAN_RADIUS.get();
+        List<ServerPlayer> nearby = level.getPlayers(p -> p != blessed
+                && p.distanceToSqr(blessed) <= radius * radius);
+
+        // Who does the praising? A real nearby player if there is one. If there isn't, ONLY the "sighting"
+        // praise carries on — with a made-up name from usernames.json. The specific-action praises (combat,
+        // pickup, loot, building) need a genuine audience and simply stay quiet when you're alone.
+        String speaker;
+        if (!nearby.isEmpty()) {
+            speaker = nearby.get(random.nextInt(nearby.size())).getGameProfile().getName();
+        } else if (key.equals(SIGHTING)) {
+            speaker = Usernames.random(random);
+        } else {
+            return;
+        }
+
         if (random.nextDouble() >= Config.HYPEMAN_CHANCE.get()) {
-            return; // not this time
+            return; // not this time (chance rolled AFTER the audience check so it doesn't burn on empty rooms)
         }
         String line = HypeManMessages.pick(key, random);
         if (line == null) {
@@ -94,18 +117,12 @@ public final class BlessingHypeMan extends Effect {
         }
         LAST_PRAISE.put(blessed.getUUID(), now);
 
-        double radius = Config.HYPEMAN_RADIUS.get();
-        List<ServerPlayer> nearby = level.getPlayers(p -> p != blessed
-                && p.distanceToSqr(blessed) <= radius * radius);
-        String speaker = nearby.isEmpty()
-                ? ANON_FANS[random.nextInt(ANON_FANS.length)]
-                : nearby.get(random.nextInt(nearby.size())).getGameProfile().getName();
-
         Component message = Component.literal("<" + speaker + "> "
                 + line.replace("{player}", blessed.getGameProfile().getName()));
 
         // Everyone in earshot hears it — including the blessed player, the subject of the adoration.
         level.getPlayers(p -> p.distanceToSqr(blessed) <= radius * radius)
                 .forEach(p -> p.sendSystemMessage(message));
+        Blessings.HYPE_MAN.get().markDiscoveredByVictim(blessed); // discovered on the first cheer, not on cast
     }
 }

@@ -25,6 +25,12 @@ public final class CurseMinorInconvenience extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        target.setData(WitchModAttachments.MINOR_INCONVENIENCE_ACTIVE, 1);
+        return "active — the client refuses fullscreen (drops to windowed on your next toggle) and renames the window on its own timer; client-enforced, no single server 'now' trigger";
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         target.setData(WitchModAttachments.MINOR_INCONVENIENCE_ACTIVE, 1);
     }

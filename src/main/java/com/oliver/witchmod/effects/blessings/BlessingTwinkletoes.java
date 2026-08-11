@@ -1,31 +1,25 @@
 package com.oliver.witchmod.effects.blessings;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Items;
 
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
-import com.oliver.witchmod.data.EffectUtil;
 
-/** Light on your feet — falls don't bother you, and you're quicker for it. */
+/**
+ * Light on your feet — you take no fall damage at all (master-spec Twinkletoes, sacrificial item HAY BALE).
+ * The negation itself lives in {@code BlessingEventHandler}'s {@code LivingFallEvent} listener (it zeroes the
+ * fall-damage multiplier); the old prototype's Slow Falling + Speed potion effects are dropped, since the spec
+ * is simply fall-damage immunity, not floaty movement.
+ */
 public final class BlessingTwinkletoes extends Effect {
     public BlessingTwinkletoes() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.HAY_BLOCK);
     }
 
+    /** You find out the first time a fall that should have hurt simply doesn't (Rule 2). */
     @Override
-    public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
-        EffectUtil.addTimedEffect(target, MobEffects.SLOW_FALLING, durationTicks, 0);
-        EffectUtil.addTimedEffect(target, MobEffects.MOVEMENT_SPEED, durationTicks, 0);
-    }
-
-    @Override
-    public void onRemove(ServerPlayer target) {
-        EffectUtil.removeTimedEffect(target, MobEffects.SLOW_FALLING);
-        EffectUtil.removeTimedEffect(target, MobEffects.MOVEMENT_SPEED);
+    public boolean discoversOnTrigger() {
+        return true;
     }
 }

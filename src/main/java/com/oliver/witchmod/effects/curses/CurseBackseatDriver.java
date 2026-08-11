@@ -62,6 +62,16 @@ public final class CurseBackseatDriver extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        net.minecraft.world.entity.Entity vehicle = target.getVehicle();
+        if (vehicle == null) {
+            return "mount a ridable first — nothing to take over";
+        }
+        startEpisode(target, vehicle, target.serverLevel().getGameTime());
+        return "seized the wheel";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         ServerLevel level = target.serverLevel();
         long now = level.getGameTime();

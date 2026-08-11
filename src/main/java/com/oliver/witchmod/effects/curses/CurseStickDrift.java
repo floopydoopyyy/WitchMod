@@ -66,6 +66,12 @@ public final class CurseStickDrift extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        startEpisode(target, target.serverLevel().getGameTime());
+        return "stick-drift episode started";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         // Self-heal the fixed roll after a relog (the schedule map is transient, the synced roll may be lost).
         if (target.getData(WitchModAttachments.STICK_DRIFT_MODE) < 0) {

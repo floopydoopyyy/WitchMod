@@ -156,6 +156,9 @@ public class WitchMod {
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
 
+        // Custom networking (the Organised keybind's open-stash request).
+        modEventBus.addListener(com.oliver.witchmod.network.WitchModNetwork::onRegisterPayloads);
+
         // SERVER (not COMMON) — every value here affects gameplay resolution the client must agree with
         // (the Table screen's live probability preview reads the same formula constants/overrides the
         // server uses to actually resolve a cast), and SERVER configs are per-world and auto-synced to

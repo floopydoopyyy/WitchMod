@@ -20,6 +20,12 @@ public final class CurseScreensaver extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        target.setData(WitchModAttachments.SCREENSAVER_ACTIVE, 1);
+        return "active — the client runs the DVD-bounce episodes on its own schedule (episodic, client-timed)";
+    }
+
+    @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         target.setData(WitchModAttachments.SCREENSAVER_ACTIVE, 1);
     }

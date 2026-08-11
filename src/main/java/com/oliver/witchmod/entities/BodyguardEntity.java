@@ -280,6 +280,9 @@ public final class BodyguardEntity extends PathfinderMob {
             return;
         }
 
+        if (!intruder.getUUID().equals(focusId)) {
+            aggressionTicks = 0; // a different intruder — start their patience clock fresh
+        }
         focusId = intruder.getUUID();
         getLookControl().setLookAt(intruder, 30.0F, 30.0F);
         double aggro = Config.BODYGUARD_AGGRESSION_RADIUS.get();
@@ -297,10 +300,12 @@ public final class BodyguardEntity extends PathfinderMob {
         }
 
         // Patience runs out: someone who WON'T take the hint gets the sword drawn on them, no attack from them
-        // required. But it must have actually WARNED them first — at least BODYGUARD_WARNINGS_BEFORE_ATTACK
-        // spoken warnings — so it never silently jumps to violence.
-        if (state == State.AGGRESSION
-                && ++aggressionTicks >= Config.BODYGUARD_PATIENCE.get()
+        // required (needs BODYGUARD_WARNINGS_BEFORE_ATTACK spoken warnings first, so it never jumps to violence
+        // silently). The clock builds while the SAME intruder is present at all — WARNING or AGGRESSION — so a
+        // warning-shove bumping them out to WARNING range no longer resets it (which is why it used to only
+        // attack while you actively kept crowding it). It resets only when they leave entirely or a new
+        // intruder takes over (above / in setState → FOLLOWING).
+        if (++aggressionTicks >= Config.BODYGUARD_PATIENCE.get()
                 && warningsSpoken >= Config.BODYGUARD_WARNINGS_BEFORE_ATTACK.get()) {
             escalateToAttacking(intruder);
         }
@@ -432,8 +437,8 @@ public final class BodyguardEntity extends PathfinderMob {
         }
         State prev = state;
         state = next;
-        if (next != State.AGGRESSION) {
-            aggressionTicks = 0;
+        if (next == State.FOLLOWING) {
+            aggressionTicks = 0; // only a real loss of the intruder resets patience — NOT a WARNING⇄AGGRESSION flip
         }
         // ⚠ Deliberately does NOT touch speakCooldown for WARNING/AGGRESSION/FOLLOWING. Those states flicker
         // as an intruder hovers near a radius boundary, and resetting the cooldown on each flip is exactly

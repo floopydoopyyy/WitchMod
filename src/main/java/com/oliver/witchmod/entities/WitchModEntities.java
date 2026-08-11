@@ -36,6 +36,34 @@ public final class WitchModEntities {
                     .clientTrackingRange(16)
                     .build("bodyguard"));
 
+    /** The immortal Snail. {@code MobCategory.MISC} so it never spawns naturally — only the curse places it. Tiny. */
+    public static final DeferredHolder<EntityType<?>, EntityType<SnailEntity>> SNAIL =
+            ENTITY_TYPES.register("snail", () -> EntityType.Builder
+                    .of(SnailEntity::new, MobCategory.MISC)
+                    .sized(0.5F, 0.4F)
+                    .clientTrackingRange(10)
+                    .build("snail"));
+
+    /**
+     * The Mind Dweller (The Dweller curse). {@code MobCategory.MISC} so it never spawns naturally — only the
+     * curse places it — tall and thin. A wide client-tracking range so it can lurk at a distance and still be
+     * rendered for its victim.
+     */
+    public static final DeferredHolder<EntityType<?>, EntityType<MindDwellerEntity>> MIND_DWELLER =
+            ENTITY_TYPES.register("mind_dweller", () -> EntityType.Builder
+                    .of(MindDwellerEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 2.5F)
+                    .clientTrackingRange(12)
+                    .build("mind_dweller"));
+
+    /** The Dweller's "watchers" — disembodied glowing eyes in the dark. Tiny, never spawns naturally. */
+    public static final DeferredHolder<EntityType<?>, EntityType<WatcherEyesEntity>> WATCHER_EYES =
+            ENTITY_TYPES.register("watcher_eyes", () -> EntityType.Builder
+                    .of(WatcherEyesEntity::new, MobCategory.MISC)
+                    .sized(0.5F, 0.5F)
+                    .clientTrackingRange(12)
+                    .build("watcher_eyes"));
+
     private WitchModEntities() {}
 
     public static void register(IEventBus modEventBus) {

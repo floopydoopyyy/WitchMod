@@ -2,36 +2,67 @@ package com.oliver.witchmod.effects.blessings;
 
 import org.jetbrains.annotations.Nullable;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Items;
 
+import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * Gravity takes it easy on you — big hops, soft landings.
+ * Gravity takes it easy on you — you are constantly LIGHT (master-spec Low Gravity, sacrificial item EYE OF
+ * ENDER): big floaty hops and soft, slow descents, the whole time.
  *
- * <p>Jump Boost + Slow Falling is a genuinely close vanilla realization of the spec's higher-jump /
- * slower-fall / reduced-fall-damage numbers; a later pass can swap to exact attribute multipliers if the
- * feel needs tuning.
+ * <p>Done with real vanilla physics rather than Jump Boost / Slow Falling: a {@code GRAVITY} multiplier does
+ * the actual moon-walk feel (you rise higher on the same jump and fall slower, exactly like reduced gravity),
+ * a {@code JUMP_STRENGTH} multiplier launches you higher, and fall damage is cut on {@code LivingFallEvent}
+ * (see {@code BlessingEventHandler}). Both modifiers are TRANSIENT, so {@link #onTick} re-applies them if a
+ * reload dropped one while the blessing persisted. Discovered on apply — you feel it the instant you move.
  */
 public final class BlessingLowGravity extends Effect {
+    public static final ResourceLocation GRAVITY_ID = EffectUtil.modifierId("blessing_low_gravity");
+    public static final ResourceLocation JUMP_ID = EffectUtil.modifierId("blessing_low_gravity_jump");
+
     public BlessingLowGravity() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.ENDER_EYE);
     }
 
     @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
-        EffectUtil.addTimedEffect(target, MobEffects.JUMP, durationTicks, 1);
-        EffectUtil.addTimedEffect(target, MobEffects.SLOW_FALLING, durationTicks, 0);
+        applyModifiers(target);
+    }
+
+    @Override
+    public void onTick(ServerPlayer target, int ticksRemaining) {
+        applyModifiers(target); // self-heal after a reload/respawn drops the transient modifiers
     }
 
     @Override
     public void onRemove(ServerPlayer target) {
-        EffectUtil.removeTimedEffect(target, MobEffects.JUMP);
-        EffectUtil.removeTimedEffect(target, MobEffects.SLOW_FALLING);
+        EffectUtil.removeModifier(target, Attributes.GRAVITY, GRAVITY_ID);
+        EffectUtil.removeModifier(target, Attributes.JUMP_STRENGTH, JUMP_ID);
+    }
+
+    private static void applyModifiers(ServerPlayer target) {
+        AttributeInstance gravity = target.getAttribute(Attributes.GRAVITY);
+        if (gravity != null && !gravity.hasModifier(GRAVITY_ID)) {
+            gravity.addOrUpdateTransientModifier(new AttributeModifier(GRAVITY_ID,
+                    Config.LOW_GRAVITY_GRAVITY_MULT.get() - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+        AttributeInstance jump = target.getAttribute(Attributes.JUMP_STRENGTH);
+        if (jump != null && !jump.hasModifier(JUMP_ID)) {
+            jump.addOrUpdateTransientModifier(new AttributeModifier(JUMP_ID,
+                    Config.LOW_GRAVITY_JUMP_MULT.get() - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+    }
+
+    public static float fallDamageMultiplier() {
+        return Config.LOW_GRAVITY_FALL_DAMAGE_MULT.get().floatValue();
     }
 }

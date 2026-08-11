@@ -70,6 +70,12 @@ public final class CurseAudit extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        summon(target);
+        return "Tax Man summoned to audit you";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         if (!EffectUtil.every(ticksRemaining, Config.TAXES_CHECK_INTERVAL.get())) {
             return;

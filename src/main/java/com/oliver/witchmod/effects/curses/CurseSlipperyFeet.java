@@ -79,6 +79,17 @@ public final class CurseSlipperyFeet extends Effect {
     }
 
     @Override
+    public String debugForce(ServerPlayer target, String arg) {
+        Vec3 look = target.getLookAngle();
+        Vec3 dir = new Vec3(look.x, 0, look.z);
+        if (dir.lengthSqr() < 1.0E-4) {
+            dir = new Vec3(1, 0, 0);
+        }
+        slip(target, target.position().add(dir.normalize().scale(2.0)));
+        return "shoved your feet out from under you";
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         if (!target.onGround() || target.isPassenger()) {
             clear(target);
