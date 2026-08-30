@@ -1,0 +1,4 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": { "layer0": "witchmod:item/player_essence/player_essence_white" }
+}

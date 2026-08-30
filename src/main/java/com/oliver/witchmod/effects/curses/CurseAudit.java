@@ -70,6 +70,15 @@ public final class CurseAudit extends Effect {
     }
 
     @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        if (ACTIVE.containsKey(target.getUUID())) {
+            return java.util.Optional.of("audit under way");
+        }
+        return java.util.Optional.of(
+                target.level().getGameTime() < COOLDOWN.getOrDefault(target.getUUID(), 0L) ? "audit complete" : "audit pending");
+    }
+
+    @Override
     public String debugForce(ServerPlayer target, String arg) {
         summon(target);
         return "Tax Man summoned to audit you";

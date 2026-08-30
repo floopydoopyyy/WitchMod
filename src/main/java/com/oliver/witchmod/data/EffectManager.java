@@ -17,21 +17,27 @@ import com.oliver.witchmod.Config;
 
 /** Applies, removes, and ticks down curses/blessings on players. The single entry point into {@link ActiveEffects}. */
 public final class EffectManager {
+    /** Called when an active Ward BLOCKS an attachment cast by someone else — for the item's FX + durability. */
+    public interface WardBlock {
+        void block(ServerPlayer target, ServerPlayer caster, boolean curse);
+    }
+
     private static Predicate<ServerPlayer> wardCheck = player -> false;
-    private static BiConsumer<ServerPlayer, ServerPlayer> onWardDeflect = (target, caster) -> {};
+    private static WardBlock onWardBlock = (target, caster, curse) -> {};
     private static Predicate<ServerPlayer> totemCheck = player -> false;
+    private static WardBlock onTotemBlock = (target, caster, curse) -> {};
 
     private EffectManager() {}
 
     /**
-     * Lets the Ward item (items package) hook into curse application without EffectManager depending on
-     * it directly — {@code check} reports whether a player has an active Ward, {@code onDeflect} is
-     * called (with target, then attacker) once a deflection actually happens so the item can consume
-     * durability and show its directional particles.
+     * Lets the Ward item (items package) hook into effect application without EffectManager depending on it
+     * directly — {@code check} reports whether a player has an active Ward, {@code onBlock} is called (target,
+     * caster, isCurse) once a block actually happens so the item can consume durability and show its
+     * directional lash + block FX.
      */
-    public static void setWardHook(Predicate<ServerPlayer> check, BiConsumer<ServerPlayer, ServerPlayer> onDeflect) {
+    public static void setWardHook(Predicate<ServerPlayer> check, WardBlock onBlock) {
         wardCheck = check;
-        onWardDeflect = onDeflect;
+        onWardBlock = onBlock;
     }
 
     /**
@@ -39,8 +45,15 @@ public final class EffectManager {
      * Unlike the Ward, a Totem blocks both categories completely silently — no redirect, no feedback to
      * the target (CLAUDE.md section 2.4), and applies even to self-casts since it's a full-area shield.
      */
-    public static void setTotemHook(Predicate<ServerPlayer> check) {
+    public static void setTotemHook(Predicate<ServerPlayer> check, WardBlock onBlock) {
         totemCheck = check;
+        onTotemBlock = onBlock;
+    }
+
+    /** Whether {@code target} would be blocked by a Warding Totem from a cast by {@code caster} — used by
+     *  callers (ritual/jars) that want to LOG the block. Mirrors the gate in {@link #apply}. */
+    public static boolean wouldTotemBlock(ServerPlayer target, @Nullable ServerPlayer caster) {
+        return caster != target && totemCheck.test(target);
     }
 
     /**
@@ -50,7 +63,21 @@ public final class EffectManager {
      * entry point every application path goes through (table, commands, coins, jars, Effigy, Bell, Gamble,
      * Mirror backfire), that rule is inherited everywhere for free.
      */
-    public static void apply(ServerPlayer target, Holder<Effect> effect, int durationTicks, @Nullable ServerPlayer caster) {
+    /** @return true if the effect actually landed on someone (a Ward deflect counts — it landed on the caster). */
+    /**
+     * Per-application modifier options: Netherite Ingot bypasses the Ward; Ink Sac hides the wrapper/tell until
+     * discovery ({@link ActiveEffectInstance#DISPLAY_HIDDEN}); Wither Rose shows the OPPOSITE category until
+     * discovery ({@link ActiveEffectInstance#DISPLAY_DISGUISED}).
+     */
+    public record ApplyOptions(boolean bypassWard, int display) {
+        public static final ApplyOptions DEFAULT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL);
+    }
+
+    public static boolean apply(ServerPlayer target, Holder<Effect> effect, int durationTicks, @Nullable ServerPlayer caster) {
+        return apply(target, effect, durationTicks, caster, ApplyOptions.DEFAULT);
+    }
+
+    public static boolean apply(ServerPlayer target, Holder<Effect> effect, int durationTicks, @Nullable ServerPlayer caster, ApplyOptions opts) {
         boolean categoryEnabled = effect.value().category() == EffectCategory.CURSE
                 ? Config.CURSES_ENABLED.get()
                 : Config.BLESSINGS_ENABLED.get();
@@ -59,19 +86,23 @@ public final class EffectManager {
                 caster.displayClientMessage(Component.literal(
                         (effect.value().category() == EffectCategory.CURSE ? "Curses" : "Blessings") + " are disabled on this server."), true);
             }
-            return;
+            return false;
         }
         if (caster != null && caster != target && GracePeriod.isInGracePeriod(target)) {
             caster.displayClientMessage(Component.literal(target.getName().getString() + " is still under a new-player grace period."), true);
-            return;
+            return false;
         }
-        if (totemCheck.test(target)) {
-            return;
+        // A Warding Totem shields against OTHERS' magic (self-casts pass through), including null-caster
+        // sources like jars, coins and the /bewitch dummy command.
+        if (caster != target && totemCheck.test(target)) {
+            onTotemBlock.block(target, caster, effect.value().category() == EffectCategory.CURSE);
+            return false;
         }
-        if (effect.value().category() == EffectCategory.CURSE && caster != null && caster != target && wardCheck.test(target)) {
-            onWardDeflect.accept(target, caster);
-            apply(caster, effect, durationTicks, null);
-            return;
+        // A Ward BLOCKS any attachment cast by someone ELSE (self-casts pass through). It doesn't redirect —
+        // it just stops it, with a coloured incoming-lash + a block, spending 1 durability.
+        if (!opts.bypassWard() && caster != null && caster != target && wardCheck.test(target)) {
+            onWardBlock.block(target, caster, effect.value().category() == EffectCategory.CURSE);
+            return false;
         }
 
         // Per-effect duration override (e.g. Moonwalker halves its own). Applied here so every cast path
@@ -88,7 +119,7 @@ public final class EffectManager {
         Optional<UUID> casterId = durationTicks >= existingRemaining
                 ? Optional.ofNullable(caster).map(ServerPlayer::getUUID)
                 : active.get(id).flatMap(ActiveEffectInstance::caster);
-        active.put(id, new ActiveEffectInstance(effectiveDuration, casterId));
+        active.put(id, new ActiveEffectInstance(effectiveDuration, casterId, opts.display()));
         target.setData(WitchModAttachments.ACTIVE_EFFECTS, active);
         // Size the effect's own vanilla sub-effects to the kept (never-shortened) duration.
         effect.value().onApply(target, caster, effectiveDuration);
@@ -99,7 +130,9 @@ public final class EffectManager {
         // (discoversOnTrigger) — those call markDiscoveredByVictim themselves when they actually fire,
         // e.g. Allergic's first bad reaction or Backseat Driver's first AI takeover.
         boolean discoversOnTrigger = effect.value().discoversOnTrigger();
-        if (!discoversOnTrigger) {
+        // Ink Sac (hidden) / Wither Rose (disguised) suppress the victim's IMMEDIATE discovery so the wrapper
+        // stays hidden/faked until the effect's real discovery moment reveals it (see revealDisplay).
+        if (!discoversOnTrigger && opts.display() == ActiveEffectInstance.DISPLAY_NORMAL) {
             DiscoveryManager.markEffectDiscovered(target, id);
         }
         // A self-cast makes you both roles at once. For a trigger-discovered effect the VICTIM half has to
@@ -107,6 +140,7 @@ public final class EffectManager {
         if (caster != null && !(caster == target && discoversOnTrigger)) {
             DiscoveryManager.markEffectDiscovered(caster, id);
         }
+        return true;
     }
 
     /** @return true if {@code effect} was active on {@code target} and has now been removed. */
@@ -177,6 +211,70 @@ public final class EffectManager {
         return target.getExistingData(WitchModAttachments.ACTIVE_EFFECTS)
                 .map(ActiveEffects::size)
                 .orElse(0);
+    }
+
+    /** Whether {@code target} already carries any active effect of {@code category} (Amethyst Shard modifier). */
+    public static boolean hasActiveOfCategory(ServerPlayer target, EffectCategory category) {
+        ActiveEffects active = target.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
+        if (active == null) {
+            return false;
+        }
+        for (ResourceLocation id : active.activeIds()) {
+            if (WitchModRegistries.EFFECT_REGISTRY.getOptional(id).map(e -> e.category() == category).orElse(false)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A snapshot of {@code target}'s active effects → their remaining ticks (for the Infectious spread). */
+    public static java.util.Map<ResourceLocation, Integer> activeSnapshot(ServerPlayer target) {
+        ActiveEffects active = target.getData(WitchModAttachments.ACTIVE_EFFECTS);
+        java.util.Map<ResourceLocation, Integer> out = new java.util.LinkedHashMap<>();
+        for (ResourceLocation id : active.activeIds()) {
+            active.get(id).ifPresent(inst -> out.put(id, inst.remainingTicks()));
+        }
+        return out;
+    }
+
+    /**
+     * Reveals a hidden (Ink Sac) or disguised (Wither Rose) effect on {@code player} — flips its display back to
+     * normal and re-syncs, so the true Cursed/Blessed wrapper appears with its onset sting. Called from
+     * {@link DiscoveryManager#markEffectDiscovered} the first time the effect is discovered. No-op otherwise.
+     */
+    public static void revealDisplay(ServerPlayer player, ResourceLocation effectId) {
+        ActiveEffects active = player.getData(WitchModAttachments.ACTIVE_EFFECTS);
+        active.get(effectId).ifPresent(inst -> {
+            if (inst.display() != ActiveEffectInstance.DISPLAY_NORMAL) {
+                active.put(effectId, inst.withDisplay(ActiveEffectInstance.DISPLAY_NORMAL));
+                player.setData(WitchModAttachments.ACTIVE_EFFECTS, active);
+                StatusEffectSync.sync(player);
+            }
+        });
+    }
+
+    /** Resolves the registry holder for an effect id (used when moving effects between players). */
+    public static Optional<Holder.Reference<Effect>> holderOf(ResourceLocation id) {
+        return WitchModRegistries.EFFECT_REGISTRY.holders().filter(h -> h.key().location().equals(id)).findFirst();
+    }
+
+    /**
+     * Places {@code effect} at an EXACT remaining duration — no {@link Effect#durationMultiplier}, bypassing the
+     * cast-time guards (category-enabled / grace / totem / ward). Used by the Infectious / Very Infectious spread,
+     * which is a physical hit rather than a Table cast, so the timer is preserved verbatim on transfer.
+     */
+    public static void applyExact(ServerPlayer target, Holder<Effect> effect, int remainingTicks, @Nullable ServerPlayer caster) {
+        ResourceLocation id = idOf(effect);
+        ActiveEffects active = target.getData(WitchModAttachments.ACTIVE_EFFECTS);
+        int existing = active.get(id).map(ActiveEffectInstance::remainingTicks).orElse(0);
+        int dur = Math.max(existing, Math.max(1, remainingTicks));
+        active.put(id, new ActiveEffectInstance(dur, Optional.ofNullable(caster).map(ServerPlayer::getUUID)));
+        target.setData(WitchModAttachments.ACTIVE_EFFECTS, active);
+        effect.value().onApply(target, caster, dur);
+        StatusEffectSync.sync(target);
+        if (!effect.value().discoversOnTrigger()) {
+            DiscoveryManager.markEffectDiscovered(target, id);
+        }
     }
 
     /** Called once per player per tick by {@link WitchModEventHandler}. */

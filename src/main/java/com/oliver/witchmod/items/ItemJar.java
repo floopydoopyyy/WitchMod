@@ -1,97 +1,75 @@
 package com.oliver.witchmod.items;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.core.Holder;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 
-import com.oliver.witchmod.data.ActiveEffectInstance;
-import com.oliver.witchmod.data.ActiveEffects;
 import com.oliver.witchmod.data.CapturedEffect;
-import com.oliver.witchmod.data.Effect;
-import com.oliver.witchmod.data.EffectCategory;
-import com.oliver.witchmod.data.EffectManager;
-import com.oliver.witchmod.data.WitchModAttachments;
-import com.oliver.witchmod.data.WitchModDataComponents;
-import com.oliver.witchmod.data.WitchModRegistries;
+import com.oliver.witchmod.entities.JarThrowEntity;
 
 /**
- * Two-player item: right-click another player to capture an active curse off them, right-click any
- * player again to release it back out (CLAUDE.md section 3). Jar holds 1 capture and breaks after
- * releasing; Cursed Jar (via {@code maxCaptured}) holds a few and only breaks once emptied.
+ * A jar that stores curses/blessings (up to {@link JarContents#MAX}) and is THROWN like a splash potion to
+ * unleash them — see {@link JarEffects}. It's a DYNAMIC item: the variant (Cursed / Blessed / Mixed) is
+ * derived from its contents, so filling a Cursed Jar with a blessing turns it into a Mixed Jar (the fill
+ * happens at the Bewitching Table with a jar in the target slot, or via {@code /bewitch jar}). An EMPTY jar
+ * isn't thrown — it stays the Player-Essence collecting tool.
  */
 public final class ItemJar extends Item {
-    private final int maxCaptured;
-
-    public ItemJar(Properties properties, int maxCaptured) {
+    public ItemJar(Properties properties) {
         super(properties);
-        this.maxCaptured = maxCaptured;
+    }
+
+    /** Right-click → THROW the jar (only when it's holding something; an empty jar is the essence tool). */
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (JarContents.contents(stack).isEmpty()) {
+            return InteractionResultHolder.pass(stack); // nothing to unleash — leave it to the essence handler
+        }
+        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.SPLASH_POTION_THROW, SoundSource.PLAYERS, 0.5F, 0.4F);
+        if (!level.isClientSide()) {
+            JarThrowEntity jar = new JarThrowEntity(level, player);
+            jar.setItem(stack);
+            jar.shootFromRotation(player, player.getXRot(), player.getYRot(), -20.0F, 0.5F, 1.0F);
+            level.addFreshEntity(jar);
+        }
+        player.awardStat(Stats.ITEM_USED.get(this));
+        stack.consume(1, player);
+        return InteractionResultHolder.success(stack);
     }
 
     @Override
-    public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity interactionTarget, InteractionHand hand) {
-        if (player.level().isClientSide() || !(player instanceof ServerPlayer user) || !(interactionTarget instanceof ServerPlayer target)) {
-            return InteractionResult.PASS;
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        List<CapturedEffect> captured = JarContents.contents(stack);
+        if (captured.isEmpty()) {
+            tooltip.add(Component.literal("Empty — holds up to " + JarContents.MAX + " curse/blessing")
+                    .withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.add(Component.literal("Fill it at a Bewitching Table (jar in the target slot).")
+                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+            return;
         }
-
-        List<CapturedEffect> captured = new ArrayList<>(stack.getOrDefault(WitchModDataComponents.CAPTURED_EFFECTS, List.of()));
-
-        if (captured.size() < maxCaptured && target != user) {
-            return capture(stack, user, target, captured);
+        tooltip.add(Component.literal("Holds " + captured.size() + " / " + JarContents.MAX + " — throw to unleash")
+                .withStyle(ChatFormatting.GRAY));
+        for (CapturedEffect e : captured) {
+            tooltip.add(Component.literal(" • " + prettyName(e.effectId())).withStyle(ChatFormatting.LIGHT_PURPLE));
         }
-        if (!captured.isEmpty()) {
-            return release(stack, user, target, captured);
-        }
-        user.displayClientMessage(Component.literal("This jar is empty and can't hold anything more from yourself."), true);
-        return InteractionResult.FAIL;
     }
 
-    private InteractionResult capture(ItemStack stack, ServerPlayer user, ServerPlayer target, List<CapturedEffect> captured) {
-        ActiveEffects active = target.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
-        ResourceLocation curseId = active == null ? null : active.activeIds().stream()
-                .filter(id -> WitchModRegistries.EFFECT_REGISTRY.getOptional(id).map(e -> e.category() == EffectCategory.CURSE).orElse(false))
-                .findFirst().orElse(null);
-        if (curseId == null) {
-            user.displayClientMessage(Component.literal(target.getName().getString() + " has no active curse to capture."), true);
-            return InteractionResult.FAIL;
-        }
-
-        ActiveEffectInstance instance = active.get(curseId).orElseThrow();
-        Holder.Reference<Effect> curse = WitchModRegistries.EFFECT_REGISTRY.getHolderOrThrow(
-                ResourceKey.create(WitchModRegistries.EFFECT_REGISTRY_KEY, curseId));
-        EffectManager.remove(target, curse);
-
-        captured.add(new CapturedEffect(curseId, instance.remainingTicks()));
-        stack.set(WitchModDataComponents.CAPTURED_EFFECTS, List.copyOf(captured));
-        user.displayClientMessage(Component.literal("Captured " + curseId.getPath() + " from " + target.getName().getString() + "."), true);
-        return InteractionResult.SUCCESS;
-    }
-
-    private InteractionResult release(ItemStack stack, ServerPlayer user, ServerPlayer target, List<CapturedEffect> captured) {
-        List<CapturedEffect> remaining = new ArrayList<>(captured);
-        CapturedEffect toRelease = remaining.remove(0);
-
-        Holder.Reference<Effect> curse = WitchModRegistries.EFFECT_REGISTRY.getHolderOrThrow(
-                ResourceKey.create(WitchModRegistries.EFFECT_REGISTRY_KEY, toRelease.effectId()));
-        EffectManager.apply(target, curse, toRelease.remainingTicks(), null);
-        user.displayClientMessage(Component.literal("Released " + toRelease.effectId().getPath() + " onto " + target.getName().getString() + "."), true);
-
-        if (remaining.isEmpty()) {
-            stack.shrink(1);
-        } else {
-            stack.set(WitchModDataComponents.CAPTURED_EFFECTS, List.copyOf(remaining));
-        }
-        return InteractionResult.SUCCESS;
+    static String prettyName(ResourceLocation id) {
+        String path = id.getPath().replace('_', ' ');
+        return path.isEmpty() ? path : Character.toUpperCase(path.charAt(0)) + path.substring(1);
     }
 }

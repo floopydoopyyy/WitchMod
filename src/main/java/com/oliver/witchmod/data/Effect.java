@@ -47,6 +47,29 @@ public abstract class Effect {
     }
 
     /**
+     * Whether this effect can be SELECTED directly — as a Sacrificial Item, a Coin roll, or a Compendium
+     * curse/blessing page. Internal attachments that only ever land as a side-effect (e.g. the hidden
+     * "infectious" state applied by the Slime Ball / Slime Block modifiers) return false, so they never appear
+     * as castable curses or in the Compendium's Curses chapter.
+     */
+    public boolean selectable() {
+        return true;
+    }
+
+    /** Number of pips the Compendium draws for the 0..100 power scale. */
+    public static final int POWER_PIPS = 5;
+
+    /**
+     * Power rating shown in the Compendium, on a 0..100 scale (the 5 pips fill in fifths, and the exact number
+     * is shown in brackets). NOT per-attachment yet — every effect shares this placeholder until the
+     * strength/tier balancing pass lands (see the §10.1 TODO). Override per effect once real values exist; the
+     * Compendium reads this live, so no strings need touching when they do.
+     */
+    public int powerLevel() {
+        return 50;
+    }
+
+    /**
      * A tag whose members ALL select this effect at the Table, as the explicit exception to exact-item
      * matching (master-spec Rule 9): only Hype Man (any music disc) and Party Time (any candle) use it. Empty
      * by default. {@link SacrificialItems#findEffect} checks it only when no exact-item match is found, and
@@ -125,6 +148,14 @@ public abstract class Effect {
     @Nullable
     public String debugForce(ServerPlayer target, @Nullable String arg) {
         return null;
+    }
+
+    /**
+     * Valid {@code arg} values for {@code /bewitch debug force}, surfaced as tab-completions so you can see
+     * (and pick) them while typing — e.g. a multi-event effect's sub-event names. Empty by default.
+     */
+    public java.util.List<String> debugArgs() {
+        return java.util.List.of();
     }
 
     /** Marks this effect discovered for {@code target}, alerting them — call at the real trigger moment. */

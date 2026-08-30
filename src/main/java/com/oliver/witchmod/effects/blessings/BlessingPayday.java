@@ -56,6 +56,15 @@ public final class BlessingPayday extends Effect {
 
     /** You find out when the Tax Man actually turns up and pays out (Rule 2), not when it's cast. */
     @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        Watch w = WATCHES.get(target.getUUID());
+        if (w == null) {
+            return java.util.Optional.of("payday pending");
+        }
+        return java.util.Optional.of(w.delivered ? "paid" : "delivery en route");
+    }
+
+    @Override
     public boolean discoversOnTrigger() {
         return true;
     }

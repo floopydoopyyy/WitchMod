@@ -18,7 +18,9 @@ public final class WitchModEntityAttributes {
         event.put(WitchModEntities.TAX_MAN.get(), TaxManEntity.createAttributes().build());
         event.put(WitchModEntities.BODYGUARD.get(), BodyguardEntity.createAttributes().build());
         event.put(WitchModEntities.SNAIL.get(), SnailEntity.createAttributes().build());
-        event.put(WitchModEntities.MIND_DWELLER.get(), MindDwellerEntity.createAttributes().build());
+        event.put(WitchModEntities.SPAGHETTI_MAN.get(), SpaghettiManEntity.createAttributes().build());
         event.put(WitchModEntities.WATCHER_EYES.get(), WatcherEyesEntity.createAttributes().build());
+        event.put(WitchModEntities.DREAM.get(), DreamEntity.createAttributes().build());
+        event.put(WitchModEntities.CLONE.get(), CloneEntity.createAttributes().build());
     }
 }

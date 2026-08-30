@@ -71,6 +71,12 @@ public final class ScreensaverState {
             return; // window manipulation unavailable — no-op per spec
         }
 
+        // If the player forces fullscreen mid-bounce, boot straight back out so the effect can keep up (the
+        // bounce needs a floating window). Only during the windowed phases — GROWING restores fullscreen itself.
+        if ((phase == Phase.SHRINKING || phase == Phase.BOUNCING) && window.isFullscreen()) {
+            minecraft.options.fullscreen().set(false); // vanilla's option callback does the toggle
+        }
+
         switch (phase) {
             case IDLE -> tickIdle(minecraft, window, mode, random);
             case SHRINKING -> tickTransition(window, mode, true);

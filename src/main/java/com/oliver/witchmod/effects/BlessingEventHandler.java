@@ -142,11 +142,19 @@ public final class BlessingEventHandler {
             Blessings.TWIST_OF_FATE.get().markDiscoveredByVictim(player);
         }
         // Bouncy "get off me": whatever MELEES you pings straight back off your rubbery hide.
-        if (EffectManager.isActive(player, Blessings.BOUNCY)
+        if (EffectManager.isActive(player, Curses.BOUNCY)
                 && event.getSource().getDirectEntity() instanceof net.minecraft.world.entity.LivingEntity attacker
                 && attacker != player) {
-            com.oliver.witchmod.effects.blessings.BlessingBouncy.bounceAway(player, attacker, Config.BOUNCY_ENTITY_FORCE.get());
-            Blessings.BOUNCY.get().markDiscoveredByVictim(player);
+            com.oliver.witchmod.effects.curses.CurseBouncy.bounceAway(player, attacker, Config.BOUNCY_ENTITY_FORCE.get());
+            Curses.BOUNCY.get().markDiscoveredByVictim(player);
+        }
+        // Flight: taking a hit spends 20% of the energy bar and knocks you out of flight for a moment.
+        if (!event.isCanceled() && EffectManager.isActive(player, Blessings.FLIGHT)) {
+            com.oliver.witchmod.effects.blessings.BlessingFlight.onHurt(player);
+        }
+        // Disguise: taking a hit breaks the costume (handled server-side — flip to the real model + start the timer).
+        if (EffectManager.isActive(player, Blessings.DISGUISE)) {
+            com.oliver.witchmod.effects.blessings.BlessingDisguise.breakDisguise(player);
         }
     }
 
@@ -155,11 +163,11 @@ public final class BlessingEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        if (EffectManager.isActive(player, Blessings.BOUNCY)) {
+        if (EffectManager.isActive(player, Curses.BOUNCY)) {
             // Fall damage negated; the actual upward rebound is applied client-side (ClientCurseHandler.tickBouncy)
             // so it can build height with repeated jumps.
             event.setDamageMultiplier(0.0F);
-            Blessings.BOUNCY.get().markDiscoveredByVictim(player);
+            Curses.BOUNCY.get().markDiscoveredByVictim(player);
         }
         // Twinkletoes: total fall-damage immunity. Only fire discovery if the fall would ACTUALLY have hurt,
         // so stepping off a block doesn't spend the "first save" moment.
@@ -401,6 +409,25 @@ public final class BlessingEventHandler {
     }
 
     @SubscribeEvent
+    static void onDisguiseAttack(AttackEntityEvent event) {
+        // Throwing a punch blows your cover too, not just taking one.
+        if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.DISGUISE)) {
+            com.oliver.witchmod.effects.blessings.BlessingDisguise.breakDisguise(player);
+        }
+    }
+
+    @SubscribeEvent
+    static void onThunderHit(LivingDamageEvent.Post event) {
+        // A Thunder-blessed player's MELEE hit (direct entity == the player) discharges the stored static.
+        if (event.getSource().getDirectEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.THUNDER)
+                && event.getEntity() instanceof net.minecraft.world.entity.LivingEntity victim
+                && victim != player) {
+            com.oliver.witchmod.effects.blessings.BlessingThunder.discharge(player, victim, event.getNewDamage());
+        }
+    }
+
+    @SubscribeEvent
     static void onGladiatorLeewayRecord(LivingDamageEvent.Post event) {
         // A melee hit that WASN'T parried — remember it briefly so a slightly-late parry (leeway) can still
         // catch it. Only fires for hits that landed (a parried hit is cancelled before this).
@@ -464,6 +491,44 @@ public final class BlessingEventHandler {
         }
     }
 
+    /** Sanguine: natural regen throttled to a fraction — you don't heal by resting, you heal by bleeding others. */
+    @SubscribeEvent
+    static void onSanguineRegen(LivingHealEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.SANGUINE)) {
+            event.setAmount(com.oliver.witchmod.effects.blessings.BlessingSanguine.throttleRegen(event.getAmount()));
+        }
+    }
+
+    /** Sanguine: lifesteal a share of the damage you deal — melee AND projectile (the attacker is the source entity). */
+    @SubscribeEvent
+    static void onSanguineLifesteal(LivingDamageEvent.Post event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer attacker
+                && attacker != event.getEntity() && attacker.isAlive()
+                && EffectManager.isActive(attacker, Blessings.SANGUINE)) {
+            com.oliver.witchmod.effects.blessings.BlessingSanguine.lifesteal(attacker, event.getEntity(), event.getNewDamage());
+        }
+    }
+
+    /** Sonar: every hit you take sharpens your senses — shave time off the next ping. */
+    @SubscribeEvent
+    static void onSonarDamaged(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.SONAR)) {
+            com.oliver.witchmod.effects.blessings.BlessingSonar.onDamaged(player);
+        }
+    }
+
+    /** Vein Miner: breaking an ore/log fells the whole connected vein/tree. */
+    @SubscribeEvent
+    static void onVeinMine(BlockEvent.BreakEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer player
+                && event.getLevel() instanceof ServerLevel level
+                && EffectManager.isActive(player, Blessings.VEIN_MINER)) {
+            com.oliver.witchmod.effects.blessings.BlessingVeinMiner.onBreak(player, level, event.getPos(), event.getState());
+        }
+    }
+
     // --- Prop Hunt blessing: any real action (not moving/jumping) drops the disguise --------------------
     private static void propHuntAction(net.minecraft.world.entity.Entity e) {
         if (e instanceof ServerPlayer p) {
@@ -515,6 +580,27 @@ public final class BlessingEventHandler {
     @SubscribeEvent
     static void onBackstabKnockback(LivingKnockBackEvent event) {
         float mult = com.oliver.witchmod.effects.blessings.BlessingBackstabbing.knockbackMultiplier(event.getEntity());
+        if (mult != 1.0F) {
+            event.setStrength(event.getStrength() * mult);
+        }
+    }
+
+    // --- Heavy Hitter blessing --------------------------------------------------------------------------
+    @SubscribeEvent
+    static void onHeavyHitterDamage(LivingIncomingDamageEvent event) {
+        // A MELEE hit by a Heavy Hitter (direct entity IS the attacking player) marks the victim for this
+        // tick, so the knockback hook below can double the knockback.
+        if (event.getSource().getDirectEntity() instanceof ServerPlayer attacker
+                && event.getSource().getEntity() == attacker
+                && event.getEntity() instanceof net.minecraft.world.entity.LivingEntity victim && victim != attacker
+                && EffectManager.isActive(attacker, Blessings.HEAVY_HITTER)) {
+            com.oliver.witchmod.effects.blessings.BlessingHeavyHitter.onMeleeHit(attacker, victim);
+        }
+    }
+
+    @SubscribeEvent
+    static void onHeavyHitterKnockback(LivingKnockBackEvent event) {
+        float mult = com.oliver.witchmod.effects.blessings.BlessingHeavyHitter.knockbackMultiplier(event.getEntity());
         if (mult != 1.0F) {
             event.setStrength(event.getStrength() * mult);
         }
@@ -840,6 +926,17 @@ public final class BlessingEventHandler {
      */
     /** Unseen: a mob can't lock onto a cloaked player it isn't within reveal distance of. */
     @SubscribeEvent
+    static void onDisguiseChangeTarget(LivingChangeTargetEvent event) {
+        // A convincing livestock disguise: hostiles won't lock onto a currently-disguised player (DISGUISE_TYPE
+        // is -1 while the costume is broken, so a broken cover CAN be targeted).
+        if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player
+                && event.getEntity() instanceof net.minecraft.world.entity.monster.Enemy
+                && player.getData(WitchModAttachments.DISGUISE_TYPE) >= 0) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
     static void onUnseenChangeTarget(LivingChangeTargetEvent event) {
         if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player
                 && EffectManager.isActive(player, Blessings.UNSEEN)
@@ -966,7 +1063,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Bodyguard: the entity dying breaks the blessing instantly (master-spec). */
+    /** Bodyguard: the entity dying no longer breaks the blessing — a replacement is hired 6 minutes later. */
     @SubscribeEvent
     static void onBodyguardDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof BodyguardEntity bodyguard)
@@ -977,11 +1074,11 @@ public final class BlessingEventHandler {
         if (anchorId == null) {
             return;
         }
+        BlessingBodyguard.forget(anchorId); // drop the tracking entry for the dead one
         ServerPlayer anchor = level.getServer().getPlayerList().getPlayer(anchorId);
         if (anchor != null && EffectManager.isActive(anchor, Blessings.BODYGUARD)) {
-            EffectManager.remove(anchor, Blessings.BODYGUARD);
+            BlessingBodyguard.onBodyguardDeath(anchor); // schedule the replacement + announce the fall
         }
-        BlessingBodyguard.forget(anchorId);
     }
 
     /** A golden trail from the caster to the entity that just took a share of their damage. */

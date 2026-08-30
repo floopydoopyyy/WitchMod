@@ -120,7 +120,7 @@ public final class CurseHeavy extends Effect {
         // which is the right call anyway.)
         // Discovery is on the FIRST fall, not the first crater: you come down noticeably heavier straight
         // away, so waiting for a crater would only be telling the victim something they already know.
-        Curses.HEAVY.value().markDiscoveredByVictim(target);
+        Curses.DENSE.value().markDiscoveredByVictim(target);
 
         if (previous < Config.HEAVY_CRATER_MIN_FALL.get()) {
             return;

@@ -37,8 +37,6 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.effects.Curses;
-import com.oliver.witchmod.events.Globals;
-import com.oliver.witchmod.events.Neutrals;
 import com.oliver.witchmod.blocks.WardingTotemBlock;
 import com.oliver.witchmod.blocks.WitchModBlockEntities;
 import com.oliver.witchmod.blocks.WitchModBlocks;
@@ -61,15 +59,6 @@ public class WitchMod {
     // Create a Deferred Register to hold CreativeModeTabs which will all be registered under the "witchmod" namespace
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 
-    // Creates a new Block with the id "witchmod:example_block", combining the namespace and path
-    public static final DeferredBlock<Block> EXAMPLE_BLOCK = BLOCKS.registerSimpleBlock("example_block", BlockBehaviour.Properties.of().mapColor(MapColor.STONE));
-    // Creates a new BlockItem with the id "witchmod:example_block", combining the namespace and path
-    public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
-
-    // Creates a new food item with the id "witchmod:example_id", nutrition 1 and saturation 2
-    public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()
-            .alwaysEdible().nutrition(1).saturationModifier(2f).build()));
-
     // The mod's creative tab — every WitchMod item and block, iconed by Cursed Essence (the mod's currency).
     // (Not specified in CLAUDE.md; added on request.)
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> WITCHMOD_TAB = CREATIVE_MODE_TABS.register("witchmod", () -> CreativeModeTab.builder()
@@ -91,8 +80,10 @@ public class WitchMod {
                 output.accept(WitchModItems.EXECUTIONERS_COIN.get());
                 output.accept(WitchModItems.JAR.get());
                 output.accept(WitchModItems.CURSED_JAR.get());
-                // Recovery Compass is a modifier backed by vanilla's own item (no custom item needed).
-                output.accept(net.minecraft.world.item.Items.RECOVERY_COMPASS);
+                output.accept(WitchModItems.BLESSED_JAR.get());
+                output.accept(WitchModItems.MIXED_JAR.get());
+                // (Recovery Compass is a modifier backed by vanilla's own item — left out of the tab so it
+                // doesn't duplicate the vanilla one.)
                 // Blocks (section 3)
                 output.accept(WitchModBlocks.BEWITCHING_TABLE_ITEM.get());
                 output.accept(WitchModBlocks.CURSED_ESSENCE_BLOCK_ITEM.get());
@@ -116,7 +107,7 @@ public class WitchMod {
         // Register the Deferred Register to the mod event bus so tabs get registered
         CREATIVE_MODE_TABS.register(modEventBus);
 
-        // Register the Effect and Event registries (curses/blessings, neutrals/globals)
+        // Register the Effect registry (curses/blessings)
         WitchModRegistries.register(modEventBus);
         // Register the per-player active-effect data attachment
         WitchModAttachments.register(modEventBus);
@@ -124,6 +115,8 @@ public class WitchMod {
         WitchModMobEffects.register(modEventBus);
 
         WitchModSounds.register(modEventBus);
+        com.oliver.witchmod.data.WitchModParticles.register(modEventBus);
+        com.oliver.witchmod.items.WitchModRecipes.register(modEventBus);
         // Register the mod's custom entities (the Tax Man)
         com.oliver.witchmod.entities.WitchModEntities.register(modEventBus);
         com.oliver.witchmod.entities.WitchModEntityAttributes.register(modEventBus);
@@ -136,17 +129,15 @@ public class WitchMod {
         WitchModBlockEntities.register(modEventBus);
         WitchModMenus.register(modEventBus);
 
-        // Force curse/blessing/event holder classes to load so their DeferredRegister entries exist
+        // Force curse/blessing holder classes to load so their DeferredRegister entries exist
         // before RegisterEvent fires
         Curses.bootstrap();
         Blessings.bootstrap();
-        Neutrals.bootstrap();
-        Globals.bootstrap();
 
         // Let the Ward item and Warding Totem block hook into effect application without EffectManager
         // depending on them directly
-        EffectManager.setWardHook(ItemWard::hasActiveWard, ItemWard::onDeflect);
-        EffectManager.setTotemHook(WardingTotemBlock::isProtected);
+        EffectManager.setWardHook(ItemWard::hasActiveWard, ItemWard::onBlock);
+        EffectManager.setTotemHook(WardingTotemBlock::isProtected, WardingTotemBlock::onBlocked);
 
         // Register ourselves for server and other game events we are interested in.
         // Note that this is necessary if and only if we want *this* class (ExampleMod) to respond directly to events.
@@ -154,7 +145,6 @@ public class WitchMod {
         NeoForge.EVENT_BUS.register(this);
 
         // Register the item to a creative tab
-        modEventBus.addListener(this::addCreative);
 
         // Custom networking (the Organised keybind's open-stash request).
         modEventBus.addListener(com.oliver.witchmod.network.WitchModNetwork::onRegisterPayloads);
@@ -165,17 +155,11 @@ public class WitchMod {
         // clients on join, unlike COMMON. No custom payload needed for that sync — same "use the built-in
         // mechanism instead of a bespoke one" approach as the Table's Cast button (see BewitchingTableMenu).
         modContainer.registerConfig(ModConfig.Type.SERVER, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
         LOGGER.info("WitchMod common setup complete");
-    }
-
-    // Add the example block item to the building blocks tab
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            event.accept(EXAMPLE_BLOCK_ITEM);
-        }
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call

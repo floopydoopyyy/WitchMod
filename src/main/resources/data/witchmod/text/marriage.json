@@ -1,0 +1,58 @@
+{
+  "open": [
+    "Dearly beloved, we are gathered here today to get through this thing called life",
+    "Welcome one and all to this prestigious wedding!",
+    "We are gathered here today under no forced circumstances.",
+    "Welcome all to this hilarious gag!",
+    "Love is in the air...",
+    "Two souls, one aisle and lots of love!"
+  ],
+  "vows": [
+    "Do you, {v}, take {s} to be your awfully wedded partner?",
+    "Do you, {v}, promise to love, honour, and never mess with anyone else?",
+    "{v}, do you take {s}, for better, for worse, and everything in between?",
+    "Do you swear to share your life with {s} until death do you part?",
+    "{v}, will you cherish {s} through thick and thin?"
+  ],
+  "pronounce": [
+    "By the power vested in me, I now pronounce you married!",
+    "You may now kiss {s}. \u2764",
+    "It's official - now go crazy!",
+    "I now pronounce you player and {s}. Lovers for life!",
+    "The paperwork's done, have fun with {s}."
+  ],
+  "objections": [
+    "\u00a7c<???> I OBJECT!",
+    "\u00a7c<???> NO THEY LOVE ME!",
+    "\u00a7c<???> Don't leave me!",
+    "\u00a7c<???> No chemistry between them two..."
+  ],
+  "objector": [
+    "You were supposed to marry ME!",
+    "After everything we've been through?!",
+    "I flew across the SERVER for this!",
+    "We shared ONE minecart. ONE!",
+    "I still have the friendship bracelet!!",
+    "Don't do this. Not with THEM.",
+    "I logged on for this. I NEVER log on.",
+    "You promised me the netherite!"
+  ],
+  "objected": [
+    "\u00a7eThe wedding is OFF! {s} bolted down the aisle!",
+    "\u00a7eIt's chaos! {v} left {s} at the altar!",
+    "\u00a7eThe ceremony collapses into pure drama!",
+    "\u00a7e{s} runs off sobbing. The wedding is RUINED."
+  ],
+  "kiss": [
+    "\u00a7d\u2764 They kissed! {v} & {s} are married! \u2764",
+    "\u00a7d{v} and {s} are now happily wed. Adorkable!",
+    "\u00a7dIt's official - {v} & {s}, together forever!",
+    "\u00a7dThey actually kissed?! What the heck?"
+  ],
+  "bolt": [
+    "\u00a7e{s} just peed themself and ran from the aisle!",
+    "\u00a7e{s} took one look at {v} and legged it!",
+    "\u00a7eThe wedding is OFF - {s} had second thoughts!",
+    "\u00a7e{s} does not want to devote their life to {v}."
+  ]
+}

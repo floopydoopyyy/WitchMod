@@ -6,7 +6,12 @@ task is now REFINEMENT** — bringing each one from "functional prototype" up to
 at a time, hands-on with Oliver. The workflow and the tick-off checklists live in **Section 16**; the rest
 of this document (Sections 1–15) is the reference for what "perfect" means per attachment. This file is the
 single source of truth; where older notes conflict with it, this file wins.
-Totals: **49 curses, 45 blessings, 11 neutrals, 15 globals, 15 modifiers.**
+Totals: **curses + blessings + 15 modifiers.** (⚠ NEUTRALS and GLOBALS were **CUT entirely** on Oliver's call —
+Sections 7, 8, 10.4 and 10.6 below are RETAINED FOR HISTORY ONLY and no longer describe shipping content. Their
+whole code subsystem — the `events/` package, `BewitchmentEvent`/`EventCategory`/`GlobalCharge`, the Event
+registry, the Afflicted status + `AfflictionManager`/`ActiveAfflictions`, the `/bewitch event`+`forcestop`
+commands, the ritual's neutral-failure path, and the Compendium's Events section — has been DELETED. A failed
+ritual now just fizzles. Also DELETED: the retired `CurseMansplainer` (§5, was CUT).)
 (Aura was CUT on Oliver's call — too similar to another curse. Its class, registration, cost, sounds and
 checklist entry are all removed; the count dropped 50 → 49.)
 
@@ -123,15 +128,42 @@ Unique fluid; bathing rapidly burns down attachment timers
 | Compendium | Discovery/rumour/tutorial/item-guide book UI, stored per world | Book + Cursed Essence |
 | Voodoo Doll | Bound to a named player; forwards curses cast while it's in inventory; fails if target dead/offline; has durability; still Ledger-logged | Wool, Wood, Player Essence |
 | Needle | Right-click on a Doll in inventory → direct damage to bound target; consumes Doll durability | Iron Ingot, Iron Nugget |
-| Ward | Necklace; deflects spells back to sender, particle-points toward attacker; durability | Emerald, Cursed Essence, String |
+| Ward | Durability item (8) that BLOCKS any attachment cast by someone ELSE (self-casts pass); a coloured incoming-lash gets blocked with a shield clang, spending 1 durability. (Redefined from the old "deflect back to sender".) | Emerald, Cursed Essence, String |
 | Scrying Mirror | Reveals your own active attachments | Glass, Cursed Essence, Diamond |
 | Effigy | Forwards your curses to another player on click | Totem of Undying, Cursed Essence |
 | Cursed Coin | Gambles a random curse OR blessing | Gold, Cursed Essence |
 | Blessed Coin | Random blessing | Loot tables only |
 | Executioner's Coin | Revives, inflicts random curse | Loot tables only |
-| Jar | Right-click another player to capture an active curse; expensive; breaks on use; intentionally 2-player | Netherite Ingot, Cursed Essence, Glass |
-| Cursed Jar | Pre-filled Jar variant, flavourtext-named | — |
+| Jar | Empty: bottles **Player Essence** (crouch+look-down=own · right-click player=theirs · right-click bed=spawn-owner, offline-aware). Filled: a throwable splash — see §4.1 | Netherite Ingot, Cursed Essence, Glass |
+| Cursed Jar | A Jar holding CURSES only (up to 3) — throwable splash (§4.1) | dynamic variant of Jar |
+| Blessed Jar | A Jar holding BLESSINGS only (up to 3) — throwable splash (§4.1) | dynamic variant of Jar |
+| Mixed Jar | A Jar holding ANY mix of curses/blessings (up to 3) — throwable splash (§4.1) | dynamic variant of Jar |
 | Amethyst Bell | Bell retexture; flips a random active effect, cooldown | — |
+
+### 4.1 Jars — dynamic throwable splash (✅ IMPLEMENTED)
+A jar is ONE dynamic item (`ItemJar`, shared logic in `JarContents`). The variant — **Cursed / Blessed / Mixed
+/ empty Jar** — is DERIVED from its contents (`JarContents.itemFor`), so adding a blessing to a Cursed Jar
+turns the stack into a Mixed Jar; full at `JarContents.MAX` (3). Stored as the `CAPTURED_EFFECTS` data
+component (list of `CapturedEffect{effectId, remainingTicks}`); the tooltip lists the stored attachment names.
+- **Filling — at the Bewitching Table.** A jar in the **target slot** (instead of a Player Essence) switches
+  the ritual into FILL mode (`BewitchingTableRitual`): on success the rolled attachment is bottled into the
+  jar (returned the correct, possibly-changed variant); a full jar is refused before ingredients are spent; a
+  failed roll returns the jar UNCHANGED (only the essence + sacrificial item are the cost — the jar is never
+  destroyed). This REPLACED capturing effects off a player (disliked — too-easy curse removal); jars are never
+  captured off a person now.
+- **Throwing** (`ItemJar.use` → `JarThrowEntity`, a bespoke `ThrowableItemProjectile`). On ANY impact
+  `JarEffects.splash` applies ALL stored effects to every player in an over-sized radius (`jarSplashRadius`),
+  with splash particles by kind (cursed = purple WITCH stars · blessed = warm END_ROD + yellow/white · mixed =
+  all). **If it catches nobody → a LASH:** a homing particle trail surges to the nearest player within
+  `lashRange` at `lashSpeed`, applying the effects on contact, expiring after `lashExpiryTicks` (run far enough
+  and you're safe) — so you can't just chuck it away. **Destroyed in lava / fire / cactus → the same
+  splash + lash** (a periodic `ServerTickEvent` hazard scan), so there's no clean way to bin one.
+- **Commands** (op-gated): `/bewitch jar make <effect1> [effect2] [effect3]` builds a jar from ids;
+  `/bewitch jar copy <player>` snapshots an online player's active attachments (with remaining durations).
+  Player Essence has its own generator (essence only needs a UUID + name, so it works OFFLINE):
+  `/bewitch essence player <player>` and `/bewitch essence uuid <uuid>` (name resolved from the server profile
+  cache, or the UUID itself if never seen).
+- Config: `jarSplashRadius=5.0  lashRange=24.0  lashSpeed=0.9  lashExpiryTicks=200`.
 
 ---
 
@@ -1715,7 +1747,8 @@ placeholder texture; body baked into a `HumanoidModel` with proper held-item arm
 
 It's a `PathfinderMob` (not `Monster`/`Enemy` — golems ignore it, no sun burn), all movement manual so it can
 **never target the anchor** and never retaliates against them. **Teleports to the anchor** wolf-style beyond
-`bodyguardTeleportDistance`. **Its death breaks the blessing instantly.** Chat is local (`bodyguardChatRadius`,
+`bodyguardTeleportDistance`. **Its death does NOT break the blessing** — a replacement is hired 6 min later
+(`bodyguardRespawnTicks`; `fell`/`respawn` lines in bodyguard.json). Chat is local (`bodyguardChatRadius`,
 per-player) from `bodyguard.json` (state-keyed trees, `{player}` = intruder). **No duplication:** transient
 (`shouldBeSaved()`→false) + a self-healing `CANONICAL` anchor→bodyguard registry (older copies discard
 themselves) + a dedupe scan on summon.
@@ -1904,9 +1937,9 @@ TRAINER_VILLAGER_XP_MULT=3.0
 STUDIOUS_XP_MULT=2.5
 ```
 
-### Twist of Fate — Ghast Tear  (item Nether Star → Ghast Tear; see §11)
-Moved off Nether Star (now Immortality's item, Oliver's call) onto Ghast Tear — Immortality's old item, a
-clean 1:1 swap so both stay castable under exact-item matching. Behaviour unchanged.
+### Twist of Fate — End Crystal  (Nether Star → Ghast Tear → End Crystal; see §11)
+Moved off Nether Star (Immortality's item) to Ghast Tear, then to **End Crystal** (2026-08-24) when Flight
+took Ghast Tear — End Crystal was free, so both stay castable under exact-item matching. Behaviour unchanged.
 ```
 TWIST_NEGATE_CHANCE=0.12 (per incoming damage event, particle burst)
 ```
@@ -2069,7 +2102,7 @@ LOWGRAV_JUMP_MULT=1.6  LOWGRAV_FALL_SPEED_MULT=0.6  LOWGRAV_FALL_DAMAGE_MULT=0.4
 
 ---
 
-## 7. NEUTRALS (11)
+## 7. NEUTRALS (11) — ❌ CUT ENTIRELY (code deleted; section kept for history only)
 
 High chance of landing on the caster when a hex fails; also directly forcible like curses.
 
@@ -2089,7 +2122,7 @@ High chance of landing on the caster when a hex fails; also directly forcible li
 
 ---
 
-## 8. GLOBALS (15)
+## 8. GLOBALS (15) — ❌ CUT ENTIRELY (code deleted; section kept for history only)
 
 Funded from the shared **Global bank** (Blocks of Cursed Essence). Very low base odds. Every global
 gets a chat build-up/warning naming the caster; time-based globals apply the **Afflicted** status.
@@ -2149,6 +2182,21 @@ Milk Bucket (→ Butterfingers curse), Redstone Dust (→ random-attachment tabl
 successChance  = min(95%, 30% + 65% * (essenceSpent / baseCost))     // Netherstar forces 100%
 backfireChance = max(0%, 25% - (essenceSpent / baseCost) * 25%)      // modifiers add deltas after
 ```
+Cursed Essence is the CURRENCY you invest: more essence in the slot ⇒ higher success, lower backfire (0% at
+full cost). After modifier deltas, a TIER clamp applies (`ModifierCalculator.applyTierBackfire`): low-tier
+attachments never backfire; high-tier keep a small backfire floor even at full essence; mid-tier follow the
+curve down to 0.
+
+> ### ⚠ ATTACHMENT STRENGTH / TIER TODO (placeholder — replace when tuning per-attachment power)
+> Attachments have **no strength/tier value yet**. Until they do, these systems use **`baseCost` as a
+> PLACEHOLDER proxy** and must be revisited when we go through each attachment to price/tune it:
+> - **Backfire tiering** (`ModifierCalculator.applyTierBackfire`): low/high tier decided by
+>   `backfireLowTierCost` (≤20 ⇒ never backfires) / `backfireHighTierCost` (≥50 ⇒ keeps
+>   `backfireHighTierFloorPercent` floor).
+> - **Backfire explosion power + backfire damage-type amount** (`BewitchingTableRitual.doBackfire`): scaled
+>   0..1 across `backfireStrengthCostMin`..`backfireStrengthCostMax` baseCost, lerped between
+>   `backfireExplosionPowerMin/Max` and `backfireDamageMin/Max`.
+> When a real per-attachment strength/tier field lands, point all of the above at it instead of baseCost.
 
 ### 10.2 Curse costs (updated names; NEW entries marked)
 ```
@@ -2350,9 +2398,17 @@ modifier), Rabbit's Foot (Luck / modifier), Nether Star (Twist of Fate / Nethers
 Ink Sac (Unseen / modifier), Dragon's Breath (Russian Roulette global / modifier), Honey-family
 items are distinct (Honey Bottle=Sticky vs Honeycomb=modifier).
 
+**HARD — RESOLVED at add-time (Speed Demon, 2026-08-21):** Speed Demon was requested on **Lightning Rod**,
+which is Comic Relief's spec item — a live collision under exact-item matching. Resolved by moving Speed Demon
+to **Carrot on a Stick** (free, and thematic — it's literally the mount-steering item). Lightning Rod stays
+Comic Relief's.
+
 **Soft flags:**
 - Written Book (Mansplainer) vs Book and Quill (Letter neutral): distinct items (signed vs
   unsigned), close enough to confuse players; Compendium should render both icons clearly.
+- White Bed (Narcolepsy) vs Red Bed (Homebody): distinct beds, safe under exact-item matching, adjacent
+  enough to confuse; render both icons clearly.
+- Black Wool (Carelessness) vs Purple Wool (Chat): distinct wools, safe under exact-item matching only.
 - Purple Wool (Chat) vs White Wool (Wooliam): safe under exact-item matching only.
 - Water Bottle (Thirst Meter) vs Glass Bottle (Player Essence collection): distinct items, adjacent
   enough to confuse; Compendium should render both icons clearly.
@@ -2383,6 +2439,12 @@ witchmod:curse.pacing.theonepiece         ✅ DONE — 1/250 revelation replacin
 witchmod:curse.trumpet.walk_loop          ✅ SUPPLIED — fat-trumpet walking loop (⚠ file is STEREO; must be
                                           re-exported MONO for OpenAL to position/attenuate it)
 (curse.trumpet.stop_sting — CUT; the design is an instant cut with no stop flourish)
+witchmod:curse.cutaway.train_warning / train_roll   ✅ SUPPLIED — "I like trains" line (plays in full) then the roll
+witchmod:curse.cutaway.ball_throw / bowling_strike  ✅ SUPPLIED — throw + strike1/strike2 impact variants
+witchmod:curse.cutaway.drifting                     ✅ SUPPLIED — Tokyo Drifting screech
+witchmod:curse.cutaway.helicopter                   ✅ SUPPLIED — looped rotors (client native loop)
+witchmod:curse.cutaway.tractorbeam / ufo_enter      ✅ SUPPLIED — looped beam hum + the UFO-arrival sting
+witchmod:curse.cutaway.annoying_music     ⏳ PENDING — the annoying-music track (currently loops curse.loading.music_goofy)
 
 BLESSINGS
 bewitchment:blessing.mainchar.theme          looping battle theme
@@ -2401,6 +2463,13 @@ GLOBALS (no custom sounds currently required — Russian Roulette reuses vanilla
 STATUS/SYSTEM
 bewitchment:system.discovery              chat-alert chime on discovery
 bewitchment:system.global_warning         global event build-up warning sting
+witchmod:system.afflicted     ✅ SUPPLIED — plays on ANY curse/blessing onset (StatusEffectSync)
+witchmod:system.blessed       ✅ SUPPLIED — a beat AFTER afflicted, for a blessing
+witchmod:system.cursed        ✅ SUPPLIED — a beat AFTER afflicted, for a curse
+witchmod:system.big_hit       ✅ SUPPLIED — layered on the hit sound by Giant / Heavy Hitter
+witchmod:ritual.fail          ✅ SUPPLIED — the Bewitching Table's distinct FAILURE sting
+witchmod:curse.narcolepsy.snore  ✅ SUPPLIED — intermittent varied-pitch snores while asleep
+witchmod:curse.cutaway.parade_drum + .parade_march  ✅ SUPPLIED — the two Parade tracks (drumparade + marchparade), played TOGETHER at 55% vol
 ```
 
 ---
@@ -2566,28 +2635,61 @@ tntRainWorldDamage- false by default (TNT Rain world damage opt-in)
 ```
 
 ## 15. Command Tree
+
+**OVERHAULED 2026-08-29** — regrouped into intuitive families (was a flat, scattered set of ~10 top-level
+verbs). All node builders live in `commands/BewitchCommand.java`; every effect action defaults its target to
+the command source when `[targets]` is omitted, and shares one set of terse helpers (`self`/`targets`/
+`effect`/`effectArg`/`duration`/`giveOrDrop`). Op-gated (permission level 2).
+
 ```
-/bewitch apply {attachment} {selector}         (default selector = caster; supports duration override for testing)
-/bewitch remove {selector} {attachment}        (default selector = caster)
-/bewitch clear [targets] [curses|blessings]    (added: strips ALL attachments, or just one category; default target = caster)
-/bewitch event {neutral|global} {eventname} {selector}
-        (neutral default selector = caster; global needs none, but a given selector marks that
-         player as initiator for Ledger attribution; supports duration override where time-based)
-/bewitch forcestop {neutral|global} {selector} (unstoppable-by-design events silently no-op)
-/bewitch organised                             (added, Phase D: opens the Organised blessing's 9-slot stash)
-/bewitch debug force {attachment} [targets] [arg]
-        (force an effect's signature event, or a named sub-event / stat via {arg}, for testing —
-         backed by Effect.debugForce; see §16.2b. e.g. `force witchmod:the_dweller @s chase`,
-         `force witchmod:the_dweller @s 88` (set dread), `force witchmod:bedrock_moment @s helicopter`.
-         WIRED: the_dweller (dread + ~24 sub-events), bedrock_moment (~19 sub-events + passive info), and every
-         event on Oliver's list — audit, payday, pickpocket, sixth_sense, windfall, backseat_driver,
-         butterfingers, comic_relief, delusions, echoes, gassy, loading_screen, minor_inconvenience, organised,
-         oversharer, pacing, screensaver, sirens_call, slippery_feet, stick_drift, ugly, violence, yap.
-         Client-timed ones (minor_inconvenience, screensaver) re-assert their flag + explain they're
-         client-enforced; sixth_sense forces the real sense on the next tick; the rest fire immediately.)
+# --- effect management (the hot path — kept top-level and short) ---
+/bewitch apply  {effect} [targets] [duration]     cast as YOU (you are the caster; a Ward/Totem lets a self-cast through)
+/bewitch dummy  {effect} [targets] [duration]     cast anonymously — caster "dummy" in the Ledger; a Ward/Totem BLOCKS it
+/bewitch remove {effect} [targets]                strip one effect (effect-first, matching apply; was reversed)
+/bewitch clear  [targets] [all|curses|blessings]  strip everything, or one category (default = all)
+
+# --- discovery (Compendium) ---
+/bewitch discovery add|remove effect {id} [targets]
+/bewitch discovery add|remove modifier {id} [targets]
+/bewitch discovery add|remove all [targets]
+
+# --- give: generate a bound/filled mod item ---
+/bewitch give jar make {e1} [e2] [e3]             a filled jar from effect ids (§4.1)
+/bewitch give jar copy {player}                   a jar snapshotting a player's active effects
+/bewitch give essence {player}                    a Player Essence bound to an online player
+/bewitch give essence uuid {uuid}                 …bound to a UUID (works OFFLINE)
+/bewitch give voodoo  {player}                    a Voodoo Doll bound to an online player
+/bewitch give voodoo  uuid {uuid}                 …bound to a UUID (OFFLINE)
+
+# --- debug/testing ---
+/bewitch debug force  {effect} [targets] [arg]    force an effect's signature event / named sub-event (Effect.debugForce; §16.2b)
+/bewitch debug voodoo {interaction} {player}      force a voodoo interaction (stab/throw/squeeze/feed/ignite/freeze/wet/lightning/shake/potion/arrow/fishing)
+
+# --- standalone ---
+/bewitch organised                                open your Organised-blessing 9-slot stash
 ```
+
+**What changed in the overhaul:**
+- `apply` + `dummy` now share ONE handler (`applyEffect(..., boolean dummy)`); dummy passes a null caster
+  (so Ward/Totem block it) and logs `"dummy"` with the real `success`/`blocked`/`refused` result. Both report
+  "… on N player(s) — M landed."
+- `remove` reordered to `{effect} [targets]` (was `{targets} {effect}`) and now defaults to self, matching apply.
+- `clear` gained an explicit `all` literal (still the default with no category).
+- The scattered `jar` / `essence` / `voodoo make` item-generators are collapsed under **`give`**; the redundant
+  `essence player` / `voodoo make player` literals are gone (just pass the player, or `uuid {uuid}`).
+- The Voodoo `force` interaction moved out of the `voodoo` (make) family into **`debug voodoo`**, un-mixing
+  "make a doll" from "force an interaction".
+- The CUT event system's `/bewitch event` + `/bewitch forcestop` are gone (removed with the events package).
+- **Removed the placeholder error messages**, incl. the debug one that pointed at "CLAUDE.md §16.4"
+  (now just "X has no forcible debug event.") and trimmed the verbose tax-bank wording.
+
+`debug force` WIRED coverage (Effect.debugForce, §16.2b): haunted (dread + sub-events), bedrock_moment
+(~19 sub-events + passive info), cutaway_gag (all gags + `villager`), splitscreen, narcolepsy, and every
+event on Oliver's list. Client-timed ones (minor_inconvenience, screensaver) re-assert their flag; sixth_sense
+forces the real sense next tick; the rest fire immediately.
+
 Note: `/bewitch clear` is backed by `EffectManager.removeAll(target, @Nullable category)` (fires each
-effect's onRemove for clean teardown). The Thirst + Gluttony HUD bars now hide in creative/spectator
+effect's onRemove for clean teardown). The Thirst + Gluttony HUD bars hide in creative/spectator
 (gated on `gameMode.canHurtPlayer()`, matching vanilla's own survival-HUD gate).
 
 ---
@@ -2737,7 +2839,13 @@ forcible.** Guidelines:
       dormant on curse end via an isActive check. Tops up with biome-appropriate creatures spawned only where
       vanilla allows (isSpawnPositionOk + checkSpawnRules). Tamed exempt. Discovers on first recruit. Repel push
       also bumped +20% (0.084) this pass. 8 config knobs.
-- [ ] Heavy
+- [x] Dense (MERGED, 2026-08-22) — Iron Block. **Heavy + Heavyweight combined into ONE curse** (both removed).
+      You fall faster + crater the ground on a hard landing (the old Heavy) AND any floor with air beneath it
+      gives way under your weight when you loiter (the old Heavyweight). Implemented as `CurseDense` DELEGATING
+      to the retired `CurseHeavy`/`CurseHeavyweight` behaviour classes (kept unregistered as logic holders);
+      their client flags (`HEAVY_ACTIVE` water anchor, `HEAVYWEIGHT_SHAKE_END` camera shake) + `heavy*`/
+      `heavyweight*` config still drive them, and their internal discovery calls were pointed at `Curses.DENSE`.
+      Item Iron Block (frees Iron Ingot). ⚠ old `heavy`/`heavyweight` saved instances drop as unknown (harmless).
 - [ ] Slippery Feet
 - [ ] Magnet
 - [x] Neutral Aggression — **renamed** from "Neutral Mobs Attack Instantly", id `neutral_mobs_attack_instantly`
@@ -2774,12 +2882,29 @@ forcible.** Guidelines:
       Hidden entities are **silenced** too — matched on sound ORIGIN, since a SoundInstance doesn't say who
       made it — or footsteps would pinpoint someone you can't see. Discovery fires when someone actually POPS
       INTO VIEW, not on application. 3 config knobs.
+      **CHAT pass (2026-08-19):** the isolation now reaches CHAT — a Social Outcast victim only READS another
+      player's message if they're within `outcastRevealDistance` (same dimension); further away they get a muffled
+      "§7§oSomeone says something...§r" so they know chat HAPPENED but not who/what. Done in `CurseEventHandler`
+      by cancelling the vanilla `ServerChatEvent` broadcast and re-sending PER RECIPIENT (the only way to vary a
+      message per-viewer), and ONLY when at least one outcast is online (otherwise chat passes through vanilla
+      untouched). The sender + non-outcast + close-enough recipients see the normal "<name> message".
+- [x] Giant (NEW) — Seeds (Wheat Seeds, free item). `Attributes.SCALE` ×3 (model AND hitbox — you no longer fit
+      one-block gaps), `MOVEMENT_SPEED` ×0.9 (10% slower), `ATTACK_SPEED` ×0.7 (30% longer swing), and
+      `ENTITY_INTERACTION_RANGE` ×2 (double reach, so the tall player can still clobber things at its feet) — all
+      TRANSIENT + re-asserted each tick (the reload trap). Take 75% less from ANY source / deal 80% more MELEE via
+      the damage event (`onGiantDamage` in CurseEventHandler, like Glass Cannon). STOMP: a per-tick sweep crushes
+      anything it TOUCHES — you just have to walk INTO them (fair, since the giant is slow), not stand on them —
+      with the custom `witchmod:stomp` damage (bypasses armour, own death message "%s was stomped flat") + a big
+      launch to fling them clear (per-victim cooldown). Base MELEE hits also land HEAVY: extra `giantHitKnockback`
+      + a burst of sweep/crit/explosion FX (`onMeleeHit` via AttackEntityEvent) so the hit reads big. 10 config knobs.
 - [x] Floor Is Lava — stand still past a 5s grace and you burn, ramping +0.5 per burn to a 4.0 cap. Grace
       keeps it playable (craft, read a sign); the ramp stops it being a flat tax you eat; the cap stops an AFK
       player being executed. Vanilla's own `HOT_FLOOR` source (the magma-block one, matching the sacrificial
       item), so fire resistance is deliberate counterplay. Flames thicken as it climbs; movement measured as
       real displacement so turning on the spot won't save you; deliberately NOT paused in GUIs. 6 config knobs.
-- [x] Heavyweight — blocks with air beneath give way under you, scaling on hardness (leaves 0.8s, dirt 1.1s,
+- [x] Heavyweight — ⚠ MERGED INTO **Dense** (2026-08-22, see the Dense entry above); the standalone `heavyweight`
+      curse is retired. Original behaviour below for reference:
+      blocks with air beneath give way under you, scaling on hardness (leaves 0.8s, dirt 1.1s,
       stone 2.4s, planks 3.0s, obsidian ~60s); unbreakable blocks skipped so nothing chews through the world
       bottom. Warning is **visual** (crack overlay + dust pouring from the underside, thickening, fragments
       off the top edge) with the audio sparse and quiet — an early build creaked constantly and was grating.
@@ -2853,7 +2978,9 @@ forcible.** Guidelines:
       `AL_LOOPING` buffer loop + per-tick pitch — none of which a fire-and-forget `playSound` can do.
       "Walking" = `walkAnimation.speed()` > threshold. Discovers on apply. 3 config knobs. ⚠ supplied OGG is
       STEREO so it plays non-positionally — needs a MONO re-export for the position-giveaway to work.
-- [x] Heavy Handed (renamed from Uncareful) — tools/armour wear 4x as fast. No event modifies a durability
+- [x] Heavy Handed → **Klutz** (renamed 2026-08-22, id `heavy_handed` → `klutz`, since the display name derives
+      from the id path; "Heavy Handed" was too confusable with Heavy/Heavyweight). Originally renamed from Uncareful.
+      tools/armour wear 4x as fast. No event modifies a durability
       hit's amount, so it WATCHES: records the damage value of the six wearing slots (both hands + 4 armour)
       each tick and, when one rises, re-applies the shortfall as EXTRA wear via `ItemStack.hurtAndBreak` (so
       Unbreaking still mitigates and a piece that crosses its limit breaks properly). Recorded AFTER the
@@ -2874,8 +3001,337 @@ forcible.** Guidelines:
       Touch (`snailTouchDistance`) → `Level.explode` + guaranteed lethal hit, then it reappears far off. Creepy
       slime-squish that quickens as it nears; discovers on first hearing. ⏳ `textures/entity/snail.png` PENDING (renders
       missing-texture until supplied). ~10 config knobs.
-- [x] The Dweller (NEW — statement curse) — Oak Boat. ⏸ **PAUSED (Oliver's call, 2026-08-10 — bored of it for now; WILL
-      RETURN to keep refining/tuning it later. NOT abandoned, do not remove.)** A horror parody, OVERHAULED from a whack-a-mole first pass into a
+- [x] The Dweller (NEW — statement curse) — Oak Boat. **RESUMED 2026-08-14 — ENCOUNTER-CYCLE REWORK.**
+      Oliver's verdict was "everything feels off — pacing, scares." Diagnosis: it had become a slot machine
+      (1957-line class, 97 knobs, ~30 mini-events fired from a weighted pool every few seconds, 3 competing
+      counterplay systems, 8-factor dread) — all payoff, no anticipation, no rhythm, no single identity. Rewrote
+      the CORE LOOP around a five-beat scene arc with ONE creature identity (the unobserved weeping-angel stalker):
+      **LULL** (genuine quiet — one faint far-off wrongness at most, heartbeat silent) → **TELL** (`dwellerTell{Min,Max}Ticks`
+      ~3–6s anticipation: WARDEN_LISTENING cue, heartbeat starts + quickens across the beat, one mid-beat sign =
+      cold-breath snowflakes + a distant wrongness) → **STALK** (it manifests and does its ONE thing: freezes while
+      watched, creeps only while unobserved; heartbeat tempo = proximity) → **SPIKE** (resolved inside STALK: exactly
+      ONE payoff — it reached you = shove+scream+Darkness / at tier 3 tips into the CHASE; OR you kept it at bay = it's
+      simply gone (double-take), ~30% of the time via one curated set-piece) → **RELEASE** (`dwellerRelease{Min,Max}Ticks`
+      the exhale, heartbeat fades) → back to LULL. The heartbeat is now the SINGLE readable cue, driven off a per-beat
+      `state.heat` (0..1) so what you hear always matches the scene. **Slot machine GONE:** the ~30-event pool is
+      replaced by `oneSetPiece` — a tight curated shortlist (shadow-pass, door-creak, knock; +lights-out/face-flash/
+      item-poltergeist at tier 2+) fired only as the occasional spike ending, NOT on an always-on timer. Constant
+      hallucinations / random flickers / contagion auto-firing were removed from `tickPersistent` (they were the noise
+      that drowned the real scares); all those events still exist and stay debug-forcible, just not auto-fired. Phase
+      enum DORMANT/MANIFEST → LULL/TELL/STALK/RELEASE(/CHASE); chase-end routes to LULL. Debug: `force …the_dweller @s`
+      = a stalk; `tell`/`stalk`/`chase`/`hallucinate` + any event id still work; a number still sets dread. Compiles +
+      boots. ⏳ NEXT (in-game with Oliver): tune lull/tell/stalk/release lengths + the dread ramp for feel; decide
+      whether the light-banish counterplay (CUT this pass — replaced by the single "hold your gaze" rule) should
+      return; re-add a bedside-vigil beat; prune the now-unused config knobs.
+      **GHOST-GIRL PASS (2026-08-15 — philosophy + chase rework):** re-pointed the whole curse at Lethal Company's
+      Ghost Girl — an entity only the victim sees that gets steadily more aggressive and, at MAX dread, turns any
+      look into a lethal chase. (1) **Dread is now ONE-WAY** — `dreadDelta` is monotonic (light/company only slow the
+      climb, never reverse it; base floor 0.25×), the age-floor is gone, and the ONLY thing that reduces dread is
+      DYING TO THE CHASE (`onVictimDeath` resets to 0 iff `phase==CHASE`; any other death leaves it intact). (2)
+      **Max-dread look-trigger** — in STALK at tier 3, holding eye contact for `dwellerMaxDreadLookTicks` (8) sends it
+      aggressive → the hunt (also triggers if its unobserved creep reaches you). Below max it behaves as the
+      cycle rework (double-take vanish / close-encounter spike). (3) **Bedside vigil reimplemented** — asleep, it
+      looms over you (`bedVigil`): vigil heartbeat + `dwellerBedBreakChance` roll each ~1s to smash the bed and
+      throw you out (+dread). (4) **CHASE fully rewritten** as a SLOW relentless obstruction (`dwellerGhostChaseSpeed`
+      2.6 b/s, below walking): obstacle-aware pursuit (`navigableStep` steers around walls through open space and
+      `tryBreakAhead` SMASHES doors/glass in its path to keep coming), ground-snapped so it walks terrain/steps;
+      when it truly can't close for `dwellerChaseStuckTicks` (24) it TELEPORTS closer as a fallback; touch =
+      instant-death finale (wipes dread). Removed the light/company escape and the survive-dread-drop entirely —
+      outrunning it just makes it `loseTrail` back to watching at STILL-MAX dread (anti-softlock only, no dread
+      reduction), so it re-hunts the instant you look again. New knobs: dwellerGhostChaseSpeed, dwellerMaxDreadLookTicks,
+      dwellerChaseStuckTicks (all fresh keys, so no stale-config trap). Compiles + boots. ⏳ NEXT (in-game): tune
+      chase speed/stuck-teleport feel + the dread climb rate; the pathing is a robust greedy-steer+break+blink
+      (not full A*) — upgrade to `navigation.createPath` if it reads dumb in tight bases.
+      **MIMIC reworked (2026-08-15) — its own event, not a Delusions re-cast.** Old mimic just re-applied the
+      Delusions curse (a wandering hallucination). Now it's a bespoke victim-only vignette implying the Dweller
+      is wearing a familiar face: server bumps a new synced `DWELLER_MIMIC` session value (+ a listening cue +
+      small dread), and the client `DwellerMimicManager` spawns ONE impostor that just STANDS and STARES at you —
+      unnaturally still, no player-business — then DROPS THE MASK: it dissolves into LARGE_SMOKE + SCULK_SOUL/
+      charge-pop with the Warden roar/heartbeat, implying the stalker was wearing it. Reveal is EARNED (catch it
+      staring back for ~0.6s) or times out at `dwellerMimicBurstTicks`. Reuses `DelusionPlayer` ONLY for the
+      skin-mirroring render, pinned via a new `setStalkerStare` mode (faces you, zero throttle, no state machine);
+      picks a real online player to mirror (yourself only if alone). Server clears the session after the vignette
+      (+ on curse remove). Still forcible: `/bewitch debug force witchmod:the_dweller @s mimic`. Compiles + boots.
+      ⏳ the reveal is particles+scream (no second model) — could swap to an actual Dweller-model reveal later.
+      **CUSTOM SOUNDS pass (2026-08-15) — all supplied OGGs wired** (`assets/witchmod/sounds/curse/dweller/`,
+      registered in `WitchModSounds` + `sounds.json`): **mood** (10 variants) = non-diegetic ambience on a
+      dread-scaled timer (`tickMood`) with a hard 5s floor so it never spams — mostly centred (in-your-head),
+      ~35% at a nearby block; **wind** (3) = replaces the teleport/blink SFX (played at both ends) + an ambient
+      red-herring gust; **laugh** (3) = fires on every dread boundary via `laughOnTierUp` — 100%/full-vol on a
+      full tier, 50%/half-vol on a half tier; **scream** (chase1/2) = at the dweller's spot when a chase begins
+      + a rare distant quiet red herring; **breath** = subtle warning when it's close BEHIND you unseen, and
+      arms a turn-to-face jumpscare (turn round and it's inches away → loud breath + heat spike); **breathing** =
+      a real client loop (`DwellerBreathingSound`, synced `DWELLER_BREATHING` flag) at the dweller, volume by
+      proximity, only audible close; **step** (3) = footsteps AT the dweller on a human stride cadence during a
+      chase; **pop** (2) = loud jolt right behind you (in the mood roll); **bang+splatter** = together on death
+      (bang at 50% vol) and the head+redstone are now PLACED as blocks on the nearest ground (`placeRemains`,
+      item-drop fallback); **enraged** = the mimic mask-drop reveal. Fog + desaturation curves changed to
+      quadratic ease-in so dread reads far more drawn-out (stays subtle through low/mid, bites near the top).
+      Compiles + boots.
+      **Cleanup pass (2026-08-15):** killed the "flickering + white dust" — it was the TELL beat's SNOWFLAKE
+      burst + screen flicker + `ambientDread` (ash dust + startle). TELL sign is now AUDIO only (a low mood swell
+      behind you); the LULL's `ambientDread` call is retired entirely (the LULL is truly quiet — `tickMood` is the
+      only ambience). Ambience made sparser: `tickMood` gap ~30s calm → ~13s max, floored at 10s. Placeholder
+      sounds swapped in auto-fired paths: close-encounter + faceflash now use the custom scream/breath (not
+      ENDERMAN_*), and the chase dropped the WARDEN_NEARBY stings (custom footsteps carry the range now; heartbeat
+      stays). Chase speed 2.6 → 3.5 b/s (also updated the on-disk run configs, since NeoForge keeps stale values).
+      **Finale = instant death even in creative:** the touch now concludes the chase + wipes dread deterministically
+      AND kills via `fellOutOfWorld` (bypasses invulnerability) so a creative player dies too. `ambientDread`/
+      `tickRandomFlicker` are now unused (left in place, debug-forcible events still call their own logic).
+      ⏳ bloat events (possession/isolation/phantoms/grab/explode/ceiling/eyes/watch/redstoneghost/contagion) are
+      debug-only, not auto-fired — flagged for deletion pending Oliver's pick.
+      **Event cull + 4 reworks (2026-08-16):** DELETED possession, isolation, phantoms (fake attackers), phantomGrab,
+      ceiling-crawler, redstoneGhost (+file), and contagion — methods, State fields (possessed/phantomIds/contagionCd/
+      watchIds), the tick/clear plumbing, and their registry entries; `onPhantomAttacked`→`onDwellerAttacked` (just
+      swallows a swing at the stalker now). REWORKED 4 to actually be USED: **watching_eyes** — `tickDarkEyes` auto-fires
+      the glowing-eyes ring on a 20–50s timer while you're in the dark; **distant_watch** — a new STALK mode
+      (`state.distantWatch`, rolled in `enterStalk`, ~85%→25% as dread rises) where it stands FAR and never creeps,
+      the primary low-dread experience; **explode_mob** — now UNTAMED mobs only (skips pets/owned/tamed), a real
+      MOB-gated blast + bang as a jumpscare/danger; **lunge** — now fired from `tickStalk` when you stare too long
+      during a high-dread (tier-2) watch, slowed to ~10 frames and launched FROM the watch spot (not a teleport-in),
+      custom scream+breath. Registry ids all clarified to snake_case (shadow_pass/door_creak/face_flash/item_poltergeist/
+      bang_behind/back_peek/fake_charge/snuff_light/break_block/…). Kept debug-only jumpscares: bang_behind, back_peek,
+      peekaboo, boo, ambush, fake_charge, snuff_light, break_block, whisper, mimic. Compiles + boots clean. ⏳ the
+      orphaned config knobs (dwellerPossess*/dwellerPhantom*/dwellerContagion*/dwellerWatch*) are now unused — harmless,
+      removable in a Config pass.
+      **PACING OVERHAUL (2026-08-16) — "climbs too quick, no setup for payoff":** (1) dread ramp slowed ~10x —
+      `dwellerBaseAngerPerSecond` 0.30→0.03, dark 0.55→0.035, isolation 0.75→0.03, night/enclosed 0.15→0.01,
+      watchAnger 1.4→0.4; a dread session now peaks in ~13–18 min (dark+alone), not ~4. (2) NEW **FOREPLAY** opening
+      phase (`beginForeplay`/`tickForeplay`, `dwellerForeplay{Min,Max}Ticks` 40s–3min): NO dread/fog/desaturation,
+      music untouched, near-silence, only the odd VERY distant watch — forcible via `debug force … the_dweller @s
+      foreplay`. (3) **Dread is now REVERSIBLE counterplay** (was one-way): `dreadDelta` subtracts light/company/
+      daylight AND a big `dwellerIgnoreCalmPerSecond` (0.06) while it's manifest and you're NOT looking at it, so net
+      dread can fall — but the accelerants keep it climbing if you can't stay safe; only dying to the chase still
+      hard-resets to 0. (4) chases roll a 20–35s length (`dwellerChaseMin/MaxTicks` 400/700) then break off; downtime
+      held at 50–180s (`dwellerDormant{Min,Max}Ticks` 1000/3600, no longer collapsing at max dread). (5) fog cubic +
+      desaturation cubic so both stay subtle far longer. Code defaults + the on-disk run configs both patched (stale-
+      value trap). Compiles + boots clean.
+      **Watch tiers + chase-dread-scaling pass (2026-08-16):** the STALK is now ALWAYS a passive tiered WATCH (no
+      creep): **FAR** 30-50 (needs LOS), **MEDIUM** 18-29 (needs LOS), **CLOSE** 8-16 (LOS optional), band chosen by
+      `pickWatchTier` scaling with dread (FAR when calm → CLOSE near max); foreplay = 75/22/3 far/med/close. HARD
+      rules on every watch: stare >3s (`dwellerStareVanishTicks` 60) → vanish (or LUNGE bridge at tier 2 / CHASE
+      bridge at max), get within `dwellerWatchVanishDistance` (4) → vanish, HIT it (`onDwellerAttacked`) → vanish.
+      Watches are passive; aggression only via the lunge/chase bridges. Chase now scales with dread: **cooldown**
+      (the no-new-chase window) shrinks from `dwellerChaseCooldownTicks` 400 at the chase floor to
+      `dwellerChaseMinCooldownTicks` 100 (5s) at max via `chaseCooldownFor` (set in `loseTrail` — was missing!);
+      **duration** low-end creeps up with dread; **speed** ×(1+`dwellerChaseSpeedDreadBonus` 0.45×frac); **teleports**
+      rarer at high dread (stuck threshold ×(1+frac)). Footsteps fixed to a real stride (`dwellerChaseStride` 1.15,
+      subtract-not-reset). Client: subtle RED chase overlay (`onDwellerChaseOverlay`, eased, scales with proximity,
+      flat tint + top/bottom vignette) + chase fog eased back to ≥18 blocks so you can see it coming. Compiles + boots.
+      **Sound + gore + event cull pass (2026-08-16):** DELETED the redundant flash-jumpscares (peekaboo, back_peek,
+      boo, ambush, fake_charge, face_flash) — "cool name, just a flash + generic sound". Kept + cleaned the distinct
+      ones. **bang_behind** now uses the custom BANG + a real camera SHAKE (new synced `DWELLER_SHAKE_END` +
+      `dwellerShake{Ticks,Strength}` wired into `applyShake`), no screen flicker. **shadow_pass** = footsteps + wind
+      (no sculk). **lunge** = scream/breath + shake. Purged the LAST placeholder sculk/enderman/wool/warden-tendril
+      sounds (resolveSpike vanish→wind, eyes-open→mood, hallucination steps→step/mood). **explode_mob** reworked into
+      a GIB: kills the mob, `bloodyBurst` (blood + BANG@50% + SPLATTER, **NO** vanilla explosion/boom sound) + a
+      hand-rolled damaging shockwave. **finale** now shares `bloodyBurst` (dropped `level.explode` entirely, so no
+      boom on death either) and kills via a NEW custom `witchmod:the_dweller` damage type (JSON + bypasses_armor/
+      no_knockback/**bypasses_invulnerability** tags so creative dies too + `death.attack.witchmod.the_dweller`
+      message). Deleted dead methods (creepToward/stealStep/tickRandomFlicker/ambientDread). Each WATCH TIER is now
+      debug-forcible: `watch_far` / `watch_medium` / `watch_close` (+ `watch` = dread-scaled). Compiles + boots clean.
+      **Watch/counterplay/pacing pass (2026-08-16):** (1) watches now RUN out of LOS then vanish (footsteps trailing
+      off) instead of a straight poof — 78% FAR / 60% MEDIUM / 28% CLOSE (`vanishWatch`). (2) NEW **window_watch**
+      (enterStalk ~25% when a wall/window exists, + debug `window_watch`): peers through the window, vanishes the
+      instant you get a clear line on it. (3) NEW **mob_stare** (low-tier auto during LULL + debug): nearby passive
+      mobs/villagers go silent + freeze + stare 3-8s (`mobStare`/`tickWatch`/`clearWatch`, re-added). (4) LOOK-AWAY
+      vanish: once you've seen a watch, looking away rolls a one-shot `lerp(dread, 0.70, 0.05)` chance to be gone.
+      (5) INTERACT penalty (`dwellerInteractDread` 7): swinging at the stalker (`onDwellerAttacked`) or getting within
+      the vanish distance adds bonus dread — ignoring is the counterplay. (6) JUMPSCARE (`dwellerJumpscare`): camera
+      shake + a bright white flash (client `onDwellerFlash` off synced `DWELLER_FLASH_END`) then Darkness 3-5s — fired
+      by lunge @90% and the mimic reveal at a dread-scaled chance. (7) explode_mob now ALSO plays the real explosion
+      sound at the mob (death still never booms). (8) snuff_light breaks EVERY light source in a 7-block radius at once
+      WITH drops (`isLightSource`). (9) dread climbs faster (base 0.03→0.06, dark 0.035→0.06, iso 0.03→0.05, watchAnger
+      0.4→1.2) so tiering up is actually reachable. (10) debug `tier0/1/2/3` jump straight to a tier. Sculk reveal
+      particles swapped to smoke. Code defaults + on-disk run configs patched. Compiles + boots clean.
+      **Boredom + world-interaction + fixes pass (2026-08-16):** (1) BOREDOM dread system (`dreadDelta`): at tiers 0-1,
+      if no encounter for `dwellerBoredomDelayTicks` (4s) → `dwellerBoredomBoostPerSecond` (0.12) extra dread, so the
+      long quiet LULLs still push the tiers up; an ADDITIONAL `dwellerTier0StuckBoostPerSecond` (0.15) once stuck at
+      tier 0 past `dwellerTier0StuckTicks` (4.5min). Tracked via `state.sinceStalk` (reset in enterStalk) + `tier0Ticks`.
+      (2) LUNGE now visibly LURCHES the whole way across the room (2.6 b/t) — the fix was a `lungeTicks` guard that
+      suspends the within-4 / stare vanish rules so it isn't dispelled mid-charge (that's why the movement never
+      showed). (3) NO DUPLICATES: `ensureEntity` discards any other dweller bound to the victim; `mimicEvent` refuses
+      if a dweller is out or a mimic's already up; `enterStalk` refuses while a mimic session runs. (4) The LULL now
+      runs `tickAmbientEvents` — the world stirs between encounters on a ~6–23s dread-scaled timer: ATMOSPHERIC (door
+      creak, knock, circling footsteps, cold breath, mood swell) and INTERACTIVE with a dread cost (item poltergeist,
+      single-light snuff via `snuffOneLight`) — so the lull isn't dead air. (5) BED event fixed: sleeping at tier 1+
+      now enters the bedside vigil immediately from `tickLull` (sleep was too brief to line up with a scheduled beat).
+      New config auto-adds; compiles + boots clean.
+      **Sizeup + break + chase-AI overhaul pass (2026-08-19):** (1) REMOVED the cold-breath ambient branch. (2) EXPLODE
+      (`explode_mob`) now also auto-fires from tier 1 at ~2% per ambient roll (very rare) and, on top of the gib, SPOOKS
+      every mob within 18 blocks (via a shared `spookMob` helper). (3) New circling-footsteps VARIANTS (`ambientFootsteps`):
+      a ring circling you, a burst RUNNING at you from a bearing (fast/loud, then stops dead), or slow quiet steps
+      SNEAKING up from behind. (4) New **break** event (`breakShapeEvent`, id `break`): shatters a small SHAPE — plus/cross,
+      vertical line, or a ring/square-outline (`carveShape`) — out of a wall nearby but OUT of your line of sight, with
+      drops (recoverable); only `isCarvable` ordinary blocks (mineable tags/planks/logs/glass, never bedrock/valuables).
+      (5) `ambientMobUnease` now has a 30% chance the panic is CONTAGIOUS — the whole herd AND nearby HOSTILE mobs in an
+      8-block radius of the chosen animal bolt at once. (6) New **sizeup** event (tier 2/3, `enterSizeUp`/`tickSizeUp`, id
+      `sizeup`, auto-rolled in `enterStalk` at 22%/35% for tier 2/3): it manifests RIGHT IN FRONT of you (`frontSpot`),
+      passive and staring; get too close OR hold its gaze past `dwellerSizeupStareTicks` (34) and its aggression boils
+      over → `sizeUpAggress` (a chase bridge, else a lunge). (7) BRIDGES: watches (stare-vanish + within-4 crowd), sizeups,
+      and lunges can now BRIDGE straight into a chase FROM the creature's current spot — `maybeBridgeChase`, chance
+      `lerp(dread, dwellerBridgeChaseMinChance 0.05, dwellerBridgeChaseMaxChance 0.55)`, gated by the chase cooldown;
+      `beginChase` keeps the placed entity's position instead of resetting behind you when one's already out. (8) CHASE AI
+      OVERHAUL — the mover (`chaseMove`/`standYAt`/`tryClimbColumn`, replacing `navigableStep`) now genuinely CLIMBS: it
+      steps up one block onto ledges/stairs (`dwellerChaseClimbRate` 0.55/tick) and scrambles up columns to follow you
+      when you're above, settling gently down drops, still smashing doors/glass ahead — so the teleport is now a rare
+      LAST-RESORT fallback only (`dwellerChaseStuckTicks` 24→70, and only when >5 blocks away). (9) SPEED RAMP: chase speed
+      still scales with dread but now also BUILDS across the hunt — `lerp(dwellerChaseRampStart 0.7 → dwellerChaseRampEnd
+      1.15)` over `dwellerChaseRampTicks` (120), so it starts a touch slow and winds up slightly faster than the base
+      dread-scaled speed; footsteps stay distance-accumulated (so they quicken with the speed) and the step PITCH lifts
+      with the ramp. All new events forcible via `/bewitch debug force witchmod:the_dweller @s <sizeup|break>`. 8 new
+      config knobs (chase ramp ×3, climb rate, stuck-ticks, bridge min/max, sizeup stare). Compiles + boots clean.
+      **Model + water + boats + lunge/knock/watch pass (2026-08-19):** (1) WATCH now spawns OUT of your current
+      view cone (`outOfViewSpot`, 70-180° off your look, LOS-checked for FAR/MEDIUM) so it never pops up dead ahead
+      — you have to turn and find it. (2) `vanishWatch` run-and-hide chance greatly raised (CLOSE .28→.75, MEDIUM
+      .60→.90, FAR .78→.97). (3) LUNGE reworked from pending-driven to a per-tick DRIVEN charge (`tickLunge`/
+      `driveLunge`, `dwellerLungeSpeed` 1.2/tick, slower than the old 2.6) that visibly closes the gap and fires the
+      jumpscare the INSTANT it arrives — no teleporty snap, no awkward pause at the destination. (4) KNOCK reworked
+      + new `curse.dweller.knock` sound (knock1-4 supplied): ONE knock at the doomed blocks, then a random 1-6s
+      silent pause (`dwellerKnockShatterMaxTicks` 70→120), then ALL targeted blocks shatter AT ONCE with
+      ZOMBIE_BREAK_WOODEN_DOOR + a camera-shake FLINCH for EVERY nearby player (`shakeNearbyPlayers`) — a shared
+      jumpscare. (5) MID-CHASE LUNGE at high dread (`dwellerChaseLungeMinFrac` 0.66): a LOCKED, dodgeable launch at
+      you with a slowed RAVAGER_ROAR, two intelligent types — `distancegain` (straight hurl, general + close
+      finisher) and `climb` (upward arc when you're camping height, `dwellerChaseLungeClimbHeight` 3) — via
+      `startChaseLunge`/`driveChaseLunge`; touch = finale, miss = drop back onto ground and resume the walk. (6)
+      Entity CANNOT board boats (`startRiding`→false) and any boat it TOUCHES explodes (`MindDwellerEntity.tick`
+      scans Boats in its box → `level.explode` MOB-gated + discard). (7) WATER: `surfaceY`/`standYAt` now treat the
+      WATER SURFACE as standable, so it stalks/chases/lunges standing ON the water — you can be haunted lost at sea.
+      (8) MODEL rework — stretched, enderman-like human proportions (long thin legs 26 / torso 20 / neck 4, arms 28
+      DRAPING past the hips toward the floor, small 6³ head), all code-baked; ANIMATIONS: idle is freakishly twitchy
+      — the head LOLLS side to side (roll) with sudden sharper cocks + nervous yaw/pitch flickers, the long arms give
+      subtle jerks, all scaled away when walking; chase stride kept controlled/human-ish (not a beastly flail at
+      speed). (9) New COLOUR-CODED UV texture sheet generated (Node PNG encoder) matching the new layout — 64×64
+      in-game placeholder replaces `mind_dweller.png`, plus an 8× gridded reference in Downloads
+      (`mind_dweller_uv_reference.png`); eyes texture untouched (head UV unchanged). ~13 new config knobs (lunge ×2,
+      chase-lunge ×7, knock max). Compiles + boots clean. ⏳ the colour-coded texture is a paint-over placeholder.
+      **Interaction/knock/mood/hallucination + haunting pass (2026-08-19):** (1) `door_creak` RENAMED to
+      **`interaction`** and rebuilt — it "did not work" because it rarely found a door near its random samples;
+      now `interactionEvent` scans a generous ±7×±4 box for ALL interactables (doors/trapdoors/fence gates + chests/
+      trapped/ender chests/barrels), touches 1 (rarely 2-4), and actually OPENS containers with the real lid
+      animation (`blockEvent`/barrel OPEN state) then closes them a beat later. Debug id + pool entry renamed
+      (`DwellerEvents.INTERACTION`). (2) KNOCK selection widened (±8×±4, 110 tries, new `isKnockable` = doors/
+      trapdoors/glass/fences + carvable) and the shatter now spews the block's OWN crack DUST (`BlockParticleOption`)
+      and layers the custom BANG on top of the zombie-door-break. (3) MOOD stings play **~40% less often** (gap
+      ×1.67, floor 340t) via a new `playMoodSound`, which also has a **28% chance to be a low WIND gust** (vol 0.6,
+      pitch 0.4-0.75) for an ominous "the air moved" flavour. (4) HALLUCINATION pool greatly expanded (borrowing
+      Echoes sounds): a fake zombie FIGHT, an animal hurt after a swing, mob ambients, villager, cave ambience,
+      swimming, enderman teleport, TNT-fuse→blast, a creeper priming+exploding behind you, anvil, arrow, big-fall+
+      step — plus the originals. (5) Auto-hallucinations RE-ENABLED (paced by `hallucinationGap`, only during LULL/
+      RELEASE) so the world feels genuinely HAUNTED/cursed with creeping impending doom, without drowning the real
+      scares. No new config. Compiles + boots clean.
+      **Persistence/creative/window/bed/chase-physics pass (2026-08-19):** (1) DREAD now PERSISTS across relog/
+      world-reload/normal death via a new serialized `DWELLER_ANGER` attachment (copyOnDeath) — the transient State
+      seeds its anger from it on (re)creation, writes it back each tick, and resuming skips foreplay; only chase-death
+      still resets it. Fixes "relog resets my dread". (2) CREATIVE: the finale touch now does its full burst + ends
+      the encounter + wipes dread but SKIPS the kill (`!target.isCreative()`). (3) BED insta-kill FIXED: `bedVigil`
+      returns whether it broke the bed and the encounter ENDS cleanly (`enterRelease`) on break/timeout, so the
+      figure no longer lingers at ~1.4 blocks where the within-4 proximity rule was bridging into a touch-kill after
+      you were thrown out of bed. (4) WINDOW WATCH is now real: `windowWatchSpot` finds actual GLASS (block or pane)
+      near you and stands the figure pressed against the FAR side of it, only leaving once you get a clear line of
+      sight; it's EXEMPT from the within-4 vanish (it's meant to be close), enter chance 25→40%. The old peripheral-
+      non-LOS helper became `hiddenSpot` (used by the run-and-hide flee). (5) Frequency reduced: ambient events ~12–39s
+      (was 6–23s), mood ×2.2 (was ×1.67), and the on-disk hallucination gap was stale at 100/460t (5–23s — the audio
+      "spam") → fixed to 1000/3400t. (6) CHASE OVERHAUL — no more levitating setPos glide: the entity switches into
+      REAL PHYSICS mode for a hunt (`enterPhysicsMode`: clears noAi/noGravity/noPhysics, sets a MOVEMENT_SPEED
+      attribute, `GroundPathNavigation` with canFloat+canOpenDoors) and genuinely SPRINTS after you via vanilla
+      pathfinding — running the floor, jumping single blocks, climbing stairs, rounding corners, floating across
+      water, obeying gravity/collision. Teleport is now a true rare last-resort (only when it truly can't path AND
+      >5 blocks away). The mid-chase LUNGE is now a real dodgeable physics LEAP (a velocity impulse + gravity arc,
+      AI frozen for the window so moveControl can't fight it; climb variant leaps UP to counter height-camping).
+      Footsteps ride the ACTUAL move distance so cadence quickens with the ramping sprint. Removed the
+      `chaseMove`/`standYAt`/`tryClimbColumn`/`tryBreakAhead` glide helpers. 4 new config knobs (dwellerChaseMoveSpeed,
+      dwellerChaseSprint, dwellerChaseLungeClimbUp; dwellerChaseClimbRate/GhostChaseSpeed/RampStart/RampEnd now
+      unused). Compiles + boots clean.
+      **Bed-foot + boat-safety + chase-amp pass (2026-08-19):** (1) the bed-break vigil now places the figure at the
+      FOOT of the bed (`bedFootSpot`, using the bed's FACING/PART) so a sleeper actually SEES it looming, not off to
+      the side. (2) the entity's boat-explosion is gated on `!noPhysics` (chase/physics mode only), so it can NEVER
+      fire during the floaty bed/watch illusion — the bed event can't explode. (3) chase SPEED greatly amped:
+      `dwellerChaseMoveSpeed` 0.14→0.4 (0.14 was ~a slug on the mob speed scale; 0.4 is a hard relentless sprint,
+      clearly faster than a fleeing player) — on-disk config patched. (4) footsteps confirmed played AT the entity's
+      position, louder (0.85) and pitched with the pace, and since cadence is distance-driven they now quicken with
+      the faster sprint. Compiles + boots clean.
+      **Dread-persist / creative / bed / chase-tuning pass (2026-08-19):** (1) DREAD now PERSISTS across relog/world-
+      reload/normal death via a new serialized `DWELLER_ANGER` attachment (copyOnDeath) — the transient State seeds
+      its anger from it and writes it back each tick; only a chase-death resets it. (2) CREATIVE finale: the touch
+      does its full burst + ends the encounter + wipes dread but SKIPS the kill (`!target.isCreative()`). (3) BED
+      insta-kill FIXED: `bedVigil` now returns whether it broke the bed and the encounter ENDS cleanly (`enterRelease`)
+      on break/timeout, so the figure no longer lingers at ~1.4 blocks where the within-4 rule bridged into a touch-
+      kill; the figure is placed at the FOOT of the bed (`bedFootSpot`); and the entity's boat-explosion is gated to
+      chase/physics mode (`!noPhysics`) so a bed vigil can NEVER explode. (4) WINDOW WATCH is now real
+      (`windowWatchSpot` finds actual glass block/pane near you and stands the figure pressed against the far side,
+      exempt from the within-4 vanish, leaving only on a clear LOS); the old peripheral-non-LOS helper became
+      `hiddenSpot`. (5) CHASE start is now FAR by default (`dwellerChaseStartDistance` 13) with a dread-scaling
+      CLOSECHASE chance at the old 6 (`dwellerCloseChase*`); a SAFETY floor (`dwellerChaseMinStartDistance` 5) pulls a
+      too-close bridge (sizeup/close watch) BACK so it can't be an instant touch-kill. (6) Chase speed −15%
+      (`dwellerChaseMoveSpeed` 0.4→0.34); it now SWIMS fast through water (`dwellerChaseWaterSpeed`, direct drive +
+      buoyancy) instead of getting stuck, and won't teleport while in water. (7) CHASE CHAOS: ambient/mood/
+      hallucination events run at 4× (`chaosStep`) during a hunt and ambient world-events fire mid-chase too. (8)
+      More CAMERA SHAKE on jumpscares that lacked it (close-encounter, mood pop, mob-gib, creeper-blast hallucination).
+      (9) Dweller EYE glow now FLICKERS (mostly lit, brief blink-offs); the WATCHER EYES entity now BLINKS
+      (staggered per entity) and already tracks your movement each tick. Compiles + boots clean.
+      **Possession + Behind events (2026-08-21, tier 2+):** two new `DwellerEvent`s, ticked from `tickPersistent`.
+      **Possession** (`possessionEvent`/`tickPossession`, auto-rolls 1-in-`dwellerPossessChanceDenom` at tier 2+):
+      grabs a nearby passive UNTAMED mob, `setNoAi` + snaps it VIOLENTLY around in place (full random yaw/pitch
+      each tick, no interpolation, NO particles — 2026-08-22 tuning) for ~1.5–4s, then marches it
+      straight at you via navigation; on reaching you it either FLASH-vanishes the spaghetti man at the mob's spot
+      (`flashVanish` — a sudden-appearance jumpscare, only if no manifest is already out) or the mob BURSTS
+      (`explodePossessed`, the explode-event gib + shockwave). **Behind** (`tickBehind`/`behindGlimpse`): a fast
+      one-tick turn (> `dwellerBehindTurnDegrees` 70°) rolls `dwellerBehindChance` (25%) to briefly reveal him a few
+      blocks along your new look — a `dwellerBehindTicks` (12) glimpse via a temp entity + Pending discard — as if
+      he'd been watching. Both debug-forcible (`… haunted @s possession` / `behind`). 7 config knobs.
+      **Stuck-AI fix (2026-08-22):** possessed mobs now carry a `witchmod_possessed` scoreboard tag; every
+      exit path (`releasePossessed` on give-up, the flash/explode resolve) restores `setNoAi(false)` + drops
+      the tag, `possessionEvent` `freeStuckPossessed`-scans and frees any leftover BEFORE starting a new one,
+      and the curse's `onRemove` frees any too — so a possession can never permanently brick a mob's AI.
+      **Possession visibility fix (2026-08-23):** `tickPossession`/`tickBehind` are now ticked from `onTick`
+      BEFORE the FOREPLAY early-return (not `tickPersistent`, which the FOREPLAY phase skips), so a possession —
+      including a debug-forced one during foreplay — always advances instead of a mob freezing with its AI off.
+      The remaining "no twitch, phase 2 never starts" was a noAi-mob SYNC problem (the same one the Helicopter
+      event hit): the twitch now forward-interpolates rotation (`*O` prevs set to the current values, then the
+      live rotation jumped) + `hurtMarked` each tick so the client actually sees the snap, and the MARCH adds a
+      direct 0.14/tick velocity toward you (plus navigation) so it visibly closes even if pathfinding stalls on
+      the just-cleared brain. ✅ CONFIRMED working in-game (2026-08-23); the temporary chat diagnostic was removed.
+      **FINALISED — rename pass (2026-08-19):** the curse is renamed **`the_dweller` → `haunted`** (registry id, so
+      it displays as "Haunted" and is cast/forced via `witchmod:haunted`; the custom damage type + its
+      `data/witchmod/damage_type/`, the three `damage_type` tags, and the death message key all moved to
+      `witchmod:haunted` too — death line now "%s was caught by the Spaghetti Man"). The ENTITY is renamed
+      **`mind_dweller` → `spaghetti_man`** everywhere: the 4 client/entity classes (`SpaghettiManEntity`/`…Model`/
+      `…Renderer`/`…EyesLayer`), the `SPAGHETTI_MAN` registry holder + id, the `spaghetti_man` model-layer location,
+      the `spaghetti_man.png`/`spaghetti_man_eyes.png` textures, and the lang name ("Spaghetti Man"). Internal code
+      names that aren't user-facing were left (the `CurseTheDweller` class, the `effects/curses/dweller/` package,
+      `DwellerEvents`, `Curses.THE_DWELLER` field, the `curse.dweller.*` sound events + `dweller_*` subtitle keys).
+      ALSO fixed a TRUMPET bug: the loop could play CONSTANTLY (not just while walking) when `walkAnimation.speed()`
+      got stuck non-zero — added a real-displacement gate (`TrumpetSoundManager.isMoving`, tracks per-player
+      position each tick, cuts the loop after `STILL_LIMIT` ticks of no actual movement) so it self-corrects.
+      Compiles + boots clean, no registry/datapack warnings.
+      **Watch tiers + chase-dread-scaling pass (2026-08-16):** the STALK is now ALWAYS a passive tiered WATCH (no
+      creep): **FAR** 30-50 (needs LOS), **MEDIUM** 18-29 (needs LOS), **CLOSE** 8-16 (LOS optional), band chosen by
+      `pickWatchTier` scaling with dread (FAR when calm → CLOSE near max); foreplay = 75/22/3 far/med/close. HARD
+      rules on every watch: stare >3s (`dwellerStareVanishTicks` 60) → vanish (or LUNGE bridge at tier 2 / CHASE
+      bridge at max), get within `dwellerWatchVanishDistance` (4) → vanish, HIT it (`onDwellerAttacked`) → vanish.
+      Watches are passive; aggression only via the lunge/chase bridges. Chase now scales with dread: **cooldown**
+      (the no-new-chase window) shrinks from `dwellerChaseCooldownTicks` 400 at the chase floor to
+      `dwellerChaseMinCooldownTicks` 100 (5s) at max via `chaseCooldownFor` (set in `loseTrail` — was missing!);
+      **duration** low-end creeps up with dread; **speed** ×(1+`dwellerChaseSpeedDreadBonus` 0.45×frac); **teleports**
+      rarer at high dread (stuck threshold ×(1+frac)). Footsteps fixed to a real stride (`dwellerChaseStride` 1.15,
+      subtract-not-reset). Client: subtle RED chase overlay (`onDwellerChaseOverlay`, eased, scales with proximity,
+      flat tint + top/bottom vignette) + chase fog eased back to ≥18 blocks so you can see it coming. Compiles + boots.
+      **Event cull + 4 reworks (2026-08-16):** DELETED possession, isolation, phantoms (fake attackers), phantomGrab,
+      ceiling-crawler, redstoneGhost (+file), and contagion — methods, State fields (possessed/phantomIds/contagionCd/
+      watchIds), the tick/clear plumbing, and their registry entries; `onPhantomAttacked`→`onDwellerAttacked` (just
+      swallows a swing at the stalker now). REWORKED 4 to actually be USED: **watching_eyes** — `tickDarkEyes` auto-fires
+      the glowing-eyes ring on a 20–50s timer while you're in the dark; **distant_watch** — a new STALK mode
+      (`state.distantWatch`, rolled in `enterStalk`, ~85%→25% as dread rises) where it stands FAR and never creeps,
+      the primary low-dread experience; **explode_mob** — now UNTAMED mobs only (skips pets/owned/tamed), a real
+      MOB-gated blast + bang as a jumpscare/danger; **lunge** — now fired from `tickStalk` when you stare too long
+      during a high-dread (tier-2) watch, slowed to ~10 frames and launched FROM the watch spot (not a teleport-in),
+      custom scream+breath. Registry ids all clarified to snake_case (shadow_pass/door_creak/face_flash/item_poltergeist/
+      bang_behind/back_peek/fake_charge/snuff_light/break_block/…). Kept debug-only jumpscares: bang_behind, back_peek,
+      peekaboo, boo, ambush, fake_charge, snuff_light, break_block, whisper, mimic. Compiles + boots clean. ⏳ the
+      orphaned config knobs (dwellerPossess*/dwellerPhantom*/dwellerContagion*/dwellerWatch*) are now unused — harmless,
+      removable in a Config pass.
+      **[Superseded history below — the pre-rework passes.]** A horror parody, OVERHAULED from a whack-a-mole first pass into a
       proper stalker. CUSTOM ENTITY `MindDwellerEntity` (code-baked `MindDwellerModel` — a LANKY HUMANOID: small head on a
       long neck, narrow torso, long arms; idle = a head that slowly TRACKS you plus a sudden roll-axis head-COCK twitch on
       an irregular schedule; + `MindDwellerRenderer` with an emissive glowing-eyes layer, no Blockbench), driven ENTIRELY
@@ -2979,6 +3435,12 @@ forcible.** Guidelines:
       stray self-triggered light FLICKERS at tier 2+ (`dwellerRandomFlickerChance`); and — the panic touch — at tier ≥ 2 in the
       dark it will LURCH a step closer even while you're staring straight at it ("it moved and I didn't blink"; bright light
       still holds it). 5 more config knobs. Boots clean.
+      **Two-bug pass (2026-08-19):** (1) STICKY TNT (passive) — any lit `PrimedTnt` you touch CLINGS to you
+      (`stickTnt` in onTick force-rides it on you), so it goes off in your face; forcible via `stickytnt` (spawns a
+      fused TNT already stuck). Ejected on curse remove. (2) BEDROCK COOLDOWNS (the one BENEFICIAL bug, tier-2
+      pool) — quarters your weapon swing cooldown for 8-28s via a temporary `ATTACK_SPEED` ×4 modifier
+      (`cooldownsEvent`/`tickCooldowns`, buff stripped when the window ends + on remove), mimicking Bedrock's
+      no-cooldown swinging. Both registered in `BedrockEvents` (so debug-forcible); 3 new config knobs.
       **PER-EVENT-CLASS REFACTOR (2026-08-11 — STRUCTURE COMPLETE, compiles + boots):** `CurseTheDweller` + `CurseBedrockMoment`
       moved into dedicated packages `effects/curses/dweller/` + `effects/curses/bedrock/` (Curses.java + CurseEventHandler refs
       updated). Each is now driven by an event interface + registry: `DwellerEvent`/`DwellerEvents` and `BedrockEvent`/
@@ -3015,6 +3477,10 @@ forcible.** Guidelines:
       3.0, shock-not-kill); Desync Drowning now ends on touching water (`isInWater`), auto-expires after `bedrockDrownTicks`
       (~20s), and is cleared on death (`onDeath` via the LivingDeathEvent hook); Helicopter now has an on-GROUND spin grace
       (`bedrockHelicopterGroundTicks`) before it rises and spins far faster (`bedrockHelicopterSpin` 62°/tick).
+      **Spin-fix (after Helicopter was widened from `Animal` to any non-boss `Mob`):** the mob's own AI was rewriting
+      its rotation every tick, so it stopped spinning. `helicopter()` now `setNoAi(true)` on the chosen mob (restored
+      `setNoAi(false)` at launch), and `tickHelicopter` forward-interpolates the yaw (`yRotO/yBodyRotO/yHeadRotO = prev`)
+      so the client winds forward instead of wiggling across the ±180 wrap.
       **Batch 2 (8 more bugs):** PASSIVE — **Ghost Blocks** (a placed block pops out after `bedrockGhostBlock*`, item still
       spent; via the CurseEventHandler `EntityPlaceEvent` hook → `onBlockPlaced`), **Silent Creeper** (client
       `PlaySoundEvent` swallows any sound whose path contains "creeper" while `BEDROCK_ACTIVE`≥0), **Hotbar Drift** (client
@@ -3028,13 +3494,73 @@ forcible.** Guidelines:
       click the ✕ on with the cursor while the world keeps running; ad art = `assets/witchmod/textures/gui/marketplace/
       ad_<n>.png`, 256×256, count `bedrockMarketplaceAdCount`, 3 placeholders generated). ~13 more config knobs + 7 synced
       attachments. Boots clean.
+      **Event-tiering pass:** the ~18 ACTIVE events are now drawn from a 3-TIER weighted pool — tier 1 very common
+      (Nightcore, Sound Delay, Phantom Durability, Chunk Reject, Rubberband, Bluetooth), tier 2 medium (Mitosis, Blitz,
+      Server Lag, Pop, Inventory Shuffle, Helicopter, Tickspeed, Marketplace, Perspective), tier 3 rare (Creeper Boat,
+      Drowning) — weights `bedrockTier1/2/3Weight` (12/5/2) retune the whole balance. **Split Screen REMOVED entirely**
+      (event, `splitScreen()`, pool entry, onRemove clears, the client POV-steal handler, `bedrockSplit*` config, and the
+      `BEDROCK_SPLIT_END/ID` attachments) — the standalone Splitscreen curse supersedes it. Added `debugArgs()` so every
+      forcible name (all active events + the passive-info keys) tab-completes under `/bewitch debug force`.
+      **New-events pass (client half in `client/BedrockClientBugs`):** TIER 1 — **Ghost Item** (held item renders as a
+      random other item over the hotbar slot), **Input Lag** (movement applied `bedrockInputLagDelayTicks` late via a
+      buffered `MovementInputUpdateEvent`), **Texture Flicker** (translucent magenta/black missing-texture checker on a
+      SLOW 6-on/24-off blink — deliberately not a strobe), **Sprint Reset** (sprint cut for 5 of every 24 ticks). TIER 2 —
+      **Ghost Block Phase** (`bedrockGhostPhase*` 4–16s: placed blocks force-reject, broken blocks are cancelled server-side
+      so they reappear — via the `onBlockPlaced`/`onBlockBreak` hooks), **Language Error** (swaps to Pirate `en_pt` / Welsh
+      `cy_gb` for the window; ⚠ uses `reloadResourcePacks` twice so it's heavy — a jarring reload, thematic but tunable),
+      **Speed Blitz** (freeze `bedrockSpeedBlitzFreezeTicks`, recording your attempted moves, then a 3× velocity replay).
+      PASSIVES — **Food Reg** (`bedrockFoodRegChancePercent` 14% an eaten food gives no hunger, in `onUseItemFinish`),
+      **Hit Reg** (`bedrockHitRegChancePercent` 6% a melee hit is cancelled + whiffs to `PLAYER_ATTACK_NODAMAGE`, in
+      `onAttackEntity`). TIER 3 — **Fake Kick** (`FakeKickScreen`: a convincing "Connection Lost" + realistic netty/timeout
+      reason + Back-to-Server-List button; entirely fake, dismissed by button/Esc/~12s timeout), **Fake BSOD**
+      (`FakeBsodScreen` renders `assets/witchmod/textures/gui/bsod.png` 1024×640 full-screen, forces fullscreen, pauses
+      ONLY Minecraft's own audio, and the server broadcasts the exact vanilla "left the game" message to everyone).
+      All tiered into the weighted pool; ~14 more config knobs + 9 synced windows. Boots clean.
+      **Tuning pass:** **Tickspeed** overhauled — instead of Speed/Haste potions it now literally TICKS the affected
+      entities `bedrockTickspeedMultiplier` (4) extra times each server tick (`tickTickspeed`, tracked in State), so they
+      genuinely run at high tickspeed like a server-lag clip; NO sound. Stripped the gratuitous UI sounds off **Bluetooth**
+      (note bell), **Tickspeed** (note pling) and **Fling** (slime jump). Event frequency ~30% more common
+      (`bedrockEventMin/MaxTicks` 120/380 → 84/266). **Helicopter** now targets ANY non-boss `Mob` (was passive `Animal`
+      only; excludes Ender Dragon / Wither). **Language Error** now rolls any joke language (Pirate/LOLCAT/Upside-down/
+      Welsh/Anglish/Toki Pona, falling back to Pirate if a code isn't on the build).
+      **Fake BSOD believability overhaul:** 4 images (`bsod_standard` + `bsod_funny1/2/3`, ~1860×910) — 50% standard,
+      50% a random funny one. A ~0.75s GLITCH pre-phase (`BSOD_GLITCH_TICKS`) sells "the machine is coping": MC's own
+      audio cuts, the window JITTERS via GLFW (windowed only), the screen stutter-flickers black (~90ms buckets, 1/3 of
+      frames — a struggle, not a fast strobe), and movement is dampened ×0.15 + cut in stutters. Then it forces fullscreen
+      and the chosen image ROLLS DOWN from the top (`FakeBsodScreen` scissor reveal over ~0.55s) and holds. Everything
+      (fullscreen, window pos, audio) is restored when the window ends.
+      **Refinement batch:** BSOD glitch pre-phase halved (`BSOD_GLITCH_TICKS` 15→7). **Rubberband** has a 55% EXTRA-QUICK
+      variant (2× the yanks at ⅓ the gap). **Language Error** now swaps WITHOUT a resource reload — `ClientLanguage.loadFrom`
+      + `Language.inject` (pure client render, nothing sent to the server, real setting untouched), and rolls any joke
+      language. **Texture Flicker REPLACED by Vibrant** — a saturation-boost post shader (`shaders/post/bedrock_vibrant`,
+      applied via `gameRenderer.loadEffect`, "Bedrock's punchier colours"); the old magenta-checker overlay is gone.
+      **Fling** now catapults in a random 3D direction with lift (was an axis-aligned slide that only worked straight up).
+      **Tickspeed** already ticks entities extra (prior pass). NEW passives: **Air Swimming** (`bedrockAirSwim*`, client
+      window — while swimming, a chance to keep swimming through AIR like water for 3–25s; buoyant + swims toward look),
+      **Sleep Cancel** (`bedrockSleepCancelChance`, booted out of a bed while sleeping via `stopSleeping`). NEW tier 2:
+      **T-Pose** (nearby non-boss mobs `setNoAi` + frozen 0.3–5s — ⏳ literal arms-out pose needs render mixins the project
+      avoids, so it's a hard freeze), **Float** (nearby entities lose gravity but keep pathfinding, drifting toward you).
+      NEW tier 3: **Hungry** (`bedrockHungry*` 2–11s — holding right-click "eats" any held item with eat FX; finishing the
+      ~1.6s eat consumes one via a `BedrockHungryEatPayload` C2S; ⏳ the exact arm animation on non-food can't be forced
+      without item mixins, sold with sound+particles). All tiered + `debugArgs`-listed; ~13 more config knobs + 2 windows.
+      **Follow-up fixes:** **T-Pose → Pause** (id `pause`; the old projectile-pause passive's debug key became `projpause`):
+      nearby non-boss mobs pause (AI off + frozen) for 0.3–5s, then a `bedrockPauseCatchupMultiplier` (10× — higher than
+      tickspeed) catch-up burst for 1–4s where they lurch to catch up; **hitting a paused mob force-ends the pause early**
+      (`onEntityHurt` via a `LivingIncomingDamageEvent` hook → `releasePause`). **Air Swimming** rewritten to be REAL
+      swimming — forces the swim/crawl pose (`setPose(SWIMMING)` + `setSwimming`/`setSprinting`) and strokes you in your
+      full look direction when moving forward, near-neutral buoyancy otherwise (was just reduced gravity). **Language**
+      now picks only from joke languages actually present on the build (it was falling back to Pirate every time) via a
+      fresh `RandomSource`.
 - [x] Solicitor (NEW) — Bundle (⚠ Emerald Block requested but is Silver Tongue's). A named vanilla `WanderingTrader`
       hounds you with terrible `MerchantOffers` and pitches them in local chat (names + dialogue from
       `data/witchmod/text/solicitor.json`, /reload-able). It follows you (re-navigate + teleport if it falls too far
       behind); marked with scoreboard tags (`witchmod_solicitor` + `solowner_<uuid>`) so `CurseEventHandler` finds it
       and its owner. KILL it → a fresh one spawns INSTANTLY (new name + cheeky `killed` line, via `LivingDeathEvent`).
       Actually COMPLETING a trade (`TradeWithVillagerEvent`) → it discards and hides for 1.5–10 min, `sqrt(r)`-biased
-      LONG. Persists/re-adopts across reload via a tag scan. 9 config knobs.
+      LONG. Persists/re-adopts across reload via a tag scan. 9 config knobs. Chat is now player-style `<Name> line` (no
+      quotes; same green-name/cream-line colours). Also: **Bedrock Moment** rubberbanding retuned — silent (no teleport
+      sound), 10 yanks at a 12t gap (was 3 at 55t) so it reads as frantic lag; **Screensaver** now boots straight back
+      out of fullscreen if you toggle it mid-bounce (during SHRINKING/BOUNCING), so the effect keeps up.
 - [x] Splitscreen (NEW — statement curse) — ANY SIGN (tag exception `ItemTags.SIGNS`, like Hype Man). Pulled out of
       Bedrock Moment into its own curse. `CurseSplitscreen`: drags the nearest eligible player into a shared, console-style
       split screen with SOUL-BOND-like STICKINESS — grabs the nearest free player within `splitscreenRange` (22) and holds
@@ -3052,8 +3578,291 @@ forcible.** Guidelines:
       and `splitscreenLivePov` DEFAULTS OFF (a botched second pass can corrupt GL state, and it's untestable headless); the
       shipped default is a robust FALLBACK panel (partner name + live coords + facing). Debug: `/bewitch debug force
       witchmod:splitscreen @s villager` pairs you with the nearest VILLAGER (one-sided, so you can test the render/panel solo
-      — you see its POV; `exit` ends it; no arg pairs the nearest player). Boots clean. 4 config knobs. ⏳ live-POV render
-      needs in-game iteration (enable the flag) — currently fallback-only by default.
+      — you see its POV; `exit` ends it; no arg pairs the nearest player). Boots clean. 4 config knobs.
+      **LIVE POV — WORKING (Oliver's in-game iteration, 2026-08-11):** the second render pass no longer leaks over the
+      main screen — the fix was reflectively pointing `Minecraft.mainRenderTarget` at the off-screen `TextureTarget` for
+      the duration of the pass, since `renderLevel` grabs the main target internally (otherwise the partner's world
+      splattered transparently over your real view). It's throttled to a ~20fps video-feed cadence (`REFRESH_INTERVAL_MS`,
+      re-blitting the cached frame between refreshes) so it isn't rendering the world twice every frame. **Fabulous is
+      handled, not banned:** its whole-screen transparency chain fights the second pass into a dangerous strobe, so
+      `SplitscreenClient.enforceSafeGraphics` flips the player Fabulous→Fancy each tick the split is engaged (undoing any
+      mid-curse re-select) and hands Fabulous back when it ends, while `SplitscreenPov` additionally refuses to render on
+      any single frame where the mode is still momentarily Fabulous — belt-and-suspenders so a strobe frame can never slip
+      through. Minor known cosmetic: a faint horizon/cloud streak in the panel on Fancy (harmless; a real player target
+      fills its own chunks in). ✅ signed off by Oliver, live POV verified acceptable (`splitscreenLivePov=true`).
+- [x] Cutaway Gag (NEW — statement curse) — SPYGLASS (free item, no collision — the "spectating" fit). Family-Guy
+      cutaway made real: after a hard `cutawayCooldownSeconds` (350s) minimum, a low-but-slowly-ramping per-second chance
+      (`cutawayBaseChancePercent` + `cutawayRampPerSecondPercent`, capped at `cutawayMaxChancePercent`) CUTS AWAY to a
+      random other online player; you're frozen (movement + interaction locked client-side off the synced
+      `CUTAWAY_TARGET`) spectating them while — after a `cutawayGagDelay*` 2–6s beat watching the oblivious victim — a
+      stupid gag is inflicted; a hit has a high chance (`cutawayHitEndChancePercent`) to snap you back, but the gag's
+      effects still stick. **Overhead-camera architecture:** to see a distant player the client needs their chunks loaded
+      + entity tracked, so the server saves the watcher's spot, relocates their INVISIBLE, gravity-less (still HITTABLE,
+      so "being hit ends it" works from the chaos) body to a computed OVERHEAD VANTAGE (clear LOS to the victim,
+      `cutawaySpectateDistance`/`cutawayCameraHeight`; top-down fallback), and the client (`ClientCurseHandler.tickCutaway`)
+      keeps the camera on the watcher in FIRST PERSON and pins the aim at the victim — a steady overhead standstill, NOT a
+      third-person attach (which was buggy / couldn't see the event). Teleports back on end. Same-dimension victims only.
+      **Death-gated:** dying mid-cutaway strobed against the respawn screen, so `onWatcherDeath` (LivingDeathEvent) snaps
+      out without teleporting the dead body back, and a victim dying/logging off ends it too; relog/restart self-clears.
+      **Flight-safe:** a flying watcher keeps their own gravity (we only `setNoGravity` non-flyers) and abilities are
+      re-synced (`onUpdateAbilities`) on both ends, since toggling gravity on a flyer was breaking their descent after.
+      **23 gags** (`CurseCutawayGag`), each auto-forcible by name via debug: creeper behind ·
+      anvil above head · aggro'd IronGolem (⏳ wall-bursting is a stand-in — golems can't break blocks; aggro + Speed only) ·
+      Woolliam (a "Woolliam" sheep — plain custom name, NOT always-visible-tag — that duplicates each ~15t up to
+      `cutawayWoolliamCap`) · Driveby (a group of Speed-3
+      skeletons that spawn beside the victim, shoot, and despawn when the cutaway ends = "slide away") · Dream (a real
+      custom `DreamEntity` player-MIMIC — rendered as a vanilla `PlayerModel` wearing `ugly/dream.png`, jogs up at
+      player speed and punches with the custom `witchmod:dream` damage type for a bespoke death message, despawns at end) ·
+      Jumped (a pack of Strength/Speed/Resistance zombies) · fake Snail (a real immortal `SnailEntity` +
+      the snail music, spawned on real ground near the victim, hand-slid toward them at `cutawaySnailSpeed` each tick
+      since it's AI-less, music left to the existing `SnailSoundManager` loop which stops itself when it despawns at end
+      — NOT a one-shot, which droned on) · Hole (audible warnings then a 3×3×`cutawayHoleDepth` column dug with drops —
+      only chosen when the ground below is mainly natural, via a mineable/dirt/sand tag check) · Abduction (Levitation +
+      Slowness + Glowing + a spinning END_ROD saucer rim + GLOW dome + widening green tractor-beam column — ⏳ custom
+      UFO sounds pending, pitched beacon hum for now; true horizontal movement-anchor would need victim-side client work) ·
+      Launch (slime block + piston placed below, old block dropped, victim catapulted up at `cutawayLaunchPower`).
+      **Batch 2:** Tokyo Drifting (forced into a CHERRY boat driven along the ground at `cutawayTokyoSpeed` on a curving
+      heading) · Pied Piper (nearby passive `Animal`s navigate to the victim; spawns pigs/cows/sheep/chickens to fill
+      `cutawayPiedPiperMin`) · Fake TNT (`cutawayFakeTntCount` TNT drop from above; fakes get a 1000-tick fuse and FIZZLE
+      at ~70t with smoke+extinguish, `cutawayFakeTntRealChancePercent` (30%) are REAL and detonate) · Aquarium
+      (`cutawayAquariumCount` squid/cod/salmon/puffer/tropical spawn NO-gravity + wander in air, then `finishGag` drops
+      their gravity so they fall and flop like normal) · I Like Trains (lays a straight RAIL line through the victim,
+      sends `cutawayTrainCount` villager/cow minecarts slamming down it; a cart within 1.6 blocks deals the custom
+      `witchmod:train` damage + flings — ⏳ custom sound pending) · Bowling (a no-gravity BLACK_CONCRETE "ball" hurled at
+      the victim; impact = custom `witchmod:bowling` damage + fling + Slowness/Weakness stun — ⏳ custom sound pending, cube
+      stand-in for a round ball) · The Bouncer (a real `BodyguardEntity` navigates to the victim, shoves them around, and
+      trash-talks in local chat) · Annoying Music (synced `CUTAWAY_MUSIC_END` window; client loops a track and nothing
+      else — ⏳ dedicated track pending, goofy Loading hold-music placeholder) · Bouncy (borrows the Bouncy blessing's
+      `BOUNCY_ACTIVE` flag on the victim for the duration, restored after — uncontrollable bouncing + its boing sounds) ·
+      Marriage (a RED_CARPET aisle, a `SolicitorLines.randomName` villager spouse, victim frozen + invulnerable, HEART
+      particles and a scripted vows chat). Two new datapack damage types (`witchmod:train`/`bowling`, bypass armour,
+      custom death messages) + the `CUTAWAY_MUSIC_END` synced attachment. Per-gag end cleanup via `finishGag` (clears
+      placed rails/carpet, restores aquarium gravity + marriage invuln/freeze + bouncy flag + music). Discovers on the
+      first cutaway. `debugForce`: `/bewitch debug force witchmod:cutaway_gag @s <args>` — any combo of `villager` (cut
+      away to the nearest VILLAGER, testable SOLO — the "debug modes use villagers" pattern) and a gag name (any of the 21
+      lowercased, e.g. `tokyo_drifting`, `pied_piper`, `fake_tnt`, `i_like_trains`, `the_bouncer`, `annoying_music`,
+      `marriage`); no arg = random player + random gag, forcing again mid-cutaway ends it. The whole pipeline runs on
+      `LivingEntity` victims so villagers work everywhere. Reads as a CURSE (watcher immobilised/relocated/vulnerable +
+      others griefed). Boots clean. 28 config knobs. ⏳ pending: Oliver's in-game tuning + custom sounds (trains, bowling,
+      abduction, annoying music) + the golem/Dream/abduction-anchor stand-ins noted above.
+      **Cinematic polish pass:** the spectate view is now a clean hover — `hideGui` on + first-person HAND cancelled
+      (`RenderHandEvent`) for the duration. **Victim coords are hidden:** the F3 DEBUG_OVERLAY layer is cancelled while
+      spectating so the watcher can't read the victim's position off it. Each cut opens with a Family-Guy TITLE CARD
+      (random "Meanwhile…/Cut to…" line + "with <victim>" subtitle) and a PACING_CLICK camera-cut sound, sent only to the
+      watcher. **Gag picker no longer repeats** — a per-watcher `LAST_GAG` bias never fires the same gag back-to-back (fixed
+      the "abduction every time" feel) and still skips Hole off non-natural ground. Gag DELAY shortened to 0.5–2.5s; Fake
+      TNT real-chance 30%→15%. **Abduction overhauled:** a fixed high UFO at `cutawayAbductionHeight` (40) with a
+      fast-spinning saucer, a full-height tapering green tractor beam, and Levitation `cutawayAbductionLevitation` (9) for
+      `cutawayAbductionLiftTicks` (60) so the victim is yanked way up fast — and the particles STOP the instant the lift
+      ends (no more lingering column after the drop).
+      **Cinematic-fix pass (22nd gag + bug batch):** added **Speed** (victim gets Speed 50 for the duration). FIXED "text
+      doesn't appear" — the intro was a vanilla TITLE packet hidden by `hideGui`; dropped `hideGui` entirely (it also hid
+      CHAT, killing marriage vows / bouncer lines) and instead cancel the individual gameplay HUD layers
+      (`CUTAWAY_HIDDEN_LAYERS`: crosshair/hotbar/health/food/xp/armor/air/held-name/jump/vehicle/effects/F3) while CHAT +
+      the overlay stay. Added a real CINEMATIC OVERLAY (`onCutawayCinematic`, `RenderGuiEvent.Post`): small letterbox bars
+      top+bottom + a "Meanwhile…" TITLE CARD from the writable `assets/witchmod/text/cutaway_titles.json`
+      (`CutawayTitles`, F3+T-reloadable); `sendCutawayIntro` is now just the PACING_CLICK cut sound. The cinematic ENGAGES
+      the instant `CUTAWAY_TARGET` is set (before the victim's chunks load) so there's always an immediate cue instead of an
+      occasional frozen "nothing happens". **The Bouncer** now speaks in the EXACT Bodyguard voice (`BodyguardLines.pickTree`
+      warning/aggression + the `<Bodyguard> …` plain format + `bodyguardChatRadius`). **Tokyo Drifting**: victim is
+      force-re-seated each tick (no escape) + a 25% roll to run 2.5× faster. **Fake TNT** fakes are also tracked as temps so
+      an early exit can't leave a live fuse ticking to a real blast. **Launch** breaks its slime block + piston a beat after
+      firing you off. Boots clean.
+      **Dream + polish pass:** **Dream** is now a real player-mimic (custom `DreamEntity` = a vanilla `PlayerModel` in the
+      `ugly/dream.png` skin, `DreamRenderer`, registered entity/attributes) that chases at player speed and punches with the
+      new datapack `witchmod:dream` damage type (bespoke death message), replacing the Vindicator stand-in. **Golem** is now
+      tracked and has its Speed/Strength buffs STRIPPED in `finishGag` (a plain aggro'd golem afterwards). The no-repeat
+      picker now remembers the **last 3 gags** (`RECENT_GAGS` deque, `RECENT_GAG_MEMORY=3`) so the same ones stop recurring.
+      `/bewitch debug force` now **tab-suggests each effect's valid arg names** (new `Effect.debugArgs()`; Cutaway returns
+      `villager`, `exit`, and all gag names, suggested per whitespace token so `villager <gag>` completes). Boots clean.
+      **Foolproofing pass + Helicopter:** new **Helicopter** gag (23rd) — forces the victim into a SPRUCE boat that spins
+      fast (`cutawayHelicopterSpin`) with a quickly-ramping ascent (`cutawayHelicopterRiseMax`), re-seated each tick.
+      **I Like Trains** rebuilt to be SUDDEN + foolproof: the carts `noPhysics` (noclip) and are hand-driven at a hard
+      2.9 b/t each tick (rail friction/walls/gaps can't slow or stop them), spawn close, generous 2.5-block hit radius.
+      **Snail** slowed (`cutawaySnailSpeed` 0.09) and now on touch does a victim-only (no terrain/collateral) explosion for
+      `cutawaySnailDamage` (12) then ENDS the gag (via a new `endNow` flag ticked in `onTick`). **Anvil** now actually
+      hurts (`setHurtsEntities`, dropped from 8 up). **Bouncy** now really FLINGS the victim (a strong random launch every
+      8t + boing) so they ping around, not just the client flag. **Bowling** ball is `noPhysics` (noclips terrain) so it
+      always connects. **Driveby** skeletons are hand-fired every 7t (~3× the normal bow cadence). **Hole** rolls a 1.5–2s
+      warning (`holeWarnTicks`, smoke + thuds) before dropping. **Marriage** no longer LAUNCHES the villager — the amp-128
+      Jump ("no jump") was actually +12.9 jump power (the Pacing trap); removed, victim pinned (zero velocity) each tick.
+      **Woolliam** spawns 2 sheep per interval and the cap default doubled (8→16). Boots clean.
+      **Dream rework + custom sounds pass:** **Dream** is now a real PLAYER-MIMIC — a custom `DreamEntity`
+      (`entities/DreamEntity`, a `PathfinderMob` rendered by `client/DreamRenderer` as a vanilla `PlayerModel` wearing
+      `assets/witchmod/textures/entity/ugly/dream.png`, reusing the vanilla PLAYER layer so no custom layer def) that jogs
+      up at player speed with a `MeleeAttackGoal` and punches with the new datapack `witchmod:dream` damage type (bespoke
+      death messages), replacing the Vindicator stand-in. Registered entity + attributes + renderer. **Golem** buffs are
+      stripped in `finishGag` (tracked in `flock`) so it's a plain aggro'd golem after the gag. **Gag no-repeat** now
+      remembers the last 3 (`RECENT_GAGS` deque, `RECENT_GAG_MEMORY=3`) instead of just the last one. **Debug** tab-suggests
+      valid arg names via a new `Effect.debugArgs()` (Cutaway returns `villager`, `exit`, and every gag name) wired into
+      `BewitchCommand`'s `arg`. **Custom sounds wired** (in `assets/witchmod/sounds/curse/cutaway/`): Bowling throw
+      (`ball_throw`) + impact (`bowling_strike`, 2 variants) · Tokyo `drifting` · Helicopter loop + Abduction tractor-beam
+      loop (native-looping client instances driven off a synced `CUTAWAY_LOOP` id, stopped on gag/cutaway end) · Abduction
+      `ufo_enter` one-shot before the beam · **I Like Trains sequenced** — `train_warning` ("I like trains") plays IN FULL
+      first, then after `cutawayTrainWarningTicks` (34) the train spawns + `train_roll` plays at its location. Boots clean.
+      **Tuning + positional-audio pass:** ALL cutaway sounds now play at the EVENT (victim) location, never on the
+      watcher — the looped ones (helicopter 0 / tractor beam 1 / annoying music 2) use a new POSITIONAL
+      `client/CutawayLoopSound` (an `AbstractTickableSoundInstance` that follows the victim and stops on `CUTAWAY_LOOP`
+      clear), replacing the UI-attached loops + the `CUTAWAY_MUSIC_END` window. **I Like Trains**: speed tripled to
+      `cutawayTrainSpeed` (8.7 b/t), warning shortened 40→34t, carts PINNED to the rail line (Y + perpendicular via
+      `setPos`) so they stay anchored to the tracks. **Helicopter**: boat KEPT after the gag (in `flock`, not `temps`);
+      spin RAMPS via delta-yaw with `yRotO`=prev so the client interpolates FORWARD instead of wiggling across the ±180
+      wrap, up to `cutawayHelicopterSpin` (62°/t); loop plays at the boat. **Bowling**: stun +2s (100t) and a 50%-each
+      chance to bowl AGAIN 1–3s later (max 4, `throwBowlingBall`/`bowlCount`/`nextBowlTick`). **Marriage** overhauled —
+      random ceremony script pools (open/vows/pronounce/objections), 35% chance the spouse is a silly creature, a random
+      objection, and a random comical ending (kiss / cold-feet bolt / "zombie all along"). **Tokyo drift** screech
+      repeats (every 22t) at widely varied pitch + lower volume, from the boat. **Bouncy** flings mostly HORIZONTAL
+      (h≈1.4–2.0, up≈0.2–0.35) — pinball, not catapult. Boots clean.
+      **Final tuning pass:** **I Like Trains** slowed ~20% (`cutawayTrainSpeed` 8.7→7.0) so it's more visible.
+      **Creeper** gets Speed I on the approach. **Bowling** is now DODGEABLE — the ball flies STRAIGHT along its launch
+      direction (no more homing) at a steady 1.4 b/t, whiffs past if you step aside, and a miss (ball >26 blocks off)
+      resolves the bowl too (still rolls the 50% follow-up). **Marriage** text is now fully editable in
+      `data/witchmod/text/marriage.json` (`/reload`-able) via a new `data/MarriageLines` (SimpleJson listener, keys
+      `open`/`vows`/`pronounce`/`objections`, `{v}`/`{s}` placeholders) — the inline pools were removed. Boots clean.
+      **Polish pass 2:** Marriage's two OUTCOME lines are now editable too (marriage.json keys `kiss`/`bolt`); the
+      "zombie all along" outcome was REMOVED, leaving **kiss** (hearts + level-up fanfare) and **cold-feet bolt** (the
+      spouse legs it down the aisle) — `marriageOutcome` is now `rng.nextInt(2)`. **Bowling** knockback cut to a tiny
+      nudge (0.25) — the stun carries the impact, feels heavier. Boots clean.
+      **Stuck-forever / reload-strand fixes:** the return position was only in a TRANSIENT `SAVED` map, so a
+      relog/world-reload mid-cutaway stranded the watcher at the overhead vantage. Now ALSO persisted in a new
+      serialized `CUTAWAY_RETURN` attachment (dim+pos+yaw/pitch+invis/nograv), written at cutaway start, cleared at
+      end; the relog-recovery path and `endCutaway`'s no-SAVED fallback both teleport HOME from it via a shared
+      `restoreTo`. `endCutaway` now clears `CUTAWAY_TARGET`/`CUTAWAY_LOOP` FIRST (camera un-sticks + looped SFX stop
+      even if a later step throws), and the gag start/tick step in `onTick` is exception-guarded so a misbehaving gag
+      can never abort the end-of-cutaway logic (was the "stuck spectating forever + helicopter loop droning on" cause).
+      Also fixed the user-edited `marriage.json` (trailing comma after the last `open` line broke the whole file, so
+      the marriage gag silently lost its lines). ⏳ helicopter.ogg still needs a seamless-loop re-export (the loop
+      itself now always stops on gag/cutaway end; the poor loop is the audio file, not the code).
+      **Debug-drive fix:** `/bewitch debug force witchmod:cutaway_gag` starts a cutaway WITHOUT applying the curse, so
+      the gag (driven by the curse's `onTick`) never fired and you watched forever. The in-flight cutaway is now
+      progressed every server tick from `CurseEventHandler.onServerTick` via `CurseCutawayGag.driveActiveCutaway`,
+      independent of whether the curse is applied — so debug-forced cutaways fire + end, and a cutaway whose curse
+      was removed still cleans up. `onTick` returns early while `CUTAWAY_TARGET>=0` (the tick driver owns it), so
+      it's never double-ticked.
+      **Marriage overhaul — FOUR paths + cinematic camera** (`startMarriage`/`tickMarriage`, ceremony length
+      `cutawayMarriageTicks` 260 so it always completes): (0) **normal** — pronounce → romantic push-in → kiss with
+      hearts + level-up + bell → slow orbit of the newlyweds; (1) **objected** — a player-MIMIC (a `DreamEntity`
+      named after a random ONLINE player, villager fallback) bursts in on an anvil-land/goat-scream, "I OBJECT!!!",
+      strides at the couple with chat lines (marriage.json `objector`), hard cuts between an objector face-zoom and
+      the couple's shocked hop, then the wedding is called OFF (`objected`) and the spouse bolts; (2) **explode** —
+      ominous creep-in on the spouse (TNT-prime hiss) then it just detonates (`level.explode` MOB-gated,
+      `cutawayMarriageExplodePower` 2.0) with the deadpan "<name> exploded for some reason"; (3) **what** — the
+      officiant line becomes just "§7[Officiant] what" and the spouse is 50/50 flung away or turned into a strider.
+      **Camera:** new synced `CUTAWAY_LOOK` lets a gag aim the spectate camera at something OTHER than the victim
+      (the objector, the doomed spouse); the camera POSITION is the watcher's body, teleported each tick via
+      `applyCam`/`camShot` (hard cuts + smooth pushes + orbits) around the couple. Reset on teardown
+      (endCutaway/clearSpectateState/finishGag). Debug can force a path: `/bewitch debug force witchmod:cutaway_gag
+      @s villager object|explode|what|normal`. ⏳ pending: Oliver's in-game camera tuning + any dedicated objection
+      sting (goat-scream/anvil placeholders for now).
+      **Slow + rich overhaul pass:** ceremony length `cutawayMarriageTicks` 260→**440** (~22s) with the whole timeline
+      re-spaced deliberately slow (gentle sub-0.05 camera pushes over long holds instead of quick cuts). Added a
+      real **Officiant** villager (conducts + speaks the [Officiant] lines), **6 seated guests** down both sides of
+      the aisle (villagers/allay/cat/wandering-trader, NoAi) who **hop + cheer** at the kiss and **gasp** at the
+      objection/explosion (`guestsReact`), and constant **cherry-blossom petals** drifting over the aisle
+      (`marriagePetals`). Each path's climax now lands much later (normal kiss @310 with a "You may kiss..." beat +
+      guest celebration; objection burst @224 with a longer 7-block dramatic walk-in, slower stride + face/reaction
+      cuts, off @330; explode builds smoke+ticks to @262; "what" @216 with an added "anyway" @285). All added
+      entities go in `temps` (despawn at cutaway end). Boots clean.
+      **Pacing + anti-teleport pass:** the OBJECTION was still too fast/unreadable, so the marriage now runs a
+      PER-PATH length (`cutawayMarriageTicks` base 500; objection +220=720, explode −20, what −60) with every beat
+      re-spaced ~50+ ticks apart: objection = record-scratch @300 → burst-in from 9 blocks @350 → objector lines
+      @405/505/620 alternating with held couple-reaction cuts @455/565 (camera cut to the objector at 500/590 just
+      before each line) → wedding OFF @665, over a very slow 0.03-block/tick menacing walk-in and 0.06 camera
+      pushes. Intro beats also spread (0/45/135/205/265). **⚠ FOOLPROOF ANTI-TELEPORT GUARD** (the gag must never
+      become "teleport to any player"): the return position is persisted in `CUTAWAY_RETURN`, and because
+      `CUTAWAY_TARGET` is sync-only (resets to -1 on relog so the tick driver skips them), a new
+      `CurseCutawayGag.recoverIfStranded` runs every server tick for any NON-spectating player AND on
+      `PlayerLoggedInEvent` — if a return tag is still stored (relog / server restart / death / curse stripped),
+      it teleports them back to their real pre-cutaway spot and clears state. They can never be left at the
+      overhead vantage next to whoever they cut to. Boots clean.
+      **Stale-config fix:** explode/"what" were ending abruptly with NO event because the per-path length was
+      `configBase ± offset` and the on-disk `cutawayMarriageTicks` was still the original 260 (NeoForge keeps
+      existing config values when the code default changes), so explode(240)/what(200) ended before their beats
+      at t=300+. Now each path floors to the ticks its choreography actually needs — `Math.max(base, {normal 500,
+      object 720, explode 480, what 440})` — so the config can only EXTEND a path, never cut it off. Works
+      regardless of a small/stale config value.
+      **Bowling rework + Parade gag (2026-08-21):** **Bowling** is now crowd-weighted — `pickGag` counts
+      LivingEntities within 6 blocks of the victim and, past `cutawayBowlingClusterMin` (3), returns Bowling on a
+      `cluster × cutawayBowlingClusterWeight` (0.12, capped 70%) roll, so a group makes it far likelier. The ball
+      now **PIERCES**: instead of stopping on the victim it flies through and bowls over EVERY entity in its path
+      (`bowlPin` — a scatter-launch along the ball's travel + up, damage + brief stun), tracked in `bowledIds` so
+      each pin is hit once; it only ends when it's flown past the whole cluster. All other bowling behaviour
+      (dodgeable straight flight, up-to-4 sequential bowls) is unchanged. NEW gag **Parade** (`startParade`/
+      tickGag `PARADE`, `cutawayParadeCount` 14): a column of varied entities (`PARADE_TYPES`) spawns to one side
+      and MARCHES dead-straight across the victim's front — all `setNoAi(true)`, moved BY HAND each tick
+      (`move()` + manual gravity + a hop when `horizontalCollision`) so they walk over ANY terrain instead of
+      floating/sticking (2026-08-22 fix), spawn-grounded via the heightmap — then despawn (temps) with the
+      cutaway. **Confetti** rains over the column. **Both** parade tracks play together (2026-08-22) —
+      `curse.cutaway.parade_drum` + `curse.cutaway.parade_march` at the marching column, at 55% volume (45%
+      quieter), heard by everyone nearby, cut via `ClientboundStopSoundPacket` in `finishGag`. Anything the
+      column **tramples** is knocked away + hurt with the custom `witchmod:parade` damage type
+      (`cutawayParadeDamage` 6, bypasses armour, death "%s was trampled by the parade"). Debug-forcible
+      (`… cutaway_gag @s villager parade`).
+      **Camera framing (2026-08-23):** the parade is now framed to the SPECTATOR camera, not the victim's own
+      facing (which was arbitrary relative to where the cutaway camera looks from). `startParade` takes the
+      `watcher` and builds "forward" from the camera→victim direction; the column marches perpendicular to THAT
+      (so it sweeps across the frame) and sits BETWEEN the camera and the victim (`victim − forward×2.5`) so it
+      fills the middle of frame, close and unmissable, instead of shrinking off behind the victim.
+      **Broken-parade fix (2026-08-24):** it spawned marchers at the SURFACE heightmap, so for an underground
+      victim the column appeared up on the surface near the spectator camera — and the trample loop then hurt
+      the SPECTATOR. Now marchers spawn at the victim's own Y (gravity settles them onto the real floor) and the
+      trample explicitly excludes the `watcher` — the cutaway must never damage the spectator.
+      **Wedding music (2026-08-15):** `curse.dweller`... no — `curse.cutaway.wedding` OGG plays ONCE at the
+      ceremony (SoundSource.RECORDS, `level.playSound` so all nearby incl. the spectator hear it; the track
+      outlasts the scene) and is cut dead via `ClientboundStopSoundPacket` to everyone nearby when an absurd
+      twist fires (objection @350 / explode creep @300 / "what" @300) or the wedding ends (`finishGag`).
+- [x] Carelessness (NEW, 2026-08-21) — Black Wool. Purely a client-render curse: the vanilla health layer is
+      cancelled (`client/CarelessnessHud`, `RenderGuiLayerEvent.Pre` on `PLAYER_HEALTH`) and every heart is drawn
+      IDENTICAL + pure black (vanilla heart sprite tinted black over the container), so you genuinely can't read
+      your health — the real value + all mechanics untouched. Off synced `CARELESSNESS_ACTIVE`. Discovers on apply.
+- [x] Narcolepsy (NEW, 2026-08-21) — White Bed (soft-adjacent to Homebody's Red Bed). Every 35s–5.5min (gap
+      `sqrt(random)`-biased toward the LONGER half) you drop asleep where you stand for 4–12s: server sets the
+      sleeping pose (`setSleepingPos`+`setPose(SLEEPING)`, re-asserted each tick so vanilla's sleep bookkeeping
+      can't cancel it) + a synced `NARCOLEPSY_SLEEP_END`. Client (`client/NarcolepsyClient`) kills ALL input
+      (movement/interaction/look pinned), washes the screen near-black, and shows a **MASH TO WAKE bar that
+      constantly DRAINS** (`DECAY` 0.022/tick) so you must hammer the movement keys faster than it falls — a real
+      little struggle; filling it sends `NarcolepsyWakePayload` → `CurseNarcolepsy.wakeEarly`. Debug-forcible. 4
+      config knobs.
+      **Polish (2026-08-22):** the lying-down pose is now re-asserted CLIENT-side too (`setSleepingPos`+
+      `setPose(SLEEPING)` on the local player each tick) so the model actually lies down, and the view is
+      FORCED to first person for the sleep (saved/restored on wake). The dark overlay is now a **vignette**
+      (faint centre, dark edges via concentric frames) rather than a flat wash. **Fast healing** while asleep
+      (`heal(1.0F)` every 7 ticks — 30% slower than the first pass) and **intermittent snores** at varied pitch
+      (`curse.narcolepsy.snore`, every ~2.25s).
+      **Camera-glitch fix (2026-08-22):** the client no longer forces the pose locally or re-asserts first
+      person each tick, and the server dropped its per-tick velocity correction — those were battling the
+      server and juddering the camera. The pose is now server-only (syncs to the local model too via the
+      sleeping-pos), first person is set once on nod-off + restored on wake. **Taking a hit** while asleep now
+      fills 40% of the mash bar (client-side health-drop detect), and **left/right click** count toward mashing
+      alongside WASD/space. Damage lands normally while asleep (no invulnerability).
+      **Physics-intact rework (2026-08-23):** the server no longer sleeps the player AT ALL — no `setSleepingPos`/
+      `setPose` anywhere server-side — so gravity, fall damage, collision and knockback all stay fully vanilla
+      while "asleep" (Oliver: "still be affected by gravity and take fall damage etc"). The sleep is now purely a
+      synced end-tick + client effects: input is dead, the screen darkens, the mash bar runs. The lying-down
+      ANIMATION is faked entirely CLIENT-side and only for OTHER viewers — `NarcolepsyClient.renderOtherSleepers`
+      iterates `mc.level.players()` and, for any other player whose `NARCOLEPSY_SLEEP_END` is in the future,
+      sets `setSleepingPos`+`SLEEPING` pose on their RemotePlayer (the server keeps them standing and never sends
+      a pose change, so the fake holds until they wake; tracked in a `FAKED` set to restore on wake). The LOCAL
+      player gets NO pose at all — that's what finally killed the camera flicker (the earlier server-driven pose
+      was the flicker's source); the first-person + look-pin stays for a steady view. Healing every 7 ticks +
+      snores unchanged.
+      **Depth + idle + Zs + third-person-debug pass (2026-08-23):** (1) **Rarer deep sleeps** — each sleep rolls a
+      DEPTH (0 normal / 1 deep `narcolepsyDeepChancePercent` 24% / 2 very deep, a further `narcolepsyVeryDeepChancePercent`
+      33% of those): deeper sleeps LAST longer (×1.4 / ×1.8) and need MORE mashing (client scales per-press gain
+      ×0.62/×0.42 and the drain ×1.15/×1.30), with a darker wash + a "DEEP SLEEP — MASH(!/ HARD!)" prompt. Depth is
+      one synced int `NARCOLEPSY_DEPTH` (low digit = tier, +10 = the debug flag). (2) **Idle accelerates the
+      countdown** — standing still past `narcolepsyIdleAccelTicks` (60 = 3s) shaves an extra tick off the next-sleep
+      timer each tick, so the countdown runs at DOUBLE speed while idle (a narcoleptic nods off sooner sitting still);
+      tracked via a per-player last-position/idle-ticks map. (3) **Sleep Zs** — a new custom particle
+      `witchmod:sleep_z` (`WitchModParticles` + `client/SleepZParticle`, a rising/​swaying/​fading `TextureSheetParticle`
+      off `textures/particle/zparticle.png`) is emitted server-side from the sleeper's head every 11 ticks, so every
+      viewer sees them. (4) **Slightly stronger decay** (0.022 → 0.026). (5) **Third-person debug** —
+      `/bewitch debug force witchmod:narcolepsy @s thirdperson` (also `deep`/`verydeep`) starts a sleep, forces
+      THIRD_PERSON_BACK, and poses the LOCAL player lying (re-asserted each tick — vanilla's `updatePlayerPose` keeps
+      SLEEPING while a sleeping-pos is set) so you can watch your own animation; restored on wake. `debugArgs` lists
+      the three. First custom particle in the mod (registry + provider + definition JSON + atlas texture).
+      **Translatable text (2026-08-23):** the three on-screen prompts are now `Component.translatable`
+      (`witchmod.narcolepsy.mash` / `.mash_deep` / `.mash_very_deep` in the lang file) so they're editable.
 
 **BLESSINGS (44 listed; header says 45 — reconcile if a 45th is intended)** — renamed ids: Workman =
 `tools_dont_use_durability`, Personal Trainer = `trainer`, Hawk Guy = `locked_in`.
@@ -3064,7 +3873,12 @@ forcible.** Guidelines:
 - [x] Army — nearby hostile MONSTER mobs (not NeutralMobs) go neutral: acquisition vetoed via LivingChangeTargetEvent + damage cancelled backstop; getting hit by a genuine aggressor rallies the horde onto it (re-aimed each sweep), sparing its own kind. Discovers when a hostile in range+LoS isnt attacking you.
 - [x] Reflect — projectiles caught on ProjectileImpactEvent, sent precisely back at the shooter 1.5x faster (no homing); impact cancelled, re-ownered to you (cant re-hit you, can hurt shooter), nudged clear. Own/owner-less ignored. Discovers on first reflect.
 - [x] Soul Bond — nearest LivingEntity (mob/pet/player) gets custom soul_bound MobEffect + golden particles and takes 40% of hits you take (you eat 60%); golden trail to whoever paid. STICKS until the bound leaves radius (not a worse Thorns). Custom soul_bond damage type, never re-shared.
-- [x] Bodyguard (CUSTOM ENTITY) — black-leather sunglasses skeleton bound to you: WARNING (players+villagers by name) → AGGRESSION (warning hits/shoves; patience+2 warnings → draws sword) → ATTACKING (anything that hits you/it, until dead or past leash). Teleports to you, never targets/retaliates the anchor, death breaks blessing. No dupes (transient + CANONICAL self-heal). Local chat from bodyguard.json.
+- [x] Bodyguard (CUSTOM ENTITY) — black-leather sunglasses skeleton bound to you: WARNING (players+villagers by name) → AGGRESSION (warning hits/shoves; patience+2 warnings → draws sword) → ATTACKING (anything that hits you/it, until dead or past leash). Teleports to you, never targets/retaliates the anchor. No dupes (transient + CANONICAL self-heal). Local chat from bodyguard.json.
+      **Respawn pass (2026-08-23):** its death NO LONGER breaks the blessing — instead a replacement is hired
+      `bodyguardRespawnTicks` (7200 = 6min) later. The death hook (`onBodyguardDeath`) schedules it + announces a
+      `fell` line; `onTick` waits out a per-anchor `RESPAWN_AT` timer then `summon`s a fresh one + speaks a
+      `respawn` line. Both keys are editable in `bodyguard.json` (broadcast in the entity's `<Bodyguard>` voice to
+      players within `bodyguardChatRadius`).
 - [x] Payday (renamed from Tax Man blessing) — see §6 entry.
 - [x] Hype Man — nearby players praise you by name in chat: combat (AttackEntityEvent), pickup, loot (ChestMenu open), building (block place), and ambient sighting. Specific actions need a real nearby player; only the sighting has a no-player fallback using a made-up name from the shared usernames.json. Shared cooldown + chance, writable hypeman.json. Any music disc via Effect.sacrificialTag() Rule-9 hook. No mechanical effect.
 - [x] Workman (renamed from Tools Dont Use Durability; item Netherite Scrap→Obsidian) — tools AND armour take no durability: watches the 6 equipment slots and heals any wear straight back (inverse of Heavy Handed), so no permanent Unbreakable component and nothing can break. No config.
@@ -3093,8 +3907,15 @@ forcible.** Guidelines:
 - [ ] Blacksmith
 - [ ] Unseen
 - [ ] Silver Tongue
-- [ ] Hot Stuff
-- [ ] Bouncy
+- [x] Hot Stuff — Coal. A lit furnace/blast furnace/smoker you're LOOKING at (within `hotStuffLookRange` 8) cooks
+      **5× faster** (`hotStuffSpeedMultiplier` 5.0): `AbstractFurnaceBlockEntity.serverTick` is run the extra times,
+      so fuel burns proportionally faster too (fuel-per-item unchanged, just quicker). Discovers on first boost.
+      (Campfires deferred — awkward cook-tick signature.)
+- [x] Bouncy — **MOVED TO A CURSE** (2026-08-19, Oliver's call). `BlessingBouncy` → `CurseBouncy` (curses package,
+      `EffectCategory.CURSE`, registered `Curses.BOUNCY`, all `Blessings.BOUNCY` refs repointed). Same rubber
+      physics (rebound/build-height client-side, walk/sprint entity bounces, melee "get off me") PLUS a new
+      `JUMP_STRENGTH` +50% (`bouncyJumpBonus`, transient + re-asserted) so you spring higher while afflicted.
+      Item stays Slime Ball.
 - [ ] Excavation
 - [ ] Angler
 - [ ] Laugh Track
@@ -3188,59 +4009,565 @@ forcible.** Guidelines:
       onto the grid + re-samples the block underfoot (borrow other blocks). Only a real ACTION (attack/mine/use/place/interact)
       pops it back. Exact grid height: the anchor CELL is computed from the SUPPORT block and synced as a `BlockPos`
       (`PROPHUNT_ANCHOR`), so the render is never sunk by the feet resting below the integer. POP + POOF on each transition.
+- [x] Blessing of Speed (NEW, 2026-08-19) — Sugar. Its OWN `MOVEMENT_SPEED` +60% modifier applied ONLY while
+      sprinting (toggled in onTick), so it's NOT the Speed effect and STACKS with Speed potions + other blessings
+      (e.g. Ninja). Cool FIREWORK + ELECTRIC_SPARK spark trail while sprinting. **FOV zoom is TRIMMED, not
+      cancelled** (2026-08-21): `onSpeedFov` keeps ~30% of the natural sprint zoom (`1 + (natural-1)*0.3`) off
+      synced `SPEED_ACTIVE`, so sprinting still reads as fast without the nauseating full zoom for that speed.
+      Discovers on first SPRINT (not on apply). 1 config knob.
+- [x] Forgiveness (NEW, 2026-08-19) — Name Tag. Entity hitboxes are effectively ~40% bigger BUT ONLY FOR YOU:
+      (a) a MELEE near-miss connects — client `LeftClickEmpty` handler (`onForgivenessAssist`) does an enlarged
+      raycast and attacks the best candidate; (b) YOUR projectiles curve onto an entity whose enlarged box they
+      were about to pass through (`ProjectileBlessingHandler.forgivenessTarget` → `steer`). Inflate = max(config,
+      bbWidth×0.2) so tiny/baby mobs get a real boost. Synced `FORGIVENESS_ACTIVE` flag for the client half.
+      Discovers on the first assisted SHOT (not on apply). 2 config knobs.
+- [x] Drive (NEW, 2026-08-19) — Golden Carrot. Nearby ADULT animals within `driveRadius` have their post-breeding
+      love-lockout cleared each tick (`setAge(0)` for age>0; babies left alone), so you can breed a herd as fast as
+      you can feed them. Occasional heart particles. Discovers on the first cleared cooldown (not on apply). 1 knob.
+- [x] Vein Miner (NEW, 2026-08-19) — **IRON ORE** (was Diamond Pickaxe). Break an ORE or LOG and the whole
+      connected vein/tree comes down (26-neighbour flood-fill, `veinMinerMaxBlocks` cap 64), at HALF durability per
+      extra block. **Fortune works BOTH ways**: `Block.dropResources(...tool)` runs the loot table with the tool
+      (enchant Fortune/Silk) AND fires NeoForge `BlockDropsEvent` with the breaker set (so the Fortune BLESSING's
+      hook boosts them too). Cool break FX — per-block crack dust + CRIT + HAPPY_VILLAGER, ENCHANT + FLASH flourish
+      at the origin. `BUSY` ThreadLocal guards recursion. `BlockEvent.BreakEvent` hook.
+- [x] Collector (NEW, 2026-08-19) — Barrel. Nearby dropped items drift to you; XP magnet on steroids (huge radius/
+      speed). **GRACE period** (`collectorGraceTicks` 60 = 3s via `item.tickCount`) so fresh drops settle before
+      homing; **CROUCH** shrinks the radius hard (`collectorCrouchRadiusMultiplier` 0.15) to grab specific drops. 7 knobs.
+- [x] Restock (NEW, 2026-08-19) — Chest. Fires on USE not on moves: watches the hotbar/offhand for a slot whose
+      SAME item DROPPED in count (a place/consume) and tops it back up to a full stack from the backpack — so
+      placing torches keeps your hand at 64 while you have spares. A type-change/empty (a MOVE) is ignored, fixing
+      the phantom-refill-on-reorganise bug.
+- [x] Sanguine (NEW, 2026-08-19) — Red Dye. Natural regen throttled to 20% BUT 30% LIFESTEAL of all damage you deal
+      (melee + projectile, `LivingDamageEvent.Post`). Cool FX: a stream of blood dust drawn FROM the victim (wound +
+      DAMAGE_INDICATOR) INTO you (HEART), with a subtle AMETHYST_BLOCK_CHIME "restored" cue (replacing the drink glug).
+      Discovers on first lifesteal.
+- [x] Homebody (NEW, 2026-08-19) — Red Bed. Within `homebodyRadius` of your spawn point (bed/anchor if set here,
+      else overworld shared spawn) you get Regeneration + Haste (ambient, refreshed each tick). Discovers near home.
+- [x] Sonar (NEW, 2026-08-19) — Sculk Sensor (⚠ Spectral Arrow is Steady Hands'). Every `sonarIntervalTicks`
+      (**140s**) it spends a **2.5s CHARGE** (`sonarBuildupTicks` 50) — a radar-green ring gathering in + a rising
+      hum — then a pulse (custom `blessing.sonar.ping`) reveals entities within `sonarRadius` **70**: GLOW **2.5s**
+      (`sonarGlowTicks` 50) + your-eyes-only pointers/blips at each in a coherent **radar-GREEN** palette (down-to-
+      earth, not rainbow, not blue). CROUCHed players caught only within 60% radius; each hit shaves 1s off the
+      timer. **Next-pulse time shows in the Scrying Mirror** (`scryingDetail`). Debug-forcible. 7 config knobs.
+- [x] Heavy Hitter (NEW, 2026-08-21) — Mace. Your melee knockback is doubled (`heavyHitterKnockbackMultiplier`
+      2.0). Same mark-then-boost pattern as Backstabbing: the melee hit (`LivingIncomingDamageEvent`, direct
+      entity = attacker) marks the victim for the tick, and `LivingKnockBackEvent` multiplies the FINAL strength
+      — which already includes Knockback-enchant contribution — so it stacks MULTIPLICATIVELY with Knockback.
+      Discovers on first hit. 1 config knob.
+- [x] Speed Demon (NEW, 2026-08-21) — Carrot on a Stick (⚠ Lightning Rod requested but is Comic Relief's).
+      ANY ridable mount is doubled: **living mounts** via a transient `MOVEMENT_SPEED` ×`speedDemonMountMultiplier`
+      (2.0) modifier (ADD_MULTIPLIED_TOTAL), stripped on dismount/swap/end (tracks the boosted mount id per
+      rider); **minecarts** (server-authoritative, delta clamped to a hardcoded max) via an EXTRA per-tick
+      `move()` of (mult-1)× their travel, which the clamp doesn't touch; **boats** (client-authoritative — a
+      server boost wouldn't stick) via `client/SpeedDemonClient` scaling the ridden boat's velocity each client
+      tick, off the synced `SPEED_DEMON_ACTIVE` flag. A spark/cloud/firework **speed trail** flings off any
+      boosted mount while it's moving (boat spray is client-side). Discovers on first boosted mount. 1 config knob.
+- [x] Flight (NEW, 2026-08-23) — **Ghast Tear** (Oliver's pick; RESOLVED the knock-on collision by moving
+      **Twist of Fate → End Crystal** (free). The earlier Wind Charge / Sugar collisions are also resolved:
+      Flight left Wind Charge back to Windfall, Confusion took Rabbit Hide (free) so Sugar stays Blessing of
+      Speed's — all sacrificial items are distinct again). **Refinements:** the energy bar sits well above the health/hunger row
+      (was clipping); drain cut 60% (`flightDrainPerTick` 0.007→0.0028); a ~1s acceleration BUILDUP from a slow
+      start to a slightly-lower max rise (`flightRiseSpeed` 0.42→0.34, `flightAccelTicks` 20); a subtle MAGICAL
+      shimmer (END_ROD + ENCHANT) close in around you while rising (was a low CLOUD jet); **fall damage now
+      applies** (cancel removed); hitting 0 energy DEPLETES you — grounded (bar greyed, `FLIGHT_ACTIVE` 2) until
+      it refills to 20%; and the bar auto-HIDES after 2s at full charge unused (`FlightClient.barHidden`).
+      **Tuning (2026-08-24):** shimmer raised +1.5 blocks (to your upper body); a `flightRegenDelayTicks` (8 = 0.4s)
+      pause after flight ends before the bar refills; drain +15% (`flightDrainPerTick` 0.0028→0.0032); and
+      **sprint + a movement key GLIDES** — `flightSprintRiseMultiplier` (0.4) cuts the rise and you shoot forward
+      along your look at `flightSprintHorizontal` (0.62 b/t). ⚠ note the on-disk run configs were STALE
+      (flightDrainPerTick/RiseSpeed/spelunking* kept old defaults) — patched, so the earlier tuning finally applies.
+      **Drain model (2026-08-24):** the client reports a rise MODE (0 none / 1 push-up / 2 glide) via the
+      `FlightRisePayload`; the server drains per mode — plain push-up = `flightDrainPerTick`, glide = ×
+      `flightGlideDrainMultiplier` (1.5, "50% more than the push up"). Plus a constant `flightAirborneDrain`
+      (0.0008) just for being off the ground even when not rising, so you can't loiter aloft — the bar refills
+      ONLY once you land (past the regen delay).
+      **Jump vs fly (2026-08-24):** a quick TAP of jump is now just a normal jump — flight only engages once jump
+      is HELD past `flightHoldTicks` (4 = 0.2s), and the airborne drain only starts after `flightAirborneGraceTicks`
+      (12 = 0.6s) off the ground, so a natural jump costs nothing and you can hop about + refill freely.
+      Creative-style flight tied to a resource: hold JUMP to rise
+      (`flightRiseSpeed`), draining a slim yellow energy bar drawn just above the XP bar (`client/FlightBarLayer`,
+      lighter glow at the filled end). The rise is client-authoritative (`client/FlightClient` sets the y-velocity
+      + resets fall distance, reporting the rising state to the server via a `FlightRisePayload` C2S only on
+      change); the SERVER owns the synced `FLIGHT_ENERGY`/`FLIGHT_ACTIVE`/`FLIGHT_LOCKOUT_END`, draining while
+      rising and refilling otherwise. Taking a hit spends `flightDamageCost` (20%) and knocks you out of flight for
+      `flightLockoutTicks` (0.6s); fall damage is cancelled while active. 5 config knobs.
+- [x] Thunder (NEW, 2026-08-23) — Trident. A static charge builds while you're NOT swinging, through 4 tiers
+      (3/5.5/8/13s); your next MELEE hit discharges it, burning the target and arcing chain-lightning (30% of the
+      hit damage per arc, capped flat at 12). T1 burn+1 chain · T2 burn+2 chains (each burns) · T3 2 chains that
+      each arc once more to a fresh foe · T4 a real (visual-only) lightning bolt + 6 bonus damage + 2 chains that
+      each arc to 2 more. Chains use `spawnChains` (start count + per-chain children + depth by tier), each jump
+      to the nearest un-hit `LivingEntity` within `thunderChainRange`. The discharge hook is `LivingDamageEvent.Post`
+      in `BlessingEventHandler` (direct entity == the player = melee); re-entrancy is safe because `discharge`
+      resets the charge to 0 BEFORE the chain hurts fire (so the re-triggered discharge sees tier 0 and returns).
+      A synced `THUNDER_TIER` drives the aura; a `TRIDENT_THUNDER` cue + flash fires on reaching T4.
+      **Refinements (2026-08-23):** the ambient per-tick crackle was removed (it was obtrusive) — now just a
+      SINGLE glint (`GLOW`+spark) + the ready sound at max charge. Chains are cooler + scale with charge: a
+      jagged jittering arc (`beam` forks more at higher tiers, adds WAX_OFF/END_ROD) and an `impact` burst at
+      each struck entity (sparks + WAX_ON, END_ROD at T3, a FLASH at T4). Chain damage is now a flat base
+      (`thunderChainBase` 2) PLUS the 30%, then capped at 12. 10 config knobs. Debug: force a tier (`… thunder @s 4`).
+- [x] Spelunking (NEW, 2026-08-23) — Torch. A miner's sixth sense: every `spelunkingIntervalTicks` it scans the
+      `spelunkingRadius` box for ore-tag blocks and, for YOUR EYES ONLY (per-player `ClientboundLevelParticlesPacket`,
+      the Sonar trick), marks each with a colour-coded dust mote that shows through stone (cyan diamond / green
+      emerald / gold / red redstone / blue lapis / orange copper / tan iron / grey coal / amber other). Reworked
+      to a SMALL constant radius (`spelunkingRadius` 14→7, `spelunkingIntervalTicks` 60→40) so it's a steady
+      close glow with BIGGER, denser motes (dust scale 1.2→1.7, a cluster + a short rising wisp per ore) so
+      they're actually noticeable. `markOresAround` is shared but Sonar no longer calls it (Oliver's call — ores
+      removed from the Sonar sweep). Each ore also gets FULL-BRIGHT GLOW + END_ROD motes (unaffected by block
+      light) so they stay visible in a pitch-black cave where the tinted dust would be too dark. 2 config knobs.
+- [x] Safety (NEW, 2026-08-23) — Respawn Anchor. Crouch + stand still + look DOWN to channel a 10s
+      (`safetyChannelTicks`) return: an action-bar countdown, a rising END_ROD sparkle column + beacon hum, then a
+      FLASH and you're teleported to your spawn point. **NOT consumed** (Oliver's call) — you keep the blessing but
+      it goes on a `safetyUseCooldownTicks` (7200 = 6min) cooldown after a successful trip, with a gold flourish
+      + chime + "ready" cue the moment it comes back. Moving
+      or taking a hit cancels it and imposes a `safetyCooldownTicks` (6s) cooldown. Gold-toned to match blessings.
+      2 config knobs. Debug forces the teleport. **Refinements (2026-08-23):** looking down is now only the
+      ACTIVATION requirement — once channelling you can look anywhere (continue needs crouch + still); a little
+      movement LEEWAY (~0.14 blocks/tick tolerance + 5 grace ticks); purple particles replaced with a gold dust
+      column + tightening ring; and a much bigger gold/END_ROD/totem burst + chime at BOTH the departure and
+      arrival points.
+- [x] Disguise (NEW, 2026-08-23) — Armor Stand. You're costumed as a cow/sheep/pig (consistent per-UUID). Hostiles
+      stay passive — vetoed at the source via a `LivingChangeTargetEvent` gate on any `Enemy` targeting a currently-
+      disguised player, plus a per-tick aggro clear. Getting HIT (`BlessingEventHandler`) or getting within
+      `disguiseBreakRadius` of a hostile BREAKS the costume (a POOF + flip `DISGUISE_TYPE` to -1 → your real model
+      + nametag show); you must go un-hit for `disguiseReturnTicks` (12s) for it to return. The mob render + hidden
+      nametag are client-side (`client/DisguiseClient`: cancels `RenderPlayerEvent.Pre`, renders a cached dummy
+      Cow/Sheep/Pig positioned + rotated to the player, its legs animated from the player's per-tick movement). 2
+      config knobs. ⏳ the dummy uses the WIDE model + a simple walk-anim copy — polish (slim skins, arm-swing) later.
+      **Refinements (2026-08-23):** the costume also SOUNDS right (occasional cow/sheep/pig ambient noises), and
+      DEALING damage breaks it too (an `AttackEntityEvent` hook), not just taking a hit.
+- [x] Confusion (NEW, 2026-08-23) — Rabbit Hide (free item; was briefly Sugar but that collided with Blessing
+      of Speed, so it moved to Rabbit Hide). **Refinements (2026-08-23):** nearby hostiles now AUTO-aggro onto the clones (idle or player-
+      targeting ones get pointed at a clone); clones POP INSTANTLY into dust on any hit with NO damage event
+      (`hurt` discards + returns false — no combat/knockback/hitmarker) and a subtle "pff" (WOOL_BREAK, not the
+      teleport sound); and a stream of dust runs FROM you TO each new clone so it looks like it peels off you
+      rather than appearing from thin air. You throw off exact clones of yourself — a real `CloneEntity`
+      (`entities/CloneEntity`, a 1-HP `PathfinderMob` rendered as a PlayerModel wearing the OWNER'S resolved skin +
+      the owner's nametag via `client/CloneRenderer`) that wanders, swings at nearby monsters and looks around
+      ("fake actions"), so onlookers and mobs can't tell which is you. One hit pops it in a flash of dust
+      (`die`/lifetime → POOF). `BlessingConfusion` spawns up to `confusionMaxClones` on `confusionIntervalTicks`,
+      but only RARELY when there's no audience (other players / hostile / angry-neutral mobs) to fool; it also tugs
+      some nearby hostiles onto the clones each ~1s. 3 config knobs.
+- [x] Photosynthesis (NEW, 2026-08-23) — Sunflower. In direct daylight (sky access, day, not raining) you slowly
+      regenerate + gain a little hunger; standing in WATER while sunlit makes it stronger (Regen II + more hunger).
+      The sunny opposite of Basement Dweller. 1 config knob.
 
-**NEUTRALS (11)**
-- [ ] Wooliam
-- [ ] Disguise
-- [ ] Anvil
-- [ ] Letter
-- [ ] Creeper
-- [ ] Useless Trade
-- [ ] Moovin
-- [ ] Celebration
-- [ ] Mansplaining
-- [ ] Damage
-- [ ] Mirror (backfire-only)
-
-**GLOBALS (15)**
-- [ ] Inventory Shuffle
-- [ ] Russian Roulette
-- [ ] Player Shuffle
-- [ ] Hot Potato
-- [ ] Spot Shuffle
-- [ ] Gravity Flip
-- [ ] Party Time
-- [ ] Auction
-- [ ] Apocalypse
-- [ ] Aporkalypse
-- [ ] TNT Rain
-- [ ] Silence
-- [ ] Firework Show
-- [ ] Floor Is Lava (global)
-- [ ] Gamble
+**NEUTRALS & GLOBALS — ❌ CUT ENTIRELY (2026-08-20).** The whole event system was removed: the `events/`
+package (all neutral + global classes), `BewitchmentEvent`/`EventCategory`/`GlobalCharge`, the Event registry,
+the Afflicted status subsystem (`AfflictionManager`/`ActiveAfflictions`/the `afflicted` mob effect + its
+`StatusEffectSync` wrapper), the `/bewitch event` and `/bewitch forcestop` commands + their lang keys, the
+`globalsEnabled`/`globalBaseChancePercent`/`globalRechargeHours` config, the ritual's neutral-failure fallback
+(now a plain fizzle), and the Compendium's "Rumours: Events" section. The Mirror BACKFIRE (a random curse onto
+the caster) survives — it was always inline in the ritual, never part of the events package. Also deleted the
+retired `CurseMansplainer` (§5, was CUT).
 
 **ITEMS (Section 4)** — start only after every attachment above is checked off.
 - [ ] Cursed Essence
-- [ ] Player Essence
-- [ ] Compendium
-- [ ] Voodoo Doll
-- [ ] Needle
-- [ ] Ward
-- [ ] Scrying Mirror
+- [x] Player Essence (2026-08-21) — FINALISED (prereq for the ritual). Own class `PlayerEssenceItem extends
+      BoundPlayerItem`, `stacksTo(1)`, an enchant GLINT while bound (`isFoil`). Tooltip names the target by
+      username (`item.witchmod.player_essence.target`) even offline + a client-only ONLINE/OFFLINE line (reads the
+      tab list via `EssenceTooltipClient`); an UNBOUND essence shows the editable funny `no_target` lang line and
+      uses the plain `player_essence` texture. **Per-player COLOUR** tied to UUID forever: a client item-model
+      property `witchmod:essence_colour` returns `floorMod(uuid.hashCode(),16)/16`, and `models/item/player_essence.json`
+      overrides select one of 16 recolour textures in `textures/item/player_essence/` (index 0 = the default). Three
+      acquisition gestures with the empty JAR (`WitchModItems.JAR`, not Glass Bottle), each streaming SOUL/ENCHANT
+      particles TOWARD the user + a unique sound (`PlayerEssenceEventHandler`): (a) crouch + look down (pitch ≥45°)
+      + use → your OWN essence; (b) right-click a PLAYER → theirs — BUT context-sensitive: if the target is
+      actively cursed/blessed (or the jar holds a capture) the Jar does its normal CAPTURE/release instead, only a
+      "clean" target yields essence (`ItemJar.capture` was widened to take curses OR blessings); (c) right-click a
+      BED → whoever's spawn is set there, RANDOM if several, and OFFLINE-aware via the new `BedSpawnRegistry`
+      SavedData (fed by `PlayerSetSpawnEvent`) + an online fallback. The ritual already reads `BOUND_PLAYER` from
+      the essence slot, so this is end-to-end.
+- [x] Compendium (2026-08-24, in-game visual test pending) — REBUILT from a Written-Book dump into its own
+      custom `client/CompendiumScreen`: right-click the item to open a two-page book with a **Chapters** sidebar
+      (Curses / Blessings) — clicking a chapter jumps to its start. **One attachment per page**, each showing its
+      name, a Curse/Blessing label, a big framed **sacrificial item** icon (2×, with a hover tooltip), a **Power**
+      pip row, and the description. All of it is read LIVE from the effect registry — `Effect.sacrificialItem()`
+      (real ItemStack) and a new `Effect.powerLevel()` (placeholder 3/5 for every effect until the strength pass;
+      the UI reads it live so nothing needs re-touching when real values land). Entries are the whole
+      `EFFECT_REGISTRY` split by category and sorted by name. Descriptions are per-id lang keys
+      `witchmod.compendium.<id>.desc` (129 placeholder entries added, all editable); the item shows a
+      `item.witchmod.compendium.desc1..2` tooltip. The OLD book (tutorial / items&blocks / rumours / events /
+      backfires / modifiers sections + the `WrittenBookContent` builder) was PURGED — only Curses/Blessings now.
+      **Rumours + power + polish (2026-08-24):** `DISCOVERED_EFFECTS` is now `.sync`ed so the client UI knows
+      discovered vs undiscovered. Undiscovered entries are RUMOURS — the item is hidden behind `rumour.png`
+      (`textures/gui/rumour.png`), the page is aged (darker parchment, muted grey accent, "Rumoured" label,
+      "Cast with: ???"), and a custom hint `witchmod.compendium.<id>.rumour` (129 editable placeholders) shows
+      instead of the description. Each chapter sorts **discovered first, then rumours**, sub-sorted by name.
+      **Power is 0..100** now (`Effect.powerLevel()` placeholder 50): the 5 pips fill in fifths and the exact
+      number shows in brackets under them. The screen-wide DARKENING was fixed properly — `renderBackground` is a
+      no-op (no vanilla blur) and the dim is drawn as four strips only AROUND the panel, so nothing ever covers
+      the book (the earlier full-screen alpha-fill landed in the translucent pass and painted over it).
+      ⏳ NEXT: Oliver's in-game visual pass + writing the real descriptions/rumour hints into the lang file.
+      **Items + Blocks chapters (2026-08-24):** two more sidebar chapters — **Items** (white accent) and **Blocks**
+      (grey) — built by iterating `BuiltInRegistries.ITEM` for the `witchmod` namespace and splitting on `BlockItem`.
+      Each entry shows the name, the item IMAGE (2× icon), **durability** where an effect's power sits (if the item
+      is damageable), and its **crafting recipe** — pulled LIVE from the client `RecipeManager`
+      (`getAllRecipesFor(CRAFTING)`, matched by result item) and drawn as a 3×3 grid → arrow → result, with hover
+      tooltips on every ingredient + the result (`gridOf` reads `ShapedRecipe` width/height, else fills sequentially).
+      Recipes aren't final, so **placeholder shaped recipes** were added for the ones lacking them (amethyst_bell,
+      warding_totem, blessed_coin, executioners_coin, cursed/blessed/mixed_jar, player_essence) — the UI grabs
+      whatever recipe exists, so real ones drop in with no code change; an item with no crafting recipe shows
+      "Recipe: not yet known".
+      **Rituals chapter + discovery command (2026-08-27):** a 6th chapter **Rituals** (red accent `0xFFCC5A55`) —
+      NOT an entry list but 9 written how-to pages (`overview / table / sacrifice / essence / targeting / modifiers /
+      outcome / counterplay / discovery`), each an intro-style page (title + scrollable paragraphs) reusing
+      `drawIntro`; built directly in `init()` with NO auto-prepended intro. Text is REAL teaching content (not
+      placeholder) in `witchmod.compendium.ritual.<topic>.title/.text` (own "Compendium - Rituals" lang group,
+      paragraph breaks via `\n\n`), editable. NEW command **`/bewitch discovery {add|remove} {effect <id>|modifier
+      <id>|all} [targets]`** (`discoveryNode` in `BewitchCommand`) toggles discoveries for effects AND modifiers,
+      or all at once, defaulting to the caster — backed by new `DiscoveryManager.setEffectDiscovered` /
+      `setModifierDiscovered` (silent add/remove); modifier arg tab-completes from `Modifier.id()`.
+      **Chapter intro pages (2026-08-27):** every chapter now opens with an INTRODUCTORY page (a special
+      `Entry.intro`) — a centred title, a decorative rule, then scrollable multi-paragraph text explaining what
+      the chapter is. Prepended to each chapter list in `init()` (`introEntry`); `drawSide` branches to `drawIntro`.
+      Text comes from `witchmod.compendium.intro.<chapter>.title` + `.text` (10 placeholder keys, own "Compendium —
+      Intros" lang group); the `.text` value supports PARAGRAPHS via blank lines (`\n\n`), which `Font.split` spaces
+      out, and it scrolls via the existing `drawScrollingText`. Placeholder copy for now — Oliver writes the real text.
+      **Colours + descriptions + 2-recipe framework (2026-08-24):** Items are AQUA (§3, `0xFF00AAAA`) and Blocks
+      BLUE (§9, `0xFF5555FF`) accents. Each item/block page now also shows an editable **description**
+      (`witchmod.compendium.<itemid>.desc`, 21 placeholders added) — which doubles as the acquisition hint for the
+      NON-craftable ones. The recipe display is generalised: an entry holds up to **two** recipes (framework for
+      cursed_essence's block-craft + amethyst-smelt), pulled from BOTH `RecipeType.CRAFTING` and `RecipeType.SMELTING`;
+      a `‹ 1/2 ›` toggle flips between them, crafting renders as a 3×3 grid → result and smelting as input → "smelt"
+      → result. **Cursed/Blessed/Mixed Jar + Player Essence are deliberately NOT craftable** (their placeholder recipe
+      JSONs were deleted) — their page shows "— not craftable —" and the description explains how to obtain them.
+      **Scrolling + full-doc framework (2026-08-26):** each page's DESCRIPTION now scrolls (per-page-slot offset,
+      mouse-wheel over the page, a slim scrollbar when it overflows), while the power/durability line stays fixed at
+      the top and the recipe (or "— not craftable —" note) is PINNED to the bottom — so a long documentation blurb
+      reads all the way through AND the crafting recipe is always visible (in-game docs matter; downloaders rarely
+      read anything outside the game). Text is clipped via `enableScissor`; scroll resets on page/chapter change.
+      **Lang file reorganised by category (2026-08-26):** `en_us.json` is now grouped — creative tab / blocks /
+      fluids / items / entities / status effects / death messages / commands / keybinds / config / scry / narcolepsy /
+      safety / subtitles / then Compendium UI, Curses, Blessings, Items&Blocks — each group separated by a blank line
+      (valid JSON, no comment keys), alphabetical within a group so each id's `.desc`+`.rumour` sit together. A script
+      verified every value is byte-for-byte the SAME (only order changed).
+      **Modifiers chapter + discovery (2026-08-26):** a 5th chapter **Modifiers** (green accent `0xFF66C070`). Each
+      modifier ALWAYS shows its item name + icon (unlike effect rumours which hide the icon behind `rumour.png`) — only
+      the DESCRIPTION is a rumour until discovered. Discovery is its OWN track: a new synced+copyOnDeath
+      `DISCOVERED_MODIFIERS` attachment (Set<ResourceLocation>, ids `witchmod:<modifier.id()>`), marked by
+      `DiscoveryManager.markModifierDiscovered` the moment a ritual is cast USING that modifier (hooked in
+      `BewitchingTableRitual.cast` right after `clearAll`, so success OR failure counts). `Modifier` gained `id()` +
+      `ModifierItems.itemFor(m)` (forward map) for the UI. Lang: `witchmod.compendium.mod.<id>.desc` + `.rumour`
+      placeholders for all 16 modifiers (own "Compendium — Modifiers" lang group). **NEW Paper modifier** added
+      (Items.PAPER; doubles as Yap's sacrificial item — different slot, no collision): `scribblesLedger()` flag →
+      every Ledger entry from a Paper cast is logged `scribbled=true` (new `LedgerLog.Entry` field + `log(...)`
+      overload) and `LedgerBlock.formatEntry` renders those as an OBFUSCATED unreadable scrawl + "(scribbled out)".
+      ⏳ Most modifier BEHAVIOURS beyond the numeric cost/duration/success/backfire deltas are still just enum flags
+      (splashToNearby / bypassesWardAndJar / hidesStartTell / revealsEffectToTarget / delaysTell / loudTriggerTell /
+      reappliesShortenedEffectOnCure) not yet consumed at cast time — a follow-up behaviour pass.
+      **Modifier + coin + infectious batch (2026-08-27):**
+      • **Clock** reworked to a FLAT random +5–15 min of total time (`flatDurationBonusTicks(rng)` on `Modifier`,
+        added in `ModifierCalculator.applyDuration` which now takes a `RandomSource`); its old +25% duration delta is
+        gone (cost stays +15%). Compass still overrides duration entirely; Clock/Bell add flat on top otherwise.
+      • **Bell** (NEW modifier, Items.BELL — cross-slot with Popularity's sacrificial Bell, like Paper): flat +15 min
+        (`flatDurationBonusTicks`) AND `announcesCast()` → on a successful cast it broadcasts "🔔 X cursed/blessed Y
+        with Z!" to the whole server (`BewitchingTableRitual.announceCast`, also fires per-effect on coin casts).
+      • **Coins are now sacrificial items** that gamble 1–3 effects (`data/CoinGamble`, shared by the coin item-use
+        AND the Table). Blessed = 1–3 blessings biased fewer+lower-power; Cursed = 1–3 curses biased fewer+lower, with
+        a 5% "bad day" → 3× 80+-power curses; Executioner = 1–3 curses/blessings, uniform. `ItemGambleCoin` now takes
+        a `CoinGamble.Type` (all three coins gamble on use; EXECUTIONERS_COIN kept its revive-on-death handler too).
+        The ritual has a self-contained `castCoin` path (own target resolution, fixed `CoinGamble.BASE_COST` 55,
+        fizzles with no backfire on failure); `RitualSlot`/`BewitchingTableScreen` accept coins so the slot isn't red
+        and the success bar shows. Power bias reads `powerLevel()` (placeholder 50 → currently uniform; "bad day" has
+        no 80+ curses yet so it falls back to 3 random curses).
+      • **Slime Ball / Slime Block are MODIFIERS** (Oliver's clarification — "infectious is a modifier, not a curse"),
+        so no clash with Bouncy's sacrificial Slime Ball. They apply a HIDDEN internal attachment on success
+        (`Modifier.infectiousLevel()` 1/2 → `applyInfectious` in the ritual): **Infectious** (`CurseInfectious`, ~1h)
+        makes the target's attachments a HOT POTATO — hitting a player moves ALL their attachments (this state too)
+        onto the victim with timers preserved, leaving the attacker clean; **Very Infectious** (`CurseVeryInfectious`)
+        instead COPIES the other attachments onto whoever you hit for 10s while you keep yours. Both are internal
+        (`Effect.selectable()` = false → excluded from sacrificial matching, coin rolls, and the Compendium curses
+        chapter) and hidden (discoversOnTrigger, never marked). Spread lives in `CurseEventHandler.onInfectiousAttack`
+        (uses new `EffectManager.activeSnapshot` / `holderOf` / `applyExact` — an exact-duration, guard-bypassing,
+        no-multiplier placement for physical transfers). Slime Ball cost +60%, Slime Block +100%.
+      • Lang: `witchmod.compendium.mod.{bell,slime_ball,slime_block}.desc/.rumour` placeholders added (19 modifiers now).
+      Note Clock's flat bonus + Bell now use the `applyDuration(base, mod, rng)` signature (one caller: the ritual).
+      **Remaining-modifier behaviour pass + 2 new (2026-08-27):** every previously-inert modifier flag is now consumed,
+      plus two new modifiers. Shared foundation: `ActiveEffectInstance` gained a per-instance `display` (0 normal /
+      1 hidden / 2 disguised) honoured by `StatusEffectSync` (via an `effectiveCategory` helper — hidden shows NO
+      wrapper, disguised shows the OPPOSITE), cleared by `EffectManager.revealDisplay` which `DiscoveryManager`
+      calls on first discovery; and `EffectManager.apply` gained an `ApplyOptions(bypassWard, display)` overload
+      (the 4-arg delegates). Modifiers wired in `BewitchingTableRitual`:
+      • **Amethyst Shard** (NEW, Items.AMETHYST_SHARD) — if the target already carries a SAME-category effect, cost
+        ×0.70 (`EffectManager.hasActiveOfCategory`). • **Wither Rose** (NEW, Items.WITHER_ROSE, cost +15%) — the
+        effect reads as the OPPOSITE category (fake blessing/curse) until discovered, via `display=DISGUISED` +
+        suppressed immediate victim-discovery. • **Ink Sac** — `display=HIDDEN`: no wrapper/tell until the effect's
+        real discovery moment reveals it. • **Netherite Ingot** — `NETHERITE_BYPASS_CHANCE` (80%) to bypass the Ward
+        (Totem still applies) via `ApplyOptions.bypassWard`. • **Echo Shard** — onset delayed 5–10 min: the ritual
+        schedules the cast in the new `DelayedCasts` (server-tick queue, resolves players by UUID at fire time)
+        instead of applying now. • **Goat Horn** — a didgeridoo-horn blares at the target on land. • **Glow Ink Sac**
+        — the target is told in chat exactly what they got (+ marks it discovered for them). • **Dragon's Breath** —
+        a quarter-duration splash onto OTHER players within `DRAGONS_BREATH_RADIUS` (6) of the CASTER, with dragon-
+        breath particles. • **Quartz** — refuses the cast unless the caster has already discovered that spell.
+        • **Honeycomb** — success forced to 100% unless the effect is MAJOR-tier (its `forcesBackfireZero` was
+        already live). • **Recovery Compass** — the applied effect is added to a new NON-copyOnDeath
+        `NON_PERSISTENT_EFFECTS` set, stripped in the `CurseEventHandler` death hook before the respawn copy (the
+        Rule-4 exception). One-modifier-per-cast keeps these mutually exclusive, so no combination logic. The
+        Redstone-random + backfire-random pools now filter `selectable()` so they can't roll the hidden Infectious
+        states. Lang placeholders added for amethyst_shard + wither_rose (21 modifiers now).
+- [ ] Voodoo Doll — ⏳ FIRST PASS (2026-08-24, in-game test pending). Rebuilt from the prototype stand-in (which
+      right-clicked a RANDOM curse onto the bound player) into the spec's PASSIVE redirect: while a bound doll is
+      in your inventory, any CURSE you cast **at the Bewitching Table** is forwarded onto the doll's bound player
+      instead of your intended target (redirect, not copy — Oliver's calls). Hooked in `BewitchingTableRitual.cast`
+      right after the target is resolved; a successful forward spends 1 doll durability (breaks at 0) and
+      Ledger-logs `doll_forward`. Offline/dead bound target → no forward + a note, curse proceeds normally. Binding
+      unchanged (Player Essence in the OFF-hand + use the doll; consumes the essence); using a bound doll with no
+      essence just reports its target (`ItemVoodooDoll.findBoundDoll`). **Command casts are NOT forwarded**
+      (redirect is Table-only) but `/bewitch apply` now tells a caster holding a bound doll that a natural cast
+      would have redirected it (Oliver's call). ⏳ NEXT: Oliver tests + tunes (durability count, feedback wording).
+      **Sympathetic-magic interactions (2026-08-24, in-game test pending):** (1) **Needle stab** — right-clicking
+      the Needle with a bound doll in inventory jabs the target with a new custom `witchmod:voodoo` damage type
+      (in `bypasses_armor`) that SCALES WITH their armour (`voodooNeedleBaseDamage` + armourPoints ×
+      `voodooNeedleArmorScale` — their armour makes it worse), with a satisfying CRIT+ANVIL smack + CRIT/
+      DAMAGE_INDICATOR/WITCH FX on the victim; consumes the Needle + `voodooNeedleDollCost` (2) doll durability.
+      (2) **Hazards** (`VoodooDollHazards`, a periodic item-entity scan like the jars): a bound doll dropped in
+      FIRE/LAVA burns its owner (`voodooLavaFireTicks`) and is destroyed; sat in POWDER SNOW rapidly freezes the
+      owner (non-destructive). ⏳ MORE interactions planned (see Oliver's idea list).
+      **Interaction batch + half-armour + config-durability (2026-08-24, test pending):** voodoo damage is now
+      only HALF-reduced by armour — `ItemVoodooDoll.voodooHurt` applies `voodooUnprotectedFraction` (0.5) of the
+      hit ignoring armour and the rest through the vanilla armour formula (armour helps, but half as much). Doll
+      max durability is now **configurable + low** (`voodooDollDurability` 12, applied via the MAX_DAMAGE component
+      on bind). Tooltip shows the bound username + a client-side **online/offline** line (voodoo needs them
+      online). New interactions: **Throw** (drop a bound doll → the victim is flung the same way, big durability
+      cost — `ItemTossEvent`); **Squeeze** (hold right-click → ramping voodoo tick-damage + slow with rising
+      clicks, per-tick durability, use-cooldown); **Feeding** (food in the OFF-hand + use the doll → the victim
+      gains that food's hunger/saturation, effects STRIPPED so rotten flesh is "edible", food consumed);
+      **Lightning** (a bound doll struck by lightning calls a bolt on the victim + destroys the doll —
+      `EntityStruckByLightningEvent`); **Water/rain/cauldron** (victim goes visibly wet + their fire is put out,
+      no cost — in `VoodooDollHazards`). Debug: `/bewitch voodoo make player|uuid <p>` gives a bound doll;
+      `/bewitch voodoo force <stab|throw|squeeze|feed|ignite|freeze|wet|lightning> <player>` forces one on a
+      target.
+      **Polish + remaining interactions (2026-08-24):** voodoo damage now does NO knockback (added to the
+      `no_knockback` tag) and only HALF-armour (as above). **All chat text removed** — every interaction is
+      conveyed by particles + sounds instead (`voodooHurt` bundles the smack FX; bind = chime+witch spark; offline
+      = a soft fizzle). **Pin + squeeze jolt the CASTER's camera** (`VOODOO_SHAKE_END` synced end-tick wired into
+      `applyShake`) and **squeezing slows the caster** (`voodooSqueezeSelfSlow`). NEW ways in: **inventory pin** —
+      pick up the Needle in the GUI and right-click it onto the doll (`overrideOtherStackedOnMe`), same jab as
+      in-hand; **Shake** — whipping your camera while holding a bound doll (client `VoodooClient` → `VoodooShakePayload`)
+      gives the victim a brief Nausea wobble; **Potion-cloud** — a lingering potion over the grounded doll lands its
+      effects on the victim (reads `AreaEffectCloud.potionContents` reflectively — no public getter); **Arrow-stick**
+      — an arrow shot into the grounded doll hurts the victim and visibly sticks out of them (`setArrowCount`);
+      **crafting-menu binding** — a custom `VoodooBindRecipe` (doll + a bound Player Essence anywhere in the grid →
+      a bound doll, essence consumed); **doll-as-Player-Essence in the Table** — a bound doll works in the target
+      slot like an essence, RETURNED with a small `voodooTableDollCost` durability hit instead of being consumed
+      (also allowed by `RitualSlot.isCorrect`). Durability is configurable + low (`voodooDollDurability` 12, set via
+      the MAX_DAMAGE component on bind).
+      **Fishing rod + polish (2026-08-24):** ALL interactions are now `/bewitch voodoo force`-able (added shake,
+      potion, arrow, fishing). The choke/squeeze damage rate is slower (`voodooSqueezeTickInterval` 8→14). NEW
+      **Fishing Rod** interaction (`onFishingRod`, `PlayerInteractEvent.RightClickItem`): use a rod while aiming at
+      a bound doll lying in front of you and the victim is YANKED your way, HARD — `voodooFishingForce` (3.6, much
+      more than a throw) for a HUGE `voodooFishingDollCost` (8) durability hit (shared `ItemVoodooDoll.fling`).
+      Damage FX trimmed to just CRIT + purple WITCH (dropped the DAMAGE_INDICATOR spray as excessive).
+- [x] Needle — right-click with a bound Voodoo Doll in inventory → the armour-scaling `witchmod:voodoo` jab (see
+      the Voodoo Doll entry). Consumes the needle + doll durability, smack sound + FX on the victim.
+- [x] Ward (2026-08-24, in-game test pending) — REDEFINED from "deflect the curse back to the caster" to a
+      durability BLOCKER: it stops ANY attachment (curse OR blessing) cast on you by someone else — your own
+      casts pass through. In `EffectManager.apply` the ward hook now blocks for any category (returns false, no
+      redirect); the hook signature became `WardBlock(target, caster, isCurse)`. On a block, `ItemWard.onBlock`
+      fires a moving coloured LASH via `WardEffects` (a `ServerTickEvent` lash list like the jars): it streaks IN
+      from the caster's direction toward you — PURPLE dust+witch for a curse, warm GOLD dust+end-rod for a
+      blessing — then flares and is blocked with an ENCHANTED_HIT ring + FLASH + a subtle `SHIELD_BLOCK` clang,
+      spending 1 of its 8 durability (durability 16→8; gated on `wardDurabilityDecays`). No chat text — feedback
+      is purely the lash + block FX. Found in main inventory or off-hand. Editable description tooltip via
+      `item.witchmod.ward.desc1..3` in the lang file.
+- [x] Scrying Mirror (2026-08-24, in-game test pending) — overhauled from a chat dump into a styled on-screen
+      PANEL (`client/ScryingOverlay`, a GUI layer): right-click to reveal YOUR active curses/blessings, or
+      right-click a PLAYER (`interactLivingEntity`) to reveal THEIRS. Each row is a coloured tag (purple curse /
+      gold blessing) + name + seconds-left + the effect's `scryingDetail` specifics; fades after ~8.5s. The
+      server gathers the list and pushes a `ScryPayload` (ScryEntry list) to the viewer; using the mirror also
+      **instantly discovers** whatever it reveals (`markDiscoveredByVictim` on the subject). Added `scryingDetail`
+      to Stick Drift (which stick + drift direction) and Siren's Call (longing %) alongside the existing Allergic
+      (diet) + Sonar (next ping). Editable description tooltip via `item.witchmod.scrying_mirror.desc1..3`.
+      `DiscoveryManager.titleCase` made public for the entry names.
+      **Scry-detail batch (2026-08-24):** added `scryingDetail` to 21 more effects — Audit (complete/pending),
+      Backseat Driver (takeover cooldown), Cutaway Gag (can-trigger/cooldown), Narcolepsy (asleep/cooldown),
+      Pacing (moment/cooldown), Screensaver (generic — episodes are client-timed), Solicitor (here/lying-low),
+      Berserker (% faster swings), Bodyguard (on-duty + marked target / replacement incoming), Disguise (which
+      mob + active/broken), Immortality (reviving Xs / N revives left), Payday (paid/en-route), Pickpocket (mark
+      in reach?), Prop Hunt (which block), Safety (ready/cooldown), Sixth Sense (ready/recharging), Thunder
+      (charge tier /4), Twist of Fate (dodge cooldown), Windfall (imminent/cooldown). **Editable FLAVOUR** for
+      Siren's Call (yearning band → `witchmod.scry.siren.*`) and Haunted (dread tier → `witchmod.scry.dweller.tier0..3`)
+      via a new "@key" convention in `ScryingOverlay` (a detail starting `@` is rendered as a translatable lang key).
+      ALSO: **Explosive → Martyrdom** and **Super Explosive → Volatile** (registry ids `explosive`→`martyrdom`,
+      `super_explosive`→`volatile`, so the display names change; old saved instances drop as unknown, harmless).
+      And **Drive** now clears adult VILLAGERS' post-breed lockout too (village baby-boom).
 - [ ] Effigy
 - [ ] Cursed Coin
 - [ ] Blessed Coin
 - [ ] Executioner's Coin
 - [ ] Jar
 - [ ] Cursed Jar
-- [ ] Amethyst Bell
-- [ ] Recovery Compass (modifier item)
+- [x] Amethyst Bell — FULLY IMPLEMENTED animated bell (2026-08-28, in-game test pending). Now a real
+      `AmethystBellBlockEntity` + `client/AmethystBellRenderer` that SWINGS the bell exactly like vanilla's
+      `BellRenderer` (shared `ModelLayers.BELL` part, the same decaying-sine swing off the BE's shake state,
+      synced to clients via a `blockEvent` — `triggerEvent`, id 1). Floor/stand ONLY (a `Block implements
+      EntityBlock`, never wall/ceiling) in TWO orientations (a `HORIZONTAL_AXIS` property; blockstate axis=x → model,
+      axis=z → y:90). Right-click RINGS: swing + a dramatic toll (`amethyst_bell.ring`) + an amethyst spark ring/
+      glints/glow burst, and (on cooldown-gated) still flips one active effect for another of the same category.
+      The STAND `models/block/amethyst_bell.json` (5 cubes): two POLISHED DEEPSLATE uprights (pushed 1px out to
+      x1-3 / x13-15) each with a POLISHED BLACKSTONE foot (bottom 3px, y0-3), and a top beam that overhangs the
+      uprights by 3px each side (x-2 → x18); uses vanilla `polished_deepslate`/`polished_blackstone` directly.
+      The BELL body is `textures/entity/amethyst_bell.png` (vanilla gold bell → amethyst via a grayscale→purple
+      ramp, Oliver will edit). The ITEM is now a flat 2D icon (`models/item/amethyst_bell.json` = `item/generated`
+      + `textures/item/amethyst_bell.png`, a copy of the vanilla bell item for Oliver to edit). Placement gives
+      TWO orientations off `HORIZONTAL_AXIS` (N-S facing → axis=z, E-W → axis=x); the beam overhang makes the two
+      obvious. ⏳ the bell body's vertical alignment on the beam may want a small nudge in-game.
+      **Polish (2026-08-28):** top beam overhang pulled back to 1px each side (x0-16); the ring FX dropped the
+      off-theme blue enchant/glow-squid particles for on-brand amethyst DUST + purple WITCH sparks + white glints;
+      ringing now sets a synced `AMETHYST_BELL_SHAKE_END` on players within 10 blocks for a VERY subtle camera
+      jolt (SHAKE_TICKS 6 / SHAKE_STRENGTH 0.4, via the shared `applyShake` in `ClientCurseHandler`); the bell's
+      action-bar messages are colour-coded (cooldown YELLOW with seconds-left, nothing-to-flip GRAY, flip
+      LIGHT_PURPLE). The Bewitching Table's action-bar errors are likewise now all RED with direct "what's wrong"
+      wording (No Sacrificial Item / Invalid Sacrificial Item / Target offline …), and the jar-bottle success is AQUA.
+      **New sounds wired (2026-08-28):** 5 supplied OGGs registered + in `sounds.json`/subtitles —
+      `amethyst_bell.ring` (bell toll), `ledger.write` (LedgerFeedback now plays a subtle pencil-scratch into each
+      ledger instead of the amethyst chime), and the ritual outcomes now REACT to their sound: `ritual.success` (a
+      magic jingle, curse-tinted lower / blessing brighter, replacing the level-up), `ritual.backfire` (a firework
+      BANG — new `Outcome.BACKFIRE` with FIREWORK+FLASH+coloured-dust burst, played before `doBackfire`), and
+      `ritual.fizzle` (the quick fizzle for "nothing happens", from ritualfail.ogg; `Outcome.FAILURE`→`FIZZLE`,
+      grey-smoke puff). Coin/refused failures use FIZZLE too.
+- [x] Recovery Compass (modifier item) — removed from the creative tab (2026-08-23): it's a modifier backed by
+      vanilla's own `minecraft:recovery_compass`, so listing it duplicated the vanilla item. Still fully usable
+      as a modifier in the Table's modifier slot.
 
 **BLOCKS (Section 3)** — start only after every item above is checked off.
-- [ ] Bewitching Table
+- [ ] Bewitching Table — ⏳ IN PROGRESS (ritual pass 2, 2026-08-21):
+      • **SLOT-SWAP BUG FIXED** — the menu added its ritual slots out of container-index order, so the client
+        screen (which indexes `menu.slots` by the `SLOT_*` constants) read the sacrificial + essence slots
+        swapped while the server read them correctly. `addSlot` calls are now in container-index order
+        (0 target · 1 sacrificial · 2 essence · 3 modifier); slots repositioned into a ritual layout (focus in
+        the middle, essence feeding up from below, target + modifier up top).
+      • **Textured UI** — the whole panel is now an editable PNG
+        `assets/witchmod/textures/gui/container/bewitching_table.png` (256×256; panel + inset slot wells +
+        rune-lines joining the slots to the central focus + faint per-slot symbol watermarks). Generator kept
+        at `scratchpad/GenTableTex.java` if it needs regenerating. Oliver edits the PNG to taste. The success
+        bar, cast button and red slot highlights draw procedurally ON TOP.
+      • **Success bar works** (green fill = live success chance, moving shimmer, thin red backfire cap, % text),
+        **red slots** for wrong items (slots accept anything now — `mayPlace`→true, `RitualSlot.isCorrect`
+        drives the red + shift-click routing + cast validity), **Cast disabled** (greyed, click swallowed) until
+        every slot is correct and a Sacrificial Item is present — mirrored as a server-side refusal.
+      • **Cursed Essence = currency**: the existing §10.1 formulas already reward investment (more essence →
+        higher success, lower backfire, backfire→0 at full cost). Added **tier-aware backfire**
+        (`ModifierCalculator.applyTierBackfire`): LOW-tier attachments never backfire (0%), HIGH-tier keep a
+        small floor even at full essence, mid-tier use the curve. ⚠ tier is a PLACEHOLDER keyed off baseCost —
+        see the "Attachment strength/tier TODO" note below.
+      • **Only SUCCESS or FAILURE now** (the third "fizzle/nothing" outcome is gone): a failed roll always
+        plays the distinct FAILURE fx (grey/soul smoke + `VILLAGER_NO`), and is **most likely just "nothing
+        happens"** — a real penalty only fires on the (tier-scaled) backfire chance, which is 0 for low-tier.
+        Success plays a clear positive fx (`PLAYER_LEVELUP` + upward enchant/totem particles), curse vs blessing
+        tinted, so success/failure is unmistakable both ways.
+      • **Six backfire PENALTIES** when one does fire (`BewitchingTableRitual.doBackfire`, weighted): table
+        explodes (power scales with strength, block damage gated on mobGriefing via `ExplosionInteraction.MOB`,
+        source null so the caster is caught) · the same attachment onto the caster · a name-tagged **Woolliam**
+        sheep · a random low-biased curse onto the caster · inventory shuffle · a chunk of the new
+        `witchmod:ritual_backfire` damage type (bypasses armour, scales with strength). Config knobs `backfire*`.
+      • **Per-slot textures** (like the enchant table's lapis slot): the background PNG is now just the panel +
+        rune-lines + ritual circle, and each slot outline is its OWN 18×18 sprite the screen blits per slot —
+        `slot.png` (player inventory) + `slot_target/sacrifice/essence/modifier.png` (the ritual slots, each
+        with its symbol). All under `assets/witchmod/textures/gui/container/`, freely editable. Generator kept
+        at `scratchpad/GenTableTex2.java`.
+      • **UI stretched** to 176×228 with the ritual cluster pushed down so the "Bewitching Table" title clears
+        the ritual circle, and the bar/cast-button/inventory re-spaced so nothing collides.
+      • **⚠ CAST TRIGGER REWORKED (2026-08-21)** — the Cast button no longer uses the vanilla container-button
+        plumbing (`clickMenuButton` / `handleInventoryButtonClick`), which was silently failing in play (a cast
+        did nothing, items not even consumed, only the ambient "ready" spark showing). It now sends a dedicated
+        C2S `WitchModNetwork.RitualCastPayload(pos)` — the same reliable payload path Berserker/Splitscreen use
+        — and the server handler runs `BewitchingTableRitual.cast` directly against the block entity at that
+        pos (proximity-checked), then `broadcastChanges()` re-syncs the emptied slots. `clickMenuButton` is left
+        in place but unused.
+      • **⚠⚠ THE REAL ROOT-CAUSE BUG (fixed 2026-08-21):** `BewitchingTableBlockEntity.clearContent()` did
+        `items.clear()` **then** looped `items.add(EMPTY)` — but `items` is a FIXED-SIZE `NonNullList.withSize`
+        (Arrays.asList-backed), and `NonNullList.clear()` ALREADY resets every slot to the default EMPTY while
+        keeping the size. The redundant `add()` threw `UnsupportedOperationException` on EVERY cast, at
+        `table.clearAll()` — which runs BEFORE the roll/apply. So every ritual: emptied the slots via clear()
+        (items "consumed"), then threw, aborting before anything was applied; the payload handler swallowed the
+        exception silently. Commands never hit it (they don't call clearAll). Fix: `clearContent()` is just
+        `items.clear()` (the same pattern `loadAdditional` already documents). This is why NO amount of trigger/
+        apply reworking helped — the cast always threw at the same line regardless.
+      • **Honest apply reporting** — `EffectManager.apply` now returns whether the effect actually LANDED, and
+        the ritual only celebrates a real application. Previously a refusal (grace period / warding totem /
+        category disabled) returned silently while the ritual still played success FX + consumed items — which
+        read as "success but nothing applied". A refused cast now shows the fail FX + the real reason, and a
+        success names the effect ("The ritual succeeds — Fortune!"). A server log line
+        (`[ritual] … APPLIED/REFUSED`) records every cast for diagnosis. Failure particles are red (never green)
+        so success vs failure can't be confused; the block's ambient "ready" motes are neutral purple too.
+      • **Success VISUALS (`RitualFx`, ticked from a `ServerTickEvent`):** a rotating, rising ritual circle of
+        coloured particles climbs around the block on success (purple witch motes for a curse, warm END_ROD +
+        yellow/pale stars for a blessing — matching the Blessed Jar), with a final chime. When the victim is
+        cast from AFAR (>4 blocks, same dimension), a directional **lash** streaks INTO them from the compass
+        direction of the table, so they see the curse/blessing "enter" and get a subtle hint of its source.
+      • **Onset particles are category-coloured** (`StatusEffectSync`): a curse's onset throws purple witch
+        motes, a blessing's the warm yellow/white stars — no longer always purple.
+      NEXT: Oliver edits the textures + in-game tuning; then improvements.
+      **NEW CUSTOM BLOCK MODEL (2026-08-26):** the old cube+`bewitching_table.png` container-style look is
+      SUPERSEDED. `models/block/bewitching_table.json` is now a hand-built shape (enchanting-table-inspired): a
+      deepslate PILLAR base (10×10 column, y0–11) + a full-16×16 TOP SLAB overhang (y11–16). The TOP FACE is one
+      carpet tile with FLAT purple corner squares (`bewitching_table_top`), and carpet FLAPS drape over the middle
+      of each side (y12–16). **All UVs are 1:1** (1 texel = 1 model pixel) so it stays true 16×16 style — the first
+      pass sampled whole tiles onto small faces and read as too-dense (Oliver's note). Driven by 5 hand-editable
+      16×16 PNGs in `textures/block/` (`bewitching_table_pillar` / `_pillar_top` / `_slab_side` / `_top` /
+      `_carpet`); layout notes in `bewitching_table_TEXTURES.txt`. Placeholder art
+      generated for now — Oliver replaces it in Aseprite (F3+T reload, no rebuild). Old
+      `bewitching_table_front/side/top.png` are unreferenced and deletable; the container-GUI `bewitching_table.png`
+      (§13.1 screen background) is a SEPARATE asset and unaffected.
+      **Drape + slot tweaks (2026-08-26):** the carpet drapes were widened to 6px and the model is now
+      `render_type: minecraft:cutout` with the drape's bottom-outer corners painted transparent in
+      `bewitching_table_carpet.png` (pixels 5/10 × 14/15) so the hem reads ROUNDED. In the Table SCREEN, the
+      Sacrificial slot was nudged down 1px (menu slot y 34→35; the screen draws each slot frame from `slot.x/y`, so
+      the frame + item move together).
 - [ ] Block of Cursed Essence
-- [ ] Ledger
-- [ ] Warding Totem
+- [x] Ledger — FULLY IMPLEMENTED (2026-08-27, in-game test pending). Right-click opens a custom `client/LedgerScreen`
+      (scrollable, parchment-styled, newest-first) listing nearby ritual activity — caster → target, effect (+modifier
+      in green), and result · "Xm ago"; Paper-scribbled entries render obfuscated. Server range-filters via a new
+      configurable **`Config.LEDGER_RANGE`** (24, in blocks): `LedgerLog.Entry` gained a `GlobalPos pos` (the ritual
+      SITE — the table) + `Optional<String> modifier`, and `LedgerLog.entriesNear(center, range)` does the filter; the
+      block sends a `WitchModNetwork.LedgerPayload` (range + list) → `LedgerScreen.open`. **Particle feedback**
+      (`LedgerFeedback`): every successful cast pulses ENCHANT glyphs flowing FROM the table INTO every Ledger within
+      range (+ coloured dust trail + amethyst chime); ledger positions are tracked via a static registry filled on
+      place / right-click, cleared on break. **Modifier detection**: the ritual passes the modifier name into every
+      ledger entry (all 10 log calls threaded `eventPos, modifierName`; command casts pass a pos too). **Model**: still
+      the vanilla LECTERN shape but now reskinned onto editable witchmod textures — `models/block/ledger.json` overrides
+      the lectern's `base/bottom/front/sides/top` texture vars with `witchmod:block/ledger_*` (5 placeholder PNGs,
+      dark-arcane-wood + purple, hand-editable; Oliver does the real reskin).
+      **3D purple book (2026-08-28):** the Ledger now renders a 3D BOOK on top exactly like a lectern's — a real
+      `LedgerBlockEntity` + `client/LedgerRenderer` that copies the vanilla `LecternRenderer` transform verbatim
+      (`FACING.getClockWise().toYRot()` → `YP(-f)`, `ZP(67.5)`, `bookModel.setupAnim(0,0.1,0.9,1.2)`, shared
+      `ModelLayers.BOOK`), textured with `entity/ledger_book.png` — the vanilla enchanting-table book recoloured to
+      purple via a grayscale→purple ramp. To orient the book, the block is now DIRECTIONAL (a `FACING` property like
+      the lectern, blockstate y-variants north/east/south/west, faces the placer); it's a `Block implements
+      EntityBlock` so the block model still renders normally with the BER-drawn book on top.
+- [x] Warding Totem — FULLY IMPLEMENTED (2026-08-28, in-game test pending). Remodelled slim: a blackstone
+      base/collars + a slender column and a crowning AMETHYST GEM (a 45°-rotated cutout crystal), all on editable
+      witchmod textures (`warding_totem_stone` / `warding_totem_gem`). **Range configurable** (`Config.WARDING_TOTEM_RANGE`,
+      32). Functionality: a `@EventBusSubscriber` server tick (every 10t) applies the NEW subtle **Protected**
+      MobEffect (`WitchModMobEffects.PROTECTED`, invisible swirl + icon, `textures/mob_effect/protected.png`) to
+      every player within range of a placed totem; `WardingTotemBlock.isProtected` (position registry from
+      place/break, range from config) is the authoritative gate in `EffectManager.apply` — ANY curse/blessing/
+      voodoo on a protected player is blocked. Blocked attempts now FLARE a magic force-field dome
+      (`EffectManager.setTotemHook` gained an `onBlock` consumer → `WardingTotemBlock.onBlocked`: a sphere of
+      amethyst dust + END_ROD + a soft chime/shield sound); a faint field also shimmers occasionally while
+      protected. Block textures + the effect icon are hand-editable placeholders.
+      **Blocks-others + ambient + cinematic + dummy pass (2026-08-28, in-game test pending):**
+      (1) **Blocks OTHERS' magic only** — the gate is now `caster != target` (self-casts pass through). The totem
+      hook became a `WardBlock` `(target, caster, curse)` and `EffectManager` gained `wouldTotemBlock(target,
+      caster)` so callers can tell a totem-block from an ordinary refusal. A null caster (jar / coin / `/bewitch
+      dummy`) counts as external and is blocked. (2) **Jars work but don't lash a protected player** —
+      `JarEffects.tickLashes` skips `WardingTotemBlock.isProtected` players when picking a lash target, so a lash
+      fizzles rather than pointlessly bursting on a shielded player; a jar that catches a protected player still
+      splashes but each stored effect is refused by the totem gate and Ledger-logged `blocked`. (3) **Full-height
+      block model** — `warding_totem.json` is now a proper 16px block (blackstone base/body/collar + a 45°-rotated
+      gem topping out at y16), so it keeps vanilla's blocky proportions instead of overhanging the block. (4)
+      **Protected is now AMBIENT + invisible + no HUD icon** (`MobEffectInstance(..., true, false, false)`) — it
+      only appears in the inventory effects list, never as a swirl or icon, and the per-tick particle shimmer on
+      the PLAYER was removed (people idle near totems). The BLOCK now breathes the ambient purple particles itself
+      via `animateTick` (gem, ~every 3rd tick); the player only flares on an actual block. (5) **Cinematic block**
+      — `onBlocked(target, caster, curse)` fires the colour-coded incoming lash from the caster's direction
+      (`WardEffects.startLash`, purple curse / gold blessing) caught by a bigger force-field dome + chime/shield
+      clang; a null-caster block skips the directional lash (just the dome). The **Ledger records blocked vs not**
+      everywhere: the Table ritual logs `blocked` (via `wouldTotemBlock`) vs `refused`, jars log `jar`/`blocked`,
+      and the dummy command logs `success`/`blocked`/`refused`. (6) **NEW `/bewitch dummy <effect> [targets]
+      [duration]`** — applies an effect with a null caster (so a totem blocks it, unlike a self-cast) and logs it
+      in the Ledger as cast by **"dummy"** with the real success/blocked result. Compiles + boots clean.
 - [ ] Purifying Water
 
 ---

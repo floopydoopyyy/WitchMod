@@ -61,6 +61,16 @@ public final class BlessingImmortality extends Effect {
 
     /** You find out you're immortal the first time it actually saves you (master-spec Rule 2: on trigger). */
     @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        if (isRecovering(target)) {
+            long left = (target.getData(WitchModAttachments.IMMORTALITY_RECOVERY_END) - target.level().getGameTime()) / 20;
+            return java.util.Optional.of("reviving — " + Math.max(0, left) + "s");
+        }
+        int left = Config.IMMORTALITY_MAX_USES.get() - target.getData(WitchModAttachments.IMMORTALITY_USES);
+        return java.util.Optional.of(Math.max(0, left) + " revives left");
+    }
+
+    @Override
     public boolean discoversOnTrigger() {
         return true;
     }

@@ -85,6 +85,12 @@ public final class BlessingSixthSense extends Effect {
 
     /** You find out the first time an insight surfaces (Rule 2). */
     @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        int next = NEXT.getOrDefault(target.getUUID(), 0);
+        return java.util.Optional.of(next <= 20 ? "a sense is ready" : "sense recharging (" + (next / 20) + "s)");
+    }
+
+    @Override
     public boolean discoversOnTrigger() {
         return true;
     }

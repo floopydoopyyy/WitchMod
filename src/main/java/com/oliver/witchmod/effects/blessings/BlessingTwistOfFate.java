@@ -30,10 +30,16 @@ public final class BlessingTwistOfFate extends Effect {
     private static final Map<UUID, Long> NEXT_ALLOWED = new HashMap<>();
 
     public BlessingTwistOfFate() {
-        super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.GHAST_TEAR);
+        super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.END_CRYSTAL);
     }
 
     /** You find out the first time a hit that should have landed simply... doesn't (Rule 2). */
+    @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        boolean cd = target.level().getGameTime() < NEXT_ALLOWED.getOrDefault(target.getUUID(), 0L);
+        return java.util.Optional.of(cd ? "dodge on cooldown" : "dodge ready");
+    }
+
     @Override
     public boolean discoversOnTrigger() {
         return true;

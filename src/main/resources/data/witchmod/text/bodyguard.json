@@ -84,5 +84,19 @@
     "No more Mr. Nice guy!",
     "Get over here.",
     "Playtimes over!"
+  ],
+  "fell": [
+    "Gah... I'm... hit...",
+    ["Tell my agency... I went down swinging...", "*collapses*"],
+    "I'll... be back...",
+    "You're on your own for a bit, boss...",
+    "Argh! They got me!"
+  ],
+  "respawn": [
+    "Reporting for duty, boss. Miss me?",
+    ["The agency sent a replacement.", "Same great service."],
+    "Did somebody order more muscle?",
+    ["I'm back.", "And this time it's personal."],
+    "New guy, same job. Nobody touches you."
   ]
 }

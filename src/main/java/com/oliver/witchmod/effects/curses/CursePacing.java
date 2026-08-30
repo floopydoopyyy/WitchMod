@@ -46,4 +46,10 @@ public final class CursePacing extends Effect {
     public void onRemove(ServerPlayer target) {
         PacingManager.onRemove(target); // dismiss any dramatic moment in progress + clear the camera focus
     }
+
+    @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        boolean midMoment = target.getData(com.oliver.witchmod.data.WitchModAttachments.PACING_END_TICK) > target.level().getGameTime();
+        return java.util.Optional.of(midMoment ? "a dramatic moment now" : "moment on cooldown");
+    }
 }

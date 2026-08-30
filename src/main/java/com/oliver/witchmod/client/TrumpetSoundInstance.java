@@ -46,6 +46,8 @@ public final class TrumpetSoundInstance extends AbstractTickableSoundInstance {
                 && !player.isRemoved()
                 && player.getData(WitchModAttachments.TRUMPET_ACTIVE) == 1
                 && !player.isCrouching()                                       // crouch = quiet, the counterplay
+                && TrumpetSoundManager.isMoving(player)                        // EXTRA gate: actual displacement, so
+                                                                              // a stuck walk-animation can't loop it forever
                 && player.walkAnimation.speed() > Config.TRUMPET_WALK_THRESHOLD.get().floatValue();
     }
 

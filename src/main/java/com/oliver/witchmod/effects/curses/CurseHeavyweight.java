@@ -187,7 +187,7 @@ public final class CurseHeavyweight extends Effect {
 
         target.setData(WitchModAttachments.HEAVYWEIGHT_SHAKE_END,
                 level.getGameTime() + Config.HEAVYWEIGHT_SHAKE_TICKS.get());
-        markDiscoveredByVictim(target);
+        com.oliver.witchmod.effects.Curses.DENSE.value().markDiscoveredByVictim(target);
     }
 
     /** Takes a ragged bite out of the surrounding floor, so it reads as a collapse and not a trapdoor. */

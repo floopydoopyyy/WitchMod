@@ -1,6 +1,61 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "__comment": "Amethyst Bell STAND only (the swinging bell body is drawn by AmethystBellRenderer). Uprights are polished deepslate with a polished-blackstone foot (bottom 3px); the top beam overhangs the uprights by 3px each side. Uses vanilla textures directly.",
+  "parent": "block/block",
   "textures": {
-    "all": "witchmod:block/amethyst_bell"
-  }
+    "deepslate": "minecraft:block/polished_deepslate",
+    "blackstone": "minecraft:block/polished_blackstone",
+    "particle": "minecraft:block/polished_deepslate"
+  },
+  "elements": [
+    {
+      "name": "foot_west",
+      "from": [1, 0, 6.5],
+      "to": [3, 3, 9.5],
+      "faces": {
+        "north": { "texture": "#blackstone" }, "south": { "texture": "#blackstone" },
+        "east": { "texture": "#blackstone" }, "west": { "texture": "#blackstone" },
+        "up": { "texture": "#blackstone" }, "down": { "texture": "#blackstone", "cullface": "down" }
+      }
+    },
+    {
+      "name": "shaft_west",
+      "from": [1, 3, 6.5],
+      "to": [3, 13, 9.5],
+      "faces": {
+        "north": { "texture": "#deepslate" }, "south": { "texture": "#deepslate" },
+        "east": { "texture": "#deepslate" }, "west": { "texture": "#deepslate" },
+        "up": { "texture": "#deepslate" }, "down": { "texture": "#deepslate" }
+      }
+    },
+    {
+      "name": "foot_east",
+      "from": [13, 0, 6.5],
+      "to": [15, 3, 9.5],
+      "faces": {
+        "north": { "texture": "#blackstone" }, "south": { "texture": "#blackstone" },
+        "east": { "texture": "#blackstone" }, "west": { "texture": "#blackstone" },
+        "up": { "texture": "#blackstone" }, "down": { "texture": "#blackstone", "cullface": "down" }
+      }
+    },
+    {
+      "name": "shaft_east",
+      "from": [13, 3, 6.5],
+      "to": [15, 13, 9.5],
+      "faces": {
+        "north": { "texture": "#deepslate" }, "south": { "texture": "#deepslate" },
+        "east": { "texture": "#deepslate" }, "west": { "texture": "#deepslate" },
+        "up": { "texture": "#deepslate" }, "down": { "texture": "#deepslate" }
+      }
+    },
+    {
+      "name": "top_beam",
+      "from": [0, 13, 6],
+      "to": [16, 16, 10],
+      "faces": {
+        "north": { "texture": "#deepslate" }, "south": { "texture": "#deepslate" },
+        "east": { "texture": "#deepslate" }, "west": { "texture": "#deepslate" },
+        "up": { "texture": "#deepslate" }, "down": { "texture": "#deepslate" }
+      }
+    }
+  ]
 }

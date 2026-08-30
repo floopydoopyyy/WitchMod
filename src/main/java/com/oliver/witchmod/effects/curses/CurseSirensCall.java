@@ -99,6 +99,18 @@ public final class CurseSirensCall extends Effect {
         target.setData(WitchModAttachments.SIREN_SHADER, 0.0F);
     }
 
+    /** The Scrying Mirror gives editable FLAVOUR for the yearning level (lang keys, resolved on the client). */
+    @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        Float longing = LONGING.get(target.getUUID());
+        if (longing == null) {
+            return java.util.Optional.empty();
+        }
+        double pct = longing / Config.SIREN_LONGING_MAX.get();
+        String band = pct < 0.28 ? "calm" : pct < 0.6 ? "aching" : pct < 0.88 ? "pulling" : "marching";
+        return java.util.Optional.of("@witchmod.scry.siren." + band);
+    }
+
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         perTick(target);                                     // water grace, shader, velocity tug — every tick

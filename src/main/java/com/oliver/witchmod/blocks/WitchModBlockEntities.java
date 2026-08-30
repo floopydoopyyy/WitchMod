@@ -16,6 +16,14 @@ public final class WitchModBlockEntities {
             BLOCK_ENTITY_TYPES.register("bewitching_table", () -> BlockEntityType.Builder.of(
                     BewitchingTableBlockEntity::new, WitchModBlocks.BEWITCHING_TABLE.get()).build(null));
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LedgerBlockEntity>> LEDGER =
+            BLOCK_ENTITY_TYPES.register("ledger", () -> BlockEntityType.Builder.of(
+                    LedgerBlockEntity::new, WitchModBlocks.LEDGER.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AmethystBellBlockEntity>> AMETHYST_BELL =
+            BLOCK_ENTITY_TYPES.register("amethyst_bell", () -> BlockEntityType.Builder.of(
+                    AmethystBellBlockEntity::new, WitchModBlocks.AMETHYST_BELL.get()).build(null));
+
     private WitchModBlockEntities() {}
 
     public static void register(IEventBus modEventBus) {

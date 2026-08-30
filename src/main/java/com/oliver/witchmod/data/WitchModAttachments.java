@@ -33,13 +33,6 @@ public final class WitchModAttachments {
                     .copyOnDeath()
                     .build());
 
-    /** Tracks which Global events are currently afflicting this player — see {@link ActiveAfflictions}. */
-    public static final Supplier<AttachmentType<ActiveAfflictions>> ACTIVE_AFFLICTIONS = ATTACHMENT_TYPES.register("active_afflictions",
-            () -> AttachmentType.builder(ActiveAfflictions::empty)
-                    .serialize(ActiveAfflictions.CODEC)
-                    .copyOnDeath()
-                    .build());
-
     private static final Codec<Set<ResourceLocation>> RESOURCE_LOCATION_SET_CODEC =
             ResourceLocation.CODEC.listOf().xmap(HashSet::new, ArrayList::new);
 
@@ -47,14 +40,34 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Set<ResourceLocation>>> DISCOVERED_EFFECTS = ATTACHMENT_TYPES.register("discovered_effects",
             () -> AttachmentType.builder((Supplier<Set<ResourceLocation>>) HashSet::new)
                     .serialize(RESOURCE_LOCATION_SET_CODEC)
+                    // Synced so the client-side Compendium knows which attachments are discovered vs rumours.
+                    .sync(ByteBufCodecs.collection((java.util.function.IntFunction<Set<ResourceLocation>>) HashSet::new,
+                            ResourceLocation.STREAM_CODEC))
                     .copyOnDeath()
                     .build());
 
-    /** Which neutrals/globals this player has discovered — see {@link DiscoveryManager}. */
-    public static final Supplier<AttachmentType<Set<ResourceLocation>>> DISCOVERED_EVENTS = ATTACHMENT_TYPES.register("discovered_events",
+    /**
+     * Which Table modifiers this player has discovered — marked the first time they cast a ritual USING that
+     * modifier (see {@link DiscoveryManager#markModifierDiscovered}). The Compendium's Modifiers chapter always
+     * shows the modifier's name + item icon, but keeps its description a rumour until it's in this set. Ids are
+     * {@code witchmod:<modifier.id()>}.
+     */
+    public static final Supplier<AttachmentType<Set<ResourceLocation>>> DISCOVERED_MODIFIERS = ATTACHMENT_TYPES.register("discovered_modifiers",
             () -> AttachmentType.builder((Supplier<Set<ResourceLocation>>) HashSet::new)
                     .serialize(RESOURCE_LOCATION_SET_CODEC)
+                    .sync(ByteBufCodecs.collection((java.util.function.IntFunction<Set<ResourceLocation>>) HashSet::new,
+                            ResourceLocation.STREAM_CODEC))
                     .copyOnDeath()
+                    .build());
+
+    /**
+     * Effects cast with the Recovery Compass modifier — the exception to Rule 4: these do NOT persist past death.
+     * Deliberately NOT {@code copyOnDeath}, and the death handler strips these ids from ACTIVE_EFFECTS before the
+     * respawn copy runs.
+     */
+    public static final Supplier<AttachmentType<Set<ResourceLocation>>> NON_PERSISTENT_EFFECTS = ATTACHMENT_TYPES.register("non_persistent_effects",
+            () -> AttachmentType.builder((Supplier<Set<ResourceLocation>>) HashSet::new)
+                    .serialize(RESOURCE_LOCATION_SET_CODEC)
                     .build());
 
     /** Game time of this player's first-ever join, -1 if not yet recorded — see {@link GracePeriod}. */
@@ -163,6 +176,35 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Integer>> SPIDER_ACTIVE = ATTACHMENT_TYPES.register("spider_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
+    /** Forgiveness blessing: {@code 1} active, {@code -1} inactive. Synced so the client can do the enlarged-hitbox melee assist on a near-miss. */
+    public static final Supplier<AttachmentType<Integer>> FORGIVENESS_ACTIVE = ATTACHMENT_TYPES.register("forgiveness_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** Blessing of Speed: {@code 1} active, {@code -1} inactive. Synced so the client can cancel the sprint FOV zoom the extra speed would cause. */
+    public static final Supplier<AttachmentType<Integer>> SPEED_ACTIVE = ATTACHMENT_TYPES.register("speed_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** Speed Demon blessing: {@code 1} active, {@code -1} inactive. Synced so the client can speed up a ridden (client-authoritative) BOAT. */
+    public static final Supplier<AttachmentType<Integer>> SPEED_DEMON_ACTIVE = ATTACHMENT_TYPES.register("speed_demon_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** Carelessness curse: {@code 1} active, {@code -1} inactive. Client renders the whole health bar as black hearts. */
+    public static final Supplier<AttachmentType<Integer>> CARELESSNESS_ACTIVE = ATTACHMENT_TYPES.register("carelessness_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** Narcolepsy curse: the game tick the current sleep ends ({@code 0} = awake). Client runs the sleep overlay + mash while it's in the future. */
+    public static final Supplier<AttachmentType<Long>> NARCOLEPSY_SLEEP_END = ATTACHMENT_TYPES.register("narcolepsy_sleep_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /**
+     * Narcolepsy sleep depth for the CURRENT sleep, encoding two things in one synced int (0 while awake):
+     * the low digit is the depth tier (0 normal, 1 deep, 2 very deep — deeper = more mashing to wake), and
+     * +10 flags the debug THIRD-PERSON sleep (so the caster can watch their own lying animation). The client
+     * reads {@code depth % 10} for difficulty and {@code depth >= 10} for the third-person camera + local pose.
+     */
+    public static final Supplier<AttachmentType<Integer>> NARCOLEPSY_DEPTH = ATTACHMENT_TYPES.register("narcolepsy_depth",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+
     /**
      * The Dweller: {@code -1} inactive, otherwise the current dread STAGE (0..3). Drives the client-side
      * black-and-white shader, the thickened fog, and how oppressive both get — the higher the anger tier, the
@@ -180,12 +222,36 @@ public final class WitchModAttachments {
             () -> AttachmentType.builder(() -> 0.0F).sync(ByteBufCodecs.FLOAT).build());
 
     /**
+     * The Dweller: the raw DREAD value (0..DWELLER_ANGER_MAX), PERSISTED so it survives logout/relog and a
+     * normal death (curses don't expire on death). The transient per-victim server State seeds its anger from
+     * this on (re)creation and writes it back each tick; only dying to the CHASE resets it to 0.
+     */
+    public static final Supplier<AttachmentType<Double>> DWELLER_ANGER = ATTACHMENT_TYPES.register("dweller_anger",
+            () -> AttachmentType.builder(() -> -1.0)
+                    .serialize(Codec.DOUBLE)
+                    .copyOnDeath()
+                    .build());
+
+    /**
      * The Dweller: a synced game-tick at which a screen FLICKER ends. While the world time is below it, the
      * client briefly slams the fog in and darkens — "the lights just went out" — for Shadow-Pass / Lights-Out
      * scares. {@code Long.MIN_VALUE} = no flicker.
      */
     public static final Supplier<AttachmentType<Long>> DWELLER_FLICKER = ATTACHMENT_TYPES.register("dweller_flicker",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /**
+     * The Dweller MIMIC event: {@code 0} = no impostor; any other value is a session seed. On a change the
+     * victim's client spawns ONE fake player wearing a real online player's face that just stands and STARES,
+     * then drops the mask into shadow + a scream — implying the Dweller was wearing it. Victim-only, like the
+     * rest of the curse. (Distinct from the Delusions curse: one stalking impostor with a reveal, not a wander.)
+     */
+    public static final Supplier<AttachmentType<Long>> DWELLER_MIMIC = ATTACHMENT_TYPES.register("dweller_mimic",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /** The Dweller: {@code 1} while its subtle BREATHING loop should play (it's close and watching), else {@code 0}. */
+    public static final Supplier<AttachmentType<Integer>> DWELLER_BREATHING = ATTACHMENT_TYPES.register("dweller_breathing",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
 
     /** Gladiator: {@code 1} active, {@code -1} inactive. Gates the parry HUD + right-click handling on the client. */
     public static final Supplier<AttachmentType<Integer>> GLADIATOR_ACTIVE = ATTACHMENT_TYPES.register("gladiator_active",
@@ -326,6 +392,10 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Long>> FLAT_FOOTED_SHAKE_END = ATTACHMENT_TYPES.register("flat_footed_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
+    /** Amethyst Bell: game tick a subtle "toll" camera jolt ends, set for players nearby when it's rung. Synced. */
+    public static final Supplier<AttachmentType<Long>> AMETHYST_BELL_SHAKE_END = ATTACHMENT_TYPES.register("amethyst_bell_shake_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
     /**
      * Heavyweight: game tick the collapse camera-shake ends. Auto-synced — there is no vanilla screen shake,
      * so the client rattles the view itself off this in {@code ComputeCameraAngles}.
@@ -338,8 +408,20 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Long>> THICK_SKINNED_SHAKE_END = ATTACHMENT_TYPES.register("thick_skinned_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
+    /** Voodoo Doll: game tick the caster's pin/squeeze camera jolt ends. Synced. */
+    public static final Supplier<AttachmentType<Long>> VOODOO_SHAKE_END = ATTACHMENT_TYPES.register("voodoo_shake_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
     public static final Supplier<AttachmentType<Long>> HEAVYWEIGHT_SHAKE_END = ATTACHMENT_TYPES.register("heavyweight_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /** The Dweller: camera-shake end tick (bang/lunge jumpscares + the finale). Synced to the victim. */
+    public static final Supplier<AttachmentType<Long>> DWELLER_SHAKE_END = ATTACHMENT_TYPES.register("dweller_shake_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /** The Dweller: game-tick a flash-then-dark jumpscare overlay ends (bright flash, then black). Synced. */
+    public static final Supplier<AttachmentType<Long>> DWELLER_FLASH_END = ATTACHMENT_TYPES.register("dweller_flash_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
 
     /** Gladiator: camera-shake end tick + its peak strength (synced) — parry/perfect/whiff each set a different strength. */
     public static final Supplier<AttachmentType<Long>> GLADIATOR_SHAKE_END = ATTACHMENT_TYPES.register("gladiator_shake_end",
@@ -557,13 +639,35 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Long>> BEDROCK_PERSPECTIVE = ATTACHMENT_TYPES.register("bedrock_perspective",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment (Split Screen bug): synced game-tick the stolen-POV window ends. */
-    public static final Supplier<AttachmentType<Long>> BEDROCK_SPLIT_END = ATTACHMENT_TYPES.register("bedrock_split_end",
-            () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
+    // Bedrock Moment — client windows for the newer bugs. Each is a synced game-tick the window ends at.
+    private static Supplier<AttachmentType<Long>> bedrockWindow(String id) {
+        return ATTACHMENT_TYPES.register(id, () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
+    }
 
-    /** Bedrock Moment (Split Screen bug): entity id whose POV the client borrows during the window. */
-    public static final Supplier<AttachmentType<Integer>> BEDROCK_SPLIT_ID = ATTACHMENT_TYPES.register("bedrock_split_id",
-            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+    /** Ghost Item: your held item renders as a random other item. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_GHOST_ITEM = bedrockWindow("bedrock_ghost_item");
+    /** Input Lag: movement input is applied ~0.3s late. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_INPUT_LAG = bedrockWindow("bedrock_input_lag");
+    /** Texture Flicker: the missing-texture checker flashes over the screen. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_TEXTURE_FLICKER = bedrockWindow("bedrock_texture_flicker");
+    /** Sprint Reset: sprint keeps cutting out. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_SPRINT_RESET = bedrockWindow("bedrock_sprint_reset");
+    /** Language Error: the game language swaps to pirate/welsh. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_LANGUAGE = bedrockWindow("bedrock_language");
+    /** Speed Blitz: the FREEZE half ends at this tick (movement is recorded, not applied). */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_SPEEDBLITZ_FREEZE = bedrockWindow("bedrock_speedblitz_freeze");
+    /** Speed Blitz: the whole effect (freeze + 3x replay) ends by this tick. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_SPEEDBLITZ_END = bedrockWindow("bedrock_speedblitz_end");
+    /** Fake BSOD: the blue-screen window ends at this tick. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_BSOD = bedrockWindow("bedrock_bsod");
+    /** Fake Kick: a nonce — when it CHANGES, the client shows the fake disconnect screen. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_FAKE_KICK = ATTACHMENT_TYPES.register("bedrock_fake_kick",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** Air Swimming: you keep swimming through air like it's water until this tick. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_AIR_SWIM = bedrockWindow("bedrock_air_swim");
+    /** Hungry: right-click eats whatever you're holding until this tick. */
+    public static final Supplier<AttachmentType<Long>> BEDROCK_HUNGRY = bedrockWindow("bedrock_hungry");
+
 
     // --- Splitscreen curse -----------------------------------------------------------------------------
     /** Splitscreen: entity id of the partner sharing your screen, or -1. Synced (set on BOTH players). */
@@ -581,6 +685,56 @@ public final class WitchModAttachments {
     /** Splitscreen: a nonce bumped when a sign UI must force-close (someone took damage). Synced. */
     public static final Supplier<AttachmentType<Long>> SPLITSCREEN_SIGN_CLOSE = ATTACHMENT_TYPES.register("splitscreen_sign_close",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+
+    // --- Cutaway Gag curse -----------------------------------------------------------------------------
+    /**
+     * Cutaway Gag: entity id of the player being spectated during a cutaway (the client hijacks its camera
+     * there and locks movement), or -1 when not mid-cutaway. Synced to the cursed watcher.
+     */
+    public static final Supplier<AttachmentType<Integer>> CUTAWAY_TARGET = ATTACHMENT_TYPES.register("cutaway_target",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** Cutaway Gag (Annoying Music): synced game-tick the annoying-music window ends; the client loops a track. */
+    public static final Supplier<AttachmentType<Long>> CUTAWAY_MUSIC_END = ATTACHMENT_TYPES.register("cutaway_music_end",
+            () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /**
+     * Cutaway Gag: PERSISTED return position while the watcher is relocated to spectate — an empty tag when
+     * not mid-cutaway, otherwise {dim,x,y,z,yaw,pitch,invis,nograv}. Survives relog/world-reload so the watcher
+     * is never stranded at the overhead vantage (the transient server map is lost on reload).
+     */
+    public static final Supplier<AttachmentType<net.minecraft.nbt.CompoundTag>> CUTAWAY_RETURN = ATTACHMENT_TYPES.register("cutaway_return",
+            () -> AttachmentType.<net.minecraft.nbt.CompoundTag>builder(() -> new net.minecraft.nbt.CompoundTag()).serialize(net.minecraft.nbt.CompoundTag.CODEC).build());
+
+    /** Cutaway Gag: which looped SFX the watcher's client should play (-1 none, 0 helicopter, 1 tractor beam). Synced. */
+    public static final Supplier<AttachmentType<Integer>> CUTAWAY_LOOP = ATTACHMENT_TYPES.register("cutaway_loop",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+
+    /**
+     * Cutaway Gag: server-chosen entity id the spectate camera should AIM at, overriding the default (the
+     * victim = {@link #CUTAWAY_TARGET}). -1 = aim at the victim. Lets a gag frame something ELSE mid-cutaway
+     * (e.g. the marriage objector or the exploding spouse) for dramatic angles. Synced to the watcher.
+     */
+    public static final Supplier<AttachmentType<Integer>> CUTAWAY_LOOK = ATTACHMENT_TYPES.register("cutaway_look",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+
+    // --- Blessing of Flight: -1 off / 1 active, an energy fraction 0..1 for the bar + client rise, and a
+    // lockout end-tick (knocked out of flight briefly when hit). ---
+    public static final Supplier<AttachmentType<Integer>> FLIGHT_ACTIVE = ATTACHMENT_TYPES.register("flight_active",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+    public static final Supplier<AttachmentType<Float>> FLIGHT_ENERGY = ATTACHMENT_TYPES.register("flight_energy",
+            () -> AttachmentType.builder(() -> 1.0F).sync(ByteBufCodecs.FLOAT).build());
+    public static final Supplier<AttachmentType<Long>> FLIGHT_LOCKOUT_END = ATTACHMENT_TYPES.register("flight_lockout_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+
+    // --- Blessing of Thunder: -1 off / 0..4 the current static-charge tier (drives the client aura). ---
+    public static final Supplier<AttachmentType<Integer>> THUNDER_TIER = ATTACHMENT_TYPES.register("thunder_tier",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+
+    // --- Blessing of Disguise: the mob the player is CURRENTLY rendered as (-1 = real player, 0 cow / 1 sheep
+    // / 2 pig); the server flips it to -1 while the disguise is "broken". ---
+    public static final Supplier<AttachmentType<Integer>> DISGUISE_TYPE = ATTACHMENT_TYPES.register("disguise_type",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
 
     private WitchModAttachments() {}
 

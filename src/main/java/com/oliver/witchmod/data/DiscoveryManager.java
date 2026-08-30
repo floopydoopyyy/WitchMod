@@ -25,6 +25,8 @@ public final class DiscoveryManager {
 
     /** @return true if this was a NEW discovery (and therefore alerted the player). */
     public static boolean markEffectDiscovered(ServerPlayer player, ResourceLocation effectId) {
+        // Ink Sac / Wither Rose: discovery is the moment a hidden/disguised effect reveals its true wrapper.
+        EffectManager.revealDisplay(player, effectId);
         Set<ResourceLocation> discovered = player.getData(WitchModAttachments.DISCOVERED_EFFECTS);
         if (!discovered.add(effectId)) {
             return false;
@@ -40,21 +42,41 @@ public final class DiscoveryManager {
                 .orElse(false);
     }
 
-    /** @return true if this was a NEW discovery (and therefore alerted the player). */
-    public static boolean markEventDiscovered(ServerPlayer player, ResourceLocation eventId) {
-        Set<ResourceLocation> discovered = player.getData(WitchModAttachments.DISCOVERED_EVENTS);
-        if (!discovered.add(eventId)) {
-            return false;
+    /** Silently add/remove a single effect discovery (for the {@code /bewitch discovery} command). */
+    public static void setEffectDiscovered(ServerPlayer player, ResourceLocation effectId, boolean discovered) {
+        Set<ResourceLocation> set = player.getData(WitchModAttachments.DISCOVERED_EFFECTS);
+        boolean changed = discovered ? set.add(effectId) : set.remove(effectId);
+        if (changed) {
+            player.setData(WitchModAttachments.DISCOVERED_EFFECTS, set);
         }
-        player.setData(WitchModAttachments.DISCOVERED_EVENTS, discovered);
-        alert(player, eventId);
-        return true;
     }
 
-    public static boolean hasDiscoveredEvent(ServerPlayer player, ResourceLocation eventId) {
-        return player.getExistingData(WitchModAttachments.DISCOVERED_EVENTS)
-                .map(set -> set.contains(eventId))
-                .orElse(false);
+    /** Silently add/remove a single modifier discovery. */
+    public static void setModifierDiscovered(ServerPlayer player, Modifier modifier, boolean discovered) {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("witchmod", modifier.id());
+        Set<ResourceLocation> set = player.getData(WitchModAttachments.DISCOVERED_MODIFIERS);
+        boolean changed = discovered ? set.add(id) : set.remove(id);
+        if (changed) {
+            player.setData(WitchModAttachments.DISCOVERED_MODIFIERS, set);
+        }
+    }
+
+    /**
+     * Marks a Table modifier discovered for {@code player} (call when they cast a ritual using it). Alerts on
+     * the first discovery. Modifiers are keyed {@code witchmod:<modifier.id()>} in their own attachment set.
+     */
+    public static boolean markModifierDiscovered(ServerPlayer player, Modifier modifier) {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("witchmod", modifier.id());
+        Set<ResourceLocation> discovered = player.getData(WitchModAttachments.DISCOVERED_MODIFIERS);
+        if (!discovered.add(id)) {
+            return false;
+        }
+        player.setData(WitchModAttachments.DISCOVERED_MODIFIERS, discovered);
+        Component name = new net.minecraft.world.item.ItemStack(ModifierItems.itemFor(modifier)).getHoverName();
+        player.displayClientMessage(Component.literal("Modifier discovered: ").withStyle(ChatFormatting.DARK_AQUA)
+                .append(name.copy().withStyle(ChatFormatting.AQUA))
+                .append(Component.literal(" — your Compendium has been updated.").withStyle(ChatFormatting.GRAY)), false);
+        return true;
     }
 
     private static void alert(ServerPlayer player, ResourceLocation id) {
@@ -63,7 +85,7 @@ public final class DiscoveryManager {
                 .append(Component.literal(" — your Compendium has been updated.").withStyle(ChatFormatting.GRAY)), false);
     }
 
-    private static String titleCase(String snakeCase) {
+    public static String titleCase(String snakeCase) {
         String[] parts = snakeCase.split("_");
         StringBuilder result = new StringBuilder();
         for (String part : parts) {

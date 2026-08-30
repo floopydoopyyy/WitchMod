@@ -14,6 +14,15 @@ public final class WitchModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
             DeferredRegister.create(Registries.ENTITY_TYPE, WitchMod.MODID);
 
+    /** A thrown jar — the splash-potion projectile. Potion-sized, short tracking, frequent position updates. */
+    public static final DeferredHolder<EntityType<?>, EntityType<JarThrowEntity>> JAR_THROW =
+            ENTITY_TYPES.register("jar_throw", () -> EntityType.Builder
+                    .<JarThrowEntity>of(JarThrowEntity::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build("jar_throw"));
+
     /**
      * The Tax Man. {@code MobCategory.MISC} so natural spawning never touches him — he is only ever placed
      * deliberately by the Taxes curse — and player-sized so the humanoid model fits.
@@ -45,16 +54,32 @@ public final class WitchModEntities {
                     .build("snail"));
 
     /**
-     * The Mind Dweller (The Dweller curse). {@code MobCategory.MISC} so it never spawns naturally — only the
+     * The Spaghetti Man (The Dweller curse). {@code MobCategory.MISC} so it never spawns naturally — only the
      * curse places it — tall and thin. A wide client-tracking range so it can lurk at a distance and still be
      * rendered for its victim.
      */
-    public static final DeferredHolder<EntityType<?>, EntityType<MindDwellerEntity>> MIND_DWELLER =
-            ENTITY_TYPES.register("mind_dweller", () -> EntityType.Builder
-                    .of(MindDwellerEntity::new, MobCategory.MISC)
+    public static final DeferredHolder<EntityType<?>, EntityType<SpaghettiManEntity>> SPAGHETTI_MAN =
+            ENTITY_TYPES.register("spaghetti_man", () -> EntityType.Builder
+                    .of(SpaghettiManEntity::new, MobCategory.MISC)
                     .sized(0.6F, 2.5F)
                     .clientTrackingRange(12)
-                    .build("mind_dweller"));
+                    .build("spaghetti_man"));
+
+    /** The Cutaway Gag's "Dream" player-mimic. Player-sized; never spawns naturally — only the gag places it. */
+    public static final DeferredHolder<EntityType<?>, EntityType<DreamEntity>> DREAM =
+            ENTITY_TYPES.register("dream", () -> EntityType.Builder
+                    .of(DreamEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(16)
+                    .build("dream"));
+
+    /** Blessing of Confusion's doppelganger — an exact clone of the caster. Never spawns naturally. */
+    public static final DeferredHolder<EntityType<?>, EntityType<CloneEntity>> CLONE =
+            ENTITY_TYPES.register("clone", () -> EntityType.Builder
+                    .of(CloneEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(16)
+                    .build("clone"));
 
     /** The Dweller's "watchers" — disembodied glowing eyes in the dark. Tiny, never spawns naturally. */
     public static final DeferredHolder<EntityType<?>, EntityType<WatcherEyesEntity>> WATCHER_EYES =

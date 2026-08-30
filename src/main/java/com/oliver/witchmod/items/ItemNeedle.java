@@ -1,7 +1,5 @@
 package com.oliver.witchmod.items;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -10,16 +8,17 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
+import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * Right-click on a bound Voodoo Doll in inventory to directly damage the bound target, consuming the
- * Doll's durability rather than the Needle's own (CLAUDE.md section 3).
+ * Right-click a Needle with a bound Voodoo Doll in your inventory to jab the doll's target with the custom
+ * {@code witchmod:voodoo} damage (half-reduced by armour, no knockback). The stab spends the Needle and a few
+ * points of the Doll's durability, jolts your camera, and lands with a smack + FX on the victim — no chat text.
+ * You can also pick the Needle up in the GUI and right-click it onto the doll (see {@link ItemVoodooDoll}).
  */
 public final class ItemNeedle extends Item {
-    private static final float DAMAGE_AMOUNT = 2.0F;
-
     public ItemNeedle(Properties properties) {
         super(properties);
     }
@@ -27,35 +26,27 @@ public final class ItemNeedle extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack needle = player.getItemInHand(hand);
-        if (level.isClientSide()) {
+        if (level.isClientSide() || !(player instanceof ServerPlayer caster)) {
             return InteractionResultHolder.success(needle);
         }
 
-        ItemStack doll = findBoundDoll(player);
+        ItemStack doll = ItemVoodooDoll.findBoundDoll(caster);
         if (doll.isEmpty()) {
-            player.displayClientMessage(Component.literal("You need a bound Voodoo Doll in your inventory."), true);
-            return InteractionResultHolder.fail(needle);
+            return InteractionResultHolder.fail(needle); // no doll — nothing happens
         }
-
         PlayerEssenceData bound = doll.get(WitchModDataComponents.BOUND_PLAYER);
-        ServerPlayer caster = (ServerPlayer) player;
         ServerPlayer target = caster.getServer().getPlayerList().getPlayer(bound.playerId());
         if (target == null) {
-            caster.displayClientMessage(Component.literal(bound.playerName() + " isn't online right now."), true);
+            ItemVoodooDoll.offlineFizzle(caster);
             return InteractionResultHolder.fail(needle);
         }
 
-        target.hurt(((ServerLevel) level).damageSources().magic(), DAMAGE_AMOUNT);
-        doll.hurtAndBreak(1, (ServerLevel) level, caster, item -> caster.displayClientMessage(Component.literal("The doll crumbles apart."), true));
-        return InteractionResultHolder.success(needle);
-    }
+        // The jab (FX on the victim handled inside voodooHurt) + a camera jolt on the caster.
+        ItemVoodooDoll.voodooHurt(target, caster, (float) (double) Config.VOODOO_NEEDLE_BASE_DAMAGE.get());
+        ItemVoodooDoll.casterShake(caster);
 
-    private static ItemStack findBoundDoll(Player player) {
-        for (ItemStack stack : player.getInventory().items) {
-            if (stack.getItem() instanceof ItemVoodooDoll && stack.has(WitchModDataComponents.BOUND_PLAYER)) {
-                return stack;
-            }
-        }
-        return ItemStack.EMPTY;
+        needle.shrink(1);
+        doll.hurtAndBreak(Config.VOODOO_NEEDLE_DOLL_COST.get(), caster.serverLevel(), caster, item -> {});
+        return InteractionResultHolder.success(needle);
     }
 }

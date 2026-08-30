@@ -65,6 +65,19 @@ public final class CurseStickDrift extends Effect {
         NEXT_EPISODE.remove(target.getUUID());
     }
 
+    /** The Scrying Mirror names the fault: which stick, and roughly which way it pulls. */
+    @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        int mode = target.getData(WitchModAttachments.STICK_DRIFT_MODE);
+        if (mode < 0) {
+            return java.util.Optional.empty();
+        }
+        float angle = target.getData(WitchModAttachments.STICK_DRIFT_ANGLE);
+        String[] dirs = {"east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"};
+        int oct = Math.floorMod(Math.round(angle / (Mth.TWO_PI / 8)), 8);
+        return java.util.Optional.of((mode == 0 ? "camera" : "movement") + " drift, pulling " + dirs[oct]);
+    }
+
     @Override
     public String debugForce(ServerPlayer target, String arg) {
         startEpisode(target, target.serverLevel().getGameTime());

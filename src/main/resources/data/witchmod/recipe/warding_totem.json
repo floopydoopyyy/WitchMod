@@ -1,0 +1,4 @@
+{ "type": "minecraft:crafting_shaped", "category": "misc",
+  "key": { "Q": { "item": "minecraft:quartz" }, "D": { "item": "minecraft:diamond" }, "E": { "item": "witchmod:cursed_essence" } },
+  "pattern": ["QDQ", "QEQ", "QQQ"],
+  "result": { "id": "witchmod:warding_totem", "count": 1 } }

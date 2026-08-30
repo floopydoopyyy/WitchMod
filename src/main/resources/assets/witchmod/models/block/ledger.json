@@ -1,6 +1,12 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "__comment": "Ledger: the vanilla LECTERN shape, reskinned with editable witchmod textures. Edit the 5 PNGs in textures/block/ (ledger_base / _bottom / _front / _sides / _top) to restyle it. F3+T reloads.",
+  "parent": "minecraft:block/lectern",
   "textures": {
-    "all": "witchmod:block/ledger"
+    "particle": "witchmod:block/ledger_sides",
+    "bottom": "witchmod:block/ledger_bottom",
+    "base": "witchmod:block/ledger_base",
+    "front": "witchmod:block/ledger_front",
+    "sides": "witchmod:block/ledger_sides",
+    "top": "witchmod:block/ledger_top"
   }
 }

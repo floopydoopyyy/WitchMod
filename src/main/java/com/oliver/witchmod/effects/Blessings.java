@@ -53,7 +53,6 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingUnseen> UNSEEN = register("unseen", BlessingUnseen::new);
     public static final DeferredHolder<Effect, BlessingSilverTongue> SILVER_TONGUE = register("silver_tongue", BlessingSilverTongue::new);
     public static final DeferredHolder<Effect, BlessingHotStuff> HOT_STUFF = register("hot_stuff", BlessingHotStuff::new);
-    public static final DeferredHolder<Effect, BlessingBouncy> BOUNCY = register("bouncy", BlessingBouncy::new);
     public static final DeferredHolder<Effect, BlessingExcavation> EXCAVATION = register("excavation", BlessingExcavation::new);
     public static final DeferredHolder<Effect, BlessingAngler> ANGLER = register("angler", BlessingAngler::new);
     public static final DeferredHolder<Effect, BlessingLaughTrack> LAUGH_TRACK = register("laugh_track", BlessingLaughTrack::new);
@@ -68,11 +67,29 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingGladiator> GLADIATOR = register("gladiator", BlessingGladiator::new);
     public static final DeferredHolder<Effect, BlessingCow> COW = register("cow", BlessingCow::new);
     public static final DeferredHolder<Effect, BlessingTank> TANK = register("tank", BlessingTank::new);
+    public static final DeferredHolder<Effect, BlessingSpeed> SPEED = register("speed", BlessingSpeed::new);
+    public static final DeferredHolder<Effect, BlessingForgiveness> FORGIVENESS = register("forgiveness", BlessingForgiveness::new);
+    public static final DeferredHolder<Effect, BlessingDrive> DRIVE = register("drive", BlessingDrive::new);
+    public static final DeferredHolder<Effect, BlessingVeinMiner> VEIN_MINER = register("vein_miner", BlessingVeinMiner::new);
+    public static final DeferredHolder<Effect, BlessingCollector> COLLECTOR = register("collector", BlessingCollector::new);
+    public static final DeferredHolder<Effect, BlessingRestock> RESTOCK = register("restock", BlessingRestock::new);
+    public static final DeferredHolder<Effect, BlessingSanguine> SANGUINE = register("sanguine", BlessingSanguine::new);
+    public static final DeferredHolder<Effect, BlessingHomebody> HOMEBODY = register("homebody", BlessingHomebody::new);
+    public static final DeferredHolder<Effect, BlessingSonar> SONAR = register("sonar", BlessingSonar::new);
     public static final DeferredHolder<Effect, BlessingSpider> SPIDER = register("spider", BlessingSpider::new);
     public static final DeferredHolder<Effect, BlessingNinja> NINJA = register("ninja", BlessingNinja::new);
     public static final DeferredHolder<Effect, BlessingBackstabbing> BACKSTABBING = register("backstabbing", BlessingBackstabbing::new);
     public static final DeferredHolder<Effect, BlessingPropHunt> PROP_HUNT = register("prop_hunt", BlessingPropHunt::new);
     public static final DeferredHolder<Effect, BlessingLastStand> LAST_STAND = register("last_stand", BlessingLastStand::new);
+    public static final DeferredHolder<Effect, BlessingHeavyHitter> HEAVY_HITTER = register("heavy_hitter", BlessingHeavyHitter::new);
+    public static final DeferredHolder<Effect, BlessingSpeedDemon> SPEED_DEMON = register("speed_demon", BlessingSpeedDemon::new);
+    public static final DeferredHolder<Effect, BlessingFlight> FLIGHT = register("flight", BlessingFlight::new);
+    public static final DeferredHolder<Effect, BlessingThunder> THUNDER = register("thunder", BlessingThunder::new);
+    public static final DeferredHolder<Effect, BlessingSpelunking> SPELUNKING = register("spelunking", BlessingSpelunking::new);
+    public static final DeferredHolder<Effect, BlessingSafety> SAFETY = register("safety", BlessingSafety::new);
+    public static final DeferredHolder<Effect, BlessingDisguise> DISGUISE = register("disguise", BlessingDisguise::new);
+    public static final DeferredHolder<Effect, BlessingConfusion> CONFUSION = register("confusion", BlessingConfusion::new);
+    public static final DeferredHolder<Effect, BlessingPhotosynthesis> PHOTOSYNTHESIS = register("photosynthesis", BlessingPhotosynthesis::new);
 
     private Blessings() {}
 
