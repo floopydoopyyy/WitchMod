@@ -19,7 +19,7 @@ import com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment;
 public final class Curses {
     public static final DeferredHolder<Effect, CurseViolence> VIOLENCE = register("violence", CurseViolence::new);
     public static final DeferredHolder<Effect, CurseButterfingers> BUTTERFINGERS = register("butterfingers", CurseButterfingers::new);
-    public static final DeferredHolder<Effect, CurseExplosive> EXPLOSIVE = register("explosive", CurseExplosive::new);
+    public static final DeferredHolder<Effect, CurseExplosive> EXPLOSIVE = register("martyrdom", CurseExplosive::new);
     public static final DeferredHolder<Effect, CursePopularity> POPULARITY = register("popularity", CursePopularity::new);
     public static final DeferredHolder<Effect, CurseYap> YAP = register("yap", CurseYap::new);
     public static final DeferredHolder<Effect, CurseUnhygienic> UNHYGIENIC = register("unhygienic", CurseUnhygienic::new);
@@ -29,7 +29,8 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseGluttony> GLUTTONY = register("gluttony", CurseGluttony::new);
     public static final DeferredHolder<Effect, CurseGassy> GASSY = register("gassy", CurseGassy::new);
     public static final DeferredHolder<Effect, CurseFarmhand> FARMHAND = register("farmhand", CurseFarmhand::new);
-    public static final DeferredHolder<Effect, CurseHeavy> HEAVY = register("heavy", CurseHeavy::new);
+    /** Dense = the merged Heavy + Heavyweight (see {@link CurseDense}). The old {@code heavy}/{@code heavyweight} ids are retired. */
+    public static final DeferredHolder<Effect, CurseDense> DENSE = register("dense", CurseDense::new);
     public static final DeferredHolder<Effect, CurseSlipperyFeet> SLIPPERY_FEET = register("slippery_feet", CurseSlipperyFeet::new);
     public static final DeferredHolder<Effect, CurseMagnet> MAGNET = register("magnet", CurseMagnet::new);
     public static final DeferredHolder<Effect, CurseNeutralAggression> NEUTRAL_AGGRESSION =
@@ -40,7 +41,6 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseThirstMeter> THIRST_METER = register("thirst_meter", CurseThirstMeter::new);
     public static final DeferredHolder<Effect, CurseSocialOutcast> SOCIAL_OUTCAST = register("social_outcast", CurseSocialOutcast::new);
     public static final DeferredHolder<Effect, CurseFloorIsLava> FLOOR_IS_LAVA = register("floor_is_lava", CurseFloorIsLava::new);
-    public static final DeferredHolder<Effect, CurseHeavyweight> HEAVYWEIGHT = register("heavyweight", CurseHeavyweight::new);
     public static final DeferredHolder<Effect, CurseBadSwimmer> BAD_SWIMMER = register("bad_swimmer", CurseBadSwimmer::new);
     public static final DeferredHolder<Effect, CursePests> PESTS = register("pests", CursePests::new);
     public static final DeferredHolder<Effect, CurseAllergic> ALLERGIC = register("allergic", CurseAllergic::new);
@@ -58,12 +58,13 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseStickDrift> STICK_DRIFT = register("stick_drift", CurseStickDrift::new);
     public static final DeferredHolder<Effect, CurseBasementDweller> BASEMENT_DWELLER = register("basement_dweller", CurseBasementDweller::new);
     public static final DeferredHolder<Effect, CurseGlassCannon> GLASS_CANNON = register("glass_cannon", CurseGlassCannon::new);
-    public static final DeferredHolder<Effect, CurseHeavyHanded> HEAVY_HANDED = register("heavy_handed", CurseHeavyHanded::new);
-    public static final DeferredHolder<Effect, CurseMansplainer> MANSPLAINER = register("mansplainer", CurseMansplainer::new);
+    public static final DeferredHolder<Effect, CurseGiant> GIANT = register("giant", CurseGiant::new);
+    public static final DeferredHolder<Effect, CurseBouncy> BOUNCY = register("bouncy", CurseBouncy::new);
+    public static final DeferredHolder<Effect, CurseHeavyHanded> HEAVY_HANDED = register("klutz", CurseHeavyHanded::new);
 
     // Phase A (master-spec Section 16): the 7 previously NOT-PROTOTYPED curses, now built to the same
     // loosely-functional/command-startable bar as the rest. (Heavy Handed was already present above.)
-    public static final DeferredHolder<Effect, CurseSuperExplosive> SUPER_EXPLOSIVE = register("super_explosive", CurseSuperExplosive::new);
+    public static final DeferredHolder<Effect, CurseSuperExplosive> SUPER_EXPLOSIVE = register("volatile", CurseSuperExplosive::new);
     public static final DeferredHolder<Effect, CurseClaustrophobia> CLAUSTROPHOBIA = register("claustrophobia", CurseClaustrophobia::new);
     public static final DeferredHolder<Effect, CurseMoonwalker> MOONWALKER = register("moonwalker", CurseMoonwalker::new);
     public static final DeferredHolder<Effect, CurseSirensCall> SIRENS_CALL = register("sirens_call", CurseSirensCall::new);
@@ -72,10 +73,18 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseTrumpet> TRUMPET = register("trumpet", CurseTrumpet::new);
     public static final DeferredHolder<Effect, CurseSolicitor> SOLICITOR = register("solicitor", CurseSolicitor::new);
     public static final DeferredHolder<Effect, CurseSnail> SNAIL = register("snail", CurseSnail::new);
-    public static final DeferredHolder<Effect, CurseTheDweller> THE_DWELLER = register("the_dweller", CurseTheDweller::new);
+    public static final DeferredHolder<Effect, CurseTheDweller> THE_DWELLER = register("haunted", CurseTheDweller::new);
     public static final DeferredHolder<Effect, CurseBedrockMoment> BEDROCK_MOMENT = register("bedrock_moment", CurseBedrockMoment::new);
 
     public static final DeferredHolder<Effect, CurseSplitscreen> SPLITSCREEN = register("splitscreen", CurseSplitscreen::new);
+
+    public static final DeferredHolder<Effect, CurseCutawayGag> CUTAWAY_GAG = register("cutaway_gag", CurseCutawayGag::new);
+    public static final DeferredHolder<Effect, CurseCarelessness> CARELESSNESS = register("carelessness", CurseCarelessness::new);
+    public static final DeferredHolder<Effect, CurseNarcolepsy> NARCOLEPSY = register("narcolepsy", CurseNarcolepsy::new);
+
+    // Hidden internal attachments applied by the Slime Ball / Slime Block MODIFIERS (not selectable/castable).
+    public static final DeferredHolder<Effect, CurseInfectious> INFECTIOUS = register("infectious", CurseInfectious::new);
+    public static final DeferredHolder<Effect, CurseVeryInfectious> VERY_INFECTIOUS = register("very_infectious", CurseVeryInfectious::new);
 
     private Curses() {}
 

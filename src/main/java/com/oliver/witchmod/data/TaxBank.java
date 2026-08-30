@@ -19,7 +19,7 @@ import com.oliver.witchmod.Config;
  * Everything the Tax Man has ever confiscated, held for the whole world (master-spec Taxes).
  *
  * <p>Stored as {@link SavedData} on the overworld's dimension storage, so it's genuinely one shared pot for
- * the entire server and survives restarts — exactly like {@link GlobalCharge}. It has to persist: the
+ * the entire server and survives restarts. It has to persist: the
  * <b>Tax Man blessing</b> is what eventually hands this back out, and that may happen days later, to a
  * completely different player.
  */

@@ -71,6 +71,12 @@ public final class BlessingWindfall extends Effect {
 
     /** You find out the first time you actually spot something drift by (Rule 2), not when it's cast. */
     @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        int next = NEXT.getOrDefault(target.getUUID(), 0);
+        return java.util.Optional.of(next <= 20 ? "windfall imminent" : "windfall on cooldown");
+    }
+
+    @Override
     public boolean discoversOnTrigger() {
         return true;
     }

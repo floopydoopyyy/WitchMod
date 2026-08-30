@@ -16,7 +16,6 @@ public final class WitchModEventHandler {
     static void onPlayerTick(PlayerTickEvent.Post event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             EffectManager.tick(player);
-            AfflictionManager.tick(player);
         }
     }
 

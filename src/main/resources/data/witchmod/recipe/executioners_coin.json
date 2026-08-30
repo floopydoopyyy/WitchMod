@@ -1,0 +1,4 @@
+{ "type": "minecraft:crafting_shaped", "category": "misc",
+  "key": { "G": { "item": "minecraft:gold_ingot" }, "C": { "item": "minecraft:coal" } },
+  "pattern": [" G ", "CGC", " G "],
+  "result": { "id": "witchmod:executioners_coin", "count": 1 } }

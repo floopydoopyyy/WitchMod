@@ -30,6 +30,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.MovementInputUpdateEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
+import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
@@ -306,6 +307,19 @@ public final class ClientCurseHandler {
     private static int pacingTotalTicks = 1;
     private static SoundInstance pacingTheme;
 
+    // Cutaway Gag camera state: an overhead standstill from the watcher's own eyes (server places us at a good
+    // vantage), aimed at the victim. The pinned angles hold the shot steady between ticks.
+    private static boolean cutawayCamActive;
+    private static CameraType cutawaySavedCamera;
+    private static float cutawayLockedYaw;
+    private static float cutawayLockedPitch;
+    private static SoundInstance cutawayLoopSound; // Helicopter / tractor-beam / annoying-music positional loop
+    private static DwellerBreathingSound dwellerBreathing; // the Dweller's subtle watching-breath loop
+    private static int cutawayLoopId = -1;
+    private static long cutawayStartTick;      // when the cinematic engaged (drives the title-card timing)
+    private static String cutawayTitle = "";   // the "Meanwhile…" card for this cutaway (from a writable list)
+    private static String cutawayVictimName = "";
+
     private ClientCurseHandler() {}
 
     /**
@@ -314,9 +328,11 @@ public final class ClientCurseHandler {
      */
     @SubscribeEvent
     static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
-        // Loading Screen and Pacing both kill every interaction key (attack, use, pick block). Menus are
-        // deliberately left alone — those aren't routed through this event.
-        if (LoadingScreenState.isActive() || pacingCamActive) {
+        // Loading Screen, Pacing and Cutaway Gag all kill every interaction key (attack, use, pick block).
+        // Menus are deliberately left alone — those aren't routed through this event.
+        LocalPlayer cutawayCheck = Minecraft.getInstance().player;
+        if (LoadingScreenState.isActive() || pacingCamActive
+                || (cutawayCheck != null && cutawayCheck.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0)) {
             event.setCanceled(true);
             return;
         }
@@ -340,10 +356,10 @@ public final class ClientCurseHandler {
      */
     @SubscribeEvent
     static void onRenderLiving(RenderLivingEvent.Pre<?, ?> event) {
-        // The Dweller: the Mind Dweller is a private horror — it's only ever drawn for its VICTIM (whose UUID
+        // The Dweller: the Spaghetti Man is a private horror — it's only ever drawn for its VICTIM (whose UUID
         // it carries, synced). Everyone else's client refuses to render it, so it exists solely in the
         // victim's world.
-        if (event.getEntity() instanceof com.oliver.witchmod.entities.MindDwellerEntity dweller) {
+        if (event.getEntity() instanceof com.oliver.witchmod.entities.SpaghettiManEntity dweller) {
             LocalPlayer me = Minecraft.getInstance().player;
             if (me == null || dweller.getVictim().map(id -> !id.equals(me.getUUID())).orElse(true)) {
                 event.setCanceled(true);
@@ -448,8 +464,10 @@ public final class ClientCurseHandler {
     static void onMovementInput(MovementInputUpdateEvent event) {
         Input input = event.getInput();
 
-        // Loading Screen / Pacing: you are not playing right now. Movement, jumping and sneaking all go dead.
-        if (LoadingScreenState.isActive() || pacingCamActive || isImmortalityRebuilding(event.getEntity())) {
+        // Loading Screen / Pacing / Cutaway: you are not playing right now. Movement, jumping and sneaking all
+        // go dead.
+        if (LoadingScreenState.isActive() || pacingCamActive || isImmortalityRebuilding(event.getEntity())
+                || event.getEntity().getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
             input.forwardImpulse = 0.0F;
             input.leftImpulse = 0.0F;
             input.up = false;
@@ -771,7 +789,6 @@ public final class ClientCurseHandler {
 
     private static Integer bedrockSavedRenderDistance = null;
     private static net.minecraft.client.CameraType bedrockSavedCamera = null;
-    private static boolean bedrockSplitActive = false;
     private static long bedrockLastMarketNonce = 0L;
 
     /** Bedrock Moment per-tick client bugs: hotbar drift, perspective flip, split-screen POV, ad popup, sound delay. */
@@ -810,21 +827,6 @@ public final class ClientCurseHandler {
         } else if (!flip && bedrockSavedCamera != null) {
             mc.options.setCameraType(bedrockSavedCamera);
             bedrockSavedCamera = null;
-        }
-
-        // Split screen — your view is hijacked into another entity's POV.
-        long splitEnd = player.getData(WitchModAttachments.BEDROCK_SPLIT_END);
-        int splitId = player.getData(WitchModAttachments.BEDROCK_SPLIT_ID);
-        boolean split = splitEnd != Long.MIN_VALUE && now < splitEnd && splitId >= 0 && mc.level != null;
-        if (split) {
-            net.minecraft.world.entity.Entity cam = mc.level.getEntity(splitId);
-            if (cam != null && mc.getCameraEntity() != cam) {
-                mc.setCameraEntity(cam);
-            }
-            bedrockSplitActive = true;
-        } else if (bedrockSplitActive) {
-            mc.setCameraEntity(mc.player);
-            bedrockSplitActive = false;
         }
 
         // Marketplace popup — a changing nonce means a fresh ad wants your attention.
@@ -882,6 +884,7 @@ public final class ClientCurseHandler {
         }
         if (dwellerShaderActive) {
             float amount = net.minecraft.util.Mth.clamp((dread - 0.06F) / (0.85F - 0.06F), 0.0F, 1.0F);
+            amount = amount * amount * amount; // very drawn out — barely there until dread is high, bites near the top
             try {
                 if (postEffectField == null) {
                     postEffectField = net.minecraft.client.renderer.GameRenderer.class.getDeclaredField("postEffect");
@@ -983,8 +986,129 @@ public final class ClientCurseHandler {
      */
     @SubscribeEvent
     static void onRenderGuiLayer(RenderGuiLayerEvent.Pre event) {
+        // Cutaway Gag: hide the gameplay HUD for a clean cinematic — but NOT via hideGui, which also hid chat
+        // (where gag flavour text lives). Cancel the individual layers and leave CHAT + our overlay alone.
+        if (cutawayCamActive && CUTAWAY_HIDDEN_LAYERS.contains(event.getName())) {
+            event.setCanceled(true);
+            return;
+        }
         if (VanillaGuiLayers.FOOD_LEVEL.equals(event.getName())
                 && GluttonyHudLayer.shouldDrawCombinedBars(Minecraft.getInstance())) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** The vanilla HUD layers suppressed during a cutaway (chat + our cinematic overlay stay). */
+    private static final java.util.Set<net.minecraft.resources.ResourceLocation> CUTAWAY_HIDDEN_LAYERS = java.util.Set.of(
+            VanillaGuiLayers.DEBUG_OVERLAY, VanillaGuiLayers.CROSSHAIR, VanillaGuiLayers.HOTBAR,
+            VanillaGuiLayers.PLAYER_HEALTH, VanillaGuiLayers.FOOD_LEVEL, VanillaGuiLayers.EXPERIENCE_BAR,
+            VanillaGuiLayers.ARMOR_LEVEL, VanillaGuiLayers.AIR_LEVEL, VanillaGuiLayers.SELECTED_ITEM_NAME,
+            VanillaGuiLayers.JUMP_METER, VanillaGuiLayers.VEHICLE_HEALTH, VanillaGuiLayers.EFFECTS);
+
+    private static float dwellerChaseRed; // eased red-overlay intensity during a Dweller chase
+
+    /**
+     * The Dweller: a subtle RED wash during a chase that fades in and scales with how close it is — a flat tint
+     * plus a stronger top/bottom vignette that pulses as it bears down. Eased so it swells and recedes smoothly.
+     */
+    @SubscribeEvent
+    static void onDwellerChaseOverlay(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) {
+            dwellerChaseRed = 0.0F;
+            return;
+        }
+        float target = 0.0F;
+        if (mc.player.getData(WitchModAttachments.DWELLER_ACTIVE) == 3) {
+            double dist = 24.0;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (e instanceof com.oliver.witchmod.entities.SpaghettiManEntity d
+                        && d.getVictim().map(u -> u.equals(mc.player.getUUID())).orElse(false)) {
+                    dist = d.distanceTo(mc.player);
+                    break;
+                }
+            }
+            target = (float) net.minecraft.util.Mth.clamp(1.0 - dist / 22.0, 0.0, 1.0);
+        }
+        dwellerChaseRed += (target - dwellerChaseRed) * 0.08F; // smooth fade in/out
+        if (dwellerChaseRed < 0.02F) {
+            return;
+        }
+        net.minecraft.client.gui.GuiGraphics g = event.getGuiGraphics();
+        int w = g.guiWidth();
+        int h = g.guiHeight();
+        int flatA = (int) (dwellerChaseRed * 40.0F);              // faint full-screen tint
+        int edgeA = (int) (dwellerChaseRed * 150.0F);             // stronger at the top/bottom edges
+        int red = 0x00FF0000;
+        int band = h / 3;
+        g.fill(0, 0, w, h, (flatA << 24) | red);
+        g.fillGradient(0, 0, w, band, (edgeA << 24) | red, red);          // top: red → transparent
+        g.fillGradient(0, h - band, w, h, red, (edgeA << 24) | red);      // bottom: transparent → red
+    }
+
+    /** Client-local jumpscare flash window (mimic reveal sets this directly, since it runs on the client). */
+    private static long dwellerFlashLocalEnd;
+
+    public static void triggerDwellerFlash(int ticks) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            dwellerFlashLocalEnd = mc.level.getGameTime() + ticks;
+        }
+    }
+
+    /**
+     * The Dweller jumpscare FLASH: a bright white burst that snaps to full and fades over ~8 ticks (the "bright
+     * lights"). The "then darkness" is a Darkness effect applied server-side (vanilla renders it). Driven by the
+     * synced DWELLER_FLASH_END (server events like lunge) or the client-local window (the mimic reveal). The
+     * flash window is a fixed ~8 ticks, so ticks-left maps straight to brightness.
+     */
+    @SubscribeEvent
+    static void onDwellerFlash(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) {
+            return;
+        }
+        long now = mc.level.getGameTime();
+        long end = Math.max(mc.player.getData(WitchModAttachments.DWELLER_FLASH_END), dwellerFlashLocalEnd);
+        long left = end - now;
+        if (left <= 0 || left > 8) {
+            return;
+        }
+        float a = Mth.clamp(left / 8.0F, 0.0F, 1.0F); // full white at the start, fading to nothing
+        net.minecraft.client.gui.GuiGraphics g = event.getGuiGraphics();
+        g.fill(0, 0, g.guiWidth(), g.guiHeight(), ((int) (a * 255) << 24) | 0x00FFFFFF);
+    }
+
+    /** Cutaway Gag: the letterbox bars + "Meanwhile…" title card overlay (drawn over the spectate view). */
+    @SubscribeEvent
+    static void onCutawayCinematic(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
+        if (!cutawayCamActive) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return;
+        }
+        net.minecraft.client.gui.GuiGraphics g = event.getGuiGraphics();
+        int w = g.guiWidth();
+        int h = g.guiHeight();
+        int bar = Math.max(14, h / 9); // small cinematic bars, top and bottom
+        g.fill(0, 0, w, bar, 0xFF000000);
+        g.fill(0, h - bar, w, h, 0xFF000000);
+        // Family-Guy title card, held for the opening ~3s.
+        if (mc.level.getGameTime() - cutawayStartTick < 60 && !cutawayTitle.isEmpty()) {
+            int ty = h - bar - 34;
+            g.drawCenteredString(mc.font, cutawayTitle, w / 2, ty, 0xFFFFFFFF);
+            if (!cutawayVictimName.isEmpty()) {
+                g.drawCenteredString(mc.font, "with " + cutawayVictimName, w / 2, ty + 12, 0xFFB0B0B0);
+            }
+        }
+    }
+
+    /** Cutaway Gag: no first-person hand/held item while spectating — just a clean hover over the victim. */
+    @SubscribeEvent
+    static void onCutawayRenderHand(RenderHandEvent event) {
+        if (cutawayCamActive) {
             event.setCanceled(true);
         }
     }
@@ -1012,8 +1136,12 @@ public final class ClientCurseHandler {
         float dread = player.getData(WitchModAttachments.DWELLER_DREAD);
         if (dread > 0.02F) {
             float t = net.minecraft.util.Mth.clamp((dread - 0.05F) / 0.95F, 0.0F, 1.0F);
-            t = t * t * (3.0F - 2.0F * t); // smoothstep
+            t = t * t * t; // cubic ease-in — fog stays far for most of the climb, only closing in near max dread
             float far = net.minecraft.util.Mth.lerp(t, 110.0F, 8.0F);
+            // During a CHASE, ease the murk back a bit so you can actually see it coming and route around it.
+            if (player.getData(WitchModAttachments.DWELLER_ACTIVE) == 3) {
+                far = Math.max(far, 18.0F);
+            }
             if (far < event.getFarPlaneDistance()) {
                 event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance(), 1.0F));
                 event.setFarPlaneDistance(far);
@@ -1147,6 +1275,13 @@ public final class ClientCurseHandler {
             return;
         }
 
+        // Cutaway Gag: hold the overhead shot's aim rock-steady between ticks (look is applied per frame).
+        if (cutawayCamActive) {
+            event.setYaw(cutawayLockedYaw);
+            event.setPitch(cutawayLockedPitch);
+            return;
+        }
+
         if (!pacingCamActive || currentShot < 0 || currentShot >= shotYaw.length) {
             applyHeavyweightShake(mc, event);
             return;
@@ -1185,9 +1320,18 @@ public final class ClientCurseHandler {
         // ...and Brute's smash jolt when you crash through a wall.
         applyShake(event, now, mc.player.getData(WitchModAttachments.BRUTE_SHAKE_END),
                 Config.BRUTE_SHAKE_TICKS.get(), Config.BRUTE_SHAKE_STRENGTH.get());
+        // ...and the Dweller's on-hit jolt (bang-behind / lunge / the finale).
+        applyShake(event, now, mc.player.getData(WitchModAttachments.DWELLER_SHAKE_END),
+                Config.DWELLER_SHAKE_TICKS.get(), Config.DWELLER_SHAKE_STRENGTH.get());
         // ...and Gladiator's parry jolt (strength is synced per outcome: perfect > normal > whiff).
         applyShake(event, now, mc.player.getData(WitchModAttachments.GLADIATOR_SHAKE_END),
                 Config.GLADIATOR_SHAKE_TICKS.get(), mc.player.getData(WitchModAttachments.GLADIATOR_SHAKE_STRENGTH));
+        // ...and the Voodoo Doll caster's pin/squeeze jolt.
+        applyShake(event, now, mc.player.getData(WitchModAttachments.VOODOO_SHAKE_END),
+                Config.VOODOO_SHAKE_TICKS.get(), Config.VOODOO_SHAKE_STRENGTH.get());
+        // ...and the Amethyst Bell's subtle toll jolt for anyone nearby.
+        applyShake(event, now, mc.player.getData(WitchModAttachments.AMETHYST_BELL_SHAKE_END),
+                com.oliver.witchmod.blocks.AmethystBellBlock.SHAKE_TICKS, com.oliver.witchmod.blocks.AmethystBellBlock.SHAKE_STRENGTH);
     }
 
     /** One decaying random jolt on the camera ANGLES (never the real rotation), shared by both shake sources. */
@@ -1277,6 +1421,16 @@ public final class ClientCurseHandler {
         // Delusions: spawn/retire the fake players and run the "am I being watched" timer.
         DelusionManager.clientTick(mc);
 
+        // The Dweller's MIMIC: the single impostor wearing a real face that stares, then drops the mask.
+        DwellerMimicManager.clientTick(mc);
+
+        // The Dweller's BREATHING loop — start it when requested; the instance stops itself when the flag clears.
+        if (mc.player.getData(WitchModAttachments.DWELLER_BREATHING) == 1
+                && (dwellerBreathing == null || dwellerBreathing.isStopped())) {
+            dwellerBreathing = new DwellerBreathingSound();
+            mc.getSoundManager().play(dwellerBreathing);
+        }
+
         // Ugly: re-assert the swapped skin on every cursed player in view (and put faces back when cured).
         UglySkinManager.clientTick(mc);
 
@@ -1300,6 +1454,93 @@ public final class ClientCurseHandler {
         tickHeavyAnchor(player);
         tickStickDriftCamera(player);
         tickPacingCamera(mc, player);
+        tickCutaway(mc, player);
+        tickCutawayLoop(mc, player);
+    }
+
+    /**
+     * Cutaway Gag: the looped SFX — Helicopter rotors (0) / abduction tractor beam (1) / annoying music (2) —
+     * driven off the synced {@code CUTAWAY_LOOP} id. Uses a POSITIONAL instance that follows the victim
+     * ({@link CutawayLoopSound}) so the sound comes from the event, not from the spectating watcher.
+     */
+    private static void tickCutawayLoop(Minecraft mc, LocalPlayer player) {
+        int id = player.getData(WitchModAttachments.CUTAWAY_LOOP);
+        if (id == cutawayLoopId && (id < 0 || cutawayLoopSound != null)) {
+            return; // no change
+        }
+        if (cutawayLoopSound != null) {
+            mc.getSoundManager().stop(cutawayLoopSound);
+            cutawayLoopSound = null;
+        }
+        cutawayLoopId = id;
+        if (id >= 0) {
+            SoundEvent ev = switch (id) {
+                case 0 -> WitchModSounds.CUTAWAY_HELICOPTER.get();
+                case 1 -> WitchModSounds.CUTAWAY_TRACTORBEAM.get();
+                default -> WitchModSounds.LOADING_MUSIC_GOOFY.get(); // annoying music placeholder
+            };
+            cutawayLoopSound = new CutawayLoopSound(ev, id);
+            mc.getSoundManager().play(cutawayLoopSound);
+        }
+    }
+
+    /**
+     * Cutaway Gag: while the synced {@code CUTAWAY_TARGET} points at a victim, hold a steady OVERHEAD shot of
+     * them. The server has placed the (invisible) watcher body at a good vantage, so we keep the camera on
+     * ourselves in first person and just pin the view to look at the victim — far more stable than a
+     * third-person attach, which was the buggy "can't see the event" version. If the victim isn't loaded yet
+     * we wait; on death we snap out immediately (dying while hijacked strobes against the respawn screen).
+     */
+    private static void tickCutaway(Minecraft mc, LocalPlayer player) {
+        int id = player.getData(WitchModAttachments.CUTAWAY_TARGET);
+        boolean spectating = id >= 0 && mc.level != null && !player.isDeadOrDying();
+        if (spectating) {
+            Entity victim = mc.level.getEntity(id);
+            if (!cutawayCamActive) {
+                // Engage the cinematic AS SOON as the target is set — even before the victim's chunks finish
+                // loading — so there's always an immediate cue (bars + title card) rather than a frozen "nothing".
+                cutawaySavedCamera = mc.options.getCameraType();
+                cutawayCamActive = true;
+                cutawayStartTick = mc.level.getGameTime();
+                cutawayTitle = CutawayTitles.pick(player.getRandom());
+                cutawayVictimName = victim != null ? victim.getName().getString() : "";
+            }
+            // NOTE: we do NOT set hideGui — that hid the CHAT too, so gag flavour text (marriage vows, the
+            // bouncer) never appeared. Instead the individual gameplay HUD layers are cancelled in
+            // onRenderGuiLayer while chat + our cinematic overlay stay visible.
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            if (mc.getCameraEntity() != player) {
+                mc.setCameraEntity(player);
+            }
+            if (victim != null) {
+                cutawayVictimName = victim.getName().getString();
+                // A gag can point the camera at something OTHER than the victim (the marriage objector, the
+                // exploding spouse…) via CUTAWAY_LOOK — for dramatic framing. Default (-1) aims at the victim.
+                int lookId = player.getData(WitchModAttachments.CUTAWAY_LOOK);
+                Entity look = lookId >= 0 ? mc.level.getEntity(lookId) : null;
+                Entity aim = look != null ? look : victim;
+                Vec3 eye = player.getEyePosition(1.0F);
+                Vec3 tgt = aim.position().add(0.0, aim.getBbHeight() * 0.5, 0.0);
+                double dx = tgt.x - eye.x;
+                double dy = tgt.y - eye.y;
+                double dz = tgt.z - eye.z;
+                double horiz = Math.sqrt(dx * dx + dz * dz);
+                cutawayLockedYaw = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+                cutawayLockedPitch = (float) (-(Mth.atan2(dy, horiz) * (180.0 / Math.PI)));
+                player.setYRot(cutawayLockedYaw);
+                player.setXRot(cutawayLockedPitch);
+                player.yHeadRot = cutawayLockedYaw;
+                player.yBodyRot = cutawayLockedYaw;
+            }
+        } else if (cutawayCamActive) {
+            if (mc.getCameraEntity() != player) {
+                mc.setCameraEntity(player);
+            }
+            if (cutawaySavedCamera != null) {
+                mc.options.setCameraType(cutawaySavedCamera);
+            }
+            cutawayCamActive = false;
+        }
     }
 
     /**
@@ -1370,6 +1611,64 @@ public final class ClientCurseHandler {
             net.neoforged.neoforge.network.PacketDistributor.sendToServer(
                     new com.oliver.witchmod.network.WitchModNetwork.BerserkerMissPayload());
         }
+    }
+
+    /**
+     * Forgiveness: a melee swing that MISSED (nothing in vanilla's pick) still connects if a mob's ~40%-bigger
+     * hitbox was on your aim line — enlarged hitboxes, but only FOR YOU. Especially forgiving on tiny/baby mobs.
+     * Runs on the miss (LeftClickEmpty), does an inflated raycast, and attacks the best candidate itself.
+     */
+    @SubscribeEvent
+    static void onForgivenessAssist(PlayerInteractEvent.LeftClickEmpty event) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null || mc.gameMode == null
+                || player.getData(WitchModAttachments.FORGIVENESS_ACTIVE) < 0) {
+            return;
+        }
+        net.minecraft.world.entity.Entity target = forgivenessPick(mc, player);
+        if (target != null) {
+            mc.gameMode.attack(player, target);
+            player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
+    }
+
+    /**
+     * Blessing of Speed: keep only a SLIGHT sprint-FOV zoom rather than the big one the boosted movement speed
+     * would produce — so sprinting still reads as fast without the nauseating full zoom for that speed.
+     */
+    @SubscribeEvent
+    static void onSpeedFov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
+        if (event.getPlayer().getData(WitchModAttachments.SPEED_ACTIVE) >= 0) {
+            float natural = event.getNewFovModifier();
+            if (natural > 1.0F) { // only while sprinting (the zoom-out)
+                event.setNewFovModifier(1.0F + (natural - 1.0F) * 0.3F); // keep ~30% of the sprint zoom
+            }
+        }
+    }
+
+    private static net.minecraft.world.entity.Entity forgivenessPick(Minecraft mc, LocalPlayer player) {
+        double reach = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ENTITY_INTERACTION_RANGE);
+        net.minecraft.world.phys.Vec3 eye = player.getEyePosition();
+        net.minecraft.world.phys.Vec3 look = player.getViewVector(1.0F);
+        net.minecraft.world.phys.Vec3 end = eye.add(look.scale(reach));
+        net.minecraft.world.phys.AABB search = player.getBoundingBox().expandTowards(look.scale(reach)).inflate(1.0);
+        double base = com.oliver.witchmod.Config.FORGIVENESS_HITBOX_INFLATE.get();
+        net.minecraft.world.entity.Entity best = null;
+        double bestD = Double.MAX_VALUE;
+        for (net.minecraft.world.entity.Entity e : mc.level.getEntities(player, search,
+                e -> e instanceof net.minecraft.world.entity.LivingEntity && e.isPickable() && e != player && !e.isSpectator())) {
+            double inf = Math.max(base, e.getBbWidth() * 0.2); // ~40% wider, floor helps tiny/baby mobs
+            var hit = e.getBoundingBox().inflate(inf).clip(eye, end);
+            if (hit.isPresent()) {
+                double d = eye.distanceToSqr(hit.get());
+                if (d < bestD) {
+                    bestD = d;
+                    best = e;
+                }
+            }
+        }
+        return best;
     }
 
     /**

@@ -1,0 +1,44 @@
+BEWITCHING TABLE — editable textures (all 16x16 PNG, RGBA)
+==========================================================
+
+Model: models/block/bewitching_table.json. Shape:
+  - a deepslate PILLAR base (10x10 column, y 0..11)
+  - a full 16x16 TOP SLAB overhang (y 11..16)
+  - the top FACE is one carpet tile with 4 FLAT purple corner squares
+  - carpet FLAPS drape over the middle of each of the 4 sides
+
+Every model face is mapped 1:1 (1 texture pixel = 1 model pixel), so it stays a
+true Minecraft 16x16 look — no squashed/dense areas. Paint each tile as a normal
+16x16 and F3+T (resource reload) to see it, no rebuild needed.
+
+FILES
+-----
+bewitching_table_pillar.png       Deepslate pillar (column) sides. The model samples
+                                    the centre 10x11 of this tile — but it's a full
+                                    16x16 deepslate tile, so just paint it normally.
+bewitching_table_pillar_top.png   Deepslate cap: pillar top/bottom + the slab underside.
+bewitching_table_slab_side.png    The four sides of the top slab (the overhang lip).
+                                    The model shows the TOP 5 rows of this tile; it's a
+                                    plain deepslate tile so any 5 rows look right.
+                                    (Also the break/place particle.)
+bewitching_table_top.png          THE TOP SURFACE. Red carpet across the whole 16x16,
+                                    with a flat purple square in each corner (4x4). Edit
+                                    the corner colour/size and the carpet here.
+bewitching_table_carpet.png       The red carpet used for the 4 drape flaps. The flaps
+                                    show the region x6..10 of this tile; paint a fringe
+                                    into the bottom rows if you want it to read as hanging.
+
+SHAPE / PIXEL HEIGHTS (0 = bottom, 16 = top)
+--------------------------------------------
+  pillar      y 0..11    (10x10 column, centred)
+  top slab    y 11..16   (full 16x16 footprint, top face = carpet + flat corners)
+  drapes      y 12..16   (4px wide, at the middle of each side, ~0.5px proud)
+
+TWEAKS (edit the model JSON, no texture change needed)
+------
+- Corner size/colour: edit bewitching_table_top.png (the corners are painted flat
+  into that one tile — change the 4x4 squares to any size/shape you like).
+- Drape width/length: the drape elements' "from"/"to" in the model JSON.
+- Pillar thickness / slab height: the pillar and top_slab "from"/"to".
+- Old textures bewitching_table_front/side/top(_OLD) are unused and deletable.
+  (NB: bewitching_table_top.png is now IN USE — it's the carpet top.)

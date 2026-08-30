@@ -1,0 +1,4 @@
+{ "type": "minecraft:crafting_shaped", "category": "misc",
+  "key": { "A": { "item": "minecraft:amethyst_shard" }, "G": { "item": "minecraft:gold_ingot" } },
+  "pattern": ["AAA", "AGA", " A "],
+  "result": { "id": "witchmod:amethyst_bell", "count": 1 } }

@@ -34,4 +34,10 @@ public final class CurseScreensaver extends Effect {
     public void onRemove(ServerPlayer target) {
         target.setData(WitchModAttachments.SCREENSAVER_ACTIVE, -1);
     }
+
+    @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        // The bounce episodes are timed client-side, so the server only knows the curse is running.
+        return java.util.Optional.of("episodes come and go");
+    }
 }

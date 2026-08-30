@@ -2,30 +2,57 @@
   "blessing.laughtrack.laugh": {
     "subtitle": "witchmod.subtitle.laughtrack",
     "sounds": [
-      { "name": "witchmod:blessing/laughtrack/crowdlaugh1", "stream": false },
-      { "name": "witchmod:blessing/laughtrack/crowdlaugh2", "stream": false },
-      { "name": "witchmod:blessing/laughtrack/crowdlaugh3", "stream": false }
+      {
+        "name": "witchmod:blessing/laughtrack/crowdlaugh1",
+        "stream": false
+      },
+      {
+        "name": "witchmod:blessing/laughtrack/crowdlaugh2",
+        "stream": false
+      },
+      {
+        "name": "witchmod:blessing/laughtrack/crowdlaugh3",
+        "stream": false
+      }
     ]
   },
   "blessing.laughtrack.cheer": {
     "subtitle": "witchmod.subtitle.laughtrack",
     "sounds": [
-      { "name": "witchmod:blessing/laughtrack/cheer1", "stream": false },
-      { "name": "witchmod:blessing/laughtrack/cheer2", "stream": false }
+      {
+        "name": "witchmod:blessing/laughtrack/cheer1",
+        "stream": false
+      },
+      {
+        "name": "witchmod:blessing/laughtrack/cheer2",
+        "stream": false
+      }
     ]
   },
   "blessing.brute.impact": {
     "subtitle": "witchmod.subtitle.brute_impact",
     "sounds": [
-      { "name": "witchmod:blessing/brute/impact", "stream": false }
+      {
+        "name": "witchmod:blessing/brute/impact",
+        "stream": false
+      }
     ]
   },
   "blessing.bouncy.boing": {
     "subtitle": "witchmod.subtitle.bouncy_boing",
     "sounds": [
-      { "name": "witchmod:blessing/bouncy/boing1", "stream": false },
-      { "name": "witchmod:blessing/bouncy/boing2", "stream": false },
-      { "name": "witchmod:blessing/bouncy/boing3", "stream": false }
+      {
+        "name": "witchmod:blessing/bouncy/boing1",
+        "stream": false
+      },
+      {
+        "name": "witchmod:blessing/bouncy/boing2",
+        "stream": false
+      },
+      {
+        "name": "witchmod:blessing/bouncy/boing3",
+        "stream": false
+      }
     ]
   },
   "blessing.mainchar.theme": {
@@ -130,29 +157,313 @@
   },
   "blessing.gladiator.parry": {
     "subtitle": "witchmod.subtitle.gladiator_parry",
-    "sounds": ["witchmod:blessing/gladiator/parry"]
+    "sounds": [
+      "witchmod:blessing/gladiator/parry"
+    ]
   },
   "blessing.gladiator.whiff": {
     "subtitle": "witchmod.subtitle.gladiator_whiff",
-    "sounds": ["witchmod:blessing/gladiator/whiff"]
+    "sounds": [
+      "witchmod:blessing/gladiator/whiff"
+    ]
   },
   "blessing.gladiator.riposte": {
     "subtitle": "witchmod.subtitle.gladiator_riposte",
-    "sounds": ["witchmod:blessing/gladiator/riposte"]
+    "sounds": [
+      "witchmod:blessing/gladiator/riposte"
+    ]
   },
   "blessing.gladiator.perfect": {
     "subtitle": "witchmod.subtitle.gladiator_perfect",
-    "sounds": ["witchmod:blessing/gladiator/perfect"]
+    "sounds": [
+      "witchmod:blessing/gladiator/perfect"
+    ]
   },
   "blessing.gladiator.reflect": {
     "subtitle": "witchmod.subtitle.gladiator_reflect",
-    "sounds": ["witchmod:blessing/gladiator/reflect"]
+    "sounds": [
+      "witchmod:blessing/gladiator/reflect"
+    ]
   },
   "curse.snail.music": {
     "subtitle": "witchmod.subtitle.snail_music",
     "sounds": [
       {
         "name": "witchmod:curse/snail/snailmusic",
+        "stream": false
+      }
+    ]
+  },
+  "curse.cutaway.ball_throw": {
+    "subtitle": "witchmod.subtitle.cutaway_bowling",
+    "sounds": [
+      "witchmod:curse/cutaway/ballthrow"
+    ]
+  },
+  "curse.cutaway.bowling_strike": {
+    "subtitle": "witchmod.subtitle.cutaway_bowling",
+    "sounds": [
+      "witchmod:curse/cutaway/strike1",
+      "witchmod:curse/cutaway/strike2"
+    ]
+  },
+  "curse.cutaway.drifting": {
+    "subtitle": "witchmod.subtitle.cutaway_drifting",
+    "sounds": [
+      "witchmod:curse/cutaway/drifting"
+    ]
+  },
+  "curse.cutaway.helicopter": {
+    "subtitle": "witchmod.subtitle.cutaway_helicopter",
+    "sounds": [
+      {
+        "name": "witchmod:curse/cutaway/helicopter",
+        "stream": false
+      }
+    ]
+  },
+  "curse.cutaway.train_warning": {
+    "subtitle": "witchmod.subtitle.cutaway_train",
+    "sounds": [
+      "witchmod:curse/cutaway/iliketrains"
+    ]
+  },
+  "curse.cutaway.train_roll": {
+    "subtitle": "witchmod.subtitle.cutaway_train",
+    "sounds": [
+      "witchmod:curse/cutaway/trainsound"
+    ]
+  },
+  "curse.cutaway.tractorbeam": {
+    "subtitle": "witchmod.subtitle.cutaway_abduction",
+    "sounds": [
+      {
+        "name": "witchmod:curse/cutaway/tractorbeam",
+        "stream": false
+      }
+    ]
+  },
+  "curse.cutaway.ufo_enter": {
+    "subtitle": "witchmod.subtitle.cutaway_abduction",
+    "sounds": [
+      "witchmod:curse/cutaway/ufoenter"
+    ]
+  },
+  "curse.cutaway.wedding": {
+    "subtitle": "witchmod.subtitle.cutaway_wedding",
+    "sounds": [
+      {
+        "name": "witchmod:curse/cutaway/wedding",
+        "stream": true
+      }
+    ]
+  },
+  "curse.dweller.mood": {
+    "subtitle": "witchmod.subtitle.dweller_mood",
+    "sounds": [
+      "witchmod:curse/dweller/mood1",
+      "witchmod:curse/dweller/mood2",
+      "witchmod:curse/dweller/mood3",
+      "witchmod:curse/dweller/mood4",
+      "witchmod:curse/dweller/mood5",
+      "witchmod:curse/dweller/mood6",
+      "witchmod:curse/dweller/mood7",
+      "witchmod:curse/dweller/mood8",
+      "witchmod:curse/dweller/mood9",
+      "witchmod:curse/dweller/mood10"
+    ]
+  },
+  "curse.dweller.wind": {
+    "subtitle": "witchmod.subtitle.dweller_wind",
+    "sounds": [
+      "witchmod:curse/dweller/wind1",
+      "witchmod:curse/dweller/wind2",
+      "witchmod:curse/dweller/wind3"
+    ]
+  },
+  "curse.dweller.laugh": {
+    "subtitle": "witchmod.subtitle.dweller_laugh",
+    "sounds": [
+      "witchmod:curse/dweller/laugh1",
+      "witchmod:curse/dweller/laugh2",
+      "witchmod:curse/dweller/laugh3"
+    ]
+  },
+  "curse.dweller.scream": {
+    "subtitle": "witchmod.subtitle.dweller_scream",
+    "sounds": [
+      "witchmod:curse/dweller/chase1",
+      "witchmod:curse/dweller/chase2"
+    ]
+  },
+  "curse.dweller.breath": {
+    "subtitle": "witchmod.subtitle.dweller_breath",
+    "sounds": [
+      "witchmod:curse/dweller/breath"
+    ]
+  },
+  "curse.dweller.breathing": {
+    "subtitle": "witchmod.subtitle.dweller_breathing",
+    "sounds": [
+      {
+        "name": "witchmod:curse/dweller/breathing",
+        "stream": false
+      }
+    ]
+  },
+  "curse.dweller.step": {
+    "subtitle": "witchmod.subtitle.dweller_step",
+    "sounds": [
+      "witchmod:curse/dweller/step1",
+      "witchmod:curse/dweller/step2",
+      "witchmod:curse/dweller/step3"
+    ]
+  },
+  "curse.dweller.pop": {
+    "subtitle": "witchmod.subtitle.dweller_pop",
+    "sounds": [
+      "witchmod:curse/dweller/pop1",
+      "witchmod:curse/dweller/pop2"
+    ]
+  },
+  "curse.dweller.bang": {
+    "subtitle": "witchmod.subtitle.dweller_bang",
+    "sounds": [
+      "witchmod:curse/dweller/bang"
+    ]
+  },
+  "curse.dweller.splatter": {
+    "subtitle": "witchmod.subtitle.dweller_splatter",
+    "sounds": [
+      "witchmod:curse/dweller/splatter"
+    ]
+  },
+  "curse.dweller.enraged": {
+    "subtitle": "witchmod.subtitle.dweller_enraged",
+    "sounds": [
+      "witchmod:curse/dweller/enraged"
+    ]
+  },
+  "curse.dweller.knock": {
+    "subtitle": "witchmod.subtitle.dweller_knock",
+    "sounds": [
+      "witchmod:curse/dweller/knock1",
+      "witchmod:curse/dweller/knock2",
+      "witchmod:curse/dweller/knock3",
+      "witchmod:curse/dweller/knock4"
+    ]
+  },
+  "blessing.sonar.ping": {
+    "subtitle": "witchmod.subtitle.sonar_ping",
+    "sounds": [
+      "witchmod:blessing/sonar/sonar"
+    ]
+  },
+  "system.afflicted": {
+    "sounds": [
+      {
+        "name": "witchmod:system/afflicted",
+        "stream": false
+      }
+    ]
+  },
+  "system.blessed": {
+    "sounds": [
+      {
+        "name": "witchmod:system/blessed",
+        "stream": false
+      }
+    ]
+  },
+  "system.cursed": {
+    "sounds": [
+      {
+        "name": "witchmod:system/cursed",
+        "stream": false
+      }
+    ]
+  },
+  "system.big_hit": {
+    "sounds": [
+      {
+        "name": "witchmod:system/bighit",
+        "stream": false
+      }
+    ]
+  },
+  "ritual.fail": {
+    "sounds": [
+      {
+        "name": "witchmod:ritual/fail",
+        "stream": false
+      }
+    ]
+  },
+  "curse.narcolepsy.snore": {
+    "sounds": [
+      {
+        "name": "witchmod:curse/narcolepsy/snore",
+        "stream": false
+      }
+    ]
+  },
+  "curse.cutaway.parade_drum": {
+    "sounds": [
+      {
+        "name": "witchmod:curse/cutaway/parade1",
+        "stream": true
+      }
+    ]
+  },
+  "curse.cutaway.parade_march": {
+    "sounds": [
+      {
+        "name": "witchmod:curse/cutaway/parade2",
+        "stream": true
+      }
+    ]
+  },
+  "amethyst_bell.ring": {
+    "subtitle": "witchmod.subtitle.amethyst_bell_ring",
+    "sounds": [
+      {
+        "name": "witchmod:amethyst_bell/ring",
+        "stream": false
+      }
+    ]
+  },
+  "ledger.write": {
+    "subtitle": "witchmod.subtitle.ledger_write",
+    "sounds": [
+      {
+        "name": "witchmod:ledger/write",
+        "stream": false
+      }
+    ]
+  },
+  "ritual.success": {
+    "subtitle": "witchmod.subtitle.ritual_success",
+    "sounds": [
+      {
+        "name": "witchmod:ritual/success",
+        "stream": false
+      }
+    ]
+  },
+  "ritual.backfire": {
+    "subtitle": "witchmod.subtitle.ritual_backfire",
+    "sounds": [
+      {
+        "name": "witchmod:ritual/backfire",
+        "stream": false
+      }
+    ]
+  },
+  "ritual.fizzle": {
+    "subtitle": "witchmod.subtitle.ritual_fizzle",
+    "sounds": [
+      {
+        "name": "witchmod:ritual/fizzle",
         "stream": false
       }
     ]

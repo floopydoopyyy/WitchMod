@@ -61,10 +61,10 @@
   "refund": [
     "A rare refund. Don't spend it all at once.",
     "Turns out you were owed. Here.",
-    "Special delivery. On the house.",
+    "Special delivery.",
     "The bureau apologises for the inconvenience. Take it.",
-    "Clerical error in your favour. Enjoy.",
-    "Your taxes, returned. This never happens.",
+    "I have been instructed to return these to you.",
+    "Your claim was successful, here.",
     "Consider us even."
   ]
 }

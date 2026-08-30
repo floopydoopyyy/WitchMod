@@ -11,22 +11,22 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
+import com.oliver.witchmod.data.CoinGamble;
 import com.oliver.witchmod.data.Effect;
-import com.oliver.witchmod.data.EffectManager;
-import com.oliver.witchmod.data.WitchModRegistries;
 
 /**
- * Gambles a random effect onto the user, consuming one coin. Backs both Cursed Coin (any effect) and
- * Blessed Coin (blessings only) — CLAUDE.md section 3.
+ * Gambles a coin onto the USER (1–3 effects, per {@link CoinGamble} — Cursed / Blessed / Executioner's biases).
+ * The same gamble runs when the coin is placed as a Sacrificial Item at the Bewitching Table, there hitting the
+ * ritual's target instead. CLAUDE.md section 3/4.
  */
 public final class ItemGambleCoin extends Item {
     private static final int DEFAULT_DURATION_TICKS = 45 * 60 * 20;
 
-    private final boolean blessingsOnly;
+    private final CoinGamble.Type type;
 
-    public ItemGambleCoin(Properties properties, boolean blessingsOnly) {
+    public ItemGambleCoin(Properties properties, CoinGamble.Type type) {
         super(properties);
-        this.blessingsOnly = blessingsOnly;
+        this.type = type;
     }
 
     @Override
@@ -35,16 +35,11 @@ public final class ItemGambleCoin extends Item {
         if (level.isClientSide() || !(player instanceof ServerPlayer serverPlayer)) {
             return InteractionResultHolder.success(stack);
         }
-
-        List<Holder.Reference<Effect>> pool = WitchModRegistries.EFFECT_REGISTRY.holders()
-                .filter(holder -> !blessingsOnly || holder.value().category() == com.oliver.witchmod.data.EffectCategory.BLESSING)
-                .toList();
-        if (pool.isEmpty()) {
+        // caster = null: a self-gamble isn't attributed to anyone (matches the coin being your own bad luck).
+        List<Holder.Reference<Effect>> got = CoinGamble.gamble(serverPlayer, type, DEFAULT_DURATION_TICKS, null, serverPlayer.getRandom());
+        if (got.isEmpty()) {
             return InteractionResultHolder.fail(stack);
         }
-
-        Holder.Reference<Effect> effect = pool.get(serverPlayer.getRandom().nextInt(pool.size()));
-        EffectManager.apply(serverPlayer, effect, DEFAULT_DURATION_TICKS, null);
         stack.shrink(1);
         return InteractionResultHolder.success(stack);
     }

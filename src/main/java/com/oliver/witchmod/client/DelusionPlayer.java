@@ -223,6 +223,16 @@ public final class DelusionPlayer extends RemotePlayer {
         return false;
     }
 
+    /**
+     * Pins this fake into a dead-still STARE at the victim (the Dweller mimic uses this): no wandering, no
+     * player-business — just an impostor standing unnaturally still, watching you. Behaviour, not a scare.
+     */
+    private boolean stalkerStare;
+
+    public void setStalkerStare(boolean v) {
+        this.stalkerStare = v;
+    }
+
     @Override
     public void tick() {
         LocalPlayer victim = Minecraft.getInstance().player;
@@ -230,6 +240,24 @@ public final class DelusionPlayer extends RemotePlayer {
             return;
         }
         lifeTicks++;
+
+        if (stalkerStare) {
+            // Stand still and slowly turn to keep facing the victim — unblinking, unmoving, wrong.
+            throttle = 0.0F;
+            wishSprint = false;
+            wishJump = false;
+            flyClimb = 0;
+            Vec3 to = victim.getEyePosition().subtract(getEyePosition());
+            if (to.horizontalDistanceSqr() > 1.0E-4) {
+                this.wishYaw = (float) (Mth.atan2(to.z, to.x) * (180.0 / Math.PI)) - 90.0F;
+            }
+            this.wishPitch = (float) Mth.clamp(-(Mth.atan2(to.y, to.horizontalDistance()) * (180.0 / Math.PI)), -30.0, 30.0);
+            applyRotation();
+            applyInputs();
+            super.tick();
+            return;
+        }
+
         stateTicks++;
 
         throttle = 0.0F;

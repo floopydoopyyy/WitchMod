@@ -10,9 +10,9 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The three wrapper status effects from CLAUDE.md section 2.6. Purely informational — they carry no
- * mechanical behavior of their own; {@link StatusEffectSync} keeps their duration matched to whatever
- * curses/blessings/afflictions are actually active.
+ * The wrapper status effects from CLAUDE.md section 2.6. Purely informational — they carry no mechanical
+ * behavior of their own; {@link StatusEffectSync} keeps their duration matched to whatever curses/blessings
+ * are actually active.
  */
 public final class WitchModMobEffects {
     public static final DeferredRegister<MobEffect> MOB_EFFECTS = DeferredRegister.create(Registries.MOB_EFFECT, WitchMod.MODID);
@@ -21,8 +21,6 @@ public final class WitchModMobEffects {
             MOB_EFFECTS.register("cursed", () -> new SimpleMobEffect(MobEffectCategory.HARMFUL, 0x8B00FF));
     public static final DeferredHolder<MobEffect, MobEffect> BLESSED =
             MOB_EFFECTS.register("blessed", () -> new SimpleMobEffect(MobEffectCategory.BENEFICIAL, 0xFFD700));
-    public static final DeferredHolder<MobEffect, MobEffect> AFFLICTED =
-            MOB_EFFECTS.register("afflicted", () -> new SimpleMobEffect(MobEffectCategory.NEUTRAL, 0x800080));
 
     /**
      * Thirst Meter's Dehydration — Hunger, but for thirst: it makes the bar drain faster. The draining
@@ -44,6 +42,11 @@ public final class WitchModMobEffects {
      */
     public static final DeferredHolder<MobEffect, MobEffect> SOUL_BOUND =
             MOB_EFFECTS.register("soul_bound", () -> new SimpleMobEffect(MobEffectCategory.NEUTRAL, 0xFFC83C));
+
+    /** Warding Totem: you're inside a totem's shield — no curse/blessing/voodoo can land on you. Applied
+     *  invisibly (no swirl) with its icon shown, so it reads as a subtle "protected" marker. */
+    public static final DeferredHolder<MobEffect, MobEffect> PROTECTED =
+            MOB_EFFECTS.register("protected", () -> new SimpleMobEffect(MobEffectCategory.BENEFICIAL, 0x9B59D0));
 
     private WitchModMobEffects() {}
 

@@ -34,36 +34,48 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
 
     private final Container table;
     private final ContainerLevelAccess access;
+    private final BlockPos pos;
 
     /** Client-side reconstruction (CLAUDE.md's "payloading should be utilised" note — see {@link WitchModMenus}). */
     public BewitchingTableMenu(int windowId, Inventory playerInventory, BlockPos pos) {
         this(windowId, playerInventory, new SimpleContainer(RITUAL_SLOT_COUNT),
-                ContainerLevelAccess.create(playerInventory.player.level(), pos));
+                ContainerLevelAccess.create(playerInventory.player.level(), pos), pos);
     }
 
     /** Server-side, opened from {@link com.oliver.witchmod.blocks.BewitchingTableBlock}. */
     public BewitchingTableMenu(int windowId, Inventory playerInventory, BewitchingTableBlockEntity table) {
-        this(windowId, playerInventory, table, ContainerLevelAccess.create(table.getLevel(), table.getBlockPos()));
+        this(windowId, playerInventory, table, ContainerLevelAccess.create(table.getLevel(), table.getBlockPos()), table.getBlockPos());
     }
 
-    private BewitchingTableMenu(int windowId, Inventory playerInventory, Container table, ContainerLevelAccess access) {
+    private BewitchingTableMenu(int windowId, Inventory playerInventory, Container table, ContainerLevelAccess access, BlockPos pos) {
         super(WitchModMenus.BEWITCHING_TABLE.get(), windowId);
         this.table = table;
         this.access = access;
+        this.pos = pos;
 
-        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_PLAYER_ESSENCE, 80, 17, RitualSlot.Kind.PLAYER_ESSENCE));
-        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE, 62, 53, RitualSlot.Kind.CURSED_ESSENCE));
-        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_SACRIFICIAL_ITEM, 98, 53, RitualSlot.Kind.SACRIFICIAL_ITEM));
-        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_MODIFIER, 26, 35, RitualSlot.Kind.MODIFIER));
+        // ⚠ Slots are added in CONTAINER-INDEX order (0..3) so that this.slots.get(SLOT_*) matches the block
+        // entity's slot index — the client screen and the server ritual both index by those constants, and a
+        // mismatched order silently swaps the sacrificial/essence slots. Positions form a ritual layout: the
+        // Sacrificial focus in the middle, Cursed Essence feeding up from below, target + modifier up top.
+        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_PLAYER_ESSENCE, 43, 48, RitualSlot.Kind.PLAYER_ESSENCE));
+        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_SACRIFICIAL_ITEM, 79, 35, RitualSlot.Kind.SACRIFICIAL_ITEM));
+        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE, 79, 64, RitualSlot.Kind.CURSED_ESSENCE));
+        addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_MODIFIER, 115, 48, RitualSlot.Kind.MODIFIER));
 
+        // Player inventory + hotbar, pushed down to clear the stretched ritual/bar/button area.
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 119 + row * 18));
+                addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 145 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInventory, col, 8 + col * 18, 177));
+            addSlot(new Slot(playerInventory, col, 8 + col * 18, 203));
         }
+    }
+
+    /** The table's world position — used client-side for ambient particles above the block. */
+    public BlockPos pos() {
+        return pos;
     }
 
     @Override
@@ -119,7 +131,9 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
 
     private int resolveRitualSlot(ItemStack stack) {
         for (int i = 0; i < RITUAL_SLOT_COUNT; i++) {
-            if (this.slots.get(i).mayPlace(stack)) {
+            // Route a shift-clicked item only to the slot it actually belongs in (mayPlace now accepts anything
+            // for the red-highlight UX, so it can't be the router).
+            if (this.slots.get(i) instanceof RitualSlot ritual && ritual.isCorrect(stack)) {
                 return i;
             }
         }

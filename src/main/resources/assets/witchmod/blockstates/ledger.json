@@ -1,5 +1,8 @@
 {
   "variants": {
-    "": { "model": "witchmod:block/ledger" }
+    "facing=north": { "model": "witchmod:block/ledger" },
+    "facing=east":  { "model": "witchmod:block/ledger", "y": 90 },
+    "facing=south": { "model": "witchmod:block/ledger", "y": 180 },
+    "facing=west":  { "model": "witchmod:block/ledger", "y": 270 }
   }
 }

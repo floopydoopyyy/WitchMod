@@ -1,6 +1,56 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "__comment": "Warding Totem: a full-height (16px) blackstone pedestal topped with an amethyst GEM (a 45-rotated cutout crystal), all within the block so it keeps Minecraft's blocky proportions. Textures are editable witchmod PNGs (warding_totem_stone / warding_totem_gem).",
+  "parent": "block/block",
+  "render_type": "minecraft:cutout",
   "textures": {
-    "all": "witchmod:block/warding_totem"
-  }
+    "stone": "witchmod:block/warding_totem_stone",
+    "gem": "witchmod:block/warding_totem_gem",
+    "particle": "witchmod:block/warding_totem_stone"
+  },
+  "elements": [
+    {
+      "name": "base",
+      "from": [2, 0, 2],
+      "to": [14, 3, 14],
+      "faces": {
+        "north": { "texture": "#stone" }, "south": { "texture": "#stone" },
+        "east": { "texture": "#stone" }, "west": { "texture": "#stone" },
+        "up": { "texture": "#stone" }, "down": { "texture": "#stone", "cullface": "down" }
+      }
+    },
+    {
+      "name": "body",
+      "from": [4, 3, 4],
+      "to": [12, 11, 12],
+      "faces": {
+        "north": { "texture": "#stone" }, "south": { "texture": "#stone" },
+        "east": { "texture": "#stone" }, "west": { "texture": "#stone" },
+        "up": { "texture": "#stone" }, "down": { "texture": "#stone" }
+      }
+    },
+    {
+      "name": "collar",
+      "from": [3, 11, 3],
+      "to": [13, 13, 13],
+      "faces": {
+        "north": { "texture": "#stone" }, "south": { "texture": "#stone" },
+        "east": { "texture": "#stone" }, "west": { "texture": "#stone" },
+        "up": { "texture": "#stone" }, "down": { "texture": "#stone" }
+      }
+    },
+    {
+      "name": "gem",
+      "from": [5.5, 12, 5.5],
+      "to": [10.5, 16, 10.5],
+      "rotation": { "angle": 45, "axis": "y", "origin": [8, 14, 8] },
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#gem" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#gem" },
+        "east": { "uv": [0, 0, 16, 16], "texture": "#gem" },
+        "west": { "uv": [0, 0, 16, 16], "texture": "#gem" },
+        "up": { "uv": [0, 0, 16, 16], "texture": "#gem" },
+        "down": { "uv": [0, 0, 16, 16], "texture": "#gem" }
+      }
+    }
+  ]
 }

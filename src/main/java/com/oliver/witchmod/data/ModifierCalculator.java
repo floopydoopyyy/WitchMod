@@ -20,12 +20,17 @@ public final class ModifierCalculator {
         return Math.round(baseCost * (1 + modifier.costDeltaPercent() / 100F));
     }
 
-    public static int applyDuration(int baseDurationTicks, @Nullable Modifier modifier) {
+    public static int applyDuration(int baseDurationTicks, @Nullable Modifier modifier,
+                                    net.minecraft.util.RandomSource rng) {
         if (modifier == null) {
             return baseDurationTicks;
         }
-        return modifier.fixedDurationTicks().orElseGet(
-                () -> Math.round(baseDurationTicks * (1 + modifier.durationDeltaPercent() / 100F)));
+        // Compass overrides the whole duration; everything else is a % delta plus any flat bonus (Clock/Bell).
+        if (modifier.fixedDurationTicks().isPresent()) {
+            return modifier.fixedDurationTicks().getAsInt();
+        }
+        int scaled = Math.round(baseDurationTicks * (1 + modifier.durationDeltaPercent() / 100F));
+        return scaled + modifier.flatDurationBonusTicks(rng);
     }
 
     /** {@code successChance = min(cap, floor + span * (essenceSpent / baseCost))}, per section 5.7. */
@@ -64,5 +69,21 @@ public final class ModifierCalculator {
             return 0F;
         }
         return Math.max(0F, baseBackfireChance + modifier.backfireDeltaPercent() / 100F);
+    }
+
+    /**
+     * ⚠ PLACEHOLDER TIER LOGIC — keyed off {@code rawBaseCost} as a stand-in for a real per-attachment
+     * strength/tier value that doesn't exist yet (see CLAUDE.md "Attachment strength/tier TODO"). Per Oliver:
+     * <b>low-tier</b> attachments never backfire (0%); <b>high-tier</b> always keep a small floor even at full
+     * essence; <b>mid-tier</b> use the normal curve down to 0. Apply as the final clamp on the backfire chance.
+     */
+    public static float applyTierBackfire(float backfireChance, int rawBaseCost) {
+        if (rawBaseCost <= Config.BACKFIRE_LOW_TIER_COST.get()) {
+            return 0F;
+        }
+        if (rawBaseCost >= Config.BACKFIRE_HIGH_TIER_COST.get()) {
+            return Math.max(Config.BACKFIRE_HIGH_TIER_FLOOR_PERCENT.get() / 100F, backfireChance);
+        }
+        return backfireChance;
     }
 }

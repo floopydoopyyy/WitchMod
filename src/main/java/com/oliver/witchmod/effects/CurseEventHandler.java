@@ -57,9 +57,11 @@ import com.oliver.witchmod.effects.curses.CurseAllergic;
 import com.oliver.witchmod.effects.curses.CurseButterfingers;
 import com.oliver.witchmod.effects.curses.CurseClumsy;
 import com.oliver.witchmod.effects.curses.CurseComicRelief;
+import com.oliver.witchmod.effects.curses.CurseCutawayGag;
 import com.oliver.witchmod.effects.curses.CurseDwarfism;
 import com.oliver.witchmod.effects.curses.CurseExplosive;
 import com.oliver.witchmod.effects.curses.CurseGassy;
+import com.oliver.witchmod.effects.curses.CurseGiant;
 import com.oliver.witchmod.effects.curses.CurseGlassCannon;
 import com.oliver.witchmod.effects.curses.CurseInsomniac;
 import com.oliver.witchmod.effects.curses.CurseSocialOutcast;
@@ -87,6 +89,40 @@ public final class CurseEventHandler {
         if (EffectManager.isActive(event.getPlayer(), com.oliver.witchmod.effects.Curses.FLAT_FOOTED)) {
             event.setMessage(net.minecraft.network.chat.Component.literal(
                     event.getRawText().toUpperCase(java.util.Locale.ROOT)));
+        }
+    }
+
+    /**
+     * Social Outcast: the isolation reaches chat too — a cursed player can only READ another player's message if
+     * they're CLOSE to them. Far away, they still see that SOMEONE spoke (so they know chat happened) but not who
+     * or what. Implemented by cancelling the vanilla broadcast and re-sending PER RECIPIENT (the only way to vary
+     * a message per-viewer), and ONLY when at least one outcast is online — otherwise chat passes through vanilla
+     * untouched.
+     */
+    @SubscribeEvent
+    static void onSocialOutcastChat(net.neoforged.neoforge.event.ServerChatEvent event) {
+        ServerPlayer sender = event.getPlayer();
+        net.minecraft.server.MinecraftServer server = sender.getServer();
+        if (server == null) {
+            return;
+        }
+        java.util.List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        boolean anyOutcast = players.stream().anyMatch(p -> p != sender && EffectManager.isActive(p, Curses.SOCIAL_OUTCAST));
+        if (!anyOutcast) {
+            return; // nobody's outcast — let vanilla deliver chat normally
+        }
+        event.setCanceled(true);
+        net.minecraft.network.chat.Component normal =
+                net.minecraft.network.chat.Component.translatable("chat.type.text", sender.getDisplayName(), event.getMessage());
+        net.minecraft.network.chat.Component muffled = net.minecraft.network.chat.Component
+                .literal("Someone says something...")
+                .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC);
+        double reveal = Config.OUTCAST_REVEAL_DISTANCE.get();
+        for (ServerPlayer recipient : players) {
+            boolean muffle = recipient != sender
+                    && EffectManager.isActive(recipient, Curses.SOCIAL_OUTCAST)
+                    && (recipient.level() != sender.level() || recipient.distanceTo(sender) > reveal);
+            recipient.sendSystemMessage(muffle ? muffled : normal);
         }
     }
 
@@ -155,6 +191,20 @@ public final class CurseEventHandler {
     }
 
     @SubscribeEvent
+    static void onBedrockPausedHit(LivingIncomingDamageEvent event) {
+        // Bedrock Moment (Pause): hitting a paused entity force-ends its pause (→ the catch-up burst).
+        com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onEntityHurt(event.getEntity());
+    }
+
+    @SubscribeEvent
+    static void onCutawayHit(LivingIncomingDamageEvent event) {
+        // Being hit mid-cutaway has a high chance to snap you back (the gag's effects still stick).
+        if (event.getEntity() instanceof ServerPlayer player) {
+            com.oliver.witchmod.effects.curses.CurseCutawayGag.onWatcherHit(player);
+        }
+    }
+
+    @SubscribeEvent
     static void onGlassCannon(LivingIncomingDamageEvent event) {
         // Taking a hit: every source counts, at 200%.
         if (event.getEntity() instanceof ServerPlayer victim
@@ -166,6 +216,77 @@ public final class CurseEventHandler {
                 && CurseGlassCannon.isMelee(event.getSource().getDirectEntity(), attacker)
                 && EffectManager.isActive(attacker, Curses.GLASS_CANNON)) {
             event.setAmount(CurseGlassCannon.onMeleeDealt(attacker, event.getEntity(), event.getAmount()));
+        }
+    }
+
+    @SubscribeEvent
+    static void onGiantAttack(AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer giant
+                && EffectManager.isActive(giant, Curses.GIANT)) {
+            CurseGiant.onMeleeHit(giant, event.getTarget());
+        }
+    }
+
+    /** Very Infectious: a hit copies your OTHER attachments onto the victim for this many ticks (~10s). */
+    private static final int VERY_INFECTIOUS_SPREAD_TICKS = 200;
+
+    /**
+     * Slime Ball / Slime Block modifiers: hitting another player spreads attachments. INFECTIOUS is a hot potato
+     * — ALL of the attacker's attachments (this state included) move onto the victim with timers preserved, and
+     * the attacker is left clean. VERY INFECTIOUS instead COPIES the attacker's other attachments onto the victim
+     * for a short window while the attacker keeps everything.
+     */
+    @SubscribeEvent
+    static void onInfectiousAttack(AttackEntityEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer attacker)) {
+            return;
+        }
+        if (!(event.getTarget() instanceof ServerPlayer victim) || attacker == victim) {
+            return;
+        }
+        boolean infectious = EffectManager.isActive(attacker, Curses.INFECTIOUS);
+        boolean very = EffectManager.isActive(attacker, Curses.VERY_INFECTIOUS);
+        if (!infectious && !very) {
+            return;
+        }
+
+        java.util.Map<net.minecraft.resources.ResourceLocation, Integer> snap = EffectManager.activeSnapshot(attacker);
+        if (infectious) {
+            for (var entry : snap.entrySet()) {
+                EffectManager.holderOf(entry.getKey())
+                        .ifPresent(h -> EffectManager.applyExact(victim, h, entry.getValue(), attacker));
+            }
+            EffectManager.removeAll(attacker, null); // you've passed the potato — nothing left on you
+        } else {
+            net.minecraft.resources.ResourceLocation veryId = Curses.VERY_INFECTIOUS.getId();
+            for (var entry : snap.entrySet()) {
+                if (entry.getKey().equals(veryId)) {
+                    continue; // don't self-propagate the very-infectious state
+                }
+                EffectManager.holderOf(entry.getKey())
+                        .ifPresent(h -> EffectManager.applyExact(victim, h, VERY_INFECTIOUS_SPREAD_TICKS, attacker));
+            }
+        }
+        victim.level().playSound(null, victim.blockPosition(), net.minecraft.sounds.SoundEvents.SLIME_ATTACK,
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.7F, 1.0F);
+        if (victim.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ITEM_SLIME,
+                    victim.getX(), victim.getY() + 1.0, victim.getZ(), 16, 0.3, 0.6, 0.3, 0.0);
+        }
+    }
+
+    @SubscribeEvent
+    static void onGiantDamage(LivingIncomingDamageEvent event) {
+        // Take 75% less from ANY source.
+        if (event.getEntity() instanceof ServerPlayer victim
+                && EffectManager.isActive(victim, Curses.GIANT)) {
+            event.setAmount(CurseGiant.onDamageTaken(event.getAmount()));
+        }
+        // Deal 80% more with MELEE (direct hits only, so a stomp/melee counts but a thrown item doesn't).
+        if (event.getSource().getEntity() instanceof ServerPlayer attacker
+                && CurseGiant.isMelee(event.getSource().getDirectEntity(), attacker)
+                && EffectManager.isActive(attacker, Curses.GIANT)) {
+            event.setAmount(CurseGiant.onMeleeDealt(event.getAmount()));
         }
     }
 
@@ -288,6 +409,11 @@ public final class CurseEventHandler {
         if (EffectManager.isActive(player, Curses.THIRST_METER)) {
             CurseThirstMeter.onStrenuousAction(player);
         }
+        // Bedrock Moment (Ghost Block Phase): during the spell, a broken block just... comes back.
+        if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)
+                && com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onBlockBroken(player)) {
+            event.setCanceled(true);
+        }
     }
 
     /**
@@ -391,7 +517,7 @@ public final class CurseEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        if (EffectManager.isActive(player, Curses.HEAVY)) {
+        if (EffectManager.isActive(player, Curses.DENSE)) {
             event.setDamageMultiplier(event.getDamageMultiplier() * CurseHeavy.fallDamageMultiplier());
         }
     }
@@ -421,6 +547,17 @@ public final class CurseEventHandler {
     @SubscribeEvent
     static void onLivingDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // Recovery Compass modifier: effects it tagged do NOT survive death — strip them before the respawn
+            // copy runs (ACTIVE_EFFECTS is copyOnDeath, so removing here keeps them off the clone).
+            java.util.Set<net.minecraft.resources.ResourceLocation> nonPersist =
+                    player.getData(com.oliver.witchmod.data.WitchModAttachments.NON_PERSISTENT_EFFECTS);
+            if (!nonPersist.isEmpty()) {
+                for (net.minecraft.resources.ResourceLocation id : new java.util.ArrayList<>(nonPersist)) {
+                    EffectManager.holderOf(id).ifPresent(h -> EffectManager.remove(player, h));
+                }
+                nonPersist.clear();
+                player.setData(com.oliver.witchmod.data.WitchModAttachments.NON_PERSISTENT_EFFECTS, nonPersist);
+            }
             if (EffectManager.isActive(player, Curses.EXPLOSIVE)) {
                 CurseExplosive.onDeath(player);
             }
@@ -439,6 +576,8 @@ public final class CurseEventHandler {
             if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
                 com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onDeath(player);
             }
+            // Cutaway Gag: dying mid-cutaway strobes against the respawn screen — snap out of it cleanly.
+            com.oliver.witchmod.effects.curses.CurseCutawayGag.onWatcherDeath(player);
         }
     }
 
@@ -455,9 +594,15 @@ public final class CurseEventHandler {
     @SubscribeEvent
     static void onAttackEntity(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            // The Dweller: swinging at a victim-only fake attacker banishes it (and swallows the real swing).
+            // The Dweller: it's unhittable — swinging at the stalker swallows the swing (no bad interact packet).
             if (EffectManager.isActive(player, Curses.THE_DWELLER)
-                    && com.oliver.witchmod.effects.curses.dweller.CurseTheDweller.onPhantomAttacked(player, event.getTarget())) {
+                    && com.oliver.witchmod.effects.curses.dweller.CurseTheDweller.onDwellerAttacked(player, event.getTarget())) {
+                event.setCanceled(true);
+                return;
+            }
+            // Bedrock Moment (Hit Reg): a small chance the hit just doesn't register — whiffs to empty air.
+            if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)
+                    && com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onAttack(player)) {
                 event.setCanceled(true);
                 return;
             }
@@ -502,6 +647,10 @@ public final class CurseEventHandler {
         // Thirst Meter: anything drunk or eaten hydrates by some amount — water bottles most, then other
         // potions, then natural food, then raw, then dry processed food. No-op if the curse isn't active.
         CurseThirstMeter.onConsumed(player, stack);
+        // Bedrock Moment (Food Reg): a chance the food you just ate provides no hunger at all.
+        if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
+            com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onFoodEaten(player, stack);
+        }
         float[] beforeEating = PRE_EAT_FOOD.remove(player.getUUID());
         FoodProperties food = stack.get(DataComponents.FOOD);
 
@@ -580,10 +729,32 @@ public final class CurseEventHandler {
         // Restore entities whose Pacing time-stop has expired, and let the ramp auto-fire (non-combat) for
         // any cursed player whose charge has maxed out without a hit.
         PacingManager.tickFreeze(event.getServer());
+        long now = event.getServer().overworld().getGameTime();
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (EffectManager.isActive(player, Curses.PACING)) {
                 PacingManager.tickCharge(player);
             }
+            // Drive any in-flight cutaway regardless of whether the curse is applied — so a debug-forced
+            // cutaway fires its gag and ends, and a cutaway whose curse was removed still cleans up.
+            if (player.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
+                CurseCutawayGag.driveActiveCutaway(player, now);
+            } else {
+                // Anti-teleport guard: if they're NOT spectating but still hold a persisted return position
+                // (relog / server restart / abnormal end), send them home so they can't be left at the vantage.
+                CurseCutawayGag.recoverIfStranded(player);
+            }
+        }
+    }
+
+    /**
+     * Anti-teleport guard on login: a player who logged out mid-cutaway comes back at the spectate vantage
+     * (CUTAWAY_TARGET is sync-only, so it resets on relog and the tick driver won't pick them up). Send them
+     * straight home from the persisted return position the instant they join.
+     */
+    @SubscribeEvent
+    static void onPlayerLogin(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer sp) {
+            CurseCutawayGag.recoverIfStranded(sp);
         }
     }
 }

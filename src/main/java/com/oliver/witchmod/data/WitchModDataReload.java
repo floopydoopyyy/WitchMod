@@ -23,5 +23,6 @@ public final class WitchModDataReload {
         event.addListener(new Usernames());
         event.addListener(new TwitchChat());
         event.addListener(new SolicitorLines());
+        event.addListener(new MarriageLines());
     }
 }

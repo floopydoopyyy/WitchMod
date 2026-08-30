@@ -12,6 +12,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 
+import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
@@ -38,13 +39,64 @@ public final class BlessingBodyguard extends Effect {
         summon(target);
     }
 
+    /** anchor UUID -> game tick a hired replacement is due (set when the current bodyguard dies). */
+    private static final java.util.Map<UUID, Long> RESPAWN_AT = new java.util.HashMap<>();
+
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
+        UUID id = target.getUUID();
+        Long due = RESPAWN_AT.get(id);
+        if (due != null) {
+            // A replacement is on the way — wait it out, then hire a fresh one (with a line).
+            if (target.level().getGameTime() >= due) {
+                RESPAWN_AT.remove(id);
+                summon(target);
+                announce(target, "respawn");
+            }
+            return;
+        }
         // Re-summon if the bodyguard has gone missing for a reason OTHER than death (an unexpected unload, or
-        // the anchor changing dimension) — death removes the blessing outright, so onTick won't run after it.
+        // the anchor changing dimension).
         if (ticksRemaining % 40 == 0 && get(target) == null) {
             summon(target);
         }
+    }
+
+    /** Called from the death hook: the bodyguard fell — schedule a replacement instead of losing the blessing. */
+    public static void onBodyguardDeath(ServerPlayer anchor) {
+        RESPAWN_AT.put(anchor.getUUID(), anchor.level().getGameTime() + Config.BODYGUARD_RESPAWN_TICKS.get());
+        announce(anchor, "fell");
+    }
+
+    /** Broadcast a Bodyguard line (from the given json key) to players near the anchor, in the entity's voice. */
+    private static void announce(ServerPlayer anchor, String key) {
+        if (!com.oliver.witchmod.data.BodyguardLines.has(key)) {
+            return;
+        }
+        java.util.List<String> tree = com.oliver.witchmod.data.BodyguardLines.pickTree(key, anchor.getRandom());
+        if (tree.isEmpty()) {
+            return;
+        }
+        String name = anchor.getName().getString();
+        double radius = Config.BODYGUARD_CHAT_RADIUS.get();
+        for (String raw : tree) {
+            net.minecraft.network.chat.Component msg =
+                    net.minecraft.network.chat.Component.literal("<Bodyguard> " + raw.replace("{player}", name));
+            for (ServerPlayer p : anchor.serverLevel().getEntitiesOfClass(ServerPlayer.class,
+                    anchor.getBoundingBox().inflate(radius))) {
+                p.sendSystemMessage(msg);
+            }
+        }
+    }
+
+    @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        BodyguardEntity bg = get(target);
+        if (bg == null) {
+            return java.util.Optional.of(RESPAWN_AT.containsKey(target.getUUID()) ? "replacement incoming" : "no guard present");
+        }
+        net.minecraft.world.entity.LivingEntity focus = bg.getTarget();
+        return java.util.Optional.of(focus != null ? "on duty — marked " + focus.getName().getString() : "on duty");
     }
 
     @Override
@@ -54,6 +106,7 @@ public final class BlessingBodyguard extends Effect {
             bodyguard.discard();
         }
         BodyguardEntity.release(target.getUUID());
+        RESPAWN_AT.remove(target.getUUID());
     }
 
     /** The live bodyguard entity for {@code anchor}, or null if none is currently around. */

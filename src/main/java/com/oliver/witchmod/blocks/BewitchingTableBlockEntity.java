@@ -79,10 +79,11 @@ public final class BewitchingTableBlockEntity extends BlockEntity implements Con
 
     @Override
     public void clearContent() {
+        // ⚠ items is a FIXED-SIZE NonNullList.withSize (Arrays.asList-backed), so add() throws
+        // UnsupportedOperationException. NonNullList.clear() already resets EVERY slot to the default EMPTY
+        // while keeping the size — that's all we need. The old clear()+add() loop threw on every cast, which
+        // is what aborted the whole ritual after the slots were emptied (items consumed, nothing applied).
         items.clear();
-        for (int i = 0; i < SLOT_COUNT; i++) {
-            items.add(ItemStack.EMPTY);
-        }
         setChanged();
     }
 

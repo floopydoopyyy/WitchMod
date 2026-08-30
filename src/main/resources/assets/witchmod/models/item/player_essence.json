@@ -1,6 +1,21 @@
 {
   "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "witchmod:item/player_essence"
-  }
+  "textures": { "layer0": "witchmod:item/player_essence/player_essence" },
+  "overrides": [
+    { "predicate": { "witchmod:essence_colour": 0.0625 }, "model": "witchmod:item/player_essence/blue" },
+    { "predicate": { "witchmod:essence_colour": 0.125 }, "model": "witchmod:item/player_essence/brown" },
+    { "predicate": { "witchmod:essence_colour": 0.1875 }, "model": "witchmod:item/player_essence/crimson" },
+    { "predicate": { "witchmod:essence_colour": 0.25 }, "model": "witchmod:item/player_essence/green" },
+    { "predicate": { "witchmod:essence_colour": 0.3125 }, "model": "witchmod:item/player_essence/lapis" },
+    { "predicate": { "witchmod:essence_colour": 0.375 }, "model": "witchmod:item/player_essence/lavender" },
+    { "predicate": { "witchmod:essence_colour": 0.4375 }, "model": "witchmod:item/player_essence/lime" },
+    { "predicate": { "witchmod:essence_colour": 0.5 }, "model": "witchmod:item/player_essence/magenta" },
+    { "predicate": { "witchmod:essence_colour": 0.5625 }, "model": "witchmod:item/player_essence/orange" },
+    { "predicate": { "witchmod:essence_colour": 0.625 }, "model": "witchmod:item/player_essence/purple" },
+    { "predicate": { "witchmod:essence_colour": 0.6875 }, "model": "witchmod:item/player_essence/red" },
+    { "predicate": { "witchmod:essence_colour": 0.75 }, "model": "witchmod:item/player_essence/salmon" },
+    { "predicate": { "witchmod:essence_colour": 0.8125 }, "model": "witchmod:item/player_essence/turquoise" },
+    { "predicate": { "witchmod:essence_colour": 0.875 }, "model": "witchmod:item/player_essence/white" },
+    { "predicate": { "witchmod:essence_colour": 0.9375 }, "model": "witchmod:item/player_essence/yellow" }
+  ]
 }

@@ -1,43 +1,78 @@
 package com.oliver.witchmod.blocks;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
-import net.minecraft.ChatFormatting;
+import org.jetbrains.annotations.Nullable;
+
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.Filterable;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.WrittenBookContent;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.network.PacketDistributor;
 
+import com.oliver.witchmod.Config;
+import com.oliver.witchmod.data.DiscoveryManager;
 import com.oliver.witchmod.data.LedgerLog;
+import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * Read-only book UI accessed via a lectern-style block (CLAUDE.md section 2.3): right-click hands the
- * player a fresh Written Book snapshotting {@link LedgerLog}'s current contents. Reading it uses vanilla's
- * own book screen entirely — no custom Screen or networking code, which is why this is the simplest of
- * the 3 Phase 5 screens and was built first, per the doc's own recommendation. "Never player-editable"
- * (section 9) falls out for free: written books can't be edited once written.
+ * A lectern-style read-only block (CLAUDE.md section 2.3). Right-clicking opens a custom Ledger screen listing
+ * every ritual — landed or blocked — that happened within the block's configurable range
+ * ({@link Config#LEDGER_RANGE}), newest first, with the modifier used. When an attachment is logged nearby the
+ * block reacts with particle feedback ({@link LedgerFeedback}).
  *
- * <p>Not a literal {@code LecternBlock} subclass — that brings book-holding/redstone-signal machinery this
- * doesn't need. "Lectern-style" here just means the same read-only-book interaction shape.
+ * <p>Uses the vanilla lectern MODEL (to be reskinned via its own witchmod textures); it is deliberately NOT a
+ * {@code LecternBlock} subclass — that brings book-holding/redstone machinery this doesn't need.
  */
-public final class LedgerBlock extends Block {
-    private static final int ENTRIES_PER_PAGE = 6;
+public final class LedgerBlock extends Block implements EntityBlock {
+    /** Directional like a lectern, so the 3D book on top faces the reader (matches the lectern's book pose). */
+    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     public LedgerBlock(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING);
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    @Nullable
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new LedgerBlockEntity(pos, state);
     }
 
     @Override
@@ -45,53 +80,38 @@ public final class LedgerBlock extends Block {
         if (level.isClientSide() || !(player instanceof ServerPlayer serverPlayer)) {
             return InteractionResult.SUCCESS;
         }
+        LedgerFeedback.register(level, pos); // make sure this Ledger reacts to future hexes this session
 
-        ItemStack book = buildLedgerBook();
-        if (!serverPlayer.getInventory().add(book)) {
-            serverPlayer.drop(book, false);
+        int range = Config.LEDGER_RANGE.get();
+        GlobalPos here = GlobalPos.of(level.dimension(), pos);
+        long now = level.getGameTime();
+
+        List<WitchModNetwork.LedgerEntry> entries = new ArrayList<>();
+        for (LedgerLog.Entry e : LedgerLog.entriesNear(here, range)) {
+            String effect = DiscoveryManager.titleCase(e.effectId().getPath());
+            String modifier = e.modifier().orElse("");
+            String result = e.result() + " · " + ago(now - e.gameTime());
+            entries.add(new WitchModNetwork.LedgerEntry(
+                    e.casterName().orElse("(system)"), e.targetName(), effect, modifier, result, e.scribbled()));
         }
-        serverPlayer.displayClientMessage(Component.literal("You've been handed a copy of the Ledger. Read it to see recent activity."), true);
+        PacketDistributor.sendToPlayer(serverPlayer, new WitchModNetwork.LedgerPayload(range, entries));
         return InteractionResult.SUCCESS;
     }
 
-    private static ItemStack buildLedgerBook() {
-        List<LedgerLog.Entry> entries = new ArrayList<>(LedgerLog.recent());
-        Collections.reverse(entries); // newest first
-
-        List<Filterable<Component>> pages = new ArrayList<>();
-        if (entries.isEmpty()) {
-            pages.add(Filterable.passThrough(Component.literal("Nothing's happened yet.").withStyle(ChatFormatting.GRAY)));
-        } else {
-            for (int i = 0; i < entries.size(); i += ENTRIES_PER_PAGE) {
-                List<LedgerLog.Entry> pageEntries = entries.subList(i, Math.min(i + ENTRIES_PER_PAGE, entries.size()));
-                pages.add(Filterable.passThrough(formatPage(pageEntries)));
-            }
+    /** A compact "how long ago" from a tick delta. */
+    private static String ago(long ticks) {
+        if (ticks < 0) {
+            ticks = 0;
         }
-
-        ItemStack book = new ItemStack(Items.WRITTEN_BOOK);
-        book.set(DataComponents.WRITTEN_BOOK_CONTENT, new WrittenBookContent(
-                Filterable.passThrough("The Ledger"), "The Ledger", 0, pages, true));
-        return book;
-    }
-
-    private static Component formatPage(List<LedgerLog.Entry> pageEntries) {
-        MutableComponent page = Component.empty();
-        for (int i = 0; i < pageEntries.size(); i++) {
-            if (i > 0) {
-                page.append("\n\n");
-            }
-            page.append(formatEntry(pageEntries.get(i)));
+        long seconds = ticks / 20;
+        if (seconds < 60) {
+            return seconds + "s ago";
         }
-        return page;
-    }
-
-    private static Component formatEntry(LedgerLog.Entry entry) {
-        MutableComponent line = Component.literal(entry.casterName().orElse("(system)")).withStyle(ChatFormatting.DARK_PURPLE)
-                .append(Component.literal(" -> ").withStyle(ChatFormatting.GRAY))
-                .append(Component.literal(entry.targetName()).withStyle(ChatFormatting.DARK_PURPLE))
-                .append("\n")
-                .append(Component.literal(entry.effectId().getPath()).withStyle(ChatFormatting.BOLD))
-                .append(Component.literal(" - " + entry.result()).withStyle(ChatFormatting.GRAY));
-        return line;
+        long minutes = seconds / 60;
+        if (minutes < 60) {
+            return minutes + "m ago";
+        }
+        long hours = minutes / 60;
+        return hours + "h ago";
     }
 }

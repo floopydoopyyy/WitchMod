@@ -2,20 +2,25 @@ package com.oliver.witchmod.items;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.particles.ParticleTypes;
+import java.util.List;
+
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.item.TooltipFlag;
 
 import com.oliver.witchmod.Config;
 
 /**
- * Deflects incoming curses back to the caster (CLAUDE.md section 3). The actual redirect happens in
- * {@code data.EffectManager} via the hook registered in {@code WitchMod}'s constructor — this class just
- * supplies the "does this player have one" check and the consume-on-deflect side effects.
+ * Ward (CLAUDE.md section 4, redefined): a durability item that BLOCKS any attachment (curse OR blessing) cast
+ * on you by someone ELSE — your own casts pass through. The block is decided in {@code data.EffectManager} via
+ * the hook registered in {@code WitchMod}; this class supplies the "do you have one" check and, on a block,
+ * fires the incoming coloured lash + block flare ({@link WardEffects}) and spends 1 of its durability.
  */
 public final class ItemWard extends Item {
     public ItemWard(Properties properties) {
@@ -26,25 +31,26 @@ public final class ItemWard extends Item {
         return findWard(player) != null;
     }
 
-    public static void onDeflect(ServerPlayer target, ServerPlayer attacker) {
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.translatable("item.witchmod.ward.desc1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("item.witchmod.ward.desc2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("item.witchmod.ward.desc3").withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    /** Called by {@code EffectManager} when a Ward stops an attachment from another player. */
+    public static void onBlock(ServerPlayer target, ServerPlayer caster, boolean curse) {
         ItemStack ward = findWard(target);
         if (ward == null) {
             return;
         }
-        target.displayClientMessage(Component.literal("Your Ward deflects the curse back at " + attacker.getName().getString() + "!"), true);
-
-        ServerLevel level = target.serverLevel();
-        Vec3 toward = attacker.position().subtract(target.position());
-        if (toward.lengthSqr() > 1.0E-4) {
-            Vec3 dir = toward.normalize();
-            for (int i = 1; i <= 5; i++) {
-                Vec3 point = target.position().add(dir.scale(i * 0.6)).add(0, 1.0, 0);
-                level.sendParticles(ParticleTypes.WITCH, point.x, point.y, point.z, 1, 0, 0, 0, 0);
-            }
-        }
-
+        // Feedback is purely visual/audio (a lash streaking in from the caster, then a shield block).
+        WardEffects.startLash(target, caster, curse);
         if (Config.WARD_DURABILITY_DECAYS.get()) {
-            ward.hurtAndBreak(1, level, target, item -> target.displayClientMessage(Component.literal("Your Ward shatters."), true));
+            ward.hurtAndBreak(1, target.serverLevel(), target, item -> {
+                ServerLevel level = target.serverLevel();
+                level.playSound(null, target.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.8F, 1.0F);
+            });
         }
     }
 
@@ -55,6 +61,7 @@ public final class ItemWard extends Item {
                 return stack;
             }
         }
-        return null;
+        ItemStack off = player.getOffhandItem();
+        return off.getItem() instanceof ItemWard ? off : null;
     }
 }

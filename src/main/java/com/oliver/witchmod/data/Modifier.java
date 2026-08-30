@@ -9,7 +9,23 @@ import java.util.OptionalInt;
  * for how they combine.
  */
 public enum Modifier {
-    CLOCK(15, 25, 0, 0),
+    CLOCK(15, 0, 0, 0) {
+        @Override
+        public int flatDurationBonusTicks(net.minecraft.util.RandomSource rng) {
+            return CLOCK_MIN_BONUS_TICKS + rng.nextInt(CLOCK_MAX_BONUS_TICKS - CLOCK_MIN_BONUS_TICKS + 1);
+        }
+    },
+    BELL(0, 0, 0, 0) {
+        @Override
+        public int flatDurationBonusTicks(net.minecraft.util.RandomSource rng) {
+            return BELL_BONUS_TICKS;
+        }
+
+        @Override
+        public boolean announcesCast() {
+            return true;
+        }
+    },
     COMPASS(5, 0, 0, 0) {
         @Override
         public OptionalInt fixedDurationTicks() {
@@ -73,6 +89,36 @@ public enum Modifier {
             return true;
         }
     },
+    PAPER(0, 0, 0, 0) {
+        @Override
+        public boolean scribblesLedger() {
+            return true;
+        }
+    },
+    SLIME_BALL(60, 0, 0, 0) {
+        @Override
+        public int infectiousLevel() {
+            return 1;
+        }
+    },
+    SLIME_BLOCK(100, 0, 0, 0) {
+        @Override
+        public int infectiousLevel() {
+            return 2;
+        }
+    },
+    AMETHYST_SHARD(0, 0, 0, 0) {
+        @Override
+        public boolean discountsSameCategory() {
+            return true;
+        }
+    },
+    WITHER_ROSE(15, 0, 0, 0) {
+        @Override
+        public boolean disguisesCategory() {
+            return true;
+        }
+    },
     // Gunpowder, Redstone Dust, and Milk Bucket were removed as modifiers per master-spec Section 9 — they
     // are now sacrificial items / table mechanics instead (Gunpowder → Explosive curse, Milk Bucket →
     // Butterfingers curse, Redstone Dust → the random-attachment table mechanic in BewitchingTableRitual).
@@ -82,6 +128,12 @@ public enum Modifier {
             return true;
         }
     };
+
+    // Clock adds a flat 5–15 minutes of total time; Bell adds a flat 15. (Compile-time constants, so they're
+    // safely usable from the enum constant bodies above.)
+    private static final int CLOCK_MIN_BONUS_TICKS = 5 * 60 * 20;
+    private static final int CLOCK_MAX_BONUS_TICKS = 15 * 60 * 20;
+    private static final int BELL_BONUS_TICKS = 15 * 60 * 20;
 
     private final int costDeltaPercent;
     private final int durationDeltaPercent;
@@ -164,5 +216,43 @@ public enum Modifier {
     /** Recovery Compass only: on cure, reapplies the effect once more at a shortened duration. */
     public boolean reappliesShortenedEffectOnCure() {
         return false;
+    }
+
+    /** Paper only: this cast's Ledger entries are scribbled out and unreadable. */
+    public boolean scribblesLedger() {
+        return false;
+    }
+
+    /** Clock/Bell: a flat number of bonus ticks ADDED to the rolled duration (Clock 5–15 min, Bell 15 min). */
+    public int flatDurationBonusTicks(net.minecraft.util.RandomSource rng) {
+        return 0;
+    }
+
+    /** Bell only: on a successful cast, announce to server chat who inflicted what on whom. */
+    public boolean announcesCast() {
+        return false;
+    }
+
+    /**
+     * Slime Ball (1) / Slime Block (2): on a successful cast the target also gets a hidden Infectious /
+     * Very Infectious attachment, making their attachments contagious (a hot potato / a short-range spread).
+     */
+    public int infectiousLevel() {
+        return 0;
+    }
+
+    /** Amethyst Shard: if the target already carries an effect of the SAME category, this cast is cheaper. */
+    public boolean discountsSameCategory() {
+        return false;
+    }
+
+    /** Wither Rose: the effect reads as the OPPOSITE category (a fake blessing/curse) until it's discovered. */
+    public boolean disguisesCategory() {
+        return false;
+    }
+
+    /** Stable lowercase id (e.g. {@code dragons_breath}) for lang keys, discovery, and the Compendium. */
+    public String id() {
+        return name().toLowerCase(java.util.Locale.ROOT);
     }
 }

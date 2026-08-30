@@ -77,6 +77,18 @@ public class WitchModClient {
         event.enqueueWork(() -> {
             ItemBlockRenderTypes.setRenderLayer(WitchModFluids.PURIFYING_WATER.get(), RenderType.translucent());
             ItemBlockRenderTypes.setRenderLayer(WitchModFluids.PURIFYING_WATER_FLOWING.get(), RenderType.translucent());
+
+            // Player Essence's "colour" is picked by the bound player's UUID (stable forever) — a purely visual
+            // differential. This model property returns index/16 so the item model's overrides select the matching
+            // recolour; an unbound essence returns 0 (the default player_essence texture).
+            net.minecraft.client.renderer.item.ItemProperties.register(
+                    com.oliver.witchmod.items.WitchModItems.PLAYER_ESSENCE.get(),
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "essence_colour"),
+                    (stack, level, entity, seed) -> {
+                        com.oliver.witchmod.data.PlayerEssenceData d =
+                                stack.get(com.oliver.witchmod.data.WitchModDataComponents.BOUND_PLAYER);
+                        return d == null ? 0.0F : Math.floorMod(d.playerId().hashCode(), 16) / 16.0F;
+                    });
         });
     }
 
@@ -89,13 +101,20 @@ public class WitchModClient {
         event.registerReloadListener((ResourceManagerReloadListener) manager -> UglySkinManager.reload());
     }
 
+    /** Custom particle factories. */
+    @SubscribeEvent
+    static void onRegisterParticleProviders(net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent event) {
+        event.registerSpriteSet(com.oliver.witchmod.data.WitchModParticles.SLEEP_Z.get(),
+                com.oliver.witchmod.client.SleepZParticle.Provider::new);
+    }
+
     /** The custom entities' model layers. */
     @SubscribeEvent
     static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(TaxManRenderer.LAYER, TaxManRenderer::createBodyLayer);
         event.registerLayerDefinition(BodyguardRenderer.SUNGLASSES_LAYER, BodyguardRenderer::createSunglassesLayer);
         event.registerLayerDefinition(com.oliver.witchmod.client.SnailRenderer.LAYER, com.oliver.witchmod.client.SnailModel::createLayer);
-        event.registerLayerDefinition(com.oliver.witchmod.client.MindDwellerRenderer.LAYER, com.oliver.witchmod.client.MindDwellerModel::createLayer);
+        event.registerLayerDefinition(com.oliver.witchmod.client.SpaghettiManRenderer.LAYER, com.oliver.witchmod.client.SpaghettiManModel::createLayer);
         event.registerLayerDefinition(com.oliver.witchmod.client.WatcherEyesRenderer.LAYER, com.oliver.witchmod.client.WatcherEyesModel::createLayer);
     }
 
@@ -104,8 +123,16 @@ public class WitchModClient {
         event.registerEntityRenderer(WitchModEntities.TAX_MAN.get(), TaxManRenderer::new);
         event.registerEntityRenderer(WitchModEntities.BODYGUARD.get(), BodyguardRenderer::new);
         event.registerEntityRenderer(WitchModEntities.SNAIL.get(), com.oliver.witchmod.client.SnailRenderer::new);
-        event.registerEntityRenderer(WitchModEntities.MIND_DWELLER.get(), com.oliver.witchmod.client.MindDwellerRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.SPAGHETTI_MAN.get(), com.oliver.witchmod.client.SpaghettiManRenderer::new);
         event.registerEntityRenderer(WitchModEntities.WATCHER_EYES.get(), com.oliver.witchmod.client.WatcherEyesRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.DREAM.get(), com.oliver.witchmod.client.DreamRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.CLONE.get(), com.oliver.witchmod.client.CloneRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.JAR_THROW.get(),
+                ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(ctx));
+        event.registerBlockEntityRenderer(com.oliver.witchmod.blocks.WitchModBlockEntities.LEDGER.get(),
+                com.oliver.witchmod.client.LedgerRenderer::new);
+        event.registerBlockEntityRenderer(com.oliver.witchmod.blocks.WitchModBlockEntities.AMETHYST_BELL.get(),
+                com.oliver.witchmod.client.AmethystBellRenderer::new);
     }
 
     @SubscribeEvent
@@ -127,6 +154,12 @@ public class WitchModClient {
         // Gladiator parry-stage bar, drawn near the crosshair (below the vanilla attack indicator).
         event.registerAbove(VanillaGuiLayers.CROSSHAIR,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "gladiator_parry"), new GladiatorParryLayer());
+        // Blessing of Flight energy bar, just above the XP bar.
+        event.registerAbove(VanillaGuiLayers.EXPERIENCE_BAR,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "flight_bar"), new com.oliver.witchmod.client.FlightBarLayer());
+        // Scrying Mirror result panel.
+        event.registerAbove(VanillaGuiLayers.EXPERIENCE_BAR,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "scrying"), new com.oliver.witchmod.client.ScryingOverlay());
         // Siren's Call magenta mind-control tint — over the HUD but below the loading-screen prank.
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "siren_shader"), new SirenShaderOverlay());
         // Immortality's gold->white rebuild wash while recovering from a death.

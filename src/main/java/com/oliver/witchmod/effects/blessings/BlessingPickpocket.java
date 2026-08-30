@@ -38,6 +38,14 @@ public final class BlessingPickpocket extends Effect {
 
     /** You find out you've got light fingers the first time you actually lift something (Rule 2). */
     @Override
+    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+        double r = Config.PICKPOCKET_RADIUS.get();
+        boolean near = !target.serverLevel().getEntitiesOfClass(ServerPlayer.class,
+                target.getBoundingBox().inflate(r + 1), p -> p != target).isEmpty();
+        return java.util.Optional.of(near ? "a mark is in reach" : "no one to pick");
+    }
+
+    @Override
     public boolean discoversOnTrigger() {
         return true;
     }
