@@ -175,17 +175,35 @@ public class WitchModClient {
         event.registerFluidType(new IClientFluidTypeExtensions() {
             @Override
             public ResourceLocation getStillTexture() {
-                return WitchModFluids.WATER_STILL;
+                return WitchModFluids.STILL_TEXTURE;
             }
 
             @Override
             public ResourceLocation getFlowingTexture() {
-                return WitchModFluids.WATER_FLOW;
+                return WitchModFluids.FLOW_TEXTURE;
             }
 
             @Override
             public int getTintColor() {
                 return WitchModFluids.TINT_COLOR;
+            }
+
+            // Submerged in holy water: a bright, almost-white fog that closes in very tight, so it reads as a
+            // radiant haze rather than the murky green/blue of normal water.
+            @Override
+            public org.joml.Vector3f modifyFogColor(net.minecraft.client.Camera camera, float partialTick,
+                    net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float darkenWorldAmount,
+                    org.joml.Vector3f fluidFogColor) {
+                return new org.joml.Vector3f(0.86F, 0.93F, 1.0F);
+            }
+
+            @Override
+            public void modifyFogRender(net.minecraft.client.Camera camera,
+                    net.minecraft.client.renderer.FogRenderer.FogMode mode, float renderDistance, float partialTick,
+                    float nearDistance, float farDistance, com.mojang.blaze3d.shaders.FogShape shape) {
+                // Very close haze so the holy water blinds you to the world beyond arm's reach.
+                com.mojang.blaze3d.systems.RenderSystem.setShaderFogStart(0.1F);
+                com.mojang.blaze3d.systems.RenderSystem.setShaderFogEnd(3.5F);
             }
         }, WitchModFluids.PURIFYING_WATER_TYPE.get());
 

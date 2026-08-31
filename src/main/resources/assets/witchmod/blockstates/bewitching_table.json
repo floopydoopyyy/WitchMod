@@ -1,5 +1,6 @@
 {
-  "variants": {
-    "": { "model": "witchmod:block/bewitching_table" }
-  }
+  "multipart": [
+    { "apply": { "model": "witchmod:block/bewitching_table" } },
+    { "when": { "capped": "false" }, "apply": { "model": "witchmod:block/bewitching_table_candles" } }
+  ]
 }

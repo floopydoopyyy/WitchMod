@@ -287,7 +287,7 @@ public final class BewitchingTableRitual {
                 // apply() refused (grace period / warding totem / category disabled) and already told the
                 // caster why — don't falsely claim success. The Ledger records it as BLOCKED (shielded by a
                 // Warding Totem) or REFUSED (grace / disabled), and reacts either way.
-                boolean shielded = EffectManager.wouldTotemBlock(target, caster);
+                boolean shielded = EffectManager.wouldBlock(target, caster);
                 WitchMod.LOGGER.info("[ritual] {} on {} {} — cast by {}", effectId, target.getName().getString(),
                         shielded ? "BLOCKED (totem)" : "REFUSED (grace/disabled)", caster.getName().getString());
                 outcomeFx(level, pos, Outcome.FIZZLE);

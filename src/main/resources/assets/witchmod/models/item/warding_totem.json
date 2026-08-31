@@ -1,3 +1,6 @@
 {
-  "parent": "witchmod:block/warding_totem"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "witchmod:item/warding_totem"
+  }
 }

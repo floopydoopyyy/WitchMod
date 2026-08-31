@@ -4515,6 +4515,46 @@ retired `CurseMansplainer` (§5, was CUT).
       `bewitching_table_carpet.png` (pixels 5/10 × 14/15) so the hem reads ROUNDED. In the Table SCREEN, the
       Sacrificial slot was nudged down 1px (menu slot y 34→35; the screen draws each slot frame from `slot.x/y`, so
       the frame + item move together).
+      **RENAMED "Bewitching Table" → "Ritual Table" + model rework (2026-08-29, in-game visual test pending):**
+      DISPLAY-ONLY rename — the registry id, block/BE/menu/screen/ritual CLASS names, asset filenames, blockstate,
+      recipe and loot table all stay `bewitching_table` (so saved worlds/recipes are untouched). Changed the visible
+      name via the lang value `block.witchmod.bewitching_table` → "Ritual Table" (the screen title reads this
+      translatable, so it cascades), plus every user-facing "Bewitching Table" string: the ItemJar tooltip, the
+      voodoo-doll redirect chat line, and the Compendium `ritual.*` chapter + `bewitching_table.desc` lang values.
+      Internal javadoc comments still say "Bewitching Table" (not user-facing). MODEL (`models/block/bewitching_table.json`)
+      remade grander but still slender: bottom-to-top now a **PURPLE foot layer** (14x14, y0-1 — the ornate bottom
+      pixel-row, new editable `bewitching_table_purple.png`) under a **stepped polished-blackstone plinth** (12x12,
+      y1-3, vanilla `minecraft:block/polished_blackstone`), then a classical **column** — flared 10x10 foot collar
+      (y3-4), slim 6x6 shaft (y4-10), flared 10x10 capital (y10-11) — rising into the unchanged 16x16 top slab +
+      carpet + drapes. All faces 1:1 UV. `bewitching_table_TEXTURES.txt` updated. The particle is now polished_blackstone.
+      **Thicker column + candles (2026-08-29, in-game visual test pending):** the shaft was thickened 6x6 → **8x8**
+      ([4,4,4]-[12,10,12]) so it reads more substantial while the 10x10 collar/capital still flare. Added
+      DECORATIVE CANDLES to the tabletop to make it feel furnished: a new `bewitching_table_candles.json` holds 5
+      vanilla-geometry candles (2x2 wax pillars, varied height/position, two rotated ±22.5°) using vanilla
+      `minecraft:block/purple_candle` + `black_candle` textures, scattered messily on the top face (y16+). It's
+      composited via a **multipart blockstate** — the table body always applies; the candles apply only
+      `when capped=false`. New boolean blockstate prop **`CAPPED`** on `BewitchingTableBlock`: `getStateForPlacement`
+      sets it from the block above, and `updateShape` flips it when the block directly above changes — so placing
+      ANY block on top drops the candle model (no clipping), removing it again restores them. Candles are UNLIT
+      (no flame/emissive — safe; a lit variant would need emissive handling). The item/inventory icon still shows
+      the body only (item models can't be multipart).
+      **Candle UV bugfix + central candle removed (2026-08-29):** the candles rendered "invisible with floating
+      pixels" because the side UVs sampled `[0,0,2,6]` — the vanilla candle texture's opaque WAX is actually at
+      x0-2, **y5-16** (verified by decoding `purple_candle.png`), so that region was near-empty and only a stray
+      pixel or two showed. Side UVs now sample `[0,5,2,5+height]` (real wax), candles retimed to 7-10px tall, and
+      the model gained `parent: block/block`. The central candle was removed (now 4 candles: 2 purple, 2 black).
+      **Candles remade to EXACT vanilla geometry (2026-08-29):** the previous pass STILL rendered wrong (invisible
+      body / "mess of textures" on top) and were too tall — my `[0,5,...]` UVs were another guess. Pulled the real
+      vanilla candle model from the jar: body [7,0,7]-[9,6,9] with sides `[0,8,2,14]`, top `[0,6,2,8]`, plus a
+      crossed wick ([0,5,1,6]). Regenerated `bewitching_table_candles.json` (via a Node script) as 4 upright
+      vanilla-size (6px) candles at scattered spots, each = a translated copy of that exact geometry incl. the
+      wick, so each renders like a real vanilla candle. No leaning (the ±22.5° rotation was dropped — it added to
+      the mess). Still multipart-gated on `capped=false`.
+      **Candles to corners + beige (2026-08-29):** moved the 4 candles from the centre out near the four CORNERS
+      of the tabletop (positions ~(2,2)/(12,3)/(2,12)/(11,11), clear of the edge drapes) and switched them all to
+      the plain vanilla `minecraft:block/candle` (beige/cream) instead of purple/black.
+      **Candles gray + shorter (2026-08-29):** switched to `minecraft:block/gray_candle` and cut them 2px shorter
+      (body 6px→4px, y16-20; side UV `[0,8,2,12]`, wick at y20-21).
 - [ ] Block of Cursed Essence
 - [x] Ledger — FULLY IMPLEMENTED (2026-08-27, in-game test pending). Right-click opens a custom `client/LedgerScreen`
       (scrollable, parchment-styled, newest-first) listing nearby ritual activity — caster → target, effect (+modifier
@@ -4568,7 +4608,188 @@ retired `CurseMansplainer` (§5, was CUT).
       and the dummy command logs `success`/`blocked`/`refused`. (6) **NEW `/bewitch dummy <effect> [targets]
       [duration]`** — applies an effect with a null caster (so a totem blocks it, unlike a self-cast) and logs it
       in the Ledger as cast by **"dummy"** with the real success/blocked result. Compiles + boots clean.
-- [ ] Purifying Water
+      **Gem remodel — Minecraft-style, 1:1 texels (2026-08-29, in-game visual test pending):** the crowning gem was
+      a 45°-rotated 5x5x4 crystal with a full 16x16 texture squashed onto each ~5px facet (~3.2 texels/pixel —
+      Oliver: "too many pixels in a small area"). Replaced with an **axis-aligned amethyst CUBE** (6x5x6, y11-16,
+      no rotation) whose faces are UV-mapped **1:1** (a 6px face samples a 6-texel slice), so it reads at true
+      Minecraft texel density. Body/collar lowered (body y3-10, collar y10-11) so the totem still tops out at y16
+      (a full block). `warding_totem_gem.png` regenerated as a full-tile crystalline amethyst so any 1:1 slice
+      reads as a gem (like vanilla amethyst_block); blueprint note updated.
+      **Slimmer + grander obelisk (2026-08-29, in-game visual test pending):** remade from the stocky 8x8 body into
+      a SLENDER tapered obelisk whose grandeur comes from tiers/flares, not bulk: tiered plinth (10x10 y0-2 +
+      8x8 y2-3), flared foot collar (6x6 y3-4), a tapering shaft (6x6 y4-9 → 4x4 y9-12), a flared neck collar
+      (6x6 y12-13), and the amethyst gem cube on top (6x3, y13-16). Still a full 16px block. Stone faces use auto
+      (1:1) UVs; gem samples the gem tile 1:1.
+      **Taper-hole bugfix (2026-08-29):** the two-stage taper looked "buggy/broken" — the wider `shaft_lower`
+      (6x6) had NO top face, so where the 4x4 `shaft_upper` narrowed it left a see-through ring. Replaced the
+      taper with a SINGLE clean 4x4 shaft (y4-12) between 6x6 flared foot + neck collars, and made every
+      wider-over-narrower join carry its ring face (plinth/step/foot-collar `up`, neck-collar `down`). No holes;
+      slimmer than the old 8x8; grandeur still from the tiered plinth + collars + gem.
+      **Gem buildup — de-phallic (2026-08-29):** a slim shaft + rounded gem read as phallic, so the top gained a
+      tiered JEWELLED CROWN: shaft 4x4 (y4-10) → 6x6 neck flare (y10-11) → an 8x8 wide setting flange (y11-12) →
+      a faceted two-stage gem (6x6 girdle y12-14 → 4x4 crown y14-16). All ring faces present; still a full 16px
+      block. The wide setting + stepped gem break the shaft-and-tip silhouette.
+      **Taller obelisk (2026-08-29):** still looked bad within one block, so the model now rises ABOVE its block
+      (to ~y25, ~1.5 blocks — model elements may extend to y32) for better proportions: tiered plinth → slim 4x4
+      shaft up to y15 → 6x6 neck flare (y15-16) → 8x8 setting flange (y16-17, at the block top) → faceted gem
+      girdle 6x6 (y17-20) → crown 4x4 (y20-23) → 2x2 apex point (y23-25). `WardingTotemBlock.animateTick` now
+      breathes its ambient particles from ~y+1.15..1.5 (the raised gem). NOTE it renders above the block, so a
+      solid block placed directly above will clip the crown (fine — totems stand in the open).
+      **Gap fix + CONTAINED gem (2026-08-29):** the shaft→flare→8x8-setting→gem transitions left visible gaps, and
+      the gem read as a bare tip. Rebuilt the crown as ONE continuous 6x6 stone column so there are no
+      width-change gaps where the pillar meets the gem: slim 4x4 shaft (to y15) → 6x6 crown_flare (y15-16, its
+      down face is the ring over the shaft) → 6x6 stone gem_setting (y16-18) → 6x6 GEM band (y18-21, only its
+      sides show) → 6x6 stone gem_cap (y21-23) → 4x4 finial (y23-25). The stone setting below + stone CAP on top
+      (pillar texture over the gem) frame the gem as a contained/inset band rather than a tip. Only real tapers
+      (shaft, finial, plinth tiers) carry ring faces; the 6x6 crown is a seamless stack.
+      **FULL REWORK — "the model is a mess" (2026-08-29):** rebuilt the whole totem for a clean, gap-safe, grand
+      look. Widths only ever STEP (no fiddly 1px flanges stacked oddly): wide tiered plinth 12x12 (y0-3) → 8x8
+      base (y3-5) → slim 4x4 carved shaft (y5-16) → a bold 8x8 JEWELLED HEAD (y16-22) = stone head_base (y16-17,
+      its down face rings over the shaft) + a thick 8x8 GEM band (y17-21, sides only) + stone head_cap (y21-22,
+      pillar texture on top) → 4x4 stone finial (y22-25). ~1.55 blocks tall. Gap-safe by construction: the only
+      flare (shaft4→head8) is carried by head_base's down ring, the head8→gem8→cap8 are a continuous stack, and
+      every taper (plinth tiers, finial) has its up ring — no missing/z-fighting faces. The 8x8 head being clearly
+      wider than the 4x4 shaft + the stone cap + finial keep it reading as a jewelled monument, not a phallic tip.
+      **Gem-on-top + cohesive column (2026-08-29):** the "open spaces" were the too-thin 4x4 shaft reading as a
+      stick with blobs, and the user wanted the gem back on top. Rebuilt: tiered plinth 12x12 (y0-2) → 10x10
+      (y2-4) → a COHESIVE 6x6 stone column (y4-15) → an 8x8 flared capital (y15-17) that cradles the gem → the
+      GEM as the TOPMOST feature, a faceted two-tier crystal (6x6 y17-21 → 4x4 y21-25). Single flare
+      (column6→capital8) carried by the capital's down ring; everything else narrows upward with its up ring;
+      the 6x6 column is thick enough it no longer looks gappy. `animateTick` particle Y already covers the raised gem.
+      **Unbreakable-simple rebuild (2026-08-30):** the flared capital STILL read as broken where the pillar met
+      the gem, so the flare was removed ENTIRELY. Now: tiered plinth (12x12 y0-2 → 10x10 y2-4 → 8x8 y4-5) that
+      only ever NARROWS going up (each tier carries its up ring), then a single 6x6 pillar whose TOP section
+      (y16-23) is simply the gem texture — one continuous 6x6 stack, no overhang/flare anywhere, so there is no
+      join that can be missing a face. Gem is the topmost thing; the separate 4x4 'tip' was removed.
+      **THEMED REMODEL (2026-08-31, free-rein):** rebuilt as a "magic amethyst obelisk infused with cursed power".
+      Bottom to top: tiered BLACKSTONE plinth (12x12 y0-2 → 10x10 y2-4) → DEEPSLATE shaft (8x8 foot y4-5, 6x6
+      y5-9) → an embedded glowing AMETHYST core band (6x6 y9-12) → deepslate again (6x6 y12-15) → a crowning
+      AMETHYST crystal (6x6 y15-20) tapering to a 4x4 point (y20-24). Still gap-safe: plinth tiers only narrow
+      (up-rings), and shaft+core+crown are ONE continuous 6x6 stack (only the texture changes) with just the tip
+      narrowing. THREE editable textures for the theme (`warding_totem_blackstone` / `_deepslate` / `_gem`, all
+      generated placeholders with a few amethyst flecks in the stone); `warding_totem_stone.png` deleted.
+      `animateTick` now breathes purple magic from BOTH the core band and the crown. (Blocking functionality
+      unchanged — it already blocks all external magic in range without fail.)
+      **UV fix + on/off toggle (2026-08-31):** the "brown pixels + gaps at the top" were AUTO-UV breaking on the
+      elements that rise ABOVE y16 (the crown reaches y24, so omitted UVs generate out-of-[0,16] coords → garbage/
+      transparent sampling). Fixed by pinning an EXPLICIT in-range UV on every face; also regenerated the gem
+      texture as a clean faceted amethyst. NEW **right-click toggle**: a boolean blockstate `enabled` (default
+      true) flips on use — a blockstate variant swaps to `warding_totem_disabled` (parents the model, overrides
+      the gem to a dead grey `warding_totem_gem_off`), the ambient aura stops, and `isProtected`/the shield tick
+      now require `isEnabledTotem` (the totem shields nobody while off). Feedback: BEACON_ACTIVATE/DEACTIVATE +
+      an amethyst chime (pitched up on / down off) + a purple(on)/grey(off) particle burst.
+      **Crown = crystal cluster (2026-08-31):** the boxy 2-tier gem tip "lacked shape", so the crown is now an
+      AMETHYST CRYSTAL CLUSTER growing from the deepslate platform (y15): a tall central 2x2 spire capped by a 1x1
+      point, plus four shorter crystals of varying height leaning out on ±22.5° (different axes) = a geode look.
+      shaft_upper gained an `up` face (the platform showing between crystals); all crystal faces use explicit 1:1
+      UVs (they rise well above y16). Uses the same `#gem` texture, so the disabled variant greys the cluster too.
+      **Symmetric crown + messy core (2026-08-31):** crown reworked from the scattered cluster into a SYMMETRIC
+      spike crown — a central pointed spire + four spikes on N/S/E/W leaning OUTWARD (x-axis ∓22.5 for N/S,
+      z-axis ∓22.5 for E/W), with slight height imperfections (6/7/6/5) for a crude look. The core band no longer
+      uses the clean `#gem` — it has its own `warding_totem_core.png` where the amethyst emerges RAGGEDLY from
+      deepslate-grey (per-column uneven top/bottom edges + stray flecks), so it bleeds messily into the shaft
+      instead of being a clean stripe; band widened to y8-13. The disabled model now also swaps `#core` →
+      `warding_totem_core_off.png` so the whole totem greys out when off. Editable textures now: blackstone /
+      deepslate / gem / core (+ the two `_off` variants).
+      **PROTECTED effect is now the global shield + flat item icon (2026-08-31):** the `witchmod:protected`
+      MobEffect was cosmetic (the totem did its own proximity gate) so `/effect give … protected` did nothing.
+      Reworked so the EFFECT itself is the single gate: `EffectManager.isMagicProtected(entity)` = `hasEffect(PROTECTED)`,
+      checked in `apply` (`caster != target && !directHit && protected` → fizzle + block). Warding Totem and Holy
+      Water no longer have their own EffectManager hooks — they just APPLY the PROTECTED effect (totem tick to
+      players in range of ENABLED totems; `HolyWaterHandler` to bathers each tick), so `/effect` protects the same
+      way. Removed `setTotemHook`/`setHolyWaterHook`/`wouldTotemBlock`/`wouldHolyWaterBlock`/`WardingTotemBlock.isProtected`/
+      `onBlocked`; added `wouldBlock` (logging) + inline `protectedFizzle` FX. **Direct jar splashes now punch
+      through** (new `ApplyOptions.DIRECT_HIT`, used by `JarEffects.splash`) while **lashes are blocked** and now
+      **prioritise the nearest UNPROTECTED player** (falling back to a protected one, where they fizzle). Voodoo
+      (`ItemVoodooDoll`) now checks `isMagicProtected` too. Ward item is unchanged (its own durability hook stays).
+      The block item now uses the supplied flat 2D icon (`models/item/warding_totem.json` → `item/generated`,
+      `item/warding_totem`) instead of the 3D block model.
+- [ ] Purifying Water — ⏳ HOLY-WATER REWORK (2026-08-29): dropped the "tint vanilla water" approach for CUSTOM
+      editable textures. `textures/block/purifying_water_still.png` (16x512, +.mcmeta frametime 2) and
+      `_flow.png` (32x1024, +.mcmeta) were generated by RECOLOURING vanilla water (decoded + remapped by luminance
+      to a light-blue→white palette, alpha bumped ~1.18x for "slightly less translucent", + faint twinkling white
+      STAR pixels that move per frame) — so it still animates like water but shines light-blue with white shimmer.
+      `WitchModFluids` now points `STILL_TEXTURE`/`FLOW_TEXTURE` at these (renamed from WATER_STILL/FLOW) and
+      `TINT_COLOR` is neutral `0xFFFFFFFF` (texture drives the look; edit the PNGs to restyle). `PurifyingWaterBlock.animateTick`
+      emits occasional shiny END_ROD motes (+ occasional FIREWORK twinkle) off the surface. Submersion fog:
+      `IClientFluidTypeExtensions.modifyFogColor` → near-white (0.86,0.93,1.0) and `modifyFogRender` sets a very
+      close haze (fog start 0.1 / end 3.5). Block `mapColor` COLOR_PURPLE → COLOR_LIGHT_BLUE. (Full Purifying
+      Water refinement — fluid behaviour, recipe — still pending; textures are editable placeholders.)
+      **Translucency + flow rework (2026-08-29):** first custom pass looked like "white paint" (too opaque/white)
+      with static-looking shimmer. Regenerated: palette is now a VERY LIGHT BLUE ramp (light blue → pale blue,
+      no pure-white base), alpha dropped to ~35-56% (`ALPHA_MIN 88 + t*54`) so it's significantly translucent, the
+      random per-pixel grain and the discrete per-frame "star" pixels were REMOVED (they were the static flicker),
+      and contrast was expanded (`LO 50 / RANGE 56`) so vanilla's own moving highlights read as a pronounced
+      FLOWING shimmer. Stars are now provided only by the surface particles, which were also cut 95%
+      (`animateTick` roll 1/10 → 1/200). Tint stays neutral `0xFFFFFFFF`; edit the PNGs (via
+      `scratchpad/gen_water.cjs`) to restyle.
+      **STILL WHITE — root cause found + fixed (2026-08-29):** it kept rendering blank white because the palette
+      window (`LO 50 / RANGE 56`) was wrong for vanilla water — I finally DECODED `water_still.png` and it's a
+      bright grey (luminance ~165..255, mean 177), so every pixel clamped to the top of the ramp → white. Re-based
+      the window on the real range (`LO 163 / RANGE 92`, gamma 0.85) and gave the ramp genuine contrast:
+      TROUGH `(118,178,224)` light-blue (where most pixels land) → MID → CREST → rare SHIMMER `(240,249,255)`
+      glints on the crests (the "reflective" look). Verified the output: mean RGB ~(137,190,230), alpha 149..182
+      (~58-71%, translucent), only ~2.5% near-white pixels. So it now reads as flowing light-blue water with
+      bright shimmer instead of white paint. Particles/fog unchanged from the prior pass.
+      **Star shimmer + less translucent (2026-08-29):** added twinkling white STAR sparkles to the texture — a few
+      per frame (3 on still, 5 on flow) that DRIFT down with the flow and fade in/out via a per-seed sine, so they
+      read as moving shimmer rather than static grain; each is a bright core + faint plus-arms. Bumped opacity
+      (`ALPHA_MIN 148→176`, so ~69-100% — stars peak fully opaque). Palette unchanged. Output now mean RGB
+      ~(140,191,231), ~3.1% bright star pixels. **Colour/look SIGNED OFF by Oliver.**
+      **Physics pass (2026-08-29):** (1) **Bare-minimum flow** — `BaseFlowingFluid.Properties.levelDecreasePerBlock(4)`
+      (water=1, lava=2) + `slopeFindDistance(2)`, so a source barely creeps out (~1 block) instead of blanketing a
+      mountainside. (2) **Lowest-priority liquid** — new `PurifyingWaterFluid.Source`/`.Flowing` (extend
+      `BaseFlowingFluid.*`) override `spreadTo` to REFUSE any target block that already holds a foreign fluid, so
+      it stops at water/lava instead of tunnelling through/replacing them (own fluid still flows normally).
+      `WitchModFluids` now instantiates these subclasses. (3) **No infinite sources** — FluidType
+      `canConvertToSource(false)`, so a source only ever comes from a bucket. (4) **Place sound** —
+      `PurifyingWaterBlock.onPlace` plays a sped-up (pitch 1.6) `WitchModSounds.BLESSED` chime when a SOURCE is set
+      and the old block wasn't this fluid (i.e. exactly on bucket placement, never on flow).
+      **Core FUNCTIONALITY pass (2026-08-30):** made the fluid feel alive + do its cleansing job.
+      (1) **Feels like water** — added both fluids to the vanilla `minecraft:water` FLUID TAG
+      (`data/minecraft/tags/fluid/water.json`), so you get real swim physics, the splash/swim sounds, the
+      muffled underwater ambience and the suspended underwater particles for free. (2) **No drowning** — the
+      FluidType overrides `canDrownIn` → false, so the air bar never depletes while submerged. (3) **Shine +
+      drain** — new `HolyWaterHandler` (`PlayerTickEvent.Post`): while a player is in holy water
+      (`HolyWater.isProtecting` = `isInFluidType`) it spawns ambient END_ROD shine motes around them; if they
+      carry any active curses/blessings it burns the timers down by `Config.PURIFY_DRAIN_TICKS_PER_TICK` (20 =
+      1s/tick, configurable) with motes streaming INWARD into them + a soft periodic AMETHYST chime, so the
+      timers visibly race down. The old per-block `entityInside` drain was removed (the tick handler is the
+      single drain path now, so it can't double-count). (4) **Sanctuary** — standing in holy water BLOCKS all
+      others' magic, exactly like a Warding Totem: a new `EffectManager.setHolyWaterHook` gate refuses external
+      curses/blessings (jars/coins/dummy included), `JarEffects.tickLashes` skips holy-water players so lashes
+      won't chase them, and `ItemVoodooDoll` (`voodooHurt`/`fling`/`onShake`/feed) refuses voodoo on them — every
+      block shows the subtle `HolyWater.fizzle` (END_ROD + splash + soft hiss/chime), no chat text. Self-casts
+      still pass. NEXT: recipe, and any further Purifying-Water functionality Oliver wants.
+      **Feedback fixes (2026-08-30):** (1) **Particles cut hard** — ambient shine now 1 END_ROD every 15 ticks
+      and the drain mote 1 every 8 ticks (was 2 + 3 EVERY tick = a storm); subtle flavour now. (2) **Visible
+      drain** — `EffectManager.reduceAllDurations` now calls `StatusEffectSync.sync` EVERY call, not just on
+      expiry, so the on-screen Cursed/Blessed timer shrinks in lock-step with the internal drain (updateWrapper
+      only bursts particles on the onset edge, so per-tick re-sync is safe/quiet). (3) **Audible feedback** — the
+      water tag wasn't reliably producing swim audio for a modded fluid, so `HolyWaterHandler` now plays them
+      itself: a soft `PLAYER_SPLASH` the tick you get in (tracked via a `BATHING` set), a `PLAYER_SWIM` stroke
+      every 11 ticks while moving, and a soothing `AMETHYST_BLOCK_CHIME` every 14 ticks while draining. (4) Place
+      sound volume halved (0.9 → 0.45).
+      **Functionality + acquisition pass (2026-08-30):** (1) **Undead damage** — `PurifyingWaterBlock.entityInside`
+      hurts any `EntityTypeTags.UNDEAD` mob standing in the fluid (`Config.PURIFY_UNDEAD_DAMAGE`, 2.0; magic
+      source, spaced by invuln frames) with a spark + hiss. (2) **Cleanses witch items** — new `HolyWaterItems`:
+      a filled jar (curses/blessings/mixed) dropped in OR right-clicked while looking at holy water is emptied to
+      a plain Jar, and a bound Voodoo Doll is unbound — a `RightClickItem` raycast (`HolyWater.isProtectingFluidAt`)
+      plus a throttled item-entity scan, both with a shine + chime. (3) **Cauldrons** — a new
+      `PURIFYING_WATER_CAULDRON` block (`LayeredCauldronBlock`, Precipitation.NONE, drops a vanilla cauldron) with
+      3-level models parented to the vanilla cauldron templates (content = `purifying_water_still`). Interactions
+      in `HolyWaterCauldron` (registered from `commonSetup`): full holy cauldron + empty bucket → holy-water
+      bucket; empty cauldron + holy-water bucket → holy cauldron. **ACQUISITION** — right-click an Amethyst Shard
+      into a normal WATER cauldron for a STACKING `Config.PURIFY_SHARD_CHANCE` (+6%/shard, tracked per-pos) roll;
+      on success the water consecrates into a holy cauldron with a sped-up, quiet `BLESSED` chime + END_ROD/WITCH/
+      GLOW burst, then it's freely bucketable. 2 config knobs.
+      **⚠ Cauldron crash fix (2026-08-31):** the holy cauldron's `InteractionMap` was backed by a plain `HashMap`,
+      which returns `null` for unregistered items — but vanilla `AbstractCauldronBlock.useItemOn` calls
+      `.interact()` on the looked-up value WITHOUT a null check, so using an amethyst shard (or anything else) on a
+      HOLY cauldron NPE-crashed. Fixed by building the map with `CauldronInteraction.newInteractionMap(...)` (an
+      Object2ObjectOpenHashMap whose default-return is `CauldronInteraction.DEFAULT`, i.e. "pass through"), exactly
+      as vanilla does. Only ADD entries to the shared vanilla WATER/EMPTY maps (never replace vanilla ones, and our
+      empty-cauldron entry is keyed on our own bucket item), so other mods' cauldrons are unaffected.
 
 ---
 

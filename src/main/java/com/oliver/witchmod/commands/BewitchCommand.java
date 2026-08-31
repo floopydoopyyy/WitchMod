@@ -167,7 +167,7 @@ public final class BewitchCommand {
         for (ServerPlayer target : targets) {
             boolean ok = EffectManager.apply(target, effect, durationTicks, caster);
             String result = ok ? (dummy ? "success" : "command")
-                    : (EffectManager.wouldTotemBlock(target, caster) ? "blocked" : "refused");
+                    : (EffectManager.wouldBlock(target, caster) ? "blocked" : "refused");
             LedgerLog.log(Optional.of(casterName), target.getName().getString(), effect.key().location(),
                     result, gameTime, false,
                     net.minecraft.core.GlobalPos.of(target.level().dimension(), target.blockPosition()), null);
@@ -185,7 +185,7 @@ public final class BewitchCommand {
                 String who = db == null ? "its target" : db.playerName();
                 caster.sendSystemMessage(Component.literal(
                         "(Your bound voodoo doll would redirect this curse to " + who
-                        + " if cast at the Bewitching Table.)").withStyle(net.minecraft.ChatFormatting.GRAY));
+                        + " if cast at the Ritual Table.)").withStyle(net.minecraft.ChatFormatting.GRAY));
             }
         }
 

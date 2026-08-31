@@ -1,5 +1,5 @@
 {
-  "__comment": "Bewitching Table: deepslate PILLAR base + full-size TOP SLAB. The top face is one carpet-with-flat-purple-corners tile (bewitching_table_top). Carpet flaps drape over the middle of each side; the drape's bottom corners are transparent in bewitching_table_carpet.png (cutout render) so the hem reads as rounded. All UVs are 1:1. Textures in textures/block/ are hand-editable; see bewitching_table_TEXTURES.txt.",
+  "__comment": "Ritual Table (registry id kept as bewitching_table). Bottom-to-top: a PURPLE foot layer (y0-1) under a stepped polished-blackstone plinth (y1-3), then a grand-but-slender column (flared foot collar, slim shaft, flared capital) rising into the full 16x16 deepslate TOP SLAB (y11-16) whose top face is carpet-with-purple-corners, with carpet drapes over each side. Every face is UV-mapped 1:1 (1 texel = 1 model pixel) so it stays true Minecraft style. Textures in textures/block/ are hand-editable; see bewitching_table_TEXTURES.txt.",
   "parent": "block/block",
   "render_type": "minecraft:cutout",
   "textures": {
@@ -8,20 +8,70 @@
     "slab": "witchmod:block/bewitching_table_slab_side",
     "top": "witchmod:block/bewitching_table_top",
     "carpet": "witchmod:block/bewitching_table_carpet",
-    "particle": "witchmod:block/bewitching_table_slab_side"
+    "base": "minecraft:block/polished_blackstone",
+    "purple": "witchmod:block/bewitching_table_purple",
+    "particle": "minecraft:block/polished_blackstone"
   },
   "elements": [
     {
-      "name": "pillar",
-      "from": [3, 0, 3],
+      "name": "purple_foot",
+      "from": [1, 0, 1],
+      "to": [15, 1, 15],
+      "faces": {
+        "north": { "uv": [1, 15, 15, 16], "texture": "#purple" },
+        "south": { "uv": [1, 15, 15, 16], "texture": "#purple" },
+        "east": { "uv": [1, 15, 15, 16], "texture": "#purple" },
+        "west": { "uv": [1, 15, 15, 16], "texture": "#purple" },
+        "up": { "uv": [1, 1, 15, 15], "texture": "#purple" },
+        "down": { "uv": [1, 1, 15, 15], "texture": "#purple", "cullface": "down" }
+      }
+    },
+    {
+      "name": "blackstone_base",
+      "from": [2, 1, 2],
+      "to": [14, 3, 14],
+      "faces": {
+        "north": { "uv": [2, 13, 14, 15], "texture": "#base" },
+        "south": { "uv": [2, 13, 14, 15], "texture": "#base" },
+        "east": { "uv": [2, 13, 14, 15], "texture": "#base" },
+        "west": { "uv": [2, 13, 14, 15], "texture": "#base" },
+        "up": { "uv": [2, 2, 14, 14], "texture": "#base" },
+        "down": { "uv": [2, 2, 14, 14], "texture": "#base" }
+      }
+    },
+    {
+      "name": "column_collar",
+      "from": [3, 3, 3],
+      "to": [13, 4, 13],
+      "faces": {
+        "north": { "uv": [3, 12, 13, 13], "texture": "#pillar" },
+        "south": { "uv": [3, 12, 13, 13], "texture": "#pillar" },
+        "east": { "uv": [3, 12, 13, 13], "texture": "#pillar" },
+        "west": { "uv": [3, 12, 13, 13], "texture": "#pillar" },
+        "up": { "uv": [3, 3, 13, 13], "texture": "#pillar_top" }
+      }
+    },
+    {
+      "name": "column_shaft",
+      "from": [4, 4, 4],
+      "to": [12, 10, 12],
+      "faces": {
+        "north": { "uv": [4, 5, 12, 11], "texture": "#pillar" },
+        "south": { "uv": [4, 5, 12, 11], "texture": "#pillar" },
+        "east": { "uv": [4, 5, 12, 11], "texture": "#pillar" },
+        "west": { "uv": [4, 5, 12, 11], "texture": "#pillar" }
+      }
+    },
+    {
+      "name": "column_capital",
+      "from": [3, 10, 3],
       "to": [13, 11, 13],
       "faces": {
-        "north": { "uv": [3, 5, 13, 16], "texture": "#pillar" },
-        "south": { "uv": [3, 5, 13, 16], "texture": "#pillar" },
-        "east": { "uv": [3, 5, 13, 16], "texture": "#pillar" },
-        "west": { "uv": [3, 5, 13, 16], "texture": "#pillar" },
-        "up": { "uv": [3, 3, 13, 13], "texture": "#pillar_top" },
-        "down": { "uv": [3, 3, 13, 13], "texture": "#pillar_top", "cullface": "down" }
+        "north": { "uv": [3, 5, 13, 6], "texture": "#pillar" },
+        "south": { "uv": [3, 5, 13, 6], "texture": "#pillar" },
+        "east": { "uv": [3, 5, 13, 6], "texture": "#pillar" },
+        "west": { "uv": [3, 5, 13, 6], "texture": "#pillar" },
+        "down": { "uv": [3, 3, 13, 13], "texture": "#pillar_top" }
       }
     },
     {

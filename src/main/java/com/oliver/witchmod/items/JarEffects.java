@@ -63,7 +63,7 @@ public final class JarEffects {
                 AABB.ofSize(pos, r * 2, r * 2, r * 2), p -> p.isAlive() && p.distanceToSqr(pos) <= r * r);
         if (!caught.isEmpty()) {
             for (ServerPlayer p : caught) {
-                applyStored(level, p, effects, ownerName, pos);
+                applyStored(level, p, effects, ownerName, pos, true); // a DIRECT splash — punches through protection
             }
         } else {
             // No one in the blast — it lashes out at the nearest player instead.
@@ -71,14 +71,18 @@ public final class JarEffects {
         }
     }
 
-    /** Applies a jar's stored effects to {@code player} and records each one in the Ledger (landed or blocked). */
-    private static void applyStored(ServerLevel level, ServerPlayer player, List<CapturedEffect> effects, String caster, Vec3 at) {
+    /**
+     * Applies a jar's stored effects to {@code player} and records each one in the Ledger (landed or blocked).
+     * {@code directHit} = a direct thrown-jar splash, which bypasses the Protected shield; a lash does not.
+     */
+    private static void applyStored(ServerLevel level, ServerPlayer player, List<CapturedEffect> effects, String caster, Vec3 at, boolean directHit) {
         net.minecraft.core.GlobalPos gp = net.minecraft.core.GlobalPos.of(level.dimension(), net.minecraft.core.BlockPos.containing(at));
+        EffectManager.ApplyOptions opts = directHit ? EffectManager.ApplyOptions.DIRECT_HIT : EffectManager.ApplyOptions.DEFAULT;
         for (CapturedEffect e : effects) {
             WitchModRegistries.EFFECT_REGISTRY
                     .getHolder(ResourceKey.create(WitchModRegistries.EFFECT_REGISTRY_KEY, e.effectId()))
                     .ifPresent(h -> {
-                        boolean landed = EffectManager.apply(player, h, Math.max(1, e.remainingTicks()), null);
+                        boolean landed = EffectManager.apply(player, h, Math.max(1, e.remainingTicks()), null, opts);
                         com.oliver.witchmod.data.LedgerLog.log(java.util.Optional.of(caster), player.getName().getString(),
                                 e.effectId(), landed ? "jar" : "blocked", level.getGameTime(), false, gp, null);
                     });
@@ -104,29 +108,35 @@ public final class JarEffects {
                 it.remove();
                 continue;
             }
-            // The nearest reachable player who ISN'T shielded by a Warding Totem — a lash won't chase into a
-            // totem's protection (it just fizzles instead of pointlessly bursting on a protected player).
+            // Prioritise the nearest UNPROTECTED player (a lash prefers an easy target). If only protected
+            // players are in reach it still homes on the nearest one, but its hit will be blocked (fizzles).
             ServerPlayer target = null;
             double best = range * range;
+            ServerPlayer fallback = null;
+            double bestAny = range * range;
             for (ServerPlayer p : lash.level.players()) {
-                if (com.oliver.witchmod.blocks.WardingTotemBlock.isProtected(p)) {
-                    continue;
-                }
                 double d = p.distanceToSqr(lash.pos);
-                if (d <= best) {
+                if (d <= bestAny) {
+                    bestAny = d;
+                    fallback = p;
+                }
+                if (!EffectManager.isMagicProtected(p) && d <= best) {
                     best = d;
                     target = p;
                 }
             }
             if (target == null) {
-                it.remove(); // no one in reach — it fizzles out (run far enough / hide behind a totem)
+                target = fallback; // everyone nearby is protected — home in anyway, the hit will fizzle
+            }
+            if (target == null) {
+                it.remove(); // no one in reach — it fizzles out (run far enough)
                 continue;
             }
             Vec3 to = target.position().add(0, target.getBbHeight() * 0.5, 0);
             Vec3 dir = to.subtract(lash.pos);
             double dist = dir.length();
             if (dist <= 1.1) {
-                applyStored(lash.level, target, lash.effects, lash.ownerName, to);
+                applyStored(lash.level, target, lash.effects, lash.ownerName, to, false); // a lash IS blocked by protection
                 lashBurst(lash.level, to, lash.kind);
                 it.remove();
                 continue;

@@ -57,7 +57,7 @@ public final class ItemJar extends Item {
         if (captured.isEmpty()) {
             tooltip.add(Component.literal("Empty — holds up to " + JarContents.MAX + " curse/blessing")
                     .withStyle(ChatFormatting.DARK_GRAY));
-            tooltip.add(Component.literal("Fill it at a Bewitching Table (jar in the target slot).")
+            tooltip.add(Component.literal("Fill it at a Ritual Table (jar in the target slot).")
                     .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
             return;
         }

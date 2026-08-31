@@ -1,5 +1,6 @@
 {
   "variants": {
-    "": { "model": "witchmod:block/warding_totem" }
+    "enabled=true": { "model": "witchmod:block/warding_totem" },
+    "enabled=false": { "model": "witchmod:block/warding_totem_disabled" }
   }
 }
