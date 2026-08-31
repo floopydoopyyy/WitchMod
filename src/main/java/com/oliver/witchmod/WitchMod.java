@@ -137,7 +137,8 @@ public class WitchMod {
         // Let the Ward item and Warding Totem block hook into effect application without EffectManager
         // depending on them directly
         EffectManager.setWardHook(ItemWard::hasActiveWard, ItemWard::onBlock);
-        EffectManager.setTotemHook(WardingTotemBlock::isProtected, WardingTotemBlock::onBlocked);
+        // Warding Totem + Holy Water now protect by APPLYING the PROTECTED effect; the gate lives in
+        // EffectManager.apply (isMagicProtected), so no per-source hook is needed here.
 
         // Register ourselves for server and other game events we are interested in.
         // Note that this is necessary if and only if we want *this* class (ExampleMod) to respond directly to events.
@@ -159,6 +160,8 @@ public class WitchMod {
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
+        // Cauldron interaction maps are shared mutable state — register on the main thread.
+        event.enqueueWork(com.oliver.witchmod.blocks.HolyWaterCauldron::registerInteractions);
         LOGGER.info("WitchMod common setup complete");
     }
 

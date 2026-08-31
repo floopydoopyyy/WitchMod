@@ -1,40 +1,26 @@
-WARDING TOTEM — TEXTURE BLUEPRINT
-=================================
+WARDING TOTEM — editable textures (all 16x16 PNG, RGBA)
+======================================================
+A magic amethyst obelisk infused with cursed power. Model: models/block/warding_totem.json.
+Shape, bottom to top (all within Minecraft's blocky style, ~1.6 blocks tall):
+  - a tiered BLACKSTONE plinth        (12x12 y0-2, 10x10 y2-4)
+  - a carved DEEPSLATE shaft          (8x8 y4-5 foot, 6x6 y5-8)
+  - a RAGGED AMETHYST core band       (6x6 y8-13) that bleeds messily into the stone (warding_totem_core.png)
+  - the deepslate shaft continues to a platform (6x6 y13-15)
+  - a symmetric AMETHYST spike CROWN: a central pointed spire + four outward-leaning spikes, with slight
+    height imperfections (crude, not machine-perfect)
 
-The Warding Totem is the block that repels curses/blessings inside its radius, so it wants to read as a
-deliberate, ornate protective monument — NOT just another decorated stone block. The MODEL is already a
-custom shape (a stacked, tapering pillar): a wide plinth, a two-stage shaft, a flared collar, and a small
-crowning gem. See models/block/warding_totem.json.
+⚠ Every face has an EXPLICIT in-[0,16] UV — the crown rises above y16, where auto-UV corrupts (brown specks /
+transparent gaps). If you resize any crown element, keep its UV within 0..16 and matched to its pixel size.
+Textures are uniform tiles (any 1:1 slice reads right), so just paint each 16x16 normally.
 
-The model paints each part from a NAMED texture slot. Right now those slots point at vanilla textures so it
-renders immediately. To give it bespoke art, make the PNGs below (16x16 each, standard block resolution) in
-THIS folder (assets/witchmod/textures/block/) and repoint each slot in the model's "textures" block from the
-"minecraft:block/..." value to "witchmod:block/warding_totem_<part>".
+FILES (edit freely; F3+T reloads):
+  warding_totem_blackstone.png   the plinth — near-black carved blackstone (a few amethyst flecks by default)
+  warding_totem_deepslate.png    the shaft  — grey-blue deepslate
+  warding_totem_gem.png          the crown spikes — a full-tile crystalline amethyst (any 1:1 slice reads as gem)
+  warding_totem_core.png         the mid-shaft band — amethyst emerging RAGGEDLY from deepslate-grey (rows ~4-8),
+                                   so its edges blend into the stone; paint the ragged silhouette here
+  warding_totem_gem_off.png / warding_totem_core_off.png   the DEAD/grey versions shown when the totem is
+                                   right-clicked OFF (disabled model swaps #gem + #core to these)
 
-SLOTS  (model "textures" key  ->  suggested file)
--------------------------------------------------
-  plinth      -> warding_totem_plinth.png       the wide base ring; heavy, grounded, carved stone
-  plinth_top  -> warding_totem_plinth_top.png   top/bottom faces of the plinth (a flat capstone look)
-  shaft       -> warding_totem_shaft.png        the two tapering column stages; vertical fluting/runes
-  collar      -> warding_totem_collar.png        the flared band near the top; the "band of power" detail
-  gem         -> warding_totem_gem.png           the crowning gem cube; make it glow-y / amethyst-like
-
-LAYOUT NOTES
-------------
-- 16x16 per file. The shaft is used on its side faces only, so design it to TILE VERTICALLY (top edge should
-  meet bottom edge) — the lower and upper shaft stages stack, so a seamless vertical repeat looks best.
-- The plinth wraps a 14-wide ring; keep its detail horizontal (a carved base moulding) so it reads at a
-  glance from across the room.
-- The collar is only 2px tall on-screen, so keep it BOLD and simple — one strong horizontal motif (studs,
-  a rune line, a metal band). Fine detail is lost at that height.
-- The gem is the focal point. Consider an emissive-looking bright core (light purples/whites). If you later
-  want it to actually emit light, that's a block light-level change in WardingTotemBlock, not a texture one.
-- Palette suggestion to distinguish it from ordinary builds: cold carved stone (greys/deep blue-greys) for
-  the plinth+shaft, a darker metal band for the collar, and a single saturated accent (amethyst purple) on
-  the gem so the eye goes straight to the "charged" top.
-
-OPTIONAL — more parts
----------------------
-If you want finer control, split a slot into more elements in the model (e.g. a separate "shaft_top" band)
-and add a matching texture slot. The model is plain JSON element cubes, so adding a carved ring or feet is
-just another element + (optionally) another named slot here.
+The block breathes purple magic particles from the core band + the crown (WardingTotemBlock.animateTick),
+and flares a force-field dome whenever it blocks a spell — those are code, not textures.

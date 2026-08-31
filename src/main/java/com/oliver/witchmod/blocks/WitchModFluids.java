@@ -22,21 +22,21 @@ import com.oliver.witchmod.WitchMod;
 
 /**
  * Purifying Water (CLAUDE.md section 2.5) — a real custom fluid (source + flowing pair), not just a
- * reskinned block, so it flows/fills like water. Reuses vanilla water's still/flowing textures with a
- * distinct tint since no custom art exists yet (see Human Action Items); swap the texture references once
- * real art lands. Client-side rendering (texture/tint) is registered separately in {@code WitchModClient}
- * since it's a {@code Dist.CLIENT}-only concern.
+ * reskinned block, so it flows/fills like water. Uses CUSTOM still/flowing textures — vanilla water
+ * recoloured to a light "holy" blue with white shimmer and faint twinkling stars (borrowed from vanilla so
+ * it still animates like water), living as editable PNGs in {@code textures/block/purifying_water_*.png}
+ * (+ .mcmeta). Client-side rendering (textures/tint/fog) is registered in {@code WitchModClient} since it's
+ * a {@code Dist.CLIENT}-only concern.
  */
 public final class WitchModFluids {
-    public static final ResourceLocation WATER_STILL = ResourceLocation.withDefaultNamespace("block/water_still");
-    public static final ResourceLocation WATER_FLOW = ResourceLocation.withDefaultNamespace("block/water_flow");
+    public static final ResourceLocation STILL_TEXTURE = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "block/purifying_water_still");
+    public static final ResourceLocation FLOW_TEXTURE = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "block/purifying_water_flow");
     /**
-     * ARGB. A pale, mostly-transparent white — holy water should read as clean and barely there, not as a
-     * coloured potion (it was an opaque purple, which rendered pink over the greyscale water texture).
-     * <p>The ALPHA byte only does anything because the fluid is registered on the translucent render layer
-     * in {@code WitchModClient}; on the default solid layer it is discarded and the fluid renders opaque.
+     * ARGB tint multiplied over the (now already-coloured) texture. Neutral white so the texture drives the
+     * colour; alpha is full because the texture itself carries the "slightly less translucent" look. Edit the
+     * PNGs to restyle the water rather than this value.
      */
-    public static final int TINT_COLOR = 0x8CF2FBFF;
+    public static final int TINT_COLOR = 0xFFFFFFFF;
 
     public static final DeferredRegister<FluidType> FLUID_TYPES = DeferredRegister.create(NeoForgeRegistries.Keys.FLUID_TYPES, WitchMod.MODID);
     public static final DeferredRegister<Fluid> FLUIDS = DeferredRegister.create(Registries.FLUID, WitchMod.MODID);
@@ -46,18 +46,25 @@ public final class WitchModFluids {
     public static final DeferredHolder<FluidType, FluidType> PURIFYING_WATER_TYPE = FLUID_TYPES.register("purifying_water",
             () -> new FluidType(FluidType.Properties.create()
                     .descriptionId("fluid.witchmod.purifying_water")
-                    .canConvertToSource(true)
+                    // No infinite sources — a placed source only ever comes from a bucket (keeps it a scarce,
+                    // minimally-spreading ritual fluid, and lets the block fire its place-sound on that one event).
+                    .canConvertToSource(false)
                     .sound(SoundActions.BUCKET_FILL, net.minecraft.sounds.SoundEvents.BUCKET_FILL)
-                    .sound(SoundActions.BUCKET_EMPTY, net.minecraft.sounds.SoundEvents.BUCKET_EMPTY)));
+                    .sound(SoundActions.BUCKET_EMPTY, net.minecraft.sounds.SoundEvents.BUCKET_EMPTY)) {
+                @Override
+                public boolean canDrownIn(net.minecraft.world.entity.LivingEntity entity) {
+                    return false; // holy water never drowns you — the air bar stays full while submerged
+                }
+            });
 
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Source> PURIFYING_WATER =
-            FLUIDS.register("purifying_water", () -> new BaseFlowingFluid.Source(fluidProperties()));
-    public static final DeferredHolder<Fluid, BaseFlowingFluid.Flowing> PURIFYING_WATER_FLOWING =
-            FLUIDS.register("purifying_water_flowing", () -> new BaseFlowingFluid.Flowing(fluidProperties()));
+    public static final DeferredHolder<Fluid, PurifyingWaterFluid.Source> PURIFYING_WATER =
+            FLUIDS.register("purifying_water", () -> new PurifyingWaterFluid.Source(fluidProperties()));
+    public static final DeferredHolder<Fluid, PurifyingWaterFluid.Flowing> PURIFYING_WATER_FLOWING =
+            FLUIDS.register("purifying_water_flowing", () -> new PurifyingWaterFluid.Flowing(fluidProperties()));
 
     public static final DeferredBlock<PurifyingWaterBlock> PURIFYING_WATER_BLOCK = BLOCKS.registerBlock("purifying_water",
             props -> new PurifyingWaterBlock(PURIFYING_WATER.get(), props), BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.COLOR_PURPLE)
+                    .mapColor(MapColor.COLOR_LIGHT_BLUE)
                     .replaceable()
                     .noCollission()
                     .strength(100.0F)
@@ -69,12 +76,23 @@ public final class WitchModFluids {
     public static final DeferredItem<Item> PURIFYING_WATER_BUCKET = ITEMS.register("purifying_water_bucket",
             () -> new BucketItem(PURIFYING_WATER.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
 
+    /** A holy-water cauldron (fill/empty like a water cauldron; made by consecrating a water cauldron with shards). */
+    public static final DeferredBlock<net.minecraft.world.level.block.LayeredCauldronBlock> PURIFYING_WATER_CAULDRON =
+            BLOCKS.registerBlock("purifying_water_cauldron",
+                    props -> new net.minecraft.world.level.block.LayeredCauldronBlock(
+                            net.minecraft.world.level.biome.Biome.Precipitation.NONE, HolyWaterCauldron.INTERACTIONS, props),
+                    BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.WATER_CAULDRON));
+
     private WitchModFluids() {}
 
     private static BaseFlowingFluid.Properties fluidProperties() {
         return new BaseFlowingFluid.Properties(PURIFYING_WATER_TYPE, PURIFYING_WATER, PURIFYING_WATER_FLOWING)
                 .bucket(PURIFYING_WATER_BUCKET)
-                .block(PURIFYING_WATER_BLOCK);
+                .block(PURIFYING_WATER_BLOCK)
+                // Bare-minimum spread: a big level drop-off per block (water = 1, lava = 2) means a source
+                // barely creeps out before running dry, so it can't blanket a mountainside; short slope search.
+                .levelDecreasePerBlock(4)
+                .slopeFindDistance(2);
     }
 
     public static void register(IEventBus modEventBus) {

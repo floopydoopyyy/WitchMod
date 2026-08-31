@@ -83,6 +83,10 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
      * the vanilla armour formula — so armour helps, but only about half as much as against a normal hit.
      */
     public static void voodooHurt(ServerPlayer target, ServerPlayer caster, float base) {
+        if (com.oliver.witchmod.data.EffectManager.isMagicProtected(target)) {
+            com.oliver.witchmod.blocks.HolyWater.fizzle(target); // holy water repels the voodoo — it fizzles out
+            return;
+        }
         float unprotected = (float) (base * Config.VOODOO_UNPROTECTED_FRACTION.get());
         float protectedPart = base - unprotected;
         float armored = afterArmour(protectedPart, (float) target.getArmorValue(),
@@ -113,6 +117,10 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
         }
         ServerPlayer target = onlineTarget(caster, doll);
         if (target == null) {
+            return;
+        }
+        if (com.oliver.witchmod.data.EffectManager.isMagicProtected(target)) {
+            com.oliver.witchmod.blocks.HolyWater.fizzle(target);
             return;
         }
         // Only slightly: a short, low Nausea warps their view + a tiny movement wobble. Refreshed while shaking.
@@ -184,6 +192,10 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
             offlineFizzle(caster);
             return InteractionResultHolder.fail(doll);
         }
+        if (com.oliver.witchmod.data.EffectManager.isMagicProtected(target)) {
+            com.oliver.witchmod.blocks.HolyWater.fizzle(target);
+            return InteractionResultHolder.fail(doll);
+        }
         // ONLY the nutrition/saturation — never the food's effects, so rotten flesh etc. become "edible".
         target.getFoodData().eat(food.nutrition(), food.saturation());
         offhand.shrink(1);
@@ -199,6 +211,10 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
 
     /** Fling the victim horizontally along {@code lookDir} (shared by throw + fishing rod). */
     public static void fling(ServerPlayer target, net.minecraft.world.phys.Vec3 lookDir, double force, double up) {
+        if (com.oliver.witchmod.data.EffectManager.isMagicProtected(target)) {
+            com.oliver.witchmod.blocks.HolyWater.fizzle(target);
+            return;
+        }
         net.minecraft.world.phys.Vec3 flat = new net.minecraft.world.phys.Vec3(lookDir.x, 0, lookDir.z);
         if (flat.lengthSqr() < 1.0e-4) {
             flat = new net.minecraft.world.phys.Vec3(0, 0, 1);

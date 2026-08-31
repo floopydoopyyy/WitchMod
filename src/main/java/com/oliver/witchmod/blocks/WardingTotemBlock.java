@@ -18,10 +18,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -42,61 +47,46 @@ import com.oliver.witchmod.data.WitchModMobEffects;
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class WardingTotemBlock extends Block {
+    /** Right-click toggles the totem on/off; while OFF it shields nobody and its amethyst greys out. */
+    public static final BooleanProperty ENABLED = BooleanProperty.create("enabled");
+
     private static final Map<ResourceKey<Level>, Set<BlockPos>> ACTIVE_TOTEMS = new HashMap<>();
     private static final int TICK_INTERVAL = 10;      // re-apply the effect twice a second
     private static final int PROTECTED_DURATION = 30; // 1.5s — comfortably longer than the interval
     private static final DustParticleOptions FIELD =
             new DustParticleOptions(new Vector3f(0.61F, 0.35F, 0.82F), 1.2F);
+    private static final DustParticleOptions DEAD =
+            new DustParticleOptions(new Vector3f(0.42F, 0.40F, 0.46F), 1.2F); // grey — powering down
 
     public WardingTotemBlock(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(ENABLED, true));
     }
 
-    /** The authoritative gate used by {@code EffectManager.apply}: is {@code player} inside a totem's range? */
-    public static boolean isProtected(ServerPlayer player) {
-        Set<BlockPos> totems = ACTIVE_TOTEMS.get(player.level().dimension());
-        if (totems == null || totems.isEmpty()) {
-            return false;
-        }
-        double r2 = (double) Config.WARDING_TOTEM_RANGE.get() * Config.WARDING_TOTEM_RANGE.get();
-        Vec3 p = player.position();
-        for (BlockPos t : totems) {
-            if (Vec3.atCenterOf(t).distanceToSqr(p) <= r2) {
-                return true;
-            }
-        }
-        return false;
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(ENABLED);
     }
 
-    /**
-     * A hex was deflected. A colour-coded lash streaks in from the caster's direction (purple for a curse,
-     * gold for a blessing) and is caught by a flaring magic force-field dome around the shielded player, with a
-     * soft chime. A null caster (jar / dummy / system) skips the directional lash — just the dome.
-     */
-    public static void onBlocked(ServerPlayer target, @Nullable ServerPlayer caster, boolean curse) {
-        if (!(target.level() instanceof ServerLevel level)) {
-            return;
+    /** Right-click to switch the ward on/off, with amethyst-recolour + power-up/down sound feedback. */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        boolean nowOn = !state.getValue(ENABLED);
+        level.setBlock(pos, state.setValue(ENABLED, nowOn), Block.UPDATE_ALL);
+        if (level instanceof ServerLevel sl) {
+            sl.playSound(null, pos, nowOn ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE,
+                    SoundSource.BLOCKS, 0.7F, nowOn ? 1.3F : 0.85F);
+            sl.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.6F, nowOn ? 1.5F : 0.7F);
+            sl.sendParticles(nowOn ? FIELD : DEAD, pos.getX() + 0.5, pos.getY() + 1.2, pos.getZ() + 0.5,
+                    24, 0.25, 0.55, 0.25, 0.02);
         }
-        if (caster != null) {
-            com.oliver.witchmod.items.WardEffects.startLash(target, caster, curse); // the incoming coloured lash
-        }
-        forceField(level, target, 46);
-        level.playSound(null, target.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.6F, 1.4F);
-        level.playSound(null, target.blockPosition(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.4F, 1.6F);
+        return InteractionResult.sidedSuccess(level.isClientSide());
     }
 
-    private static void forceField(ServerLevel level, ServerPlayer player, int count) {
-        double cx = player.getX(), cy = player.getY() + 1.0, cz = player.getZ();
-        double radius = 1.3;
-        for (int i = 0; i < count; i++) {
-            double theta = level.random.nextDouble() * Math.PI * 2;
-            double phi = Math.acos(2 * level.random.nextDouble() - 1);
-            double dx = radius * Math.sin(phi) * Math.cos(theta);
-            double dy = radius * Math.cos(phi);
-            double dz = radius * Math.sin(phi) * Math.sin(theta);
-            level.sendParticles(FIELD, cx + dx, cy + dy, cz + dz, 1, 0.0, 0.0, 0.0, 0.0);
-        }
-        level.sendParticles(ParticleTypes.END_ROD, cx, cy, cz, 10, 0.6, 0.8, 0.6, 0.02);
+    /** A placed totem at {@code pos} that is switched ON. */
+    private static boolean isEnabledTotem(Level level, BlockPos pos) {
+        BlockState s = level.getBlockState(pos);
+        return s.getBlock() instanceof WardingTotemBlock && s.getValue(ENABLED);
     }
 
     @SubscribeEvent
@@ -114,7 +104,7 @@ public final class WardingTotemBlock extends Block {
             for (ServerPlayer player : level.players()) {
                 boolean near = false;
                 for (BlockPos t : totems) {
-                    if (Vec3.atCenterOf(t).distanceToSqr(player.position()) <= r2) {
+                    if (Vec3.atCenterOf(t).distanceToSqr(player.position()) <= r2 && isEnabledTotem(level, t)) {
                         near = true;
                         break;
                     }
@@ -130,15 +120,18 @@ public final class WardingTotemBlock extends Block {
         }
     }
 
-    /** Client-side ambient FX: the totem's gem breathes periodic purple particles. */
+    /** Client-side ambient FX: the totem's amethyst (the mid-shaft core AND the crown) breathes purple magic. */
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-        if (random.nextInt(3) != 0) {
-            return;
+        if (!state.getValue(ENABLED) || random.nextInt(3) != 0) {
+            return; // a disabled totem is dead — no magic aura
         }
+        // Emit from either the embedded core band (~y9-12) or the crowning crystal (~y15-24).
         double x = pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.4;
-        double y = pos.getY() + 0.95 + random.nextDouble() * 0.2;
         double z = pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.4;
+        double y = random.nextBoolean()
+                ? pos.getY() + 0.6 + random.nextDouble() * 0.2      // core band
+                : pos.getY() + 1.0 + random.nextDouble() * 0.5;     // crown crystal
         level.addParticle(FIELD, x, y, z, 0.0, 0.015, 0.0);
     }
 

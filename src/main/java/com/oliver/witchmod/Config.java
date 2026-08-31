@@ -56,6 +56,22 @@ public final class Config {
                     "totem gets the 'Protected' effect and CANNOT have any curse/blessing/voodoo applied to them.")
             .defineInRange("wardingTotemRange", 32, 1, 256);
 
+    public static final ModConfigSpec.IntValue PURIFY_DRAIN_TICKS_PER_TICK = BUILDER
+            .comment("Holy (Purifying) Water: how many ticks of curse/blessing timer are burned off PER GAME TICK",
+                    "while a player with active effects stands in it. 20 = 1 real second of timer drained every tick",
+                    "(20x speed), so the timers visibly race down. Higher = faster cleanse.")
+            .defineInRange("purifyDrainTicksPerTick", 20, 1, 1200);
+
+    public static final ModConfigSpec.DoubleValue PURIFY_UNDEAD_DAMAGE = BUILDER
+            .comment("Holy (Purifying) Water: damage dealt to an undead mob per hit while it stands in the fluid",
+                    "(vanilla invulnerability frames space the hits out, so it's periodic tick damage).")
+            .defineInRange("purifyUndeadDamage", 2.0, 0.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue PURIFY_SHARD_CHANCE = BUILDER
+            .comment("Holy Water acquisition: each Amethyst Shard right-clicked into a WATER cauldron adds this",
+                    "much cumulative chance for the water to turn holy (0.06 = a stacking +6% per shard).")
+            .defineInRange("purifyShardChance", 0.06, 0.0, 1.0);
+
     public static final ModConfigSpec.IntValue LIMIT_BACKFIRE_BOOST_PERCENT = BUILDER
             .comment("Flat backfire-chance increase (percentage points) applied when the target is already",
                     "at or over maxActiveEffectsPerPlayer. A Phase 6 balancing knob, not a value CLAUDE.md pins down.")

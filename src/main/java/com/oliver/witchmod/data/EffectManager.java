@@ -24,8 +24,6 @@ public final class EffectManager {
 
     private static Predicate<ServerPlayer> wardCheck = player -> false;
     private static WardBlock onWardBlock = (target, caster, curse) -> {};
-    private static Predicate<ServerPlayer> totemCheck = player -> false;
-    private static WardBlock onTotemBlock = (target, caster, curse) -> {};
 
     private EffectManager() {}
 
@@ -41,19 +39,32 @@ public final class EffectManager {
     }
 
     /**
-     * Lets the Warding Totem block (blocks package) hook into curse/blessing application the same way.
-     * Unlike the Ward, a Totem blocks both categories completely silently — no redirect, no feedback to
-     * the target (CLAUDE.md section 2.4), and applies even to self-casts since it's a full-area shield.
+     * The single, global magic shield: anyone carrying the {@link WitchModMobEffects#PROTECTED} MobEffect is
+     * protected. Warding Totems and Holy Water simply APPLY that effect; giving it via {@code /effect} works
+     * too. It blocks all magic from OTHERS (self-casts pass) — curses/blessings, jar lashes and voodoo — but
+     * NOT a direct thrown-jar splash ({@link ApplyOptions#directHit}).
      */
-    public static void setTotemHook(Predicate<ServerPlayer> check, WardBlock onBlock) {
-        totemCheck = check;
-        onTotemBlock = onBlock;
+    public static boolean isMagicProtected(net.minecraft.world.entity.LivingEntity entity) {
+        return entity.hasEffect(WitchModMobEffects.PROTECTED);
     }
 
-    /** Whether {@code target} would be blocked by a Warding Totem from a cast by {@code caster} — used by
-     *  callers (ritual/jars) that want to LOG the block. Mirrors the gate in {@link #apply}. */
-    public static boolean wouldTotemBlock(ServerPlayer target, @Nullable ServerPlayer caster) {
-        return caster != target && totemCheck.test(target);
+    /** Whether a cast from {@code caster} would be blocked by {@code target}'s protection — for Ledger logging. */
+    public static boolean wouldBlock(ServerPlayer target, @Nullable ServerPlayer caster) {
+        return caster != target && isMagicProtected(target);
+    }
+
+    /** The "your magic fizzles on their shield" feedback shown at a protected target when a cast is blocked. */
+    private static void protectedFizzle(ServerPlayer target, boolean curse) {
+        if (!(target.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            return;
+        }
+        double x = target.getX(), y = target.getY() + 1.0, z = target.getZ();
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD, x, y, z, 10, 0.35, 0.5, 0.35, 0.02);
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.WITCH, x, y, z, 6, 0.3, 0.4, 0.3, 0.0);
+        level.playSound(null, target.blockPosition(), net.minecraft.sounds.SoundEvents.SHIELD_BLOCK,
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 1.5F);
+        level.playSound(null, target.blockPosition(), net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.4F, 1.4F);
     }
 
     /**
@@ -69,8 +80,16 @@ public final class EffectManager {
      * discovery ({@link ActiveEffectInstance#DISPLAY_HIDDEN}); Wither Rose shows the OPPOSITE category until
      * discovery ({@link ActiveEffectInstance#DISPLAY_DISGUISED}).
      */
-    public record ApplyOptions(boolean bypassWard, int display) {
-        public static final ApplyOptions DEFAULT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL);
+    public record ApplyOptions(boolean bypassWard, int display, boolean directHit) {
+        public static final ApplyOptions DEFAULT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, false);
+
+        /** Existing 2-arg callers (modifier casts) — not a direct hit, so protection still blocks them. */
+        public ApplyOptions(boolean bypassWard, int display) {
+            this(bypassWard, display, false);
+        }
+
+        /** A direct thrown-jar splash — bypasses the Protected shield (a well-aimed bottle still catches you). */
+        public static final ApplyOptions DIRECT_HIT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, true);
     }
 
     public static boolean apply(ServerPlayer target, Holder<Effect> effect, int durationTicks, @Nullable ServerPlayer caster) {
@@ -92,10 +111,11 @@ public final class EffectManager {
             caster.displayClientMessage(Component.literal(target.getName().getString() + " is still under a new-player grace period."), true);
             return false;
         }
-        // A Warding Totem shields against OTHERS' magic (self-casts pass through), including null-caster
-        // sources like jars, coins and the /bewitch dummy command.
-        if (caster != target && totemCheck.test(target)) {
-            onTotemBlock.block(target, caster, effect.value().category() == EffectCategory.CURSE);
+        // The PROTECTED effect (from a Warding Totem, Holy Water, or /effect) shields against OTHERS' magic —
+        // curses/blessings, jar lashes, coins, the dummy command and voodoo all fizzle. Self-casts pass, and a
+        // DIRECT thrown-jar splash punches through (directHit).
+        if (caster != target && !opts.directHit() && isMagicProtected(target)) {
+            protectedFizzle(target, effect.value().category() == EffectCategory.CURSE);
             return false;
         }
         // A Ward BLOCKS any attachment cast by someone ELSE (self-casts pass through). It doesn't redirect —
@@ -192,12 +212,13 @@ public final class EffectManager {
         }
         List<ResourceLocation> expired = active.reduceAll(ticksToRemove);
         player.setData(WitchModAttachments.ACTIVE_EFFECTS, active);
-        if (!expired.isEmpty()) {
-            for (ResourceLocation id : expired) {
-                WitchModRegistries.EFFECT_REGISTRY.getOptional(id).ifPresent(effect -> effect.onRemove(player));
-            }
-            StatusEffectSync.sync(player);
+        for (ResourceLocation id : expired) {
+            WitchModRegistries.EFFECT_REGISTRY.getOptional(id).ifPresent(effect -> effect.onRemove(player));
         }
+        // Re-sync EVERY call (not only on expiry) so the visible Cursed/Blessed wrapper's timer shrinks in step
+        // with the internal drain — otherwise the on-screen effect counts down at 1x while the real timer races.
+        // updateWrapper only bursts particles on the onset edge, so a per-tick re-sync doesn't spam anything.
+        StatusEffectSync.sync(player);
     }
 
     public static boolean isActive(ServerPlayer target, Holder<Effect> effect) {
