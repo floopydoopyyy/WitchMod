@@ -28,7 +28,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.SolicitorLines;
 
 /**
- * The Solicitor (sacrificial item BUNDLE — Emerald Block is taken by Silver Tongue): a door-to-door salesman.
+ * the Solicitor (sacrificial item BUNDLE — Emerald Block is taken by Silver Tongue): a door-to-door salesman.
  * A named wandering trader hounds you, pitching terrible deals in chat. Kill it and a fresh one turns up
  * INSTANTLY with a new name and some cheek; the only way to be rid of it for a while is to actually complete
  * one of its awful trades — then it slinks off for 1.5–10 minutes (biased toward the longer end). A minor,
@@ -52,6 +52,14 @@ public final class CurseSolicitor extends Effect {
 
     @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
+        // a fresh application clears any leftover "hiding after a trade" timer (which would otherwise keep the
+        // trader suppressed) and re-adopts an existing trader instead of duplicating — otherwise summon one.
+        HIDDEN_UNTIL.remove(target.getUUID());
+        WanderingTrader existing = getTrader(target);
+        if (existing != null) {
+            ACTIVE.put(target.getUUID(), existing);
+            return;
+        }
         summon(target, "arrive");
     }
 
@@ -63,7 +71,7 @@ public final class CurseSolicitor extends Effect {
         UUID id = target.getUUID();
         long now = target.level().getGameTime();
 
-        // Hiding after a completed trade — leave them be until the timer's up.
+        // hiding after a completed trade — leave them be until the timer's up.
         Long hidden = HIDDEN_UNTIL.get(id);
         if (hidden != null) {
             if (now < hidden) {
@@ -114,7 +122,7 @@ public final class CurseSolicitor extends Effect {
 
     // --- Called from CurseEventHandler -------------------------------------------------------------------
 
-    /** True if {@code entity} is a solicitor trader (by its tag). */
+    /** true if {@code entity} is a solicitor trader (by its tag). */
     public static boolean isSolicitor(net.minecraft.world.entity.Entity entity) {
         return entity instanceof WanderingTrader && entity.getTags().contains(TAG);
     }
@@ -133,13 +141,13 @@ public final class CurseSolicitor extends Effect {
         return null;
     }
 
-    /** The trader was killed — a fresh one turns up instantly with a new name and some backchat. */
+    /** the trader was killed — a fresh one turns up instantly with a new name and some backchat. */
     public static void onKilled(ServerPlayer victim) {
         ACTIVE.remove(victim.getUUID());
         summon(victim, "killed");
     }
 
-    /** The victim actually completed a trade — the salesman slinks off for a good while (biased long). */
+    /** the victim actually completed a trade — the salesman slinks off for a good while (biased long). */
     public static void onTraded(ServerPlayer victim, WanderingTrader trader) {
         UUID id = victim.getUUID();
         pitch(trader, victim, "traded");
@@ -165,7 +173,7 @@ public final class CurseSolicitor extends Effect {
         trader.moveTo(spot.x, spot.y, spot.z, victim.getYRot() + 180.0F, 0.0F);
         trader.setPersistenceRequired();
         trader.setDespawnDelay(Integer.MAX_VALUE);
-        // Slow it right down so its own random-stroll AI can't blitz it around.
+        // slow it right down so its own random-stroll AI can't blitz it around.
         var speed = trader.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
         if (speed != null) {
             speed.setBaseValue(Config.SOLICITOR_MOVE_SPEED.get());
@@ -208,7 +216,7 @@ public final class CurseSolicitor extends Effect {
             trader.getNavigation().moveTo(victim.getX(), victim.getY(), victim.getZ(), Config.SOLICITOR_FOLLOW_SPEED.get());
         } else {
             trader.getNavigation().stop(); // close enough — stand still so you can trade
-            trader.getLookControl().setLookAt(victim); // ...and stare at you expectantly
+            trader.getLookControl().setLookAt(victim); //...and stare at you expectantly
         }
     }
 
@@ -217,7 +225,7 @@ public final class CurseSolicitor extends Effect {
         return victim.position().add(facing.x * 2.5, 0.0, facing.z * 2.5);
     }
 
-    /** Say a line (from the given dialogue key) in chat to everyone near the trader. */
+    /** say a line (from the given dialogue key) in chat to everyone near the trader. */
     private static void pitch(WanderingTrader trader, ServerPlayer victim, String key) {
         RandomSource random = victim.getRandom();
         String line = SolicitorLines.pick(key, random);
@@ -225,9 +233,9 @@ public final class CurseSolicitor extends Effect {
             return;
         }
         String name = trader.getCustomName() != null ? trader.getCustomName().getString() : "The Salesman";
-        // Player-chat style: <Name> line, no quotes; same green name + cream line colours as before.
+        // player-chat style: <Name> line, no quotes; same green name + cream line colours as before.
         Component msg = Component.literal("<" + name + "> ").withColor(0x4CC24C)
-                .append(Component.literal(line.replace("{player}", victim.getGameProfile().getName())).withColor(0xE0E0C0));
+.append(Component.literal(line.replace("{player}", victim.getGameProfile().getName())).withColor(0xE0E0C0));
         double r = Config.SOLICITOR_CHAT_RADIUS.get();
         AABB box = trader.getBoundingBox().inflate(r);
         for (ServerPlayer p : victim.serverLevel().getEntitiesOfClass(ServerPlayer.class, box)) {
@@ -243,5 +251,31 @@ public final class CurseSolicitor extends Effect {
             return t; // re-adopt a solicitor that survived a reload
         }
         return null;
+    }
+
+    /** the victim's solicitor trader if one is currently nearby, else null (used by the companionship banter). */
+    @Nullable
+    public static WanderingTrader getTrader(ServerPlayer victim) {
+        WanderingTrader trader = ACTIVE.get(victim.getUUID());
+        if (trader != null && trader.isAlive()) {
+            return trader;
+        }
+        return findExisting(victim);
+    }
+
+    /** speak an already-filled banter line as {@code <TraderName> line} to players near the trader. */
+    public static void speakBanter(ServerPlayer victim, String line) {
+        WanderingTrader trader = getTrader(victim);
+        if (trader == null) {
+            return;
+        }
+        String name = trader.getCustomName() != null ? trader.getCustomName().getString() : "The Salesman";
+        Component msg = Component.literal("<" + name + "> ").withColor(0x4CC24C)
+                .append(Component.literal(line).withColor(0xE0E0C0));
+        double r = Config.SOLICITOR_CHAT_RADIUS.get();
+        AABB box = trader.getBoundingBox().inflate(r);
+        for (ServerPlayer p : victim.serverLevel().getEntitiesOfClass(ServerPlayer.class, box)) {
+            p.sendSystemMessage(msg);
+        }
     }
 }

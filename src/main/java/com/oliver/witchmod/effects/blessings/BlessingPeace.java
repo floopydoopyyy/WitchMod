@@ -15,7 +15,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * The world leaves you alone (master-spec Peace, sacrificial item POPPY) — the exact opposite of Popularity.
+ * the world leaves you alone — the exact opposite of Popularity.
  * Two halves:
  * <ul>
  *   <li><b>Far fewer spawns</b> — most hostile natural spawns near you are quietly cancelled
@@ -34,7 +34,7 @@ public final class BlessingPeace extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 21, () -> Items.POPPY);
     }
 
-    /** Discovered when a mob that ought to be hunting you conspicuously isn't. */
+    /** discovered when a mob that ought to be hunting you conspicuously isn't. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -57,12 +57,12 @@ public final class BlessingPeace extends Effect {
             double reducedRange = normalRange * detectionMult;
             double dist = Math.sqrt(mob.distanceToSqr(target));
 
-            // Enforce the shrunken detection: any aggro on you from beyond the reduced range is dropped.
+            // enforce the shrunken detection: any aggro on you from beyond the reduced range is dropped.
             if (mob.getTarget() == target && dist > reducedRange) {
                 mob.setTarget(null);
             }
 
-            // Discovery: a hostile within its NORMAL aggro range, in view, that still isn't hunting you.
+            // discovery: a hostile within its NORMAL aggro range, in view, that still isn't hunting you.
             if (dist <= normalRange && dist > reducedRange
                     && mob.getTarget() != target && mob.hasLineOfSight(target)) {
                 markDiscoveredByVictim(target);

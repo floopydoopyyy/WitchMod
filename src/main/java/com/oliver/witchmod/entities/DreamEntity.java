@@ -24,10 +24,8 @@ import net.minecraft.world.level.Level;
 import com.oliver.witchmod.data.WitchModDamageTypes;
 
 /**
- * The Cutaway Gag's "Dream" — a player MIMIC. It jogs up at player-like speed, punches the victim a few times
- * with the custom {@code witchmod:dream} damage type (for a bespoke death message), and is removed with the
- * cutaway. Rendered as a real {@code PlayerModel} wearing the dream skin ({@code client/DreamRenderer}), so at
- * a glance it just reads as some random player who showed up to hit you.
+ * the cutaway gag's "dream" — a player mimic that jogs up and punches the victim ({@code witchmod:dream}
+ * damage for a bespoke death message), removed with the cutaway. rendered as a real player model.
  */
 public final class DreamEntity extends PathfinderMob {
     @Nullable
@@ -45,7 +43,7 @@ public final class DreamEntity extends PathfinderMob {
         setTarget(victim);
     }
 
-    /** Transient — the gag owns its lifetime, so a reload leaves no orphan. */
+    /** transient — the gag owns its lifetime, so a reload leaves no orphan. */
     @Override
     public boolean shouldBeSaved() {
         return false;
@@ -69,7 +67,7 @@ public final class DreamEntity extends PathfinderMob {
     @Override
     protected void customServerAiStep() {
         super.customServerAiStep();
-        // Keep hunting the assigned victim even if a goal clears the target.
+        // keep hunting the assigned victim even if a goal clears the target.
         if (victimId != null && (getTarget() == null || !getTarget().isAlive())
                 && level() instanceof ServerLevel sl
                 && sl.getEntity(victimId) instanceof LivingEntity v && v.isAlive()) {
@@ -77,7 +75,7 @@ public final class DreamEntity extends PathfinderMob {
         }
     }
 
-    /** Its punch lands the custom Dream damage (so the death message is bespoke) rather than plain mob damage. */
+    /** its punch lands the custom Dream damage (so the death message is bespoke) rather than plain mob damage. */
     @Override
     public boolean doHurtTarget(Entity target) {
         float dmg = (float) getAttributeValue(Attributes.ATTACK_DAMAGE);

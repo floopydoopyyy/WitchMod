@@ -24,9 +24,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Keeps the two wrapper status effects (CLAUDE.md section 2.6) matched to whatever's actually active.
- * Call {@link #sync} after any mutation to a player's active curses/blessings — {@link EffectManager}
- * already does this for every mutation it makes.
+ * keeps the cursed/blessed wrapper effects matched to what's actually active. call {@link #sync} after any
+ * mutation to a player's effects — {@link EffectManager} already does for every mutation it makes.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class StatusEffectSync {
@@ -34,7 +33,7 @@ public final class StatusEffectSync {
 
     private StatusEffectSync() {}
 
-    /** A sound queued to play at a spot after a short delay (the blessed/cursed sting after the afflicted one). */
+    /** a sound queued to play at a spot after a short delay (the blessed/cursed sting after the afflicted one). */
     private static final class Delayed {
         final ServerLevel level;
         final Vec3 pos;
@@ -73,7 +72,7 @@ public final class StatusEffectSync {
             if (inst == null || real == null) {
                 continue;
             }
-            // Ink Sac (hidden) contributes to NEITHER wrapper; Wither Rose (disguised) contributes to the OPPOSITE.
+            // ink sac (hidden) contributes to neither wrapper; wither rose (disguised) to the opposite
             EffectCategory shown = effectiveCategory(real, inst.display());
             if (shown == category) {
                 max = Math.max(max, inst.remainingTicks());
@@ -93,12 +92,10 @@ public final class StatusEffectSync {
     }
 
     /**
-     * Matches one wrapper's duration to {@code duration} (0 = remove). Bursts particles ONLY on the
-     * absent→present onset and the present→absent expiry (master-spec Rule 6 — "never in between"); the
-     * wrapper itself is applied with particles OFF (so vanilla doesn't render its swirl every tick) but its
-     * icon ON (the victim knows they're Cursed/Blessed/Afflicted, just not the specifics). Re-added fresh
-     * each sync so the duration tracks exactly, including SHORTENING (e.g. Purifying Water burn-down) —
-     * vanilla's own {@code addEffect} keep-longer merge would otherwise refuse to shrink it.
+     * matches one wrapper's duration to {@code duration} (0 = remove). particles burst only on onset and
+     * expiry, never in between; the wrapper is applied particles-off, icon-on. re-added fresh each sync so
+     * the duration tracks exactly including shortening (holy-water burn-down) — a keep-longer merge would
+     * refuse to shrink it.
      */
     private static void updateWrapper(ServerPlayer player, Holder<MobEffect> wrapper, int duration, boolean blessing) {
         boolean had = player.hasEffect(wrapper);
@@ -117,10 +114,7 @@ public final class StatusEffectSync {
         }
     }
 
-    /**
-     * The onset stings: the generic "afflicted" sound plays immediately, then the category-specific blessed/
-     * cursed one a beat later.
-     */
+    /** onset stings: the generic "afflicted" sound immediately, then the blessed/cursed one a beat later. */
     private static void playOnsetSounds(ServerPlayer player, boolean blessing) {
         ServerLevel level = player.serverLevel();
         Vec3 pos = player.position();
@@ -145,8 +139,8 @@ public final class StatusEffectSync {
     }
 
     /**
-     * The onset/expiry burst, coloured by category (Rule 6): a curse throws its purple witch motes, a blessing
-     * the warm yellow/white stars used by the Blessed Jar — so what "enters" you reads as good or bad at a glance.
+     * the onset/expiry burst, coloured by category: a curse throws purple witch motes, a blessing warm
+     * yellow/white stars — so what enters you reads good or bad at a glance.
      */
     private static void burstParticles(ServerPlayer player, boolean blessing) {
         ServerLevel level = player.serverLevel();

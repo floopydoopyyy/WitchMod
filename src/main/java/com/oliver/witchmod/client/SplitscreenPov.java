@@ -24,7 +24,7 @@ import net.minecraft.world.entity.LivingEntity;
 import com.oliver.witchmod.ClientConfig;
 
 /**
- * The EXPERIMENTAL live partner-POV for the Splitscreen curse: a genuine second {@code LevelRenderer.renderLevel}
+ * the EXPERIMENTAL live partner-POV for the Splitscreen curse: a genuine second {@code LevelRenderer.renderLevel}
  * pass from the partner's camera into an off-screen framebuffer, blitted into the side panel — the real
  * console-splitscreen effect. It's off by default ({@code splitscreenLivePov}) and every call is wrapped so a
  * single failure disables it for the session and {@link SplitscreenClient} shows the static fallback panel
@@ -32,7 +32,7 @@ import com.oliver.witchmod.ClientConfig;
  */
 public final class SplitscreenPov {
     private static final org.slf4j.Logger LOG = com.mojang.logging.LogUtils.getLogger();
-    /** The panel is a genuine second world render (≈2× GPU cost), so we refresh it like a video feed rather
+    /** the panel is a genuine second world render (≈2× GPU cost), so we refresh it like a video feed rather
      *  than every frame — ~20 fps is plenty for a side panel and roughly halves the extra cost at 40+ fps. */
     private static final long REFRESH_INTERVAL_MS = 50L;
     private static RenderTarget target;
@@ -54,12 +54,12 @@ public final class SplitscreenPov {
         return Minecraft.getInstance().options.graphicsMode().get() != GraphicsStatus.FABULOUS;
     }
 
-    /** Renders the partner's view into the off-screen target. Called before the HUD (world already drawn). */
+    /** renders the partner's view into the off-screen target. Called before the HUD (world already drawn). */
     static void renderPartnerView(int partnerId, DeltaTracker delta) {
         if (!ClientConfig.SPLITSCREEN_LIVE_POV.get() || failed || !graphicsAllowLivePov()) {
             return;
         }
-        // Throttle to a video-feed cadence; between refreshes the cached target is re-blitted unchanged.
+        // throttle to a video-feed cadence; between refreshes the cached target is re-blitted unchanged.
         long now = System.currentTimeMillis();
         if (hasContent && now - lastRenderMs < REFRESH_INTERVAL_MS) {
             return;
@@ -76,7 +76,7 @@ public final class SplitscreenPov {
                 mainTargetField = Minecraft.class.getDeclaredField("mainRenderTarget");
                 mainTargetField.setAccessible(true);
             }
-            // Size the target to the HALF-SCREEN region it fills (in real pixels) so the blit is 1:1 and the
+            // size the target to the HALF-SCREEN region it fills (in real pixels) so the blit is 1:1 and the
             // world is rendered at the panel's own aspect — a true console half-and-half, not a squished panel.
             int wantW = Math.max(1, mc.getWindow().getWidth() / 2);
             int wantH = Math.max(1, mc.getWindow().getHeight());
@@ -99,7 +99,7 @@ public final class SplitscreenPov {
 
             Camera cam = new Camera();
             cam.setup(mc.level, (Entity) partner, false, false, delta.getGameTimeDeltaPartialTick(false));
-            // Perspective at the HALF-region aspect (getProjectionMatrix uses the full-window aspect, which
+            // perspective at the HALF-region aspect (getProjectionMatrix uses the full-window aspect, which
             // would stretch the world horizontally into the tall half-panel).
             double fov = mc.options.fov().get();
             float far = Math.max(mc.options.getEffectiveRenderDistance() * 16.0F, 64.0F) * 4.0F;
@@ -129,7 +129,7 @@ public final class SplitscreenPov {
         }
     }
 
-    /** Blits the rendered partner view into the panel rect. Returns false if there's nothing live to show. */
+    /** blits the rendered partner view into the panel rect. Returns false if there's nothing live to show. */
     static boolean blit(GuiGraphics g, int x, int y, int w, int h) {
         if (!ClientConfig.SPLITSCREEN_LIVE_POV.get() || failed || target == null || !hasContent
                 || !graphicsAllowLivePov()) {
@@ -140,7 +140,7 @@ public final class SplitscreenPov {
             RenderSystem.setShaderTexture(0, target.getColorTextureId());
             RenderSystem.disableBlend(); // the partner view is fully opaque — no ghosting of your own view underneath
             Matrix4f mat = g.pose().last().pose();
-            // Framebuffer textures are bottom-up, so V runs 1→0 top to bottom.
+            // framebuffer textures are bottom-up, so V runs 1→0 top to bottom.
             BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
             bb.addVertex(mat, x, y + h, 0).setUv(0.0F, 0.0F);
             bb.addVertex(mat, x + w, y + h, 0).setUv(1.0F, 0.0F);

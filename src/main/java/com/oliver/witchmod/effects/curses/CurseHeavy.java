@@ -32,7 +32,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * You come down like a dropped anvil (master-spec Heavy). You fall faster, you take more for it, and past a
+ * you come down like a dropped anvil. You fall faster, you take more for it, and past a
  * certain height you stop landing and start <i>impacting</i> — a real explosion at the landing site that
  * craters the ground, throws everything nearby and hurts you too.
  *
@@ -56,16 +56,16 @@ public final class CurseHeavy extends Effect {
     private static final ResourceLocation GRAVITY_MODIFIER_ID = EffectUtil.modifierId("curse_heavy_gravity");
     private static final ResourceLocation JUMP_MODIFIER_ID = EffectUtil.modifierId("curse_heavy_jump");
 
-    /** Last tick's {@code fallDistance} per victim — the landing edge is where it drops back to zero. */
+    /** last tick's {@code fallDistance} per victim — the landing edge is where it drops back to zero. */
     private static final Map<UUID, Float> LAST_FALL_DISTANCE = new HashMap<>();
-    /** Game tick after which another crater is allowed — see the chaining note in {@link #watchForLanding}. */
+    /** game tick after which another crater is allowed — see the chaining note in {@link #watchForLanding}. */
     private static final Map<UUID, Long> NEXT_CRATER = new HashMap<>();
 
     public CurseHeavy() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.IRON_INGOT);
     }
 
-    /** You find out the first time you crack the ground open (Rule 2). */
+    /** you find out the first time you crack the ground open (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -88,10 +88,10 @@ public final class CurseHeavy extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Self-heal: the modifier is TRANSIENT, so a world reload drops it while the curse itself persists,
+        // self-heal: the modifier is TRANSIENT, so a world reload drops it while the curse itself persists,
         // and you'd quietly go back to falling normally. onApply never runs again, so it's re-applied here.
         applyGravity(target);
-        // Same self-heal reason: the synced flag drives the client-side water anchor.
+        // same self-heal reason: the synced flag drives the client-side water anchor.
         if (target.getData(WitchModAttachments.HEAVY_ACTIVE) < 0) {
             target.setData(WitchModAttachments.HEAVY_ACTIVE, 1);
         }
@@ -99,7 +99,7 @@ public final class CurseHeavy extends Effect {
     }
 
     /**
-     * Landing detection, done on the tick rather than from {@code LivingFallEvent}.
+     * landing detection, done on the tick rather than from {@code LivingFallEvent}.
      *
      * <p><b>This is why cratering works in creative.</b> {@code Player.causeFallDamage} returns immediately
      * when {@code mayFly()} is true — so in creative the fall event never fires at all and a damage-driven
@@ -116,16 +116,16 @@ public final class CurseHeavy extends Effect {
         if (previous <= 0.0F || current > 0.0F || !target.onGround()) {
             return;
         }
-        // Landed, having fallen `previous` blocks. (Landing in water leaves onGround false, so no crater —
+        // landed, having fallen `previous` blocks. (Landing in water leaves onGround false, so no crater —
         // which is the right call anyway.)
-        // Discovery is on the FIRST fall, not the first crater: you come down noticeably heavier straight
+        // discovery is on the FIRST fall, not the first crater: you come down noticeably heavier straight
         // away, so waiting for a crater would only be telling the victim something they already know.
         Curses.DENSE.value().markDiscoveredByVictim(target);
 
         if (previous < Config.HEAVY_CRATER_MIN_FALL.get()) {
             return;
         }
-        // Chain guard: a crater blows the ground out from under you, so without this you fall into your own
+        // chain guard: a crater blows the ground out from under you, so without this you fall into your own
         // hole, crater again, and keep excavating yourself downward on one drop.
         long now = target.level().getGameTime();
         Long allowed = NEXT_CRATER.get(target.getUUID());
@@ -142,7 +142,7 @@ public final class CurseHeavy extends Effect {
             gravity.addOrUpdateTransientModifier(new AttributeModifier(GRAVITY_MODIFIER_ID,
                     Config.HEAVY_FALL_SPEED_MULT.get() - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
-        // Heavier gravity cuts the jump apex to roughly v^2/(2g) — about 0.6 blocks at 1.8x, which is UNDER
+        // heavier gravity cuts the jump apex to roughly v^2/(2g) — about 0.6 blocks at 1.8x, which is UNDER
         // the single block you need to get up a step. That turns the curse from a joke into a nuisance, so
         // the jump is compensated back to just over a block. It still feels leaden; you just aren't trapped.
         AttributeInstance jump = target.getAttribute(Attributes.JUMP_STRENGTH);
@@ -153,7 +153,7 @@ public final class CurseHeavy extends Effect {
     }
 
     /**
-     * Fall-damage hook only — see {@code CurseEventHandler}. The crater is deliberately NOT fired from here:
+     * fall-damage hook only — see {@code CurseEventHandler}. The crater is deliberately NOT fired from here:
      * this event never runs in creative, so it lives in {@link #watchForLanding} instead.
      */
     public static float fallDamageMultiplier() {
@@ -174,7 +174,7 @@ public final class CurseHeavy extends Effect {
         impactParticles(level, player, scale);
 
         level.explode(
-                // Deliberately NULL — see the class javadoc. The player rides on the damage source instead.
+                // deliberately NULL — see the class javadoc. The player rides on the damage source instead.
                 null,
                 level.damageSources().explosion(null, player),
                 new ImpactBlast(player),
@@ -205,7 +205,7 @@ public final class CurseHeavy extends Effect {
     }
 
     /**
-     * An ordinary explosion, except the faller takes only a share of it and everything gets thrown harder.
+     * an ordinary explosion, except the faller takes only a share of it and everything gets thrown harder.
      * Extending {@link EntityBasedExplosionDamageCalculator} keeps vanilla's block-resistance behaviour for
      * a player-caused blast.
      */
@@ -223,7 +223,7 @@ public final class CurseHeavy extends Effect {
             if (entity != owner) {
                 return damage; // bystanders wear the whole thing
             }
-            // They're at dead centre and are about to eat amplified fall damage on top of this.
+            // they're at dead centre and are about to eat amplified fall damage on top of this.
             return damage * (Config.HEAVY_CRATER_SELF_DAMAGE_PERCENT.get() / 100.0F);
         }
 

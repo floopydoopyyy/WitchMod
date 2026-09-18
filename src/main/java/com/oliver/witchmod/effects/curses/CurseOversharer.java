@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.OversharerMessages;
 
 /**
- * You just... tell everyone (master-spec Oversharer). Every so often the victim blurts a piece of personal
+ * you just... tell everyone. Every so often the victim blurts a piece of personal
  * information into server chat — as if they'd typed it themselves — wrapped in a goofy line from a writable
  * list rather than stated flatly.
  *
@@ -38,7 +38,7 @@ import com.oliver.witchmod.data.OversharerMessages;
  * can be added by anyone who wants to write templates for a key this already computes.
  */
 public final class CurseOversharer extends Effect {
-    /** Every category this knows how to compute a value for. Templates opt in by category name. */
+    /** every category this knows how to compute a value for. Templates opt in by category name. */
     private static final String[] KNOWN_CATEGORIES = {
             "coords", "biome", "y", "spawn", "held", "armour",
             "health", "facing", "dimension", "standing", "xp"
@@ -48,7 +48,7 @@ public final class CurseOversharer extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 32, () -> Items.MAP);
     }
 
-    /** You find out the first time you catch yourself broadcasting your own coordinates (Rule 2). */
+    /** you find out the first time you catch yourself broadcasting your own coordinates (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -73,7 +73,7 @@ public final class CurseOversharer extends Effect {
     }
 
     private void overshare(ServerPlayer target) {
-        // Only the categories that have templates loaded — so an empty/edited file can't force a blank line.
+        // only the categories that have templates loaded — so an empty/edited file can't force a blank line.
         List<String> pool = new ArrayList<>();
         List<String> available = OversharerMessages.availableCategories();
         for (String known : KNOWN_CATEGORIES) {
@@ -85,7 +85,7 @@ public final class CurseOversharer extends Effect {
             return;
         }
 
-        // Pick a category that actually has a value right now, trying a few before giving up (e.g. "held"
+        // pick a category that actually has a value right now, trying a few before giving up (e.g. "held"
         // when your hand is empty may still have a value, but this guards anything that can return null).
         for (int attempt = 0; attempt < pool.size(); attempt++) {
             String category = pool.get(target.getRandom().nextInt(pool.size()));
@@ -98,14 +98,14 @@ public final class CurseOversharer extends Effect {
                 continue;
             }
             String line = template.replace("{value}", value)
-                    .replace("{player}", target.getGameProfile().getName());
+.replace("{player}", target.getGameProfile().getName());
             broadcastAsChat(target, line);
             markDiscoveredByVictim(target);
             return;
         }
     }
 
-    /** Sent as {@code chat.type.text}, so it appears exactly as if the victim typed it into chat. */
+    /** sent as {@code chat.type.text}, so it appears exactly as if the victim typed it into chat. */
     private static void broadcastAsChat(ServerPlayer target, String line) {
         MinecraftServer server = target.getServer();
         if (server == null) {
@@ -124,7 +124,7 @@ public final class CurseOversharer extends Effect {
             case "coords" -> pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
             case "y" -> String.valueOf(pos.getY());
             case "biome" -> friendly(level.getBiome(pos).unwrapKey()
-                    .map(key -> key.location().getPath()).orElse("somewhere"));
+.map(key -> key.location().getPath()).orElse("somewhere"));
             case "spawn" -> spawnText(player, level);
             case "held" -> heldText(player);
             case "armour" -> armourText(player);
@@ -188,7 +188,7 @@ public final class CurseOversharer extends Effect {
         return friendly(below.getBlock().getName().getString());
     }
 
-    /** Turns a registry-ish path (snake_case) into readable words. */
+    /** turns a registry-ish path (snake_case) into readable words. */
     private static String friendly(String raw) {
         String spaced = raw.replace('_', ' ').trim();
         return spaced.isEmpty() ? raw : capitalise(spaced);

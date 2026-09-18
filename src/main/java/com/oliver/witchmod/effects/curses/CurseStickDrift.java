@@ -19,7 +19,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * A joke about controllers (master-spec Stick Drift). When the curse lands it rolls, ONCE, a mode
+ * A joke about controllers. When the curse lands it rolls, ONCE, a mode
  * (camera or movement) and a fixed direction to drift toward — a stick doesn't develop a new fault
  * mid-session, so both stay constant for the whole duration.
  *
@@ -39,7 +39,7 @@ public final class CurseStickDrift extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.FISHING_ROD);
     }
 
-    /** You notice the moment your aim or your feet start sliding on their own (Rule 2). */
+    /** you notice the moment your aim or your feet start sliding on their own (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -65,7 +65,7 @@ public final class CurseStickDrift extends Effect {
         NEXT_EPISODE.remove(target.getUUID());
     }
 
-    /** The Scrying Mirror names the fault: which stick, and roughly which way it pulls. */
+    /** the Scrying Mirror names the fault: which stick, and roughly which way it pulls. */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         int mode = target.getData(WitchModAttachments.STICK_DRIFT_MODE);
@@ -86,7 +86,7 @@ public final class CurseStickDrift extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Self-heal the fixed roll after a relog (the schedule map is transient, the synced roll may be lost).
+        // self-heal the fixed roll after a relog (the schedule map is transient, the synced roll may be lost).
         if (target.getData(WitchModAttachments.STICK_DRIFT_MODE) < 0) {
             onApply(target, null, ticksRemaining);
             return;
@@ -111,14 +111,14 @@ public final class CurseStickDrift extends Effect {
         startEpisode(target, now);
     }
 
-    /** Rolls one episode: an intensity, then the duration that keeps intensity×duration ~ constant. */
+    /** rolls one episode: an intensity, then the duration that keeps intensity×duration ~ constant. */
     private static void startEpisode(ServerPlayer target, long now) {
         RandomSource rng = target.getRandom();
         double min = Config.STICKDRIFT_INTENSITY_MIN.get();
         double max = Math.max(min, Config.STICKDRIFT_INTENSITY_MAX.get());
         double intensity = min + rng.nextDouble() * (max - min);
 
-        // The whole joke: stronger drift, shorter time; gentle drift, drags on.
+        // the whole joke: stronger drift, shorter time; gentle drift, drags on.
         int duration = Mth.clamp((int) Math.round(Config.STICKDRIFT_DURATION_PRODUCT.get() / intensity),
                 Config.STICKDRIFT_DURATION_MIN.get(), Config.STICKDRIFT_DURATION_MAX.get());
 

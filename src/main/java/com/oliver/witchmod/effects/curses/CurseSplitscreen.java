@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Splitscreen (sacrificial item ANY SIGN): drags the nearest player into a shared, console-style split screen —
+ * splitscreen (sacrificial item ANY SIGN): drags the nearest player into a shared, console-style split screen —
  * each of you sees the OTHER's point of view in a side panel (client render). Pulled out of Bedrock Moment
  * because the gag was strong enough to stand alone.
  *
@@ -90,7 +90,7 @@ public final class CurseSplitscreen extends Effect {
                 }
             }
             case 2 -> {
-                // Liveness is checked against the partner ENTITY (works for a debug villager too), NOT the
+                // liveness is checked against the partner ENTITY (works for a debug villager too), NOT the
                 // player-only PAIR map — resolving PAIR for a villager gave null and instantly exited the split.
                 int partnerId = victim.getData(WitchModAttachments.SPLITSCREEN_PARTNER);
                 Entity partnerEntity = partnerId >= 0 ? victim.serverLevel().getEntity(partnerId) : null;
@@ -112,7 +112,7 @@ public final class CurseSplitscreen extends Effect {
         }
     }
 
-    /** Begins an entering(1)/exiting(3) fake-load transition on both players. */
+    /** begins an entering(1)/exiting(3) fake-load transition on both players. */
     private static void beginTransition(ServerPlayer victim, @Nullable ServerPlayer partner, long now, int phase) {
         if (phase == 1) {
             if (partner == null) {
@@ -129,7 +129,7 @@ public final class CurseSplitscreen extends Effect {
         setBothLong(victim, partner, WitchModAttachments.SPLITSCREEN_LOAD_END, end);
     }
 
-    /** Clears the split on both players (back to playing normally). */
+    /** clears the split on both players (back to playing normally). */
     private static void endSplit(ServerPlayer victim, @Nullable ServerPlayer partner) {
         for (ServerPlayer p : new ServerPlayer[]{victim, partner}) {
             if (p == null) {
@@ -142,7 +142,7 @@ public final class CurseSplitscreen extends Effect {
         }
     }
 
-    /** The nearest player who's free to be pulled in (not already split, same dimension, in range). */
+    /** the nearest player who's free to be pulled in (not already split, same dimension, in range). */
     @Nullable
     private static ServerPlayer nearestEligible(ServerPlayer victim, double range) {
         ServerPlayer best = null;
@@ -183,13 +183,13 @@ public final class CurseSplitscreen extends Effect {
 
     // --- Hooks (called from CurseEventHandler / the network layer) --------------------------------------
 
-    /** The client reports its sign-editor open/closed here. */
+    /** the client reports its sign-editor open/closed here. */
     public static void reportSignEditing(ServerPlayer player, boolean editing) {
         SIGN_EDITING.put(player.getUUID(), editing);
     }
 
     /**
-     * Damage on either partner during an active, sign-locked split force-closes the sign for both — you're
+     * damage on either partner during an active, sign-locked split force-closes the sign for both — you're
      * never left frozen in a text box while something hurts you.
      */
     public static void onDamaged(ServerPlayer hurt) {
@@ -221,7 +221,7 @@ public final class CurseSplitscreen extends Effect {
     // --- Debug -----------------------------------------------------------------------------------------
 
     /**
-     * Debug: {@code arg} = "villager" pairs you with the nearest VILLAGER (so you can test the split's render
+     * debug: {@code arg} = "villager" pairs you with the nearest VILLAGER (so you can test the split's render
      * solo — you see the villager's POV; the villager obviously has no screen). "exit" ends it. No arg = pair
      * with the nearest player, or a villager if none.
      */
@@ -241,7 +241,7 @@ public final class CurseSplitscreen extends Effect {
                 return "entering splitscreen with " + p.getName().getString();
             }
         }
-        // Villager fallback / explicit: one-sided split (only the victim's client is set up).
+        // villager fallback / explicit: one-sided split (only the victim's client is set up).
         Villager v = nearestVillager(victim, range);
         if (v == null) {
             return wantVillager ? "no villager within " + (int) range + " blocks" : "no player OR villager in range to pair with";
@@ -253,6 +253,11 @@ public final class CurseSplitscreen extends Effect {
         victim.setData(WitchModAttachments.SPLITSCREEN_LOAD_END, now + min + victim.getRandom().nextInt(max - min + 1));
         victim.setData(WitchModAttachments.SPLITSCREEN_PHASE, 1);
         return "entering splitscreen with a villager (debug — your side only; you'll see its POV)";
+    }
+
+    @Override
+    public java.util.List<String> debugArgs() {
+        return java.util.List.of("villager", "exit");
     }
 
     @Nullable

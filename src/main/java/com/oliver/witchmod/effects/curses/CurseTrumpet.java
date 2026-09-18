@@ -11,7 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * A cartoon fat-trumpet scores your every step (master-spec Trumpet, sacrificial item COOKIE). A looping
+ * A cartoon fat-trumpet scores your every step. A looping
  * "big character walking in" trumpet plays whenever you MOVE, cuts out the instant you stop, speeds up
  * slightly while you sprint, and — the counterplay — goes completely silent while you crouch. The joke is
  * the old cartoon gag of a large character entering to a trumpet; in play it means you give your position
@@ -39,7 +39,7 @@ public final class CurseTrumpet extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Self-heal: the flag is transient-feeling for the client, but the curse itself persists across a
+        // self-heal: the flag is transient-feeling for the client, but the curse itself persists across a
         // relog/world reload where onApply never re-runs — re-assert it so the music doesn't go silent.
         if (target.getData(WitchModAttachments.TRUMPET_ACTIVE) != 1) {
             target.setData(WitchModAttachments.TRUMPET_ACTIVE, 1);

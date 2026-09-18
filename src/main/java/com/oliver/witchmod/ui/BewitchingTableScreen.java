@@ -24,21 +24,15 @@ import com.oliver.witchmod.data.ModifierItems;
 import com.oliver.witchmod.data.SacrificialItems;
 
 /**
- * The Bewitching Table screen (CLAUDE.md section 2.1/9). Deliberately styled to match vanilla's plain
- * light-grey container look (no bespoke texture yet — a drop-in PNG upgrade later), with:
- * <ul>
- *   <li>a working <b>success bar</b> that fills with the computed chance of the cast landing (read live from
- *       the slots via the same pure {@link ModifierCalculator} functions the server casts with);</li>
- *   <li><b>red-highlighted slots</b> for any wrong item (slots now accept anything so the player gets a
- *       reason rather than a silent bounce), and a <b>disabled Cast button</b> while the ritual isn't valid;</li>
- *   <li>a shimmer on the bar and ambient particles drifting up off the real block while a cast is ready.</li>
- * </ul>
+ * the ritual table screen. shows a live success/backfire bar (computed with the same {@link ModifierCalculator}
+ * the server casts with), red-flags wrong-item slots, disables cast until valid, and drifts ambient particles
+ * off the real block while a cast is ready.
  */
 public final class BewitchingTableScreen extends AbstractContainerScreen<BewitchingTableMenu> {
-    /** The editable background art (panel + rune-lines + ritual circle). Slot sprites + dynamic bits draw on top. */
+    /** editable background art; slot sprites + dynamic bits draw on top. */
     private static final ResourceLocation TEXTURE =
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/gui/container/bewitching_table.png");
-    // Each slot outline is its OWN 18x18 texture (like the enchant table's lapis slot), blitted per slot.
+    // each slot outline is its own 18x18 texture, blitted per slot
     private static ResourceLocation slotTex(String name) {
         return ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/gui/container/" + name + ".png");
     }
@@ -48,7 +42,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
     private static final ResourceLocation SLOT_ESSENCE = slotTex("slot_essence");
     private static final ResourceLocation SLOT_MODIFIER = slotTex("slot_modifier");
 
-    // Palette for the procedurally-drawn dynamic elements.
+    // palette for the procedurally-drawn dynamic elements
     private static final int SLOT_EDGE_DARK = 0xFF373737;
     private static final int TEXT_DARK = 0x404040;
     private static final int BAR_TRACK = 0xFF6E6E6E;
@@ -83,14 +77,12 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
     protected void containerTick() {
         super.containerTick();
         clientTick++;
-        // Ambient particles drift up off the real block while a valid cast is ready — the block reacts to
-        // being "loaded" without waiting for the Cast button.
+        // ambient particles drift up off the real block while a valid cast is ready
         RitualSnapshot snapshot = readSnapshot();
         if (isCastable() && snapshot.hasEffect && this.minecraft != null && this.minecraft.level != null && clientTick % 6 == 0) {
             BlockPos pos = this.menu.pos();
             var level = this.minecraft.level;
-            // Neutral "ready" shimmer (purple witch motes) — deliberately NOT the green success particle, so
-            // the ready cue can't be mistaken for a completed cast.
+            // "ready" shimmer (purple witch motes) — deliberately not the green success particle
             ParticleOptions particle = ParticleTypes.WITCH;
             var rng = level.random;
             for (int i = 0; i < 2; i++) {
@@ -126,11 +118,10 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         int x = this.leftPos;
         int y = this.topPos;
 
-        // The static panel art (background + rune-lines + circle) comes from the editable PNG.
+        // static panel art from the editable png
         guiGraphics.blit(TEXTURE, x, y, imageWidth, imageHeight, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
 
-        // Each slot outline is its own 18x18 sprite blitted at the slot: ritual slots get their symboled
-        // texture, the player inventory gets the plain one.
+        // ritual slots get their symboled sprite; the player inventory gets the plain one
         for (Slot slot : this.menu.slots) {
             ResourceLocation tex = slot instanceof RitualSlot ritual ? slotTexFor(ritual.kind()) : SLOT_PLAIN;
             guiGraphics.blit(tex, x + slot.x - 1, y + slot.y - 1, 18, 18, 0.0F, 0.0F, 18, 18, 18, 18);
@@ -152,7 +143,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         };
     }
 
-    /** A red wash + border over a slot that holds the wrong item. */
+    /** red wash + border over a slot holding the wrong item. */
     private void markSlotBad(GuiGraphics g, int sx, int sy) {
         g.fill(sx, sy, sx + 16, sy + 16, SLOT_BAD_FILL);
         g.fill(sx - 1, sy - 1, sx + 17, sy, SLOT_BAD_EDGE);
@@ -185,7 +176,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         if (snapshot.hasEffect && !snapshot.random) {
             int successWidth = Math.round(BAR_WIDTH * snapshot.successChance);
             guiGraphics.fill(bx, by, bx + successWidth, by + BAR_HEIGHT, BAR_SUCCESS);
-            // A moving shimmer highlight sliding across the filled portion.
+            // moving shimmer across the filled portion
             if (successWidth > 4) {
                 int shimmer = (int) ((clientTick * 2) % (successWidth + 20)) - 10;
                 int sxa = Math.max(0, shimmer);
@@ -194,7 +185,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
                     guiGraphics.fill(bx + sxa, by, bx + sxb, by + 2, BAR_SUCCESS_HI);
                 }
             }
-            // Backfire marked as a thin red cap on the right end.
+            // backfire as a thin red cap on the right end
             int backfireWidth = Math.round(BAR_WIDTH * snapshot.backfireChance);
             if (backfireWidth > 0) {
                 guiGraphics.fill(bx + BAR_WIDTH - backfireWidth, by, bx + BAR_WIDTH, by + BAR_HEIGHT, BAR_BACKFIRE);
@@ -210,7 +201,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
 
         int fill = !castable ? 0xFF565656 : (hovered ? 0xFF8A8A8A : 0xFF737373);
         guiGraphics.fill(bx, by, bx + CAST_BUTTON_WIDTH, by + CAST_BUTTON_HEIGHT, fill);
-        // Bevel (flattened when disabled).
+        // bevel (flattened when disabled)
         int light = castable ? 0xFFB0B0B0 : 0xFF6A6A6A;
         int dark = castable ? 0xFF3A3A3A : 0xFF454545;
         guiGraphics.fill(bx, by, bx + CAST_BUTTON_WIDTH, by + 1, light);
@@ -226,12 +217,11 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (isWithinCastButton(this.leftPos, this.topPos, (int) mouseX, (int) mouseY)) {
             if (isCastable()) {
-                // Trigger via our own C2S payload rather than the vanilla container-button plumbing — the
-                // server runs the ritual directly against the block entity at this position.
+                // c2s cast payload — server runs the ritual against the block entity here
                 net.neoforged.neoforge.network.PacketDistributor.sendToServer(
                         new com.oliver.witchmod.network.WitchModNetwork.RitualCastPayload(this.menu.pos()));
             }
-            return true; // swallow the click either way so it doesn't fall through to slots behind the button
+            return true; // swallow the click so it doesn't fall through to slots behind the button
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -242,7 +232,7 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         return mouseX >= left && mouseX < left + CAST_BUTTON_WIDTH && mouseY >= top && mouseY < top + CAST_BUTTON_HEIGHT;
     }
 
-    /** A cast is allowed only when every ritual slot holds a correct item AND there's a Sacrificial Item to cast. */
+    /** castable only when every ritual slot is correct and a sacrificial item is present. */
     private boolean isCastable() {
         boolean hasSacrificial = false;
         for (Slot slot : this.menu.slots) {
@@ -264,12 +254,13 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         if (sacrificialStack.is(Items.REDSTONE)) {
             return RitualSnapshot.RANDOM;
         }
-        // A coin uses a fixed base cost and fizzles (no backfire) on failure.
+        // a coin uses a fixed base cost and fizzles (no backfire) on failure
         com.oliver.witchmod.data.CoinGamble.Type coinType = com.oliver.witchmod.data.CoinGamble.typeOf(sacrificialStack.getItem());
         if (coinType != null) {
             ItemStack coinModStack = this.menu.slots.get(BewitchingTableBlockEntity.SLOT_MODIFIER).getItem();
             Modifier coinMod = coinModStack.isEmpty() ? null : ModifierItems.findModifier(coinModStack.getItem()).orElse(null);
-            int coinEssence = this.menu.slots.get(BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE).getItem().getCount();
+            int coinEssence = com.oliver.witchmod.blocks.BewitchingTableRitual.essenceValue(
+                    this.menu.slots.get(BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE).getItem());
             int coinCost = ModifierCalculator.applyCost(com.oliver.witchmod.data.CoinGamble.BASE_COST, coinMod);
             float coinSuccess = ModifierCalculator.applySuccessChance(
                     ModifierCalculator.baseSuccessChance(coinEssence, coinCost), coinMod);
@@ -285,7 +276,8 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         Modifier modifier = modifierStack.isEmpty() ? null
                 : ModifierItems.findModifier(modifierStack.getItem()).orElse(null);
 
-        int essenceSpent = this.menu.slots.get(BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE).getItem().getCount();
+        int essenceSpent = com.oliver.witchmod.blocks.BewitchingTableRitual.essenceValue(
+                this.menu.slots.get(BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE).getItem());
         int adjustedCost = ModifierCalculator.applyCost(effect.value().baseCost(), modifier);
         float successChance = ModifierCalculator.applySuccessChance(
                 ModifierCalculator.baseSuccessChance(essenceSpent, adjustedCost), modifier);

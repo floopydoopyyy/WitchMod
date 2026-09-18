@@ -11,7 +11,7 @@ import net.minecraft.world.item.TooltipFlag;
 import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
-/** Shared "Bound to: &lt;name&gt;" tooltip for Player Essence and Voodoo Doll. */
+/** shared "Bound to: &lt;name&gt;" tooltip for Player Essence and Voodoo Doll. */
 public class BoundPlayerItem extends Item {
     public BoundPlayerItem(Properties properties) {
         super(properties);

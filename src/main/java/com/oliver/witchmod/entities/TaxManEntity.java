@@ -37,26 +37,10 @@ import com.oliver.witchmod.data.TaxValues;
 import com.oliver.witchmod.data.WitchModTags;
 
 /**
- * The Tax Man (master-spec Taxes). An invulnerable humanoid who turns up when a cursed player has been
- * careless with their valuables, then <b>walks the property</b> — going chest to chest, opening each one,
- * rifling through it, and moving on — until he's taken what he's owed.
- *
- * <p><b>He physically visits things rather than vacuuming them from a distance</b>, which is the whole
- * difference between reading as a person and reading as a script: he paths to each container, the lid
- * actually opens, he pauses over it, and he watches the victim whenever he isn't busy. "Immovable" means he
- * cannot be pushed, knocked back or killed — not that he stands still.
- *
- * <p><b>Search order is fixed and deliberate: chests → floor items → your own inventory.</b> That ordering
- * IS the counterplay. Storage is hit first, so keeping valuables in a chest where you live is the worst
- * option; your person is raided last, so travelling light genuinely works. Nearby ender chests are included,
- * because otherwise they'd be a free exemption.
- *
- * <p><b>He takes by VALUE, not by item count</b> ({@link TaxValues}), so a haul cap means the same thing
- * whether he's going through copper or netherite. The cap is deliberately small — an irritation, not a
- * robbery.
- *
- * <p><b>⚠ If the {@link TaxBank} is full he stops taking rather than discarding.</b> Items are never voided;
- * see the note on {@code TaxBank.isFull()}.
+ * the tax man — an unkillable, unpushable humanoid (immovable ≠ motionless) who turns up for the audit curse
+ * and physically walks the property: chests → floor items → your inventory, actually opening each container.
+ * takes by value ({@link TaxValues}), not item count, up to a small cap. if the {@link TaxBank} is full he
+ * stops taking rather than discarding — items are never voided.
  */
 public final class TaxManEntity extends Mob {
     private enum Phase { ARRIVING, TRAVELLING, RIFLING, LEAVING }
@@ -108,13 +92,13 @@ public final class TaxManEntity extends Mob {
         this.victimId = victim.getUUID();
     }
 
-    /** Put him in DELIVERY mode: he'll walk up to {@code recipient}, hand over the bank (or a gift), and go. */
+    /** put him in DELIVERY mode: he'll walk up to {@code recipient}, hand over the bank (or a gift), and go. */
     public void assignDelivery(ServerPlayer recipient) {
         this.victimId = recipient.getUUID();
         this.delivering = true;
     }
 
-    /** True once he's actually handed the goods over (the blessing waits for him to leave, then ends). */
+    /** true once he's actually handed the goods over (the blessing waits for him to leave, then ends). */
     public boolean hasPaidOut() {
         return paidOut;
     }
@@ -177,7 +161,7 @@ public final class TaxManEntity extends Mob {
             return;
         }
 
-        // He keeps an eye on you whenever he isn't reading a chest — being watched by a bureaucrat is most
+        // he keeps an eye on you whenever he isn't reading a chest — being watched by a bureaucrat is most
         // of the effect.
         if (victim != null && phase != Phase.RIFLING) {
             getLookControl().setLookAt(victim, 30.0F, 30.0F);
@@ -197,7 +181,7 @@ public final class TaxManEntity extends Mob {
 
     // --- Delivery (the blessing) ------------------------------------------------------------------------
 
-    /** Walk up to the recipient, drop the goods in front of them, linger a beat, then leave for good. */
+    /** walk up to the recipient, drop the goods in front of them, linger a beat, then leave for good. */
     private void tickDelivery(ServerLevel level, @Nullable ServerPlayer recipient) {
         if (recipient == null) {
             depart(level);
@@ -207,7 +191,7 @@ public final class TaxManEntity extends Mob {
 
         if (!paidOut) {
             deliveryTicks++;
-            // Walk in, but don't path forever if something's in the way — pay out where we stand after a bit.
+            // walk in, but don't path forever if something's in the way — pay out where we stand after a bit.
             if (distanceToSqr(recipient) > REACH * REACH && deliveryTicks < 300) {
                 getNavigation().moveTo(recipient, 1.0);
                 return;
@@ -223,7 +207,7 @@ public final class TaxManEntity extends Mob {
         }
     }
 
-    /** Empty the tax bank onto the floor in front of the recipient — or, if it's empty, a random gift. */
+    /** empty the tax bank onto the floor in front of the recipient — or, if it's empty, a random gift. */
     private void payOut(ServerLevel level, ServerPlayer recipient) {
         paidOut = true;
         say(recipient, "refund");
@@ -245,7 +229,7 @@ public final class TaxManEntity extends Mob {
         level.playSound(null, blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 0.6F, 1.4F);
     }
 
-    /** The consolation gift when there's nothing banked: uniform emeralds & gold, diamonds biased low. */
+    /** the consolation gift when there's nothing banked: uniform emeralds & gold, diamonds biased low. */
     private static List<ItemStack> rollGift(net.minecraft.util.RandomSource random) {
         List<ItemStack> gift = new ArrayList<>();
         gift.add(new ItemStack(Items.EMERALD, 1 + random.nextInt(Config.TAXMAN_GIFT_EMERALDS_MAX.get())));
@@ -264,7 +248,7 @@ public final class TaxManEntity extends Mob {
             level.playSound(null, blockPosition(), SoundEvents.ILLUSIONER_PREPARE_MIRROR,
                     SoundSource.NEUTRAL, 0.8F, 1.2F);
         }
-        // Walk up to the victim first, so the visit begins with him approaching YOU.
+        // walk up to the victim first, so the visit begins with him approaching YOU.
         if (victim != null && distanceToSqr(victim) > 9.0) {
             getNavigation().moveTo(victim, 1.0);
         }
@@ -274,7 +258,7 @@ public final class TaxManEntity extends Mob {
         }
     }
 
-    /** Walking to whatever he's decided to look at next. */
+    /** walking to whatever he's decided to look at next. */
     private void tickTravelling(ServerLevel level, @Nullable ServerPlayer victim) {
         if (takenValue >= Config.TAXES_HAUL_CAP.get()) {
             say(victim, "satisfied");
@@ -310,14 +294,14 @@ public final class TaxManEntity extends Mob {
             return;
         }
 
-        // Couldn't get there — give up on this one rather than pathing into a wall forever.
+        // couldn't get there — give up on this one rather than pathing into a wall forever.
         if (phaseTicks > 60) {
             markSearched(targetContainer);
             chooseNextTarget(level, victim);
         }
     }
 
-    /** Standing at an open container, taking a stack every so often. */
+    /** standing at an open container, taking a stack every so often. */
     private void tickRifling(ServerLevel level, @Nullable ServerPlayer victim) {
         if (targetContainer == null) {
             enter(Phase.TRAVELLING);
@@ -330,7 +314,7 @@ public final class TaxManEntity extends Mob {
         if (phaseTicks % Config.TAXES_COLLECT_INTERVAL.get() != 0) {
             return;
         }
-        // His placed ender chest shows YOUR ender inventory, not a block container of its own — so rifle that.
+        // his placed ender chest shows YOUR ender inventory, not a block container of its own — so rifle that.
         boolean took;
         if (enderChestTarget) {
             took = victim != null && takeOneFrom(victim.getEnderChestInventory(), victim);
@@ -343,7 +327,7 @@ public final class TaxManEntity extends Mob {
             level.playSound(null, blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.NEUTRAL, 0.6F, 0.8F);
             return;
         }
-        // Nothing (else) here — shut the lid and move on.
+        // nothing (else) here — shut the lid and move on.
         closeLid(level);
         markSearched(targetContainer);
         chooseNextTarget(level, victim);
@@ -376,7 +360,7 @@ public final class TaxManEntity extends Mob {
             return;
         }
 
-        // Nothing left worth looking at.
+        // nothing left worth looking at.
         emptyHandedSweeps++;
         if (emptyHandedSweeps == 1 && takenValue == 0) {
             say(victim, "empty_handed");
@@ -556,12 +540,12 @@ public final class TaxManEntity extends Mob {
         if (spot != null) {
             level.setBlockAndUpdate(spot, Blocks.ENDER_CHEST.defaultBlockState());
             enderChestPos = spot;
-            // Route it through the SAME walk -> open (real lid) -> rifle -> close flow as any other chest,
+            // route it through the SAME walk -> open (real lid) -> rifle -> close flow as any other chest,
             // so it no longer teleport-grabs. tickRifling reads the victim's ender inventory for it.
             targetContainer = spot;
             enderChestTarget = true;
         } else if (victim != null) {
-            // Nowhere to set it down (rare) — reach in directly rather than lose the gambit entirely.
+            // nowhere to set it down (rare) — reach in directly rather than lose the gambit entirely.
             Container ender = victim.getEnderChestInventory();
             while (takeOneFrom(ender, victim)) {
                 swing(InteractionHand.MAIN_HAND);
@@ -593,7 +577,7 @@ public final class TaxManEntity extends Mob {
         discard();
     }
 
-    /** Ends the visit early — used when the curse is cured out from under him. */
+    /** ends the visit early — used when the curse is cured out from under him. */
     public void dismiss() {
         if (level() instanceof ServerLevel serverLevel) {
             depart(serverLevel);

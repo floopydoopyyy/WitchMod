@@ -22,7 +22,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * An anti-grief aura (master-spec-style Pacifier, sacrificial item ALLIUM — Poppy was taken by Peace): being
+ * an anti-grief aura: being
  * near anything that would blow a hole in your build simply neutralises it. Primed TNT and TNT minecarts
  * fizzle out, creepers deflate and can never detonate, fireballs wink out, and spreading fire is snuffed —
  * all with a protective sparkle. Keeps your builds safe even when someone's actively trying to grief them.
@@ -45,7 +45,7 @@ public final class BlessingPacifier extends Effect {
         ServerLevel level = target.serverLevel();
         boolean acted = false;
 
-        // Entity sweep runs EVERY tick — fast projectiles (fire charges) can cross the radius in fewer than a
+        // entity sweep runs EVERY tick — fast projectiles (fire charges) can cross the radius in fewer than a
         // few ticks, so an interval would let them slip through.
         AABB box = target.getBoundingBox().inflate(Config.PACIFIER_RADIUS.get());
         for (Entity e : level.getEntities(target, box)) {
@@ -58,7 +58,7 @@ public final class BlessingPacifier extends Effect {
                 cart.discard(); // takes the primed cart with it before it can go off
                 acted = true;
             } else if (e instanceof Creeper creeper) {
-                // Deflate any swell and pacify — it can never complete an explosion near you.
+                // deflate any swell and pacify — it can never complete an explosion near you.
                 if (creeper.getSwellDir() > 0 || creeper.getTarget() != null) {
                     acted = true;
                     fizzle(level, creeper.position().add(0, 0.5, 0));
@@ -66,14 +66,14 @@ public final class BlessingPacifier extends Effect {
                 creeper.setSwellDir(-1);
                 creeper.setTarget(null);
             } else if (isHarmfulProjectile(e)) {
-                // Fire charges / ghast + blaze fireballs / wither skulls / wind charges / dragon fireballs.
+                // fire charges / ghast + blaze fireballs / wither skulls / wind charges / dragon fireballs.
                 fizzle(level, e.position());
                 e.discard();
                 acted = true;
             }
         }
 
-        // Snuff out spreading fire nearby (leaves campfires/torches — those aren't the FIRE block). This is
+        // snuff out spreading fire nearby (leaves campfires/torches — those aren't the FIRE block). This is
         // the expensive cubic scan, so it stays on the interval.
         if (ticksRemaining % Config.PACIFIER_CHECK_INTERVAL.get() == 0) {
             int br = Config.PACIFIER_BLOCK_RADIUS.get();
@@ -99,12 +99,12 @@ public final class BlessingPacifier extends Effect {
         }
     }
 
-    /** Harmful, build-threatening projectiles: fireballs (incl. fire charges), wind charges, wither skulls. */
+    /** harmful, build-threatening projectiles: fireballs (incl. fire charges), wind charges, wither skulls. */
     private static boolean isHarmfulProjectile(Entity e) {
         return e instanceof AbstractHurtingProjectile; // SmallFireball (fire charge), LargeFireball, WitherSkull, WindCharge, DragonFireball
     }
 
-    /** The protective "fizzle": a puff of smoke plus a bright END_ROD sparkle and a soft extinguish hiss. */
+    /** the protective "fizzle": a puff of smoke plus a bright END_ROD sparkle and a soft extinguish hiss. */
     private static void fizzle(ServerLevel level, Vec3 pos) {
         level.sendParticles(ParticleTypes.SMOKE, pos.x, pos.y, pos.z, 12, 0.3, 0.3, 0.3, 0.01);
         level.sendParticles(ParticleTypes.END_ROD, pos.x, pos.y, pos.z, 8, 0.25, 0.25, 0.25, 0.02);

@@ -10,7 +10,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Dense (Iron Block) — the MERGER of the old Heavy and Heavyweight curses (both retired). You're crushingly
+ * dense (Iron Block) — the MERGER of the old Heavy and Heavyweight curses (both retired). You're crushingly
  * heavy in every sense: you fall faster and crater the ground on a hard landing (Heavy), AND any floor with
  * air beneath it gives way under your weight when you loiter on it (Heavyweight).
  *

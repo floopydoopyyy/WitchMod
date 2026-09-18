@@ -10,7 +10,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.oliver.witchmod.WitchMod;
 
-/** The mod's custom recipe serializers. */
+/** the mod's custom recipe serializers. */
 public final class WitchModRecipes {
     public static final DeferredRegister<RecipeSerializer<?>> SERIALIZERS =
             DeferredRegister.create(Registries.RECIPE_SERIALIZER, WitchMod.MODID);

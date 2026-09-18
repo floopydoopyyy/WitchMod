@@ -9,7 +9,7 @@ import net.minecraft.client.player.LocalPlayer;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Blessing of Flight energy bar: a slim yellow bar just above the XP bar, with a slightly lighter glow at the
+ * blessing of Flight energy bar: a slim yellow bar just above the XP bar, with a slightly lighter glow at the
  * filled end. Hidden unless the blessing is active. Driven by the synced {@link WitchModAttachments#FLIGHT_ENERGY}.
  */
 public final class FlightBarLayer implements LayeredDraw.Layer {

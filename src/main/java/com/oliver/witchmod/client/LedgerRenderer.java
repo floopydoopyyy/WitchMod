@@ -20,7 +20,7 @@ import com.oliver.witchmod.blocks.LedgerBlock;
 import com.oliver.witchmod.blocks.LedgerBlockEntity;
 
 /**
- * Renders a 3D purple book resting on the Ledger — exactly the pose the vanilla {@code LecternRenderer} uses
+ * renders a 3D purple book resting on the Ledger — exactly the pose the vanilla {@code LecternRenderer} uses
  * for a book placed on a lectern (same {@link BookModel}, same transform), with a purple-recoloured texture.
  */
 public final class LedgerRenderer implements BlockEntityRenderer<LedgerBlockEntity> {

@@ -11,9 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * You can't walk in a straight line any more (master-spec Wonky, renamed from the prototype's "Pidgeon
- * Toed"; the registry id changed with it, {@code pidgeon_toed} -> {@code wonky}, since display names derive
- * from the id path so the id IS the visible name).
+ * you can't walk in a straight line any more.
  *
  * <p>A subtle sideways wander is added to your movement whenever you're actually moving, and amplified while
  * sprinting. It's meant to be quietly disorienting rather than an obvious shove — you keep drifting off the
@@ -28,7 +26,7 @@ public final class CurseWonky extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 15, () -> Items.FEATHER);
     }
 
-    /** You notice it the moment you try to walk somewhere and can't hold the line (Rule 2). */
+    /** you notice it the moment you try to walk somewhere and can't hold the line (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;

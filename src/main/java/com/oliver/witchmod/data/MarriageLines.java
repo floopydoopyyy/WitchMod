@@ -17,11 +17,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Cutaway Gag's Marriage lines, from {@code data/witchmod/text/marriage.json} ({@code /reload}-able). Keys:
- * {@code open} (officiant opener), {@code vows}, {@code pronounce}, {@code objections}. {@code {v}} is swapped
- * for the victim's name and {@code {s}} for the spouse's name by the gag.
- */
+/** cutaway gag's marriage lines ({@code data/witchmod/text/marriage.json}, /reload-able); {v}=victim, {s}=spouse. */
 public final class MarriageLines extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "marriage");
@@ -60,7 +56,7 @@ public final class MarriageLines extends SimpleJsonResourceReloadListener {
         lines = Map.copyOf(parsed);
     }
 
-    /** A random line for {@code key}, or {@code fallback} if the list is missing/empty. */
+    /** a random line for {@code key}, or {@code fallback} if missing/empty. */
     public static String pick(String key, RandomSource random, String fallback) {
         List<String> bucket = lines.get(key);
         return bucket == null || bucket.isEmpty() ? fallback : bucket.get(random.nextInt(bucket.size()));

@@ -7,7 +7,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 
-/** A single curse a Jar has pulled off a player, waiting to be released elsewhere (CLAUDE.md section 3). */
+/** one stored effect in a jar (id + remaining ticks), waiting to be released on a throw. */
 public record CapturedEffect(ResourceLocation effectId, int remainingTicks) {
     public static final Codec<CapturedEffect> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ResourceLocation.CODEC.fieldOf("effect_id").forGetter(CapturedEffect::effectId),

@@ -24,13 +24,9 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Tracks placed Ledger blocks (so a landed hex can react without scanning the world) and streams particle
- * feedback INTO every Ledger within {@link Config#LEDGER_RANGE} when an attachment is logged — enchanting-
- * table glyphs flowing from the hex into the block, plus a coloured trail and a chime.
- *
- * <p>The registry is filled on block place, right-click ({@link LedgerBlock}), and cleared on break. A
- * server restart empties it, so a Ledger only glows once it's been placed or opened that session — a purely
- * cosmetic gap; the block's actual log-reading (range-filtered from {@code LedgerLog}) always works.
+ * tracks placed ledger blocks (so a landed hex reacts without a world scan) and streams glyphs + a chime into
+ * each ledger within {@link Config#LEDGER_RANGE} when a cast is logged. the registry is per-session (filled on
+ * place/open, cleared on break) — a ledger only glows once placed/opened this session, but its log-reading always works.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class LedgerFeedback {
@@ -65,7 +61,7 @@ public final class LedgerFeedback {
         }
     }
 
-    /** Streams particles + a chime into every Ledger within range of a landed hex at {@code from}. */
+    /** streams particles + a chime into every Ledger within range of a landed hex at {@code from}. */
     public static void pulse(ServerLevel level, Vec3 from, boolean blessing) {
         Set<BlockPos> set = LEDGERS.get(level.dimension());
         if (set == null || set.isEmpty()) {

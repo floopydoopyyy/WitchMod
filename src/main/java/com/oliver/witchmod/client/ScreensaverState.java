@@ -12,7 +12,7 @@ import net.minecraft.util.RandomSource;
 import com.oliver.witchmod.Config;
 
 /**
- * The Screensaver curse's window choreography (master-spec Screensaver): every so often the game drops out
+ * the screensaver curse's window choreography: every so often the game drops out
  * of fullscreen, <b>slowly</b> shrinks to a window, bounces around the monitor DVD-logo style for a while,
  * then grows back and returns to fullscreen.
  *
@@ -28,13 +28,13 @@ import com.oliver.witchmod.Config;
  *
  * <p>The player's original state — fullscreen or not, and their windowed size and position — is captured
  * when an episode starts and restored when it ends, so the curse never permanently changes their setup.
- * If the monitor can't be queried, every stage no-ops (per spec).
+ * if the monitor can't be queried, every stage no-ops (per spec).
  */
 public final class ScreensaverState {
     private enum Phase { IDLE, SHRINKING, BOUNCING, GROWING }
 
     /**
-     * Resizes are only pushed every other tick. Each one makes Minecraft rebuild its framebuffer, so doing it
+     * resizes are only pushed every other tick. Each one makes Minecraft rebuild its framebuffer, so doing it
      * 20x a second for four seconds stutters; at 10/s the easing still reads as smooth.
      */
     private static final int RESIZE_EVERY = 2;
@@ -45,14 +45,14 @@ public final class ScreensaverState {
     private static int idleTicks;
     private static int idleTarget = -1;
 
-    // What to put back when the episode ends.
+    // what to put back when the episode ends.
     private static boolean wasFullscreen;
     private static int originX;
     private static int originY;
     private static int originW;
     private static int originH;
 
-    // Where this episode shrinks to.
+    // where this episode shrinks to.
     private static int targetX;
     private static int targetY;
     private static int targetW;
@@ -63,7 +63,7 @@ public final class ScreensaverState {
 
     private ScreensaverState() {}
 
-    /** Called every client tick while the curse is active. */
+    /** called every client tick while the curse is active. */
     public static void tick(Minecraft minecraft, RandomSource random) {
         Window window = minecraft.getWindow();
         GLFWVidMode mode = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
@@ -71,7 +71,7 @@ public final class ScreensaverState {
             return; // window manipulation unavailable — no-op per spec
         }
 
-        // If the player forces fullscreen mid-bounce, boot straight back out so the effect can keep up (the
+        // if the player forces fullscreen mid-bounce, boot straight back out so the effect can keep up (the
         // bounce needs a floating window). Only during the windowed phases — GROWING restores fullscreen itself.
         if ((phase == Phase.SHRINKING || phase == Phase.BOUNCING) && window.isFullscreen()) {
             minecraft.options.fullscreen().set(false); // vanilla's option callback does the toggle
@@ -85,7 +85,7 @@ public final class ScreensaverState {
         }
     }
 
-    /** Called when the curse ends — puts the window back however it was found. */
+    /** called when the curse ends — puts the window back however it was found. */
     public static void reset(Minecraft minecraft) {
         if (phase != Phase.IDLE) {
             restoreOriginal(minecraft);
@@ -106,14 +106,14 @@ public final class ScreensaverState {
         idleTicks = 0;
         idleTarget = -1;
 
-        // Capture what to restore later, BEFORE anything is changed.
+        // capture what to restore later, BEFORE anything is changed.
         long handle = window.getWindow();
         wasFullscreen = window.isFullscreen();
         if (GLFW.glfwGetWindowAttrib(handle, GLFW.GLFW_MAXIMIZED) == GLFW.GLFW_TRUE) {
             GLFW.glfwRestoreWindow(handle); // a maximized window can be neither moved nor resized
         }
         if (wasFullscreen) {
-            // Setting the OPTION runs vanilla's own change callback, which does the toggle for us. Calling
+            // setting the OPTION runs vanilla's own change callback, which does the toggle for us. Calling
             // toggleFullScreen() as well double-toggles straight back — a real bug this project already hit.
             minecraft.options.fullscreen().set(false);
         }
@@ -143,7 +143,7 @@ public final class ScreensaverState {
         phaseDuration = Config.SCREENSAVER_TRANSITION_TICKS.get();
     }
 
-    /** Eases the window between its original geometry and the shrunk one, in either direction. */
+    /** eases the window between its original geometry and the shrunk one, in either direction. */
     private static void tickTransition(Window window, GLFWVidMode mode, boolean shrinking) {
         phaseTicks++;
         float raw = Mth.clamp(phaseTicks / (float) phaseDuration, 0.0F, 1.0F);
@@ -196,7 +196,7 @@ public final class ScreensaverState {
         GLFW.glfwSetWindowPos(handle, newX, newY);
 
         if (++phaseTicks >= phaseDuration) {
-            // Grow back from wherever it drifted to, not from where it started shrinking.
+            // grow back from wherever it drifted to, not from where it started shrinking.
             targetX = newX;
             targetY = newY;
             targetW = ww[0];
@@ -246,7 +246,7 @@ public final class ScreensaverState {
     }
 
     /**
-     * The gap is derived from the duty cycle rather than configured separately, so the ratio of bouncing to
+     * the gap is derived from the duty cycle rather than configured separately, so the ratio of bouncing to
      * peace holds no matter how the episode length is retuned.
      */
     private static void scheduleNextEpisode(RandomSource random) {

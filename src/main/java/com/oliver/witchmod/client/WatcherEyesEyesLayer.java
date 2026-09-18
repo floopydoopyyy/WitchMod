@@ -14,7 +14,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.WatcherEyesEntity;
 
-/** The glowing eyes — the only visible part of a {@link WatcherEyesEntity}. */
+/** the glowing eyes — the only visible part of a {@link WatcherEyesEntity}. */
 @OnlyIn(Dist.CLIENT)
 public final class WatcherEyesEyesLayer extends RenderLayer<WatcherEyesEntity, WatcherEyesModel<WatcherEyesEntity>> {
     private static final RenderType EYES = RenderType.eyes(
@@ -28,7 +28,7 @@ public final class WatcherEyesEyesLayer extends RenderLayer<WatcherEyesEntity, W
     public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, WatcherEyesEntity entity,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
-        // The eyes BLINK — a quick close every few seconds, otherwise open and staring. Deterministic per entity
+        // the eyes BLINK — a quick close every few seconds, otherwise open and staring. Deterministic per entity
         // (and per-pair phase-shifted by the id) so a whole ring of them don't blink in unison.
         if (blinking(entity, ageInTicks)) {
             return;

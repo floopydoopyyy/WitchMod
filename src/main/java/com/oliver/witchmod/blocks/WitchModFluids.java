@@ -21,12 +21,8 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Purifying Water (CLAUDE.md section 2.5) — a real custom fluid (source + flowing pair), not just a
- * reskinned block, so it flows/fills like water. Uses CUSTOM still/flowing textures — vanilla water
- * recoloured to a light "holy" blue with white shimmer and faint twinkling stars (borrowed from vanilla so
- * it still animates like water), living as editable PNGs in {@code textures/block/purifying_water_*.png}
- * (+ .mcmeta). Client-side rendering (textures/tint/fog) is registered in {@code WitchModClient} since it's
- * a {@code Dist.CLIENT}-only concern.
+ * purifying (holy) water — a real custom fluid (source + flowing) so it flows/fills like water, with editable
+ * still/flowing textures. client rendering (textures/tint/fog) lives in {@code WitchModClient}.
  */
 public final class WitchModFluids {
     public static final ResourceLocation STILL_TEXTURE = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "block/purifying_water_still");
@@ -46,7 +42,7 @@ public final class WitchModFluids {
     public static final DeferredHolder<FluidType, FluidType> PURIFYING_WATER_TYPE = FLUID_TYPES.register("purifying_water",
             () -> new FluidType(FluidType.Properties.create()
                     .descriptionId("fluid.witchmod.purifying_water")
-                    // No infinite sources — a placed source only ever comes from a bucket (keeps it a scarce,
+                    // no infinite sources — a placed source only ever comes from a bucket (keeps it a scarce,
                     // minimally-spreading ritual fluid, and lets the block fire its place-sound on that one event).
                     .canConvertToSource(false)
                     .sound(SoundActions.BUCKET_FILL, net.minecraft.sounds.SoundEvents.BUCKET_FILL)
@@ -74,7 +70,16 @@ public final class WitchModFluids {
                     .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY));
 
     public static final DeferredItem<Item> PURIFYING_WATER_BUCKET = ITEMS.register("purifying_water_bucket",
-            () -> new BucketItem(PURIFYING_WATER.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
+            () -> new BucketItem(PURIFYING_WATER.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)) {
+                @Override
+                public void appendHoverText(net.minecraft.world.item.ItemStack stack,
+                        net.minecraft.world.item.Item.TooltipContext context,
+                        java.util.List<net.minecraft.network.chat.Component> tooltip,
+                        net.minecraft.world.item.TooltipFlag flag) {
+                    tooltip.add(net.minecraft.network.chat.Component.translatable("item.witchmod.purifying_water_bucket.desc")
+                            .withStyle(net.minecraft.ChatFormatting.GRAY));
+                }
+            });
 
     /** A holy-water cauldron (fill/empty like a water cauldron; made by consecrating a water cauldron with shards). */
     public static final DeferredBlock<net.minecraft.world.level.block.LayeredCauldronBlock> PURIFYING_WATER_CAULDRON =
@@ -89,7 +94,7 @@ public final class WitchModFluids {
         return new BaseFlowingFluid.Properties(PURIFYING_WATER_TYPE, PURIFYING_WATER, PURIFYING_WATER_FLOWING)
                 .bucket(PURIFYING_WATER_BUCKET)
                 .block(PURIFYING_WATER_BLOCK)
-                // Bare-minimum spread: a big level drop-off per block (water = 1, lava = 2) means a source
+                // bare-minimum spread: a big level drop-off per block (water = 1, lava = 2) means a source
                 // barely creeps out before running dry, so it can't blanket a mountainside; short slope search.
                 .levelDecreasePerBlock(4)
                 .slopeFindDistance(2);

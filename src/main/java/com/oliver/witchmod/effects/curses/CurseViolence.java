@@ -33,7 +33,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Sudden, unprovoked violent urges (master-spec Violence). Your hand goes for whoever is nearby on its own,
+ * sudden, unprovoked violent urges. Your hand goes for whoever is nearby on its own,
  * and the hit is <b>vanilla's own {@link Player#attack}</b> — enchantments, knockback, crits, sweeping and
  * sounds all genuinely applied with the held item, not imitated.
  *
@@ -58,17 +58,17 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class CurseViolence extends Effect {
     /**
-     * Vanilla's attack-charge counter. {@code protected} in LivingEntity, so reflection is the only way to
+     * vanilla's attack-charge counter. {@code protected} in LivingEntity, so reflection is the only way to
      * force a swing to full strength without adding an access transformer to the build. Resolved once; if it
      * ever fails the curse still works, swings just land at whatever charge you happened to have.
      */
     @Nullable
     private static final Field ATTACK_STRENGTH_TICKER = resolveAttackStrengthTicker();
 
-    /** In-progress flurries: player -> {extra swings left, ticks until the next one}. Transient by design. */
+    /** in-progress flurries: player -> {extra swings left, ticks until the next one}. Transient by design. */
     private static final Map<UUID, int[]> FLURRIES = new HashMap<>();
 
-    /** How long each entity has loitered somewhere dangerous: entity id -> {first seen, last seen}. */
+    /** how long each entity has loitered somewhere dangerous: entity id -> {first seen, last seen}. */
     private static final Map<Integer, long[]> HAZARD_PERCHES = new HashMap<>();
 
     private static final int HAZARD_TRACK_INTERVAL = 5;
@@ -79,7 +79,7 @@ public final class CurseViolence extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 45, () -> Items.IRON_SWORD);
     }
 
-    /** You find out the first time your own arm swings without you (Rule 2). */
+    /** you find out the first time your own arm swings without you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -151,7 +151,7 @@ public final class CurseViolence extends Effect {
     }
 
     /**
-     * The impulsive chance: grows with every second since the last swing, up to a ceiling — unless something
+     * the impulsive chance: grows with every second since the last swing, up to a ceiling — unless something
      * has been loitering somewhere dangerous, which overrides the ramp entirely.
      */
     private static int impulsiveChance(ServerPlayer player, long now) {
@@ -161,7 +161,14 @@ public final class CurseViolence extends Effect {
         double seconds = Math.max(0.0, (now - player.getData(WitchModAttachments.VIOLENCE_LAST_SWING)) / 20.0);
         double chance = Config.VIOLENCE_IMPULSIVE_BASE_CHANCE_PERCENT.get()
                 + Config.VIOLENCE_IMPULSIVE_RAMP_PER_SECOND.get() * seconds;
-        return (int) Math.min(Config.VIOLENCE_IMPULSIVE_CAP_PERCENT.get(), chance);
+        // frenzy synergy (with Berserker): the arm goes off far more often, feeding free berserker stacks.
+        double cap = Config.VIOLENCE_IMPULSIVE_CAP_PERCENT.get();
+        if (com.oliver.witchmod.synergy.Synergies.FRENZY.activeFor(player)) {
+            double mult = Config.VIOLENCE_FRENZY_CHANCE_MULT.get();
+            chance *= mult;
+            cap = Math.min(100.0, cap * mult);
+        }
+        return (int) Math.min(cap, chance);
     }
 
     /** @return true if a flurry is mid-swing this tick, which suppresses the normal rolls. */
@@ -189,7 +196,7 @@ public final class CurseViolence extends Effect {
         return true;
     }
 
-    /** Swings for real, optionally dragging the camera onto the target first. */
+    /** swings for real, optionally dragging the camera onto the target first. */
     private void swingAt(ServerPlayer player, LivingEntity victim, boolean hijackCamera) {
         if (hijackCamera) {
             // A genuine camera move — ServerPlayer.lookAt sends the look-at packet, so the client really turns.
@@ -199,7 +206,7 @@ public final class CurseViolence extends Effect {
 
         int ticker = readAttackTicker(player);
         if (Config.VIOLENCE_FULL_STRENGTH_SWINGS.get()) {
-            // Land it as a properly-timed swing rather than a limp mid-cooldown tap (also allows sweep/crit).
+            // land it as a properly-timed swing rather than a limp mid-cooldown tap (also allows sweep/crit).
             writeAttackTicker(player, (int) Math.ceil(player.getCurrentItemAttackStrengthDelay()));
         }
         player.attack(victim); // vanilla: damage, enchantments, knockback, crits, sweeping, sounds
@@ -222,7 +229,7 @@ public final class CurseViolence extends Effect {
 
     // --- Targeting -------------------------------------------------------------------------------------
 
-    /** Everything alive, hittable and in range — the candidate pool for both urge types. */
+    /** everything alive, hittable and in range — the candidate pool for both urge types. */
     private static List<LivingEntity> candidates(ServerPlayer player) {
         double range = Config.VIOLENCE_TARGET_RANGE.get();
         return player.serverLevel().getEntitiesOfClass(LivingEntity.class,
@@ -232,7 +239,7 @@ public final class CurseViolence extends Effect {
                         && player.distanceTo(e) <= range); // the inflated box has corners; keep it a real radius
     }
 
-    /** The nearest thing you are looking straight at, if any. */
+    /** the nearest thing you are looking straight at, if any. */
     @Nullable
     private static LivingEntity entityInSight(ServerPlayer player) {
         LivingEntity best = null;
@@ -260,14 +267,14 @@ public final class CurseViolence extends Effect {
                 && player.hasLineOfSight(candidate);
     }
 
-    /** Picks the impulsive victim: highest priority tier first, then nearest (nudged by a lethal shove). */
+    /** picks the impulsive victim: highest priority tier first, then nearest (nudged by a lethal shove). */
     @Nullable
     private static LivingEntity pickVictim(ServerPlayer player) {
         List<LivingEntity> pool = candidates(player);
         if (pool.isEmpty()) {
             return null;
         }
-        // Every so often the urge ignores all of the above and just lashes out at whoever, for variety.
+        // every so often the urge ignores all of the above and just lashes out at whoever, for variety.
         if (player.getRandom().nextInt(100) < Config.VIOLENCE_RANDOM_TARGET_CHANCE_PERCENT.get()) {
             return pool.get(player.getRandom().nextInt(pool.size()));
         }
@@ -298,7 +305,7 @@ public final class CurseViolence extends Effect {
     }
 
     /**
-     * The pecking order, as tiers so the guarantees actually hold — multiplied weights can't promise
+     * the pecking order, as tiers so the guarantees actually hold — multiplied weights can't promise
      * "always", since a big enough product elsewhere would eventually overtake. Each trait is worth strictly
      * more than everything beneath it combined, so the ordering is exact:
      * <ul>
@@ -331,7 +338,7 @@ public final class CurseViolence extends Effect {
 
     // --- Hazards ---------------------------------------------------------------------------------------
 
-    /** Remembers how long each nearby entity has been standing somewhere it really shouldn't. */
+    /** remembers how long each nearby entity has been standing somewhere it really shouldn't. */
     private static void trackHazardPerches(ServerPlayer player, long now) {
         for (LivingEntity candidate : candidates(player)) {
             if (isPerchedDangerously(player.serverLevel(), candidate)) {
@@ -345,11 +352,11 @@ public final class CurseViolence extends Effect {
                 HAZARD_PERCHES.remove(candidate.getId());
             }
         }
-        // Drop anything we've stopped hearing about, so the map can't grow without bound.
+        // drop anything we've stopped hearing about, so the map can't grow without bound.
         HAZARD_PERCHES.values().removeIf(perch -> now - perch[1] > HAZARD_PERCH_FORGET_TICKS);
     }
 
-    /** Whether anything in reach has now been loitering somewhere dangerous for long enough to tempt fate. */
+    /** whether anything in reach has now been loitering somewhere dangerous for long enough to tempt fate. */
     private static boolean hasSustainedHazardPerch(ServerPlayer player) {
         long now = player.serverLevel().getGameTime();
         int sustain = Config.VIOLENCE_HAZARD_SUSTAIN_TICKS.get();
@@ -363,7 +370,7 @@ public final class CurseViolence extends Effect {
     }
 
     /**
-     * Whether the entity is loitering at the edge of something nasty — used for the sustained timer, so it's
+     * whether the entity is loitering at the edge of something nasty — used for the sustained timer, so it's
      * deliberately independent of where the cursed player happens to be standing.
      */
     private static boolean isPerchedDangerously(ServerLevel level, LivingEntity entity) {
@@ -384,7 +391,7 @@ public final class CurseViolence extends Effect {
     }
 
     /**
-     * Whether knocking {@code victim} back would send them off a ledge or into something that hurts. Vanilla
+     * whether knocking {@code victim} back would send them off a ledge or into something that hurts. Vanilla
      * knockback pushes directly away from the attacker, so this walks that line and looks for trouble.
      */
     private static boolean shoveEndsBadly(ServerPlayer player, LivingEntity victim) {
@@ -406,7 +413,7 @@ public final class CurseViolence extends Effect {
         return false;
     }
 
-    /** Lit TNT is an ENTITY, not a block, so it needs its own look — the block scan would never see it. */
+    /** lit TNT is an ENTITY, not a block, so it needs its own look — the block scan would never see it. */
     private static boolean litTntNear(ServerLevel level, Vec3 spot) {
         return !level.getEntitiesOfClass(PrimedTnt.class, new AABB(spot, spot).inflate(TNT_DANGER_RADIUS)).isEmpty();
     }
@@ -451,7 +458,7 @@ public final class CurseViolence extends Effect {
         try {
             ATTACK_STRENGTH_TICKER.setInt(player, value);
         } catch (IllegalAccessException ignored) {
-            // Non-fatal: the swing already happened, we just couldn't set the charge.
+            // non-fatal: the swing already happened, we just couldn't set the charge.
         }
     }
 

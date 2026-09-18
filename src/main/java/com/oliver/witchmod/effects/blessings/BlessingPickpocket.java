@@ -18,7 +18,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * Light fingers (master-spec Pickpocket, sacrificial item STRING). Standing right up against another player
+ * light fingers. Standing right up against another player
  * has a chance to quietly lift a random item out of their inventory and into yours — a chance that's
  * <b>greatly higher when you're behind them</b>. It prefers their backpack over their hotbar (so you rarely
  * grab what they're actively holding), gives you a quiet pickup sound when it lands, and simply <b>fails if
@@ -29,14 +29,14 @@ import com.oliver.witchmod.data.EffectUtil;
  * fair game; armour and offhand are left alone.
  */
 public final class BlessingPickpocket extends Effect {
-    /** Slots 0..8 of the inventory are the hotbar. */
+    /** slots 0..8 of the inventory are the hotbar. */
     private static final int HOTBAR_SLOTS = 9;
 
     public BlessingPickpocket() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.STRING);
     }
 
-    /** You find out you've got light fingers the first time you actually lift something (Rule 2). */
+    /** you find out you've got light fingers the first time you actually lift something (Rule 2). */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         double r = Config.PICKPOCKET_RADIUS.get();
@@ -77,6 +77,13 @@ public final class BlessingPickpocket extends Effect {
         double chance = Config.PICKPOCKET_BASE_CHANCE.get();
         if (isBehind(victim, thief)) {
             chance *= Config.PICKPOCKET_BEHIND_MULT.get();
+            // thievery synergies: even sneakier from behind — a form (prop/entity) beats being merely unseen.
+            if (thief.getData(com.oliver.witchmod.data.WitchModAttachments.PROPHUNT_BLOCK) >= 0
+                    || thief.getData(com.oliver.witchmod.data.WitchModAttachments.DISGUISE_TYPE) >= 0) {
+                chance *= Config.PICKPOCKET_DISGUISE_MULT.get();
+            } else if (com.oliver.witchmod.synergy.Synergies.THIEVING_SHADOW.activeFor(thief)) {
+                chance *= Config.PICKPOCKET_UNSEEN_MULT.get();
+            }
         }
         if (thief.getRandom().nextDouble() >= chance) {
             return;
@@ -98,7 +105,7 @@ public final class BlessingPickpocket extends Effect {
         Blessings.PICKPOCKET.get().markDiscoveredByVictim(thief); // discovered on the first successful lift
     }
 
-    /** True when the thief is in the victim's rear half — sneaking up from behind. */
+    /** true when the thief is in the victim's rear half — sneaking up from behind. */
     private static boolean isBehind(ServerPlayer victim, ServerPlayer thief) {
         Vec3 look = victim.getLookAngle();
         Vec3 toThief = thief.position().subtract(victim.position());

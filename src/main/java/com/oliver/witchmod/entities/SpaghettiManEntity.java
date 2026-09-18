@@ -17,10 +17,9 @@ import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.Level;
 
 /**
- * The Spaghetti Man (The Dweller curse). A tall, silent stalker driven ENTIRELY by {@code CurseTheDweller} —
- * no AI of its own; the curse owns its position, staging and behaviour. It's immortal, transient, phases
- * through walls, and — via the client render cancel — is only ever drawn for its VICTIM (whose UUID is synced
- * so every client can tell). Everyone else sees only the aftermath (broken doors, exploded animals).
+ * the spaghetti man (the dweller curse) — a tall silent stalker driven entirely by {@code CurseTheDweller}
+ * (no ai). immortal, transient, phases through walls, and only ever rendered for its victim (synced uuid);
+ * everyone else sees just the aftermath.
  */
 public final class SpaghettiManEntity extends PathfinderMob {
     private static final EntityDataAccessor<Optional<UUID>> VICTIM =
@@ -64,7 +63,7 @@ public final class SpaghettiManEntity extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
-        // It CANNOT use boats — and any boat it so much as touches during a HUNT is torn apart in a blast (a boat
+        // it CANNOT use boats — and any boat it so much as touches during a HUNT is torn apart in a blast (a boat
         // is no escape). Gated on physics/chase mode (!noPhysics): while it's the floaty watch/bed illusion it
         // never explodes anything, so a bed vigil can never set off a blast.
         if (!level().isClientSide && !this.noPhysics) {

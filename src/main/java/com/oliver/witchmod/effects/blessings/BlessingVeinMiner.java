@@ -23,7 +23,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * Vein Miner (sacrificial item IRON ORE). Break an ORE or a LOG and the whole connected vein / tree comes
+ * vein Miner (sacrificial item IRON ORE). Break an ORE or a LOG and the whole connected vein / tree comes
  * down at once (combines vein-mining AND timber). Each extra block costs HALF the durability a manual break
  * would, so a big haul still wears the tool, just gently.
  *
@@ -33,20 +33,20 @@ import com.oliver.witchmod.effects.Blessings;
  * boosts them too — exactly like a manual break.
  */
 public final class BlessingVeinMiner extends Effect {
-    /** Guards against the flood-fill re-triggering the break event on the blocks it removes. */
+    /** guards against the flood-fill re-triggering the break event on the blocks it removes. */
     private static final ThreadLocal<Boolean> BUSY = ThreadLocal.withInitial(() -> false);
 
     public BlessingVeinMiner() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.IRON_ORE);
     }
 
-    /** Not instantly noticeable — you discover it the first time a vein/tree comes down in one break. */
+    /** not instantly noticeable — you discover it the first time a vein/tree comes down in one break. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Called from the block-break event: if the broken block is an ore/log, fell the whole connected mass. */
+    /** called from the block-break event: if the broken block is an ore/log, fell the whole connected mass. */
     public static void onBreak(ServerPlayer player, ServerLevel level, BlockPos origin, BlockState state) {
         if (BUSY.get()) {
             return;
@@ -75,7 +75,7 @@ public final class BlessingVeinMiner extends Effect {
                             continue;
                         }
                         BlockState ns = level.getBlockState(np);
-                        // Trees connect through ANY log; a vein connects through the SAME ore block.
+                        // trees connect through ANY log; a vein connects through the SAME ore block.
                         boolean match = log ? ns.is(BlockTags.LOGS) : ns.is(state.getBlock());
                         if (match) {
                             found.add(np);
@@ -113,7 +113,7 @@ public final class BlessingVeinMiner extends Effect {
         Blessings.VEIN_MINER.get().markDiscoveredByVictim(player);
     }
 
-    /** Cool per-block break FX: the block's own crack dust plus a sparkle of enchant/crit. */
+    /** cool per-block break FX: the block's own crack dust plus a sparkle of enchant/crit. */
     private static void blockFx(ServerLevel level, BlockState state, BlockPos p) {
         double x = p.getX() + 0.5, y = p.getY() + 0.5, z = p.getZ() + 0.5;
         level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(

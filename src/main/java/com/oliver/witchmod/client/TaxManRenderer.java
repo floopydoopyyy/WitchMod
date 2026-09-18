@@ -14,7 +14,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.TaxManEntity;
 
 /**
- * Draws the Tax Man as a humanoid in a player skin.
+ * draws the Tax Man as a humanoid in a player skin.
  *
  * <p>Uses vanilla's {@link PlayerModel} rather than a bespoke model so he reads unmistakably as a person
  * rather than a mob — which is what makes an unkillable bureaucrat standing in your base unsettling instead
@@ -38,7 +38,7 @@ public final class TaxManRenderer extends HumanoidMobRenderer<TaxManEntity, Play
                 context.getModelManager()));
     }
 
-    /** Wide (Steve) arms — the layer definition the renderer bakes. */
+    /** wide (Steve) arms — the layer definition the renderer bakes. */
     public static LayerDefinition createBodyLayer() {
         return LayerDefinition.create(PlayerModel.createMesh(CubeDeformation.NONE, false), 64, 64);
     }

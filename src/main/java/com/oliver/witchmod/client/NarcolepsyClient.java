@@ -19,7 +19,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * Narcolepsy (client half): while the synced {@link WitchModAttachments#NARCOLEPSY_SLEEP_END} is in the
+ * narcolepsy (client half): while the synced {@link WitchModAttachments#NARCOLEPSY_SLEEP_END} is in the
  * future you're asleep — ALL input is dead, the screen goes almost black, and a "MASH TO WAKE" bar shows how
  * close you are to fighting free. The bar constantly drains ({@code DECAY}), so you have to hammer the
  * movement keys faster than it falls — a little struggle each time. Reaching full sends
@@ -40,27 +40,27 @@ public final class NarcolepsyClient {
     private static net.minecraft.client.CameraType savedCamera; // camera to restore on waking
     private static float lastHealth; // to detect a hit landing while asleep (fills the bar)
 
-    /** Raw depth attachment: low digit = tier (0/1/2), +10 = debug third-person sleep. */
+    /** raw depth attachment: low digit = tier (0/1/2), +10 = debug third-person sleep. */
     private static int sleepDepthRaw() {
         Minecraft mc = Minecraft.getInstance();
         return mc.player == null ? 0 : mc.player.getData(WitchModAttachments.NARCOLEPSY_DEPTH);
     }
 
-    /** Sleep depth tier (0 normal / 1 deep / 2 very deep) — deeper needs more mashing. */
+    /** sleep depth tier (0 normal / 1 deep / 2 very deep) — deeper needs more mashing. */
     private static int depthTier() {
         return sleepDepthRaw() % 10;
     }
 
-    /** Debug "watch in third person" sleep. */
+    /** debug "watch in third person" sleep. */
     private static boolean thirdPersonDebug() {
         return sleepDepthRaw() >= 10;
     }
-    // Previous down-state of each mashable key, to detect fresh presses (up -> down).
+    // previous down-state of each mashable key, to detect fresh presses (up -> down).
     private static boolean pUp, pDown, pLeft, pRight, pJump, pAttack, pUse;
 
     private NarcolepsyClient() {}
 
-    /** True while the local player is in a narcoleptic sleep. */
+    /** true while the local player is in a narcoleptic sleep. */
     public static boolean isSleeping() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) {
@@ -74,7 +74,7 @@ public final class NarcolepsyClient {
     private static final java.util.Set<java.util.UUID> FAKED = new java.util.HashSet<>();
 
     /**
-     * Render OTHER narcoleptic players lying down — purely client-side (the server no longer sleeps them, so
+     * render OTHER narcoleptic players lying down — purely client-side (the server no longer sleeps them, so
      * their physics stay normal). We set the SLEEPING pose + sleeping-pos on their RemotePlayer; the server
      * keeps them standing and never sends a pose change, so our fake holds until they wake.
      */
@@ -114,20 +114,20 @@ public final class NarcolepsyClient {
         boolean sleeping = isSleeping();
 
         if (sleeping && !wasSleeping) {
-            // Just nodded off — reset the struggle, pin where we were looking, and drop into first person ONCE.
+            // just nodded off — reset the struggle, pin where we were looking, and drop into first person ONCE.
             wakeProgress = 0F;
             sentWake = false;
             pinnedYaw = player.getYRot();
             pinnedPitch = player.getXRot();
             lastHealth = player.getHealth();
             savedCamera = mc.options.getCameraType();
-            // Normally first person (steady view); the debug third-person sleep lets you watch your own lie-down.
+            // normally first person (steady view); the debug third-person sleep lets you watch your own lie-down.
             mc.options.setCameraType(thirdPersonDebug()
                     ? net.minecraft.client.CameraType.THIRD_PERSON_BACK
                     : net.minecraft.client.CameraType.FIRST_PERSON);
         }
         if (!sleeping && wasSleeping) {
-            // Just woke — restore the camera the player had before, and drop any debug lie-down pose.
+            // just woke — restore the camera the player had before, and drop any debug lie-down pose.
             if (savedCamera != null) {
                 mc.options.setCameraType(savedCamera);
                 savedCamera = null;
@@ -147,7 +147,7 @@ public final class NarcolepsyClient {
             return;
         }
 
-        // Freeze the look direction (so nothing banks up while asleep). The lying-down POSE is set server-side
+        // freeze the look direction (so nothing banks up while asleep). The lying-down POSE is set server-side
         // only — forcing it on the local model too was what battled the server and made the camera glitchy.
         player.setYRot(pinnedYaw);
         player.setXRot(pinnedPitch);
@@ -155,21 +155,21 @@ public final class NarcolepsyClient {
         player.xRotO = pinnedPitch;
         player.setYHeadRot(pinnedYaw);
 
-        // Debug third-person: force the LOCAL player to lie down too, re-asserted each tick (vanilla's own
+        // debug third-person: force the LOCAL player to lie down too, re-asserted each tick (vanilla's own
         // updatePlayerPose keeps SLEEPING while a sleeping-pos is set), so you can watch the animation yourself.
         if (thirdPersonDebug()) {
             player.setSleepingPos(player.blockPosition());
             localPosed = true;
         }
 
-        // Taking a hit jolts you toward waking — fill 40% of the bar per point of health lost this tick.
+        // taking a hit jolts you toward waking — fill 40% of the bar per point of health lost this tick.
         float hp = player.getHealth();
         if (hp < lastHealth) {
             wakeProgress += 0.4F;
         }
         lastHealth = hp;
 
-        // Count fresh presses of any movement key OR attack/use (left/right click) as mashing.
+        // count fresh presses of any movement key OR attack/use (left/right click) as mashing.
         int presses = 0;
         presses += freshPress(mc.options.keyUp, pUp) ? 1 : 0;
         presses += freshPress(mc.options.keyDown, pDown) ? 1 : 0;
@@ -186,7 +186,7 @@ public final class NarcolepsyClient {
         pAttack = mc.options.keyAttack.isDown();
         pUse = mc.options.keyUse.isDown();
 
-        // Deeper sleeps need MORE mashing: each press gives less, and the drain is a touch stronger.
+        // deeper sleeps need MORE mashing: each press gives less, and the drain is a touch stronger.
         int tier = depthTier();
         float pressScale = tier == 2 ? 0.42F : (tier == 1 ? 0.62F : 1.0F);
         float decayScale = tier == 2 ? 1.30F : (tier == 1 ? 1.15F : 1.0F);
@@ -204,7 +204,7 @@ public final class NarcolepsyClient {
         return key.isDown() && !prevDown;
     }
 
-    /** Kill all movement input while asleep. */
+    /** kill all movement input while asleep. */
     @SubscribeEvent
     static void onMovementInput(MovementInputUpdateEvent event) {
         if (isSleeping()) {
@@ -219,7 +219,7 @@ public final class NarcolepsyClient {
         }
     }
 
-    /** Block attack / use / pick while asleep. */
+    /** block attack / use / pick while asleep. */
     @SubscribeEvent
     static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
         if (isSleeping()) {
@@ -227,7 +227,7 @@ public final class NarcolepsyClient {
         }
     }
 
-    /** Pin the rendered view so the camera doesn't drift between ticks. */
+    /** pin the rendered view so the camera doesn't drift between ticks. */
     @SubscribeEvent
     static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         if (isSleeping()) {
@@ -236,7 +236,7 @@ public final class NarcolepsyClient {
         }
     }
 
-    /** The near-black "asleep" wash + the drain-to-lose MASH bar. */
+    /** the near-black "asleep" wash + the drain-to-lose MASH bar. */
     @SubscribeEvent
     static void onRenderGui(RenderGuiEvent.Post event) {
         if (!isSleeping()) {
@@ -246,7 +246,7 @@ public final class NarcolepsyClient {
         int w = g.guiWidth();
         int h = g.guiHeight();
 
-        // Vignette wash: lighter in the middle (you can just make out your surroundings), darker toward the
+        // vignette wash: lighter in the middle (you can just make out your surroundings), darker toward the
         // edges. Approximated with concentric frames whose darkness ramps up outward.
         int tier = depthTier();
         int baseAlpha = tier == 2 ? 0x55 : (tier == 1 ? 0x44 : 0x33); // deeper sleeps darken the wash
@@ -269,14 +269,14 @@ public final class NarcolepsyClient {
 
         // "MASH TO WAKE" prompt.
         Minecraft mc = Minecraft.getInstance();
-        // Translatable so the text on each screen can be edited in the lang file.
+        // translatable so the text on each screen can be edited in the lang file.
         String key = tier == 2 ? "witchmod.narcolepsy.mash_very_deep"
                 : (tier == 1 ? "witchmod.narcolepsy.mash_deep" : "witchmod.narcolepsy.mash");
         net.minecraft.network.chat.Component prompt = net.minecraft.network.chat.Component.translatable(key);
         int tw = mc.font.width(prompt);
         g.drawString(mc.font, prompt, w / 2 - tw / 2, h / 2 - 24, 0xFFDDDDDD, true);
 
-        // The struggle bar.
+        // the struggle bar.
         int barW = 180;
         int barH = 12;
         int bx = w / 2 - barW / 2;
@@ -284,7 +284,7 @@ public final class NarcolepsyClient {
         g.fill(bx - 2, by - 2, bx + barW + 2, by + barH + 2, 0xFF101010);
         g.fill(bx, by, bx + barW, by + barH, 0xFF2A2A2A);
         int fill = (int) (barW * wakeProgress);
-        // Colour shifts from red (far) to green (nearly free).
+        // colour shifts from red (far) to green (nearly free).
         int colour = wakeProgress > 0.66F ? 0xFF66E060 : (wakeProgress > 0.33F ? 0xFFE0C040 : 0xFFE05040);
         g.fill(bx, by, bx + fill, by + barH, colour);
     }

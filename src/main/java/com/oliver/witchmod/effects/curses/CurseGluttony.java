@@ -18,7 +18,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * You're always hungry, and it shows — literally (master-spec Gluttony). The player is rendered wider and
+ * you're always hungry, and it shows — literally. The player is rendered wider and
  * carries a second hunger row, but the two rows are <b>ONE BIG 40-POINT BAR</b>, not two separate meters:
  *
  * <ul>
@@ -37,10 +37,10 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class CurseGluttony extends Effect {
     public static final int EXTRA_MAX = 20;
-    /** Vanilla's own bar length — the lower half of the combined bar. */
+    /** vanilla's own bar length — the lower half of the combined bar. */
     private static final int VANILLA_MAX = 20;
     /**
-     * Where the vanilla half is held while there's still reserve above it — deliberately ONE POINT SHORT of
+     * where the vanilla half is held while there's still reserve above it — deliberately ONE POINT SHORT of
      * full. Vanilla gates eating on {@code FoodData.needsFood()}, which is simply {@code foodLevel < 20}, so
      * holding the lower half at a true 20 makes the game think you're full and <b>refuses every food item</b>
      * until the reserve runs dry. Sitting at 19 keeps you permanently able to eat, and costs half a drumstick
@@ -73,7 +73,7 @@ public final class CurseGluttony extends Effect {
         if (extra < 0) {
             extra = EXTRA_MAX; // self-heal (relog — onApply doesn't re-run)
         }
-        // The SCALE modifier is TRANSIENT, so a world reload drops it while the curse itself persists —
+        // the SCALE modifier is TRANSIENT, so a world reload drops it while the curse itself persists —
         // you'd come back the wrong size. onApply never re-runs, so re-apply it here if it's gone.
         AttributeInstance scale = target.getAttribute(Attributes.SCALE);
         if (scale != null && !scale.hasModifier(SCALE_MODIFIER_ID)) {
@@ -103,13 +103,13 @@ public final class CurseGluttony extends Effect {
         // which is why the cutoff appeared to do nothing and vanilla's own 6-point rule was all that applied.
     }
 
-    /** Total of both halves, 0..40. */
+    /** total of both halves, 0..40. */
     public static int combined(ServerPlayer player) {
         int extra = Math.max(0, player.getData(WitchModAttachments.GLUTTONY_HUNGER));
         return player.getFoodData().getFoodLevel() + extra;
     }
 
-    /** Spills eating overflow into the extra row (clamped). No-op while the curse isn't active. */
+    /** spills eating overflow into the extra row (clamped). No-op while the curse isn't active. */
     public static void feed(ServerPlayer player, int overflow) {
         int extra = player.getData(WitchModAttachments.GLUTTONY_HUNGER);
         if (extra < 0 || overflow <= 0) {

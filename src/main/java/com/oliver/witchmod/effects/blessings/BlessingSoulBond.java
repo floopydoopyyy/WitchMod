@@ -25,8 +25,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModMobEffects;
 
 /**
- * You are spiritually tethered to whoever is nearest (master-spec Soul Bond, sacrificial item TOTEM OF
- * UNDYING). The nearest living thing within {@code soulBondRadius} is marked with the {@code Soul Bound}
+ * you are spiritually tethered to whoever is nearest. The nearest living thing within {@code soulBondRadius} is marked with the {@code Soul Bound}
  * status effect and wreathed in constant golden particles; while bound, it takes {@code soulBondDamageShare}
  * (40%) of every hit YOU take, in your place, and a golden trail flicks out from you to it so everyone sees
  * who paid.
@@ -43,23 +42,23 @@ public final class BlessingSoulBond extends Effect {
     /** caster -> the entity id it currently has bound, so the bond can move and be cleaned up. */
     private static final Map<UUID, Integer> BOUND = new HashMap<>();
 
-    /** Gold, matching the Totem of Undying and the trail. */
+    /** gold, matching the Totem of Undying and the trail. */
     public static final DustParticleOptions GOLD =
             new DustParticleOptions(new Vector3f(1.0F, 0.82F, 0.24F), 1.0F);
 
     public BlessingSoulBond() {
-        // Moved off Totem of Undying onto Enchanted Golden Apple (Last Stand's old item) — Oliver's call —
+        // moved off Totem of Undying onto Enchanted Golden Apple (Last Stand's old item) — Oliver's call —
         // so Last Stand can take the thematically-fitting Totem; clean 1:1 swap, both stay castable (§11).
-        super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 63, () -> Items.ENCHANTED_GOLDEN_APPLE);
+        super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 63, () -> Items.GOLD_BLOCK);
     }
 
-    /** You find out the first time your bond actually takes a share of a hit for you (Rule 2). */
+    /** you find out the first time your bond actually takes a share of a hit for you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** The living entity {@code caster} currently has bound, or null if none (out of range / gone). */
+    /** the living entity {@code caster} currently has bound, or null if none (out of range / gone). */
     @Nullable
     public static LivingEntity boundEntity(ServerLevel level, ServerPlayer caster) {
         Integer id = BOUND.get(caster.getUUID());
@@ -78,7 +77,7 @@ public final class BlessingSoulBond extends Effect {
     public void onTick(ServerPlayer target, int ticksRemaining) {
         ServerLevel level = target.serverLevel();
 
-        // The bond STICKS: only re-pick when the current bound is gone or has left the radius entirely, so it
+        // the bond STICKS: only re-pick when the current bound is gone or has left the radius entirely, so it
         // doesn't just snap to whoever hit you last (which would make it a worse Thorns). A bound that stays
         // in range keeps the tether however close someone else gets.
         if (ticksRemaining % Config.SOULBOND_REBIND_INTERVAL.get() == 0) {
@@ -98,7 +97,7 @@ public final class BlessingSoulBond extends Effect {
             }
         }
 
-        // Keep the marker refreshed and pour the constant golden particles onto the bound entity.
+        // keep the marker refreshed and pour the constant golden particles onto the bound entity.
         LivingEntity bound = boundEntity(level, target);
         if (bound != null) {
             int refresh = Config.SOULBOND_REBIND_INTERVAL.get() + 40;
@@ -114,11 +113,11 @@ public final class BlessingSoulBond extends Effect {
         double radius = Config.SOULBOND_RADIUS.get();
         AABB area = caster.getBoundingBox().inflate(radius);
         return level.getEntitiesOfClass(LivingEntity.class, area, e -> isBindable(e, caster)).stream()
-                .min(Comparator.comparingDouble(e -> e.distanceToSqr(caster)))
-                .orElse(null);
+.min(Comparator.comparingDouble(e -> e.distanceToSqr(caster)))
+.orElse(null);
     }
 
-    /** Anything alive that isn't the caster, an armour stand, or a spectator. */
+    /** anything alive that isn't the caster, an armour stand, or a spectator. */
     private static boolean isBindable(LivingEntity entity, ServerPlayer caster) {
         if (entity == caster || !entity.isAlive() || entity instanceof ArmorStand) {
             return false;

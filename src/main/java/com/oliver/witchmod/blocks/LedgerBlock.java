@@ -32,16 +32,14 @@ import com.oliver.witchmod.data.LedgerLog;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * A lectern-style read-only block (CLAUDE.md section 2.3). Right-clicking opens a custom Ledger screen listing
- * every ritual — landed or blocked — that happened within the block's configurable range
- * ({@link Config#LEDGER_RANGE}), newest first, with the modifier used. When an attachment is logged nearby the
- * block reacts with particle feedback ({@link LedgerFeedback}).
+ * a lectern-style read-only block — right-click opens a screen of nearby ritual activity (landed or blocked)
+ * within {@link Config#LEDGER_RANGE}, newest first. nearby casts pulse particle feedback ({@link LedgerFeedback}).
  *
  * <p>Uses the vanilla lectern MODEL (to be reskinned via its own witchmod textures); it is deliberately NOT a
  * {@code LecternBlock} subclass — that brings book-holding/redstone machinery this doesn't need.
  */
 public final class LedgerBlock extends Block implements EntityBlock {
-    /** Directional like a lectern, so the 3D book on top faces the reader (matches the lectern's book pose). */
+    /** directional like a lectern, so the 3D book on top faces the reader (matches the lectern's book pose). */
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     public LedgerBlock(Properties properties) {

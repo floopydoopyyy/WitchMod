@@ -26,7 +26,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * A joke at the expense of one of Minecraft's most reflexive habits (master-spec Slippery Feet). Everyone
+ * A joke at the expense of one of Minecraft's most reflexive habits. Everyone
  * sneaks up to an edge to look over, trusting vanilla not to let them fall. This curse breaks that trust,
  * with a slide whistle.
  *
@@ -49,7 +49,7 @@ import com.oliver.witchmod.data.WitchModSounds;
  * notice.
  */
 public final class CurseSlipperyFeet extends Effect {
-    /** How long each victim has been crouched over an edge, and the grace period rolled for this stint. */
+    /** how long each victim has been crouched over an edge, and the grace period rolled for this stint. */
     private static final Map<UUID, Integer> CROUCH_TICKS = new HashMap<>();
     private static final Map<UUID, Integer> CROUCH_LIMIT = new HashMap<>();
 
@@ -57,7 +57,7 @@ public final class CurseSlipperyFeet extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.ICE);
     }
 
-    /** You find out the first time your feet go out from under you (Rule 2). */
+    /** you find out the first time your feet go out from under you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -108,7 +108,7 @@ public final class CurseSlipperyFeet extends Effect {
         }
         clear(target);
 
-        // Merely standing near it: a long shot, rolled on an interval rather than every tick.
+        // merely standing near it: a long shot, rolled on an interval rather than every tick.
         if (target.tickCount % Config.SLIPPERY_CHECK_INTERVAL.get() != 0) {
             return;
         }
@@ -117,7 +117,7 @@ public final class CurseSlipperyFeet extends Effect {
         }
     }
 
-    /** The guaranteed one. Vanilla is holding you back from the drop; this counts down until it doesn't. */
+    /** the guaranteed one. Vanilla is holding you back from the drop; this counts down until it doesn't. */
     private void crouchingOverEdge(ServerPlayer target, Vec3 edge) {
         UUID id = target.getUUID();
         int limit = CROUCH_LIMIT.computeIfAbsent(id, key -> {
@@ -125,6 +125,10 @@ public final class CurseSlipperyFeet extends Effect {
             int max = Math.max(min, Config.SLIPPERY_CROUCH_MAX_TICKS.get());
             return min + target.getRandom().nextInt(max - min + 1);
         });
+        // slick_feet synergy (with Ice Skates): even more treacherous — the grace period is halved.
+        if (com.oliver.witchmod.synergy.Synergies.SLICK_FEET.activeFor(target)) {
+            limit = Math.max(1, limit / 2);
+        }
         int elapsed = CROUCH_TICKS.merge(id, 1, Integer::sum);
         if (elapsed >= limit) {
             slip(target, edge);
@@ -132,7 +136,7 @@ public final class CurseSlipperyFeet extends Effect {
         }
     }
 
-    /** Whistle, shove, and a puff of ice crystals for the benefit of anyone watching. */
+    /** whistle, shove, and a puff of ice crystals for the benefit of anyone watching. */
     private void slip(ServerPlayer target, Vec3 edge) {
         ServerLevel level = target.serverLevel();
         Vec3 away = edge.subtract(target.position());
@@ -143,8 +147,8 @@ public final class CurseSlipperyFeet extends Effect {
         push = push.normalize().scale(Config.SLIPPERY_PUSH_FORCE.get());
 
         target.setDeltaMovement(target.getDeltaMovement()
-                .add(push.x, Config.SLIPPERY_PUSH_LIFT.get(), push.z));
-        // Without this the server never sends the velocity down and the victim doesn't budge on their screen.
+.add(push.x, Config.SLIPPERY_PUSH_LIFT.get(), push.z));
+        // without this the server never sends the velocity down and the victim doesn't budge on their screen.
         target.hurtMarked = true;
         target.hasImpulse = true;
 
@@ -157,7 +161,7 @@ public final class CurseSlipperyFeet extends Effect {
     }
 
     /**
-     * The nearest neighbouring column worth falling into — a real drop, or something nasty at foot level.
+     * the nearest neighbouring column worth falling into — a real drop, or something nasty at foot level.
      * Returns its centre, or null if the player is standing somewhere perfectly safe.
      */
     @Nullable
@@ -189,7 +193,7 @@ public final class CurseSlipperyFeet extends Effect {
         return best;
     }
 
-    /** Nothing solid for a few blocks under this column, and nothing solid to walk onto in it either. */
+    /** nothing solid for a few blocks under this column, and nothing solid to walk onto in it either. */
     private static boolean isDrop(ServerLevel level, BlockPos column) {
         if (!level.getBlockState(column).getCollisionShape(level, column).isEmpty()) {
             return false; // there's a block here at foot height — that's a step up, not a ledge
@@ -203,7 +207,7 @@ public final class CurseSlipperyFeet extends Effect {
         return true;
     }
 
-    /** Something you would very much rather not be shoved sideways into. */
+    /** something you would very much rather not be shoved sideways into. */
     private static boolean isHazard(ServerLevel level, BlockPos column) {
         for (int dy = 0; dy >= -1; dy--) {
             BlockPos pos = column.offset(0, dy, 0);

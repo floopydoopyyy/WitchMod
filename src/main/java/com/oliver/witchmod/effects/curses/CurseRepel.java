@@ -23,7 +23,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Your stuff wants nothing to do with you (master-spec Repel). Dropped items and XP orbs on the floor near
+ * your stuff wants nothing to do with you. Dropped items and XP orbs on the floor near
  * you slide slowly AWAY — slow enough to chase down at a sprint — and steer themselves toward the nastiest
  * thing they can reach, but ONLY ever in a direction that still points away from you (they'll never come
  * toward you to reach a ledge).
@@ -37,7 +37,7 @@ public final class CurseRepel extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.WATER_BUCKET);
     }
 
-    /** You find out the moment your things start crawling off (Rule 2). */
+    /** you find out the moment your things start crawling off (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -64,12 +64,12 @@ public final class CurseRepel extends Effect {
         }
     }
 
-    /** Sets the entity's horizontal velocity along its chosen away/hazard direction. */
+    /** sets the entity's horizontal velocity along its chosen away/hazard direction. */
     private static boolean slideAway(ServerLevel level, ServerPlayer target, Entity entity) {
         Vec3 away = entity.position().subtract(target.position());
         Vec3 awayFlat = new Vec3(away.x, 0.0, away.z);
         if (awayFlat.lengthSqr() < 1.0E-4) {
-            // Sitting right on the player — shove it off in a random horizontal direction.
+            // sitting right on the player — shove it off in a random horizontal direction.
             double a = target.getRandom().nextDouble() * Math.PI * 2.0;
             awayFlat = new Vec3(Math.cos(a), 0.0, Math.sin(a));
         }
@@ -84,7 +84,7 @@ public final class CurseRepel extends Effect {
     }
 
     /**
-     * Picks the slide direction: the highest-priority hazard whose direction from the item still points away
+     * picks the slide direction: the highest-priority hazard whose direction from the item still points away
      * from the victim, else straight away. Everything returned is a horizontal unit vector in the away
      * half-space.
      */
@@ -115,7 +115,7 @@ public final class CurseRepel extends Effect {
         return awayDir;
     }
 
-    /** Nearest entity of a class whose direction from the item still points away; null if none qualify. */
+    /** nearest entity of a class whose direction from the item still points away; null if none qualify. */
     @Nullable
     private static Vec3 towardNearestEntity(ServerLevel level, Entity item, Vec3 awayDir,
                                             Class<? extends Entity> type, double radius) {
@@ -135,7 +135,7 @@ public final class CurseRepel extends Effect {
         return best;
     }
 
-    /** Nearest lava (or cactus) block whose direction from the item still points away; coarse grid scan. */
+    /** nearest lava (or cactus) block whose direction from the item still points away; coarse grid scan. */
     @Nullable
     private static Vec3 towardNearestBlock(ServerLevel level, Vec3 itemPos, Vec3 awayDir, double radius, boolean lava) {
         Vec3 best = null;
@@ -185,7 +185,7 @@ public final class CurseRepel extends Effect {
         return best;
     }
 
-    /** True if the column at {@code pos} has {@code repelLedgeDropMin} clear blocks straight down. */
+    /** true if the column at {@code pos} has {@code repelLedgeDropMin} clear blocks straight down. */
     private static boolean isDrop(ServerLevel level, BlockPos pos) {
         for (int depth = 0; depth <= Config.REPEL_LEDGE_DROP_MIN.get(); depth++) {
             if (!level.getBlockState(pos.below(depth)).getCollisionShape(level, pos.below(depth)).isEmpty()) {
@@ -195,7 +195,7 @@ public final class CurseRepel extends Effect {
         return true;
     }
 
-    /** Horizontal unit vector from {@code from} to {@code to}, or null if they're on the same column. */
+    /** horizontal unit vector from {@code from} to {@code to}, or null if they're on the same column. */
     @Nullable
     private static Vec3 flatDirTo(Vec3 from, Vec3 to) {
         Vec3 flat = new Vec3(to.x - from.x, 0.0, to.z - from.z);

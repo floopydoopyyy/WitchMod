@@ -7,7 +7,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * You know your way around an anvil. Repairs and enchants come cheap.
+ * you know your way around an anvil. Repairs and enchants come cheap.
  *
  * <p>The anvil cost reduction (and lifting the "Too Expensive!" cap) is applied in
  * {@link com.oliver.witchmod.effects.BlessingEventHandler} via the anvil-update event. This class only

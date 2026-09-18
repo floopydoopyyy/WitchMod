@@ -3,8 +3,8 @@ package com.oliver.witchmod;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * CLIENT-only config — purely visual/local preferences that belong on the machine doing the rendering, not
- * synced from a server. Lives in {@code config/witchmod-client.toml}; applies without a world reload.
+ * client-only config — visual/local preferences that live on the rendering machine, not synced from a server.
+ * in {@code config/witchmod-client.toml}; applies without a world reload.
  */
 public final class ClientConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();

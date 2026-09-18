@@ -17,14 +17,8 @@ import com.oliver.witchmod.blocks.BewitchingTableRitual;
 import com.oliver.witchmod.blocks.WitchModBlocks;
 
 /**
- * The real Bewitching Table screen's menu (CLAUDE.md section 2.1/9), replacing the Phase 4 placeholder's
- * direct block-right-click interaction. Triangle layout: top = Player Essence, lower-left = Cursed
- * Essence, lower-right = Sacrificial Item; Modifier slot to the left of the triangle.
- *
- * <p>Casting is a vanilla container button click (the same built-in mechanism the Enchanting Table, Loom,
- * and Stonecutter use for server-authoritative GUI actions) rather than a hand-rolled payload — no custom
- * network code needed since NeoForge/vanilla already provide this exact hook for "GUI button needs
- * server-side logic."
+ * the ritual table's container menu — 4 ritual slots in a triangle plus the player inventory. casting is
+ * driven by a c2s payload; clickMenuButton is kept as a vanilla-button fallback (server-side only).
  */
 public final class BewitchingTableMenu extends AbstractContainerMenu {
     public static final int BUTTON_CAST = 0;
@@ -36,13 +30,13 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
     private final BlockPos pos;
 
-    /** Client-side reconstruction (CLAUDE.md's "payloading should be utilised" note — see {@link WitchModMenus}). */
+    /** client-side reconstruction from the open packet. */
     public BewitchingTableMenu(int windowId, Inventory playerInventory, BlockPos pos) {
         this(windowId, playerInventory, new SimpleContainer(RITUAL_SLOT_COUNT),
                 ContainerLevelAccess.create(playerInventory.player.level(), pos), pos);
     }
 
-    /** Server-side, opened from {@link com.oliver.witchmod.blocks.BewitchingTableBlock}. */
+    /** server-side, opened from the block. */
     public BewitchingTableMenu(int windowId, Inventory playerInventory, BewitchingTableBlockEntity table) {
         this(windowId, playerInventory, table, ContainerLevelAccess.create(table.getLevel(), table.getBlockPos()), table.getBlockPos());
     }
@@ -53,16 +47,14 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
         this.access = access;
         this.pos = pos;
 
-        // ⚠ Slots are added in CONTAINER-INDEX order (0..3) so that this.slots.get(SLOT_*) matches the block
-        // entity's slot index — the client screen and the server ritual both index by those constants, and a
-        // mismatched order silently swaps the sacrificial/essence slots. Positions form a ritual layout: the
-        // Sacrificial focus in the middle, Cursed Essence feeding up from below, target + modifier up top.
+        // slots must be added in container-index order (0..3) so slots.get(SLOT_*) matches the block entity's
+        // index — a mismatched order silently swaps the sacrificial/essence slots
         addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_PLAYER_ESSENCE, 43, 48, RitualSlot.Kind.PLAYER_ESSENCE));
         addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_SACRIFICIAL_ITEM, 79, 35, RitualSlot.Kind.SACRIFICIAL_ITEM));
         addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_CURSED_ESSENCE, 79, 64, RitualSlot.Kind.CURSED_ESSENCE));
         addSlot(new RitualSlot(table, BewitchingTableBlockEntity.SLOT_MODIFIER, 115, 48, RitualSlot.Kind.MODIFIER));
 
-        // Player inventory + hotbar, pushed down to clear the stretched ritual/bar/button area.
+        // player inventory + hotbar, pushed down to clear the ritual/bar/button area
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 145 + row * 18));
@@ -73,7 +65,7 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
         }
     }
 
-    /** The table's world position — used client-side for ambient particles above the block. */
+    /** the table's world position — used client-side for ambient particles. */
     public BlockPos pos() {
         return pos;
     }
@@ -83,12 +75,7 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
         return stillValid(access, player, WitchModBlocks.BEWITCHING_TABLE.get());
     }
 
-    /**
-     * The Cast button. Runs for real only on the server call (a genuine {@link ServerPlayer} arriving via
-     * {@code ServerboundContainerButtonClickPacket}) — the client's own immediate call to this method
-     * (see {@code BewitchingTableScreen}) always sees a {@code LocalPlayer} here and no-ops, so the ritual
-     * never double-executes or runs client-side.
-     */
+    /** cast button fallback — only runs for a real server player, so the ritual never runs client-side. */
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (id != BUTTON_CAST || !(player instanceof ServerPlayer serverPlayer) || !(table instanceof BewitchingTableBlockEntity real)) {
@@ -131,8 +118,7 @@ public final class BewitchingTableMenu extends AbstractContainerMenu {
 
     private int resolveRitualSlot(ItemStack stack) {
         for (int i = 0; i < RITUAL_SLOT_COUNT; i++) {
-            // Route a shift-clicked item only to the slot it actually belongs in (mayPlace now accepts anything
-            // for the red-highlight UX, so it can't be the router).
+            // route a shift-click only to the slot it belongs in (mayPlace accepts anything, so isCorrect routes)
             if (this.slots.get(i) instanceof RitualSlot ritual && ritual.isCorrect(stack)) {
                 return i;
             }

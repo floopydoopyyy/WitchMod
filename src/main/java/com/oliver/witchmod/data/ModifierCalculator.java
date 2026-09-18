@@ -5,10 +5,8 @@ import org.jetbrains.annotations.Nullable;
 import com.oliver.witchmod.Config;
 
 /**
- * The Section 5.7 success/backfire formulas plus modifier deltas, as standalone functions so the
- * Bewitching Table (Phase 4) can consume them directly without any Table-specific plumbing. The formula's
- * own constants (floor/span/cap/backfire-start) are read from {@link Config} live rather than hardcoded
- * (Phase 6), so a server admin can rebalance the whole curve without a code change.
+ * the success/backfire formulas + modifier deltas as standalone functions, so the table's live odds preview
+ * and the server's resolution share one path. the curve constants are read live from {@link Config}.
  */
 public final class ModifierCalculator {
     private ModifierCalculator() {}
@@ -25,7 +23,7 @@ public final class ModifierCalculator {
         if (modifier == null) {
             return baseDurationTicks;
         }
-        // Compass overrides the whole duration; everything else is a % delta plus any flat bonus (Clock/Bell).
+        // compass/clock override the whole duration; everything else is a % delta plus any flat bonus
         if (modifier.fixedDurationTicks().isPresent()) {
             return modifier.fixedDurationTicks().getAsInt();
         }
@@ -33,7 +31,7 @@ public final class ModifierCalculator {
         return scaled + modifier.flatDurationBonusTicks(rng);
     }
 
-    /** {@code successChance = min(cap, floor + span * (essenceSpent / baseCost))}, per section 5.7. */
+    /** {@code successChance = min(cap, floor + span * (essenceSpent / baseCost))}. */
     public static float baseSuccessChance(int essenceSpent, int baseCost) {
         float ratio = baseCost <= 0 ? 1F : (float) essenceSpent / baseCost;
         float floor = Config.SUCCESS_FLOOR_PERCENT.get() / 100F;
@@ -50,7 +48,7 @@ public final class ModifierCalculator {
         return Math.min(cap, withDelta);
     }
 
-    /** {@code backfireChance = max(0%, start - (essenceSpent / baseCost) * start)}, per section 5.7. */
+    /** {@code backfireChance = max(0%, start - (essenceSpent / baseCost) * start)}. */
     public static float baseBackfireChance(int essenceSpent, int baseCost) {
         float ratio = baseCost <= 0 ? 1F : (float) essenceSpent / baseCost;
         float start = Config.BACKFIRE_START_PERCENT.get() / 100F;
@@ -72,10 +70,8 @@ public final class ModifierCalculator {
     }
 
     /**
-     * ⚠ PLACEHOLDER TIER LOGIC — keyed off {@code rawBaseCost} as a stand-in for a real per-attachment
-     * strength/tier value that doesn't exist yet (see CLAUDE.md "Attachment strength/tier TODO"). Per Oliver:
-     * <b>low-tier</b> attachments never backfire (0%); <b>high-tier</b> always keep a small floor even at full
-     * essence; <b>mid-tier</b> use the normal curve down to 0. Apply as the final clamp on the backfire chance.
+     * tier clamp on the backfire chance, keyed off {@code rawBaseCost} as a stand-in for a real per-attachment
+     * tier: low-tier never backfires, high-tier keeps a small floor at full essence, mid-tier uses the curve.
      */
     public static float applyTierBackfire(float backfireChance, int rawBaseCost) {
         if (rawBaseCost <= Config.BACKFIRE_LOW_TIER_COST.get()) {

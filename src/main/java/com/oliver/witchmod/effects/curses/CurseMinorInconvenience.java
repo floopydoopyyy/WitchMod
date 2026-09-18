@@ -11,8 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Nothing serious — your game window just keeps getting renamed to nonsense (master-spec Minor
- * Inconvenience, a client-side curse, Phase D). Drives the auto-synced
+ * nothing serious — your game window just keeps getting renamed to nonsense. Drives the auto-synced
  * {@link WitchModAttachments#MINOR_INCONVENIENCE_ACTIVE} flag; the client renames the OS window title to
  * silly strings on an interval while it's set (see {@code client/ClientCurseHandler}).
  *

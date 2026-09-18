@@ -9,7 +9,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.oliver.witchmod.WitchMod;
 
-/** Registers the Bewitching Table's real screen menu type (CLAUDE.md section 9, item 1). */
+/** registers the ritual table's screen menu type. */
 public final class WitchModMenus {
     public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, WitchMod.MODID);
 

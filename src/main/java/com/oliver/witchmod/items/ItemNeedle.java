@@ -1,11 +1,16 @@
 package com.oliver.witchmod.items;
 
+import java.util.List;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 import com.oliver.witchmod.Config;
@@ -13,14 +18,17 @@ import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * Right-click a Needle with a bound Voodoo Doll in your inventory to jab the doll's target with the custom
- * {@code witchmod:voodoo} damage (half-reduced by armour, no knockback). The stab spends the Needle and a few
- * points of the Doll's durability, jolts your camera, and lands with a smack + FX on the victim — no chat text.
- * You can also pick the Needle up in the GUI and right-click it onto the doll (see {@link ItemVoodooDoll}).
+ * right-click a needle with a bound doll held to jab the target ({@code witchmod:voodoo} damage, armour-scaling,
+ * no knockback). spends the needle + some doll durability. can also be right-clicked onto the doll in the gui.
  */
 public final class ItemNeedle extends Item {
     public ItemNeedle(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.translatable("item.witchmod.needle.tip").withStyle(ChatFormatting.GRAY));
     }
 
     @Override
@@ -41,7 +49,7 @@ public final class ItemNeedle extends Item {
             return InteractionResultHolder.fail(needle);
         }
 
-        // The jab (FX on the victim handled inside voodooHurt) + a camera jolt on the caster.
+        // the jab (FX on the victim handled inside voodooHurt) + a camera jolt on the caster.
         ItemVoodooDoll.voodooHurt(target, caster, (float) (double) Config.VOODOO_NEEDLE_BASE_DAMAGE.get());
         ItemVoodooDoll.casterShake(caster);
 

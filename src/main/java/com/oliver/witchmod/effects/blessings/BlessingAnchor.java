@@ -14,8 +14,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * You're planted — literally immovable by external sources (master-spec Anchor, sacrificial item CHAIN).
- * Nothing knocks you back: not melee, not projectiles, not explosions.
+ * literally no damage type can apply knockback.
  *
  * <p>Done with the two vanilla knockback-resistance attributes cranked to their maximum: {@code
  * KNOCKBACK_RESISTANCE = 1.0} zeroes attack/melee knockback and {@code EXPLOSION_KNOCKBACK_RESISTANCE = 1.0}
@@ -32,7 +31,7 @@ public final class BlessingAnchor extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.CHAIN);
     }
 
-    /** You find out the first time something that should have shoved you simply... doesn't (Rule 2). */
+    /** you find out the first time */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -45,7 +44,7 @@ public final class BlessingAnchor extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Self-heal: re-apply if a reload dropped the transient modifiers.
+        // self-heal: re-apply if a reload dropped the transient modifiers.
         if (target.getAttribute(Attributes.KNOCKBACK_RESISTANCE) != null
                 && target.getAttribute(Attributes.KNOCKBACK_RESISTANCE).getModifier(KB_ID) == null) {
             applyModifiers(target);

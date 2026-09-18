@@ -6,7 +6,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.oliver.witchmod.WitchMod;
 
-/** Registers all items from CLAUDE.md section 3, plus the Recovery Compass modifier item (section 4.6). */
+/** registers the mod's items (essence, compendium, voodoo doll, ward, mirror, effigy, coins, jars, etc.). */
 public final class WitchModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(WitchMod.MODID);
 
@@ -44,7 +44,7 @@ public final class WitchModItems {
             ITEMS.register("executioners_coin", () -> new ItemGambleCoin(new Item.Properties(),
                     com.oliver.witchmod.data.CoinGamble.Type.EXECUTIONER));
 
-    // The jar family is one dynamic item: an empty JAR collects Player Essence; once it holds a curse/blessing
+    // the jar family is one dynamic item: an empty JAR collects Player Essence; once it holds a curse/blessing
     // it renders + names itself as the Cursed / Blessed / Mixed variant (JarContents.itemFor) and is THROWN like
     // a splash potion. All four are the same ItemJar behaviour — only texture + display name differ.
     public static final DeferredItem<ItemJar> JAR = ITEMS.register("jar",

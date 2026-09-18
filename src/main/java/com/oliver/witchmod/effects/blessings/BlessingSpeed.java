@@ -20,7 +20,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Blessing of Speed (sacrificial item SUGAR): your SPRINT is much faster (~60%) and leaves a cool trailing
+ * blessing of Speed (sacrificial item SUGAR): your SPRINT is much faster (~60%) and leaves a cool trailing
  * spark behind you. This is its OWN {@code MOVEMENT_SPEED} modifier applied only while sprinting — NOT the
  * vanilla Speed effect — so it stacks cleanly with Speed potions and other blessings (e.g. Ninja).
  */
@@ -31,7 +31,7 @@ public final class BlessingSpeed extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.SUGAR);
     }
 
-    /** You find out the first time you tear off sprinting — not the instant it lands (preserve the mystery). */
+    /** you find out the first time you tear off sprinting — not the instant it lands (preserve the mystery). */
     @Override
     public boolean discoversOnTrigger() {
         return true;

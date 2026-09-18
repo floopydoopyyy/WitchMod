@@ -37,7 +37,7 @@ public final class CurseScreensaver extends Effect {
 
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
-        // The bounce episodes are timed client-side, so the server only knows the curse is running.
+        // the bounce episodes are timed client-side, so the server only knows the curse is running.
         return java.util.Optional.of("episodes come and go");
     }
 }

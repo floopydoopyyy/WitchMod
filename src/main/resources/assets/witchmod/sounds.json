@@ -467,5 +467,71 @@
         "stream": false
       }
     ]
+  },
+  "item.coin_flip": {
+    "subtitle": "witchmod.subtitle.item.coin_flip",
+    "sounds": [
+      {
+        "name": "witchmod:item/coinflip",
+        "stream": false
+      }
+    ]
+  },
+  "item.lash_spawn": {
+    "subtitle": "witchmod.subtitle.item.lash_spawn",
+    "sounds": [
+      {
+        "name": "witchmod:item/lashspawn",
+        "stream": false
+      }
+    ]
+  },
+  "item.spell_glint": {
+    "subtitle": "witchmod.subtitle.item.spell_glint",
+    "sounds": [
+      {
+        "name": "witchmod:item/spellglint",
+        "stream": false
+      }
+    ]
+  },
+  "blessing.unseen.cloak": {
+    "subtitle": "witchmod.subtitle.system.spell_fail",
+    "sounds": [
+      {
+        "name": "witchmod:blessing/unseen/cloak",
+        "stream": false
+      }
+    ]
+  },
+  "blessing.guardian.zap": {
+    "subtitle": "witchmod.subtitle.blessing.guardian.zap",
+    "sounds": [
+      {
+        "name": "witchmod:blessing/guardian/zap",
+        "stream": false
+      }
+    ]
+  },
+  "system.spell_fail": {
+    "subtitle": "witchmod.subtitle.system.spell_fail",
+    "sounds": [
+      {
+        "name": "witchmod:system/spellfail",
+        "stream": false
+      }
+    ]
+  },
+  "curse.hiccups.hiccup": {
+    "subtitle": "witchmod.subtitle.hiccups",
+    "sounds": [
+      { "name": "witchmod:curse/hiccups/hic", "stream": false },
+      { "name": "witchmod:curse/hiccups/hic1", "stream": false },
+      { "name": "witchmod:curse/hiccups/hic2", "stream": false },
+      { "name": "witchmod:curse/hiccups/hic3", "stream": false },
+      { "name": "witchmod:curse/hiccups/hic4", "stream": false },
+      { "name": "witchmod:curse/hiccups/hic5", "stream": false },
+      { "name": "witchmod:curse/hiccups/hic6", "stream": false }
+    ]
   }
 }

@@ -43,7 +43,7 @@ public final class BlessingTank extends Effect {
     @Override
     public void onRemove(ServerPlayer target) {
         EffectUtil.removeModifier(target, Attributes.MAX_HEALTH, HEALTH_ID);
-        // Max health drops; vanilla clamps current HP on the next tick.
+        // max health drops; vanilla clamps current HP on the next tick.
     }
 
     private static void applyHealth(ServerPlayer target) {

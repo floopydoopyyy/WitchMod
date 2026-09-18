@@ -22,7 +22,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The sea looks after its own (master-spec-style Ocean's Blessing, sacrificial item ANY CORAL): underwater
+ * the sea looks after its own: underwater
  * you swim <b>very fast</b> — and even faster with Dolphin's Grace on top — and aggressive mobs simply won't
  * come after you while you're in the water. Water travel becomes a joy. It does NOT give water breathing,
  * so you still have to come up for air.
@@ -56,7 +56,7 @@ public final class BlessingOceansBlessing extends Effect {
             target.setData(WitchModAttachments.OCEANS_ACTIVE, 1); // self-heal after respawn/relog
         }
         ServerLevel level = target.serverLevel();
-        // While you're in the water, shrug off anything already hunting you.
+        // while you're in the water, shrug off anything already hunting you.
         if (target.isInWater()) {
             AABB pacifyBox = target.getBoundingBox().inflate(Config.OCEANS_PACIFY_RADIUS.get());
             for (Mob mob : level.getEntitiesOfClass(Mob.class, pacifyBox, m -> m.getTarget() == target)) {
@@ -64,7 +64,7 @@ public final class BlessingOceansBlessing extends Effect {
             }
         }
 
-        // Draw every nearby dolphin in and keep it following you — they grant Dolphin's Grace when close,
+        // draw every nearby dolphin in and keep it following you — they grant Dolphin's Grace when close,
         // which (via the client swim boost) is where the real speed comes from. Runs on an interval since it
         // re-issues navigation; cheap entity scan.
         if (target.tickCount % 10 == 0) {
@@ -75,7 +75,7 @@ public final class BlessingOceansBlessing extends Effect {
                     net.minecraft.world.entity.animal.Dolphin.class, dolphinBox)) {
                 dolphin.getNavigation().moveTo(target, Config.OCEANS_DOLPHIN_NAV_SPEED.get());
                 if (dolphin.distanceToSqr(target) <= graceRadiusSqr) {
-                    // Refresh Dolphin's Grace directly so the speed is reliable even if the vanilla
+                    // refresh Dolphin's Grace directly so the speed is reliable even if the vanilla
                     // swim-with-player goal hasn't kicked in yet.
                     target.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                             net.minecraft.world.effect.MobEffects.DOLPHINS_GRACE, 60, 0, true, false, false));

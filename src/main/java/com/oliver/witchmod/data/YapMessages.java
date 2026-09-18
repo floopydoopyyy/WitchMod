@@ -20,27 +20,18 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Yap curse's writable message book, loaded from {@code data/witchmod/text/yap.json} and reloadable with
- * {@code /reload}. Three SEPARATE lists so multi-message outbursts are scripted, not randomly paired:
- * <pre>
- * {
- *   "singles": ["one line", "another line"],
- *   "doubles": [ ["first...", "...and second"], ["setup", "punchline"] ],
- *   "triples": [ ["a", "b", "c"] ]
- * }
- * </pre>
- * Each entry in {@code doubles}/{@code triples} is sent in order, one message after another. The list an
- * outburst is drawn from is weighted (singles common, triples rare) by config.
+ * yap's message book ({@code data/witchmod/text/yap.json}, /reload-able) — singles/doubles/triples so
+ * multi-message outbursts are scripted, not randomly paired, plus keyed event reactions. list weighted by config.
  */
 public final class YapMessages extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "yap");
 
-    /** Each element is one complete outburst: 1, 2 or 3 messages sent in order. */
+    /** each element is one complete outburst: 1, 2 or 3 messages sent in order. */
     private static List<String[]> singles = List.<String[]>of(new String[] {"..."});
     private static List<String[]> doubles = List.of();
     private static List<String[]> triples = List.of();
-    /** Reaction lines keyed by event: hurt, attack, chest, death, proximity. Each entry is one outburst. */
+    /** reaction lines keyed by event: hurt, attack, chest, death, proximity. Each entry is one outburst. */
     private static Map<String, List<String[]>> events = Map.of();
 
     public YapMessages() {
@@ -65,7 +56,7 @@ public final class YapMessages extends SimpleJsonResourceReloadListener {
             singles = List.<String[]>of(new String[] {"..."}); // never leave the pick with nothing to say
         }
 
-        // Event reactions: an "events" object of { eventKey: [ outbursts ] }, where each outburst is a
+        // event reactions: an "events" object of { eventKey: [ outbursts ] }, where each outburst is a
         // string (single) OR an array (a scripted sequence), mixed freely.
         Map<String, List<String[]>> loadedEvents = new HashMap<>();
         if (root.has("events") && root.get("events").isJsonObject()) {
@@ -78,7 +69,7 @@ public final class YapMessages extends SimpleJsonResourceReloadListener {
         events = Map.copyOf(loadedEvents);
     }
 
-    /** Parses a list whose entries may each be a plain string (single) or an array (a sequence). */
+    /** parses a list whose entries may each be a plain string (single) or an array (a sequence). */
     private static List<String[]> parseMixedList(JsonArray array) {
         List<String[]> out = new ArrayList<>();
         for (JsonElement entry : array) {
@@ -121,7 +112,7 @@ public final class YapMessages extends SimpleJsonResourceReloadListener {
         return out;
     }
 
-    /** Weighted-picks a list (singles/doubles/triples), then a random scripted outburst from it. */
+    /** weighted-picks a list (singles/doubles/triples), then a random scripted outburst from it. */
     public static String[] pickOutburst(RandomSource random) {
         int ws = Config.YAP_SINGLE_WEIGHT.get() * (singles.isEmpty() ? 0 : 1);
         int wd = Config.YAP_DOUBLE_WEIGHT.get() * (doubles.isEmpty() ? 0 : 1);
@@ -140,7 +131,7 @@ public final class YapMessages extends SimpleJsonResourceReloadListener {
         return pick(triples, random);
     }
 
-    /** A random reaction outburst for the given event key, or {@code null} if that list is empty/absent. */
+    /** a random reaction outburst for the given event key, or {@code null} if that list is empty/absent. */
     @javax.annotation.Nullable
     public static String[] pickEvent(String key, RandomSource random) {
         List<String[]> list = events.get(key);

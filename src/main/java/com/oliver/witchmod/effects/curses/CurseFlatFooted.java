@@ -29,7 +29,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Your footsteps are deafening (master-spec Flat Footed, renamed from the prototype's "Loud"). Every footfall
+ * your footsteps are deafening. Every footfall
  * plays the block's own step sound at cartoonish volume, so anyone nearby can hear exactly where you are —
  * even sneaking, where it's only somewhat quieter, never silent. Close enough and the stomps rattle their
  * screen, and hostile mobs pick you up from further off than they should.
@@ -48,7 +48,7 @@ public final class CurseFlatFooted extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> net.minecraft.world.item.Items.GOAT_HORN);
     }
 
-    /** You find out the first time your own footsteps echo like thunder (Rule 2). */
+    /** you find out the first time your own footsteps echo like thunder (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -67,7 +67,7 @@ public final class CurseFlatFooted extends Effect {
         }
     }
 
-    /** Emits an amplified footstep once enough ground has been covered since the last one. */
+    /** emits an amplified footstep once enough ground has been covered since the last one. */
     private void stomp(ServerPlayer target) {
         UUID id = target.getUUID();
         float now = target.walkDist;
@@ -98,7 +98,7 @@ public final class CurseFlatFooted extends Effect {
         if (target.isShiftKeyDown()) {
             volume *= Config.FLATFOOT_SNEAK_VOLUME_MULT.get(); // quieter tiptoe, but you can still be heard
         }
-        // Broadcast from the victim's feet; the server sends it to every client in earshot.
+        // broadcast from the victim's feet; the server sends it to every client in earshot.
         level.playSound(null, target.getX(), target.getY(), target.getZ(),
                 step, SoundSource.PLAYERS, (float) volume, soundType.getPitch() * 0.9F);
 
@@ -120,7 +120,7 @@ public final class CurseFlatFooted extends Effect {
     }
 
     /**
-     * Nearby hostile mobs get a little extra FOLLOW_RANGE — the in-game stand-in for "they heard you coming".
+     * nearby hostile mobs get a little extra FOLLOW_RANGE — the in-game stand-in for "they heard you coming".
      * A transient, id-guarded modifier so it isn't stacked.
      *
      * <p>It scans a slightly WIDER ring than it boosts, and strips the modifier from any mob in the outer

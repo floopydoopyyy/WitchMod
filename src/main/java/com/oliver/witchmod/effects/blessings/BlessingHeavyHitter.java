@@ -14,7 +14,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * Heavy Hitter (Mace): your melee knockback is doubled. It multiplies the FINAL knockback strength — which
+ * heavy Hitter (Mace): your melee knockback is doubled. It multiplies the FINAL knockback strength — which
  * already includes any Knockback-enchantment contribution — so it stacks MULTIPLICATIVELY with Knockback
  * (e.g. Knockback II + Heavy Hitter sends them properly flying).
  *
@@ -34,7 +34,7 @@ public final class BlessingHeavyHitter extends Effect {
         return true;
     }
 
-    /** The blessed player just landed a melee hit — mark the victim so the knockback hook doubles it this tick. */
+    /** the blessed player just landed a melee hit — mark the victim so the knockback hook doubles it this tick. */
     public static void onMeleeHit(ServerPlayer attacker, LivingEntity victim) {
         KNOCKBACK_MARK.put(victim.getId(), victim.level().getGameTime());
         victim.level().playSound(null, victim.blockPosition(),

@@ -19,7 +19,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -36,7 +40,7 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * It happens. Loudly, and with enough force to move you (master-spec Gassy). Every so often you go off and
+ * it happens. Loudly, and with enough force to move you. Every so often you go off and
  * are launched in some direction at a randomised velocity — and the direction is BIASED toward whatever
  * nearby would make it worse.
  *
@@ -66,10 +70,10 @@ public final class CurseGassy extends Effect {
 
     private static final Map<UUID, Long> NEXT_FART = new HashMap<>();
     private static final Map<UUID, Long> EVENT_COOLDOWN = new HashMap<>();
-    /** Firework ids seen near each victim last tick, so a vanished one can be read as a detonation. */
+    /** firework ids seen near each victim last tick, so a vanished one can be read as a detonation. */
     private static final Map<UUID, Set<Integer>> NEARBY_FIREWORKS = new HashMap<>();
 
-    /** How much each hazard pulls the draw toward itself. Relative, not absolute — nothing here is certain. */
+    /** how much each hazard pulls the draw toward itself. Relative, not absolute — nothing here is certain. */
     private enum Hazard {
         LAVA(10.0),
         LIT_TNT(9.0),
@@ -95,7 +99,7 @@ public final class CurseGassy extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.PUFFERFISH);
     }
 
-    /** You find out the first time you leave the ground under your own power. */
+    /** you find out the first time you leave the ground under your own power. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -121,13 +125,18 @@ public final class CurseGassy extends Effect {
     }
 
     @Override
+    public java.util.List<String> debugArgs() {
+        return java.util.List.of("big");
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         long now = target.level().getGameTime();
         trackFireworks(target, now);
 
         Long due = NEXT_FART.get(target.getUUID());
         if (due == null) {
-            // Self-heal: the schedule is transient, so a curse that survived a relog would otherwise go
+            // self-heal: the schedule is transient, so a curse that survived a relog would otherwise go
             // permanently quiet (the same trap Yap, Gluttony and Delusions all hit).
             schedule(target);
             return;
@@ -140,6 +149,11 @@ public final class CurseGassy extends Effect {
     }
 
     // --- Triggers --------------------------------------------------------------------------------------
+
+    /** fire a fart on demand — used by the hiccups (gut trouble) synergy. no cooldown gate. */
+    public static void externalFart(ServerPlayer target, boolean big) {
+        Curses.GASSY.value().fart(target, big, 1.0);
+    }
 
     /** A hit frightens one out of you; an explosion much more so. Called from {@code CurseEventHandler}. */
     public static void onExternalTrigger(ServerPlayer target, int chancePercent) {
@@ -154,12 +168,12 @@ public final class CurseGassy extends Effect {
         EVENT_COOLDOWN.put(target.getUUID(), now + Config.GASSY_EVENT_COOLDOWN.get());
         boolean big = target.getRandom().nextInt(100) < Config.GASSY_EVENT_BIG_CHANCE.get();
         Curses.GASSY.get().fart(target, big, Config.GASSY_EVENT_VELOCITY_MULT.get());
-        // The schedule resets too — you just went, so the next spontaneous one starts its clock over.
+        // the schedule resets too — you just went, so the next spontaneous one starts its clock over.
         schedule(target);
     }
 
     /**
-     * Fireworks don't produce an {@code Explosion}, so there's no explosion event to listen for. Instead the
+     * fireworks don't produce an {@code Explosion}, so there's no explosion event to listen for. Instead the
      * ones near the victim are remembered each tick, and any that has vanished by the next tick is treated as
      * having gone off — a firework that close disappearing for any other reason is vanishingly unlikely.
      */
@@ -204,7 +218,7 @@ public final class CurseGassy extends Effect {
 
         Vec3 launch = pickLaunch(level, target, rnd).scale(power);
         target.setDeltaMovement(target.getDeltaMovement().add(launch));
-        // Without this the server never sends the velocity down and the victim doesn't budge on their screen.
+        // without this the server never sends the velocity down and the victim doesn't budge on their screen.
         target.hurtMarked = true;
         target.hasImpulse = true;
 
@@ -213,7 +227,7 @@ public final class CurseGassy extends Effect {
                 SoundSource.PLAYERS, big ? 1.2F : 0.9F, 0.9F + rnd.nextFloat() * 0.2F);
 
         // A white puff of gas with just a hint of green in it. CLOUD carries the body of it; the green is
-        // DustParticleOptions, since vanilla has no tintable smoke — and it's kept sparse on purpose, so it
+        // dustParticleOptions, since vanilla has no tintable smoke — and it's kept sparse on purpose, so it
         // reads as a tinge rather than as Unhygienic's full stink cloud.
         level.sendParticles(ParticleTypes.CLOUD,
                 target.getX(), target.getY() + 0.4, target.getZ(),
@@ -222,20 +236,52 @@ public final class CurseGassy extends Effect {
                 target.getX(), target.getY() + 0.4, target.getZ(),
                 big ? GREEN_TINGE_BIG : GREEN_TINGE_COUNT, 0.2, 0.14, 0.2, 0.01);
 
-        // The propellant, aimed the opposite way to the launch so it reads as thrust. Count 0 makes the
+        // the propellant, aimed the opposite way to the launch so it reads as thrust. Count 0 makes the
         // offsets a VELOCITY instead, which is what gives it the directional jet.
         Vec3 exhaust = launch.normalize().scale(-0.35);
         level.sendParticles(ParticleTypes.CLOUD,
                 target.getX() + exhaust.x * 0.5, target.getY() + 0.35 + exhaust.y * 0.5, target.getZ() + exhaust.z * 0.5,
                 0, exhaust.x, exhaust.y, exhaust.z, big ? 0.6 : 0.35);
 
+        // while you already reek (unhygienic), the fart kicks up a proper rank cloud around you.
+        if (com.oliver.witchmod.synergy.Synergies.RANK_GAS.activeFor(target)) {
+            stenchBlast(level, target, big);
+        }
         markDiscoveredByVictim(target);
+    }
+
+    /** the gassy+unhygienic cloud: an oversized stink puff that shoves nearby players and speeds mobs into a run. */
+    private static void stenchBlast(ServerLevel level, ServerPlayer target, boolean big) {
+        level.sendParticles(GREEN_TINGE, target.getX(), target.getY() + 0.6, target.getZ(),
+                big ? 44 : 26, 1.7, 0.9, 1.7, 0.02);
+        level.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 0.6, target.getZ(),
+                big ? 26 : 16, 1.5, 0.8, 1.5, 0.01);
+
+        double radius = Config.STENCH_PUSH_RADIUS.get();
+        double force = Config.STENCH_PLAYER_PUSH.get() * (big ? 1.6 : 1.0);
+        AABB box = new AABB(target.blockPosition()).inflate(radius);
+        for (Player other : level.getEntitiesOfClass(Player.class, box)) {
+            if (other == target || !other.isAlive()) {
+                continue;
+            }
+            Vec3 away = new Vec3(other.getX() - target.getX(), 0.0, other.getZ() - target.getZ());
+            if (away.lengthSqr() < 1.0E-4) {
+                continue;
+            }
+            Vec3 shove = away.normalize().scale(force);
+            other.push(shove.x, 0.2, shove.z);
+            other.hurtMarked = true; // or the shove never reaches the client
+        }
+        // non-undead mobs bolt harder — a brief speed on top of unhygienic's flee goal (undead don't care).
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, box, m -> m.isAlive() && !m.isInvertedHealAndHarm())) {
+            mob.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 60, 1, false, false));
+        }
     }
 
     /** A unit vector to be launched along: sometimes straight up, sometimes at a hazard, sometimes anywhere. */
     private static Vec3 pickLaunch(ServerLevel level, ServerPlayer target, RandomSource rnd) {
         if (rnd.nextInt(100) < Config.GASSY_STRAIGHT_UP_CHANCE.get()) {
-            // Mostly up, with just enough lean that it isn't a clean elevator ride.
+            // mostly up, with just enough lean that it isn't a clean elevator ride.
             return new Vec3((rnd.nextDouble() - 0.5) * 0.35, 1.0, (rnd.nextDouble() - 0.5) * 0.35).normalize();
         }
 
@@ -295,12 +341,12 @@ public final class CurseGassy extends Effect {
         BlockPos origin = target.blockPosition();
         List<Candidate> found = new ArrayList<>();
 
-        // Lit TNT is an ENTITY, not a block — a block scan alone silently misses the best hazard going.
+        // lit TNT is an ENTITY, not a block — a block scan alone silently misses the best hazard going.
         for (PrimedTnt tnt : level.getEntitiesOfClass(PrimedTnt.class, target.getBoundingBox().inflate(radius))) {
             found.add(new Candidate(Hazard.LIT_TNT, tnt.position()));
         }
 
-        // Sampled on a coarse grid — this only runs when a fart actually fires, so it can afford to be wide.
+        // sampled on a coarse grid — this only runs when a fart actually fires, so it can afford to be wide.
         for (int dx = -radius; dx <= radius; dx += 2) {
             for (int dz = -radius; dz <= radius; dz += 2) {
                 if (dx == 0 && dz == 0) {
@@ -359,7 +405,7 @@ public final class CurseGassy extends Effect {
         return null;
     }
 
-    /** Nothing solid for a good few blocks under this column — worth being launched off. */
+    /** nothing solid for a good few blocks under this column — worth being launched off. */
     private static boolean isLedge(ServerLevel level, BlockPos column, int fromY, int minDrop) {
         for (int dy = 0; dy < minDrop; dy++) {
             BlockPos pos = column.atY(fromY - dy);

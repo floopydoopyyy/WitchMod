@@ -30,9 +30,8 @@ import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * Scrying Mirror: reveals the curses/blessings on you — or, right-clicked on another player, on THEM — in a
- * styled on-screen panel ({@code client/ScryingOverlay}) rather than a chat dump, with the extra "specifics"
- * some effects expose ({@link Effect#scryingDetail}). Using it also instantly DISCOVERS whatever it reveals.
+ * scrying mirror — reveals the effects on you (or, right-clicked on a player, on them) in a styled panel,
+ * with any per-effect specifics ({@link Effect#scryingDetail}). using it also discovers whatever it reveals.
  */
 public final class ItemScryingMirror extends Item {
     public ItemScryingMirror(Properties properties) {
@@ -54,11 +53,11 @@ public final class ItemScryingMirror extends Item {
             scry(viewer, subject);
             return InteractionResult.SUCCESS;
         }
-        // Non-player targets: nothing to reveal, but swallow the interaction on the client too.
+        // non-player targets: nothing to reveal, but swallow the interaction on the client too.
         return entity instanceof ServerPlayer ? InteractionResult.SUCCESS : InteractionResult.PASS;
     }
 
-    /** Gather {@code subject}'s active attachments, instantly discover them, and send the styled panel to {@code viewer}. */
+    /** gather {@code subject}'s active attachments, instantly discover them, and send the styled panel to {@code viewer}. */
     private static void scry(ServerPlayer viewer, ServerPlayer subject) {
         List<WitchModNetwork.ScryEntry> out = new ArrayList<>();
         ActiveEffects active = subject.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
@@ -87,7 +86,5 @@ public final class ItemScryingMirror extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.witchmod.scrying_mirror.desc1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.witchmod.scrying_mirror.desc2").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.witchmod.scrying_mirror.desc3").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

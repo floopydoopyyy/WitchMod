@@ -29,8 +29,7 @@ import com.oliver.witchmod.entities.TaxManEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * Somebody has noticed how much you're hoarding (master-spec Audit, formerly "Taxes" — renamed to be clearly
- * distinct from the {@code payday} blessing, sacrificial item EMERALD). While the curse is active the victim's
+ * somebody has noticed how much you're hoarding. While the curse is active the victim's
  * surroundings are periodically assessed, and once there's enough loot <b>in nearby chests or on the floor</b>
  * to be worth the paperwork, the {@link TaxManEntity} turns up and starts confiscating.
  *
@@ -54,7 +53,7 @@ public final class CurseAudit extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 80, () -> Items.EMERALD);
     }
 
-    /** You find out when a man in a suit materialises next to your chests (Rule 2). */
+    /** you find out when a man in a suit materialises next to your chests (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -116,7 +115,7 @@ public final class CurseAudit extends Effect {
     }
 
     /**
-     * Loot lying about that he'd come for: nearby chests and dropped items. <b>Deliberately excludes the
+     * loot lying about that he'd come for: nearby chests and dropped items. <b>Deliberately excludes the
      * victim's own inventory</b> — carrying valuables shouldn't summon him, only leaving a stash out should.
      */
     private static int externalValueNear(ServerPlayer target) {
@@ -183,7 +182,7 @@ public final class CurseAudit extends Effect {
         return target.position();
     }
 
-    /** Used by the Payday blessing to know whether there's anything to hand back. */
+    /** used by the Payday blessing to know whether there's anything to hand back. */
     @Nullable
     public static TaxManEntity visiting(ServerPlayer target) {
         return ACTIVE.get(target.getUUID());

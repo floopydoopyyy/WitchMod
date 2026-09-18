@@ -17,7 +17,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Blessing of Spelunking (TORCH): a miner's sixth sense. Every {@code spelunkingIntervalTicks} it scans the
+ * blessing of Spelunking (TORCH): a miner's sixth sense. Every {@code spelunkingIntervalTicks} it scans the
  * blocks around you and, for YOUR EYES ONLY, marks every ore with a floating coloured mote that shows through
  * stone (colour-coded by ore) — so you can beeline for the good stuff. Reuses Sonar's per-player particle
  * trick (a {@link ClientboundLevelParticlesPacket} sent only down the caster's connection).
@@ -44,7 +44,7 @@ public final class BlessingSpelunking extends Effect {
     }
 
     /**
-     * Scan a box of the given radius around the player and paint each ore with a colour-coded, see-through mote
+     * scan a box of the given radius around the player and paint each ore with a colour-coded, see-through mote
      * sent ONLY to that player. Shared so the Sonar blessing can reveal ores in its big radius too.
      *
      * @return true if any ore was marked.
@@ -64,7 +64,7 @@ public final class BlessingSpelunking extends Effect {
             // A dense, bright cluster ON the ore...
             target.connection.send(new ClientboundLevelParticlesPacket(dust, true,
                     cx, cy, cz, 0.32F, 0.32F, 0.32F, 0.0F, 8 + count));
-            // ...plus a short rising WISP above it, so it stands out as a clear beacon through the stone.
+            //...plus a short rising WISP above it, so it stands out as a clear beacon through the stone.
             for (int h = 0; h < 3; h++) {
                 target.connection.send(new ClientboundLevelParticlesPacket(dust, true,
                         cx, cy + 0.6 + h * 0.5, cz, 0.05F, 0.05F, 0.05F, 0.0F, 1));
@@ -80,7 +80,7 @@ public final class BlessingSpelunking extends Effect {
         return any;
     }
 
-    /** Colour-code the mote by the ore so you can tell diamonds from coal at a glance. */
+    /** colour-code the mote by the ore so you can tell diamonds from coal at a glance. */
     private static DustParticleOptions oreColour(BlockState state) {
         String id = state.getBlockHolder().unwrapKey().map(k -> k.location().getPath()).orElse("");
         if (id.contains("diamond")) {

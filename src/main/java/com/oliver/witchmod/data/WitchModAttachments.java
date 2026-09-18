@@ -19,14 +19,16 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 import com.oliver.witchmod.WitchMod;
 
+/**
+ * all per-player attachment types — active effects, discovery sets, and the many synced curse/blessing
+ * flags the client reads to render. many are auto-synced (to trackers, not just the owner) so client-side fx
+ * work; effect state is copy-on-death since effects don't expire on death.
+ */
 public final class WitchModAttachments {
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, WitchMod.MODID);
 
-    /**
-     * Persists across logout/relog and (per CLAUDE.md section 2.7: curses/blessings do NOT expire on
-     * death by default) across death too.
-     */
+    /** persists across relog and death (effects don't expire on death by default). */
     public static final Supplier<AttachmentType<ActiveEffects>> ACTIVE_EFFECTS = ATTACHMENT_TYPES.register("active_effects",
             () -> AttachmentType.builder(ActiveEffects::empty)
                     .serialize(ActiveEffects.CODEC)
@@ -36,11 +38,11 @@ public final class WitchModAttachments {
     private static final Codec<Set<ResourceLocation>> RESOURCE_LOCATION_SET_CODEC =
             ResourceLocation.CODEC.listOf().xmap(HashSet::new, ArrayList::new);
 
-    /** Which curses/blessings this player has discovered (CLAUDE.md section 2.7) — see {@link DiscoveryManager}. */
+    /** which curses/blessings this player has discovered — see {@link DiscoveryManager}. */
     public static final Supplier<AttachmentType<Set<ResourceLocation>>> DISCOVERED_EFFECTS = ATTACHMENT_TYPES.register("discovered_effects",
             () -> AttachmentType.builder((Supplier<Set<ResourceLocation>>) HashSet::new)
                     .serialize(RESOURCE_LOCATION_SET_CODEC)
-                    // Synced so the client-side Compendium knows which attachments are discovered vs rumours.
+                    // synced so the client-side Compendium knows which attachments are discovered vs rumours.
                     .sync(ByteBufCodecs.collection((java.util.function.IntFunction<Set<ResourceLocation>>) HashSet::new,
                             ResourceLocation.STREAM_CODEC))
                     .copyOnDeath()
@@ -70,7 +72,7 @@ public final class WitchModAttachments {
                     .serialize(RESOURCE_LOCATION_SET_CODEC)
                     .build());
 
-    /** Game time of this player's first-ever join, -1 if not yet recorded — see {@link GracePeriod}. */
+    /** game time of this player's first-ever join, -1 if not yet recorded — see {@link GracePeriod}. */
     public static final Supplier<AttachmentType<Long>> FIRST_SEEN_TICK = ATTACHMENT_TYPES.register("first_seen_tick",
             () -> AttachmentType.builder(() -> -1L)
                     .serialize(Codec.LONG)
@@ -78,7 +80,7 @@ public final class WitchModAttachments {
                     .build());
 
     /**
-     * Thirst points for the Thirst Meter curse (Phase D HUD): {@code -1} = curse not active (bar hidden),
+     * Thirst points for the Thirst Meter curse: {@code -1} = curse not active (bar hidden),
      * {@code 0..THIRST_MAX} = active. Auto-synced to the client so the HUD overlay can read it directly —
      * NeoForge 21.1 attachment sync, no hand-rolled payload needed. See {@code CurseThirstMeter} +
      * {@code client/ThirstHudLayer}.
@@ -89,8 +91,17 @@ public final class WitchModAttachments {
                     .sync(ByteBufCodecs.VAR_INT)
                     .build());
 
+    /** guardian Angel: 1 once its once-per-blessing random-blessing gift has been spent (persisted; shown in the Scrying Mirror). */
+    public static final Supplier<AttachmentType<Integer>> GUARDIAN_GIFT_USED = ATTACHMENT_TYPES.register("guardian_gift_used",
+            () -> AttachmentType.builder(() -> 0).serialize(Codec.INT).build());
+
+    /** guardian Angel render marker on the ALLAY: 0 = not a guardian, else current Mode ordinal + 1. Synced to
+     *  trackers so the halo + movement trail render CLIENT-side (no per-tick server particle packets). */
+    public static final Supplier<AttachmentType<Integer>> GUARDIAN_RENDER = ATTACHMENT_TYPES.register("guardian_render",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+
     /**
-     * Extra "second stomach" hunger for the Gluttony curse (Phase D HUD): {@code -1} = curse not active
+     * Extra "second stomach" hunger for the Gluttony curse: {@code -1} = curse not active
      * (extra row hidden), {@code 0..GLUTTONY_EXTRA_MAX} = active. Auto-synced like {@link #THIRST}; rendered
      * by {@code client/GluttonyHudLayer} as a second hunger row.
      */
@@ -116,7 +127,7 @@ public final class WitchModAttachments {
                     .sync(ByteBufCodecs.VAR_LONG)
                     .build());
 
-    /** Whether the Chat (Twitch overlay) blessing is active (Phase D): {@code -1} inactive, {@code 1} active. Auto-synced so the client overlay knows to render. */
+    /** whether the Chat (Twitch overlay) blessing is active: {@code -1} inactive, {@code 1} active. Auto-synced so the client overlay knows to render. */
     public static final Supplier<AttachmentType<Integer>> CHAT_OVERLAY = ATTACHMENT_TYPES.register("chat_overlay",
             () -> AttachmentType.builder(() -> -1)
                     .serialize(Codec.INT)
@@ -124,16 +135,16 @@ public final class WitchModAttachments {
                     .copyOnDeath()
                     .build());
 
-    /** Chat blessing: the streamer's current sub count (synced, shown in the overlay header and used for the end reward). Persists through death with the blessing. */
+    /** chat blessing: the streamer's current sub count (synced, shown in the overlay header and used for the end reward). Persists through death with the blessing. */
     public static final Supplier<AttachmentType<Integer>> CHAT_SUBS = ATTACHMENT_TYPES.register("chat_subs",
             () -> AttachmentType.builder(() -> 0).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).copyOnDeath().build());
 
-    /** Chat blessing: current entertainment level 0..100 (synced, not saved). Drives the overlay's live viewer count + hype-train bar. */
+    /** chat blessing: current entertainment level 0..100 (synced, not saved). Drives the overlay's live viewer count + hype-train bar. */
     public static final Supplier<AttachmentType<Integer>> CHAT_HYPE = ATTACHMENT_TYPES.register("chat_hype",
             () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
 
     /**
-     * The Organised blessing's 9 extra inventory slots (Phase D). Serialized (and copied on death, since
+     * The Organised blessing's 9 extra inventory slots. Serialized (and copied on death, since
      * curses/blessings persist through death); NOT synced — the vanilla chest menu it's opened through
      * handles slot sync while open. Dropped when the blessing expires (see {@code BlessingOrganised}).
      */
@@ -143,56 +154,56 @@ public final class WitchModAttachments {
                     .copyOnDeath()
                     .build());
 
-    // --- Client-side curse flags (Phase D). Each is an auto-synced int: -1 inactive, 1 active. The actual
+    // --- Client-side curse flags. Each is an auto-synced int: -1 inactive, 1 active. The actual
     // effect (reversed input / window bounce / window rename / camera hijack) runs client-side off the flag.
     public static final Supplier<AttachmentType<Integer>> MOONWALKER_ACTIVE = ATTACHMENT_TYPES.register("moonwalker_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Builder blessing: {@code 1} active, {@code -1} inactive. Client zeroes the place/break delays while set. */
+    /** builder blessing: {@code 1} active, {@code -1} inactive. Client zeroes the place/break delays while set. */
     public static final Supplier<AttachmentType<Integer>> BUILDER_ACTIVE = ATTACHMENT_TYPES.register("builder_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Berserker blessing: {@code 1} active, {@code -1} inactive. Client sends a miss packet on air-swings while set. */
+    /** berserker blessing: {@code 1} active, {@code -1} inactive. Client sends a miss packet on air-swings while set. */
     public static final Supplier<AttachmentType<Integer>> BERSERKER_ACTIVE = ATTACHMENT_TYPES.register("berserker_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Ocean's Blessing: {@code 1} active, {@code -1} inactive. Client applies the fast-swim boost while set and in water. */
+    /** ocean's Blessing: {@code 1} active, {@code -1} inactive. Client applies the fast-swim boost while set and in water. */
     public static final Supplier<AttachmentType<Integer>> OCEANS_ACTIVE = ATTACHMENT_TYPES.register("oceans_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Spider blessing: {@code 1} active, {@code -1} inactive. Client does the wall-climbing while set. */
-    /** Ninja blessing: {@code 1} active, {@code -1} inactive. Client handles the mid-air double jump + swing woosh. */
+    /** spider blessing: {@code 1} active, {@code -1} inactive. Client does the wall-climbing while set. */
+    /** ninja blessing: {@code 1} active, {@code -1} inactive. Client handles the mid-air double jump + swing woosh. */
     public static final Supplier<AttachmentType<Integer>> NINJA_ACTIVE = ATTACHMENT_TYPES.register("ninja_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Prop Hunt blessing: the BlockState id the player is disguised as ({@code -1} = not disguised). Synced so every client renders the disguise. */
+    /** prop Hunt blessing: the BlockState id the player is disguised as ({@code -1} = not disguised). Synced so every client renders the disguise. */
     public static final Supplier<AttachmentType<Integer>> PROPHUNT_BLOCK = ATTACHMENT_TYPES.register("prophunt_block",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Prop Hunt: the exact world cell the disguise is ANCHORED to (a {@code BlockPos.asLong()}) while crouched, or {@code Long.MIN_VALUE} when moving (the block follows you). Synced for exact grid rendering. */
+    /** prop Hunt: the exact world cell the disguise is ANCHORED to (a {@code BlockPos.asLong()}) while crouched, or {@code Long.MIN_VALUE} when moving (the block follows you). Synced for exact grid rendering. */
     public static final Supplier<AttachmentType<Long>> PROPHUNT_ANCHOR = ATTACHMENT_TYPES.register("prophunt_anchor",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
     public static final Supplier<AttachmentType<Integer>> SPIDER_ACTIVE = ATTACHMENT_TYPES.register("spider_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Forgiveness blessing: {@code 1} active, {@code -1} inactive. Synced so the client can do the enlarged-hitbox melee assist on a near-miss. */
+    /** forgiveness blessing: {@code 1} active, {@code -1} inactive. Synced so the client can do the enlarged-hitbox melee assist on a near-miss. */
     public static final Supplier<AttachmentType<Integer>> FORGIVENESS_ACTIVE = ATTACHMENT_TYPES.register("forgiveness_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Blessing of Speed: {@code 1} active, {@code -1} inactive. Synced so the client can cancel the sprint FOV zoom the extra speed would cause. */
+    /** blessing of Speed: {@code 1} active, {@code -1} inactive. Synced so the client can cancel the sprint FOV zoom the extra speed would cause. */
     public static final Supplier<AttachmentType<Integer>> SPEED_ACTIVE = ATTACHMENT_TYPES.register("speed_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Speed Demon blessing: {@code 1} active, {@code -1} inactive. Synced so the client can speed up a ridden (client-authoritative) BOAT. */
+    /** speed Demon blessing: {@code 1} active, {@code -1} inactive. Synced so the client can speed up a ridden (client-authoritative) BOAT. */
     public static final Supplier<AttachmentType<Integer>> SPEED_DEMON_ACTIVE = ATTACHMENT_TYPES.register("speed_demon_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Carelessness curse: {@code 1} active, {@code -1} inactive. Client renders the whole health bar as black hearts. */
+    /** carelessness curse: {@code 1} active, {@code -1} inactive. Client renders the whole health bar as black hearts. */
     public static final Supplier<AttachmentType<Integer>> CARELESSNESS_ACTIVE = ATTACHMENT_TYPES.register("carelessness_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Narcolepsy curse: the game tick the current sleep ends ({@code 0} = awake). Client runs the sleep overlay + mash while it's in the future. */
+    /** narcolepsy curse: the game tick the current sleep ends ({@code 0} = awake). Client runs the sleep overlay + mash while it's in the future. */
     public static final Supplier<AttachmentType<Long>> NARCOLEPSY_SLEEP_END = ATTACHMENT_TYPES.register("narcolepsy_sleep_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
@@ -249,55 +260,78 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Long>> DWELLER_MIMIC = ATTACHMENT_TYPES.register("dweller_mimic",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** The Dweller: {@code 1} while its subtle BREATHING loop should play (it's close and watching), else {@code 0}. */
+    /** the Dweller: {@code 1} while its subtle BREATHING loop should play (it's close and watching), else {@code 0}. */
     public static final Supplier<AttachmentType<Integer>> DWELLER_BREATHING = ATTACHMENT_TYPES.register("dweller_breathing",
             () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Gladiator: {@code 1} active, {@code -1} inactive. Gates the parry HUD + right-click handling on the client. */
+    /** gladiator: {@code 1} active, {@code -1} inactive. Gates the parry HUD + right-click handling on the client. */
     public static final Supplier<AttachmentType<Integer>> GLADIATOR_ACTIVE = ATTACHMENT_TYPES.register("gladiator_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Gladiator: game tick the current parry window ends (0 = no window). Synced so the client draws the parry bar. */
+    /** gladiator: game tick the current parry window ends (0 = no window). Synced so the client draws the parry bar. */
     public static final Supplier<AttachmentType<Long>> GLADIATOR_PARRY_END = ATTACHMENT_TYPES.register("gladiator_parry_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Gladiator: game tick the parry cooldown ends. Synced so the client bar shows the recharge. */
+    /** gladiator: game tick the parry cooldown ends. Synced so the client bar shows the recharge. */
     public static final Supplier<AttachmentType<Long>> GLADIATOR_COOLDOWN_END = ATTACHMENT_TYPES.register("gladiator_cooldown_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Gladiator: game tick the hand-input lock ends (no switch/swing/use while parrying; extended on a whiff). Synced for the client to enforce. */
+    /** gladiator: game tick the hand-input lock ends (no switch/swing/use while parrying; extended on a whiff). Synced for the client to enforce. */
     public static final Supplier<AttachmentType<Long>> GLADIATOR_LOCK_END = ATTACHMENT_TYPES.register("gladiator_lock_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Gladiator: game tick the weapon swing is fully recharged after a parry — synced so the CLIENT can set its own attack-cooldown so the indicator actually shows it. */
+    /** gladiator: game tick the weapon swing is fully recharged after a parry — synced so the CLIENT can set its own attack-cooldown so the indicator actually shows it. */
     public static final Supplier<AttachmentType<Long>> GLADIATOR_WEAPON_READY = ATTACHMENT_TYPES.register("gladiator_weapon_ready",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
-    /** Wonky: {@code -1} inactive, {@code 1} active — the client adds a subtle sideways wander while moving. */
+    /** wonky: {@code -1} inactive, {@code 1} active — the client adds a subtle sideways wander while moving. */
     public static final Supplier<AttachmentType<Integer>> WONKY_ACTIVE = ATTACHMENT_TYPES.register("wonky_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Siren's Call: {@code 1} while the longing is high enough to march you to water; {@code -1} otherwise. */
+    // --- New prototype batch (2026-09-02) client flags: -1 inactive / 1 active, auto-synced. ---
+    /** left Handed: flips the rendered main hand + scrambles typed chat + a small aim wobble. Client-driven. */
+    public static final Supplier<AttachmentType<Integer>> LEFT_HANDED_ACTIVE = ATTACHMENT_TYPES.register("left_handed_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** ice Skates: the ground stops holding you — client retains horizontal momentum like ice. */
+    public static final Supplier<AttachmentType<Integer>> ICE_SKATES_ACTIVE = ATTACHMENT_TYPES.register("ice_skates_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** vertigo: the camera gets wobbly at high altitude. Client-driven off this flag. */
+    public static final Supplier<AttachmentType<Integer>> VERTIGO_ACTIVE = ATTACHMENT_TYPES.register("vertigo_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** channels: your left/right audio is swapped. Read by the sound-listener mixin. */
+    public static final Supplier<AttachmentType<Integer>> CHANNELS_ACTIVE = ATTACHMENT_TYPES.register("channels_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** hiccups: game tick the current hiccup's brief movement-freeze ends. Client zeroes input (no Slowness → no FOV change). */
+    public static final Supplier<AttachmentType<Long>> HICCUPS_FREEZE_END = ATTACHMENT_TYPES.register("hiccups_freeze_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** spotlight: {@code -1} inactive, {@code 1} active. Synced to TRACKERS so every nearby client renders the light pillar LOCALLY (no server particle spam). */
+    public static final Supplier<AttachmentType<Integer>> SPOTLIGHT_ACTIVE = ATTACHMENT_TYPES.register("spotlight_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+    /** narrator: {@code -1} inactive, {@code 1} active. Synced so the CLIENT can report client-only events (pausing / tabbing out) back for narration. */
+    public static final Supplier<AttachmentType<Integer>> NARRATOR_ACTIVE = ATTACHMENT_TYPES.register("narrator_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** siren's Call: {@code 1} while the longing is high enough to march you to water; {@code -1} otherwise. */
     public static final Supplier<AttachmentType<Integer>> SIREN_PULL_ACTIVE = ATTACHMENT_TYPES.register("siren_pull_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
-    /** Siren's Call: the heading toward the nearest water, which the client walks the hijacked victim along. */
+    /** siren's Call: the heading toward the nearest water, which the client walks the hijacked victim along. */
     public static final Supplier<AttachmentType<Float>> SIREN_PULL_YAW = ATTACHMENT_TYPES.register("siren_pull_yaw",
             () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
-    /** Siren's Call: 0..1 magenta-shader strength; 1 while mind-controlled, fading to 0 over the water grace. */
+    /** siren's Call: 0..1 magenta-shader strength; 1 while mind-controlled, fading to 0 over the water grace. */
     public static final Supplier<AttachmentType<Float>> SIREN_SHADER = ATTACHMENT_TYPES.register("siren_shader",
             () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
 
     // --- Stick Drift. Mode + direction are rolled ONCE at apply and never change (a stick doesn't develop a
     // new drift mid-session); the intensity/end pair is the current episode, which the server retunes.
-    /** Stick Drift: {@code -1} inactive, {@code 0} camera drift, {@code 1} movement drift. */
+    /** stick Drift: {@code -1} inactive, {@code 0} camera drift, {@code 1} movement drift. */
     public static final Supplier<AttachmentType<Integer>> STICK_DRIFT_MODE = ATTACHMENT_TYPES.register("stick_drift_mode",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
-    /** Stick Drift: the fixed direction it drifts, as an angle in radians. Constant for the curse's life. */
+    /** stick Drift: the fixed direction it drifts, as an angle in radians. Constant for the curse's life. */
     public static final Supplier<AttachmentType<Float>> STICK_DRIFT_ANGLE = ATTACHMENT_TYPES.register("stick_drift_angle",
             () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
-    /** Stick Drift: current episode intensity 0..1 ({@code 0} = not drifting right now). */
+    /** stick Drift: current episode intensity 0..1 ({@code 0} = not drifting right now). */
     public static final Supplier<AttachmentType<Float>> STICK_DRIFT_INTENSITY = ATTACHMENT_TYPES.register("stick_drift_intensity",
             () -> AttachmentType.builder(() -> 0.0F).serialize(Codec.FLOAT).sync(ByteBufCodecs.FLOAT).build());
-    /** Stick Drift: game tick the current episode ends. */
+    /** stick Drift: game tick the current episode ends. */
     public static final Supplier<AttachmentType<Long>> STICK_DRIFT_END = ATTACHMENT_TYPES.register("stick_drift_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
     public static final Supplier<AttachmentType<Integer>> SCREENSAVER_ACTIVE = ATTACHMENT_TYPES.register("screensaver_active",
@@ -392,7 +426,7 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Long>> FLAT_FOOTED_SHAKE_END = ATTACHMENT_TYPES.register("flat_footed_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Amethyst Bell: game tick a subtle "toll" camera jolt ends, set for players nearby when it's rung. Synced. */
+    /** amethyst Bell: game tick a subtle "toll" camera jolt ends, set for players nearby when it's rung. Synced. */
     public static final Supplier<AttachmentType<Long>> AMETHYST_BELL_SHAKE_END = ATTACHMENT_TYPES.register("amethyst_bell_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
@@ -400,36 +434,36 @@ public final class WitchModAttachments {
      * Heavyweight: game tick the collapse camera-shake ends. Auto-synced — there is no vanilla screen shake,
      * so the client rattles the view itself off this in {@code ComputeCameraAngles}.
      */
-    /** Brute: game tick a smash camera jolt ends, set when you crash through a hard block. Synced. */
+    /** brute: game tick a smash camera jolt ends, set when you crash through a hard block. Synced. */
     public static final Supplier<AttachmentType<Long>> BRUTE_SHAKE_END = ATTACHMENT_TYPES.register("brute_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Thick Skinned: game tick a little "shrugged it off" camera jolt ends, set when a hit is neutralised. Synced. */
+    /** thick Skinned: game tick a little "shrugged it off" camera jolt ends, set when a hit is neutralised. Synced. */
     public static final Supplier<AttachmentType<Long>> THICK_SKINNED_SHAKE_END = ATTACHMENT_TYPES.register("thick_skinned_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Voodoo Doll: game tick the caster's pin/squeeze camera jolt ends. Synced. */
+    /** voodoo Doll: game tick the caster's pin/squeeze camera jolt ends. Synced. */
     public static final Supplier<AttachmentType<Long>> VOODOO_SHAKE_END = ATTACHMENT_TYPES.register("voodoo_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
     public static final Supplier<AttachmentType<Long>> HEAVYWEIGHT_SHAKE_END = ATTACHMENT_TYPES.register("heavyweight_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** The Dweller: camera-shake end tick (bang/lunge jumpscares + the finale). Synced to the victim. */
+    /** the Dweller: camera-shake end tick (bang/lunge jumpscares + the finale). Synced to the victim. */
     public static final Supplier<AttachmentType<Long>> DWELLER_SHAKE_END = ATTACHMENT_TYPES.register("dweller_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** The Dweller: game-tick a flash-then-dark jumpscare overlay ends (bright flash, then black). Synced. */
+    /** the Dweller: game-tick a flash-then-dark jumpscare overlay ends (bright flash, then black). Synced. */
     public static final Supplier<AttachmentType<Long>> DWELLER_FLASH_END = ATTACHMENT_TYPES.register("dweller_flash_end",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Gladiator: camera-shake end tick + its peak strength (synced) — parry/perfect/whiff each set a different strength. */
+    /** gladiator: camera-shake end tick + its peak strength (synced) — parry/perfect/whiff each set a different strength. */
     public static final Supplier<AttachmentType<Long>> GLADIATOR_SHAKE_END = ATTACHMENT_TYPES.register("gladiator_shake_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
     public static final Supplier<AttachmentType<Double>> GLADIATOR_SHAKE_STRENGTH = ATTACHMENT_TYPES.register("gladiator_shake_strength",
             () -> AttachmentType.builder(() -> 0.0).serialize(Codec.DOUBLE).sync(ByteBufCodecs.DOUBLE).build());
 
-    /** Sticky: {@code -1} inactive, {@code 1} active. Synced so the client can suppress the drop KEY. */
+    /** sticky: {@code -1} inactive, {@code 1} active. Synced so the client can suppress the drop KEY. */
     public static final Supplier<AttachmentType<Integer>> STICKY_ACTIVE = ATTACHMENT_TYPES.register("sticky_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
@@ -451,7 +485,7 @@ public final class WitchModAttachments {
                     .copyOnDeath()
                     .build());
 
-    /** Social Outcast: {@code -1} inactive, {@code 1} active. Auto-synced — the hiding is pure client render. */
+    /** social Outcast: {@code -1} inactive, {@code 1} active. Auto-synced — the hiding is pure client render. */
     public static final Supplier<AttachmentType<Integer>> SOCIAL_OUTCAST_ACTIVE = ATTACHMENT_TYPES.register("social_outcast_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
@@ -473,7 +507,7 @@ public final class WitchModAttachments {
      * a window lapses, so syncing it whole is cheap.
      */
     public static final Supplier<AttachmentType<List<Integer>>> SOCIAL_OUTCAST_REVEALED = ATTACHMENT_TYPES.register("social_outcast_revealed",
-            // NOTE the zero-arg lambda rather than List::of — the method reference is ambiguous between
+            // note the zero-arg lambda rather than List::of — the method reference is ambiguous between
             // builder(Supplier) and builder(Function<IAttachmentHolder, T>). Same as ORGANISED_ITEMS.
             () -> AttachmentType.<List<Integer>>builder(() -> List.of())
                     .serialize(Codec.INT.listOf())
@@ -520,6 +554,13 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Integer>> IMMORTALITY_USES = ATTACHMENT_TYPES.register("immortality_uses",
             () -> AttachmentType.builder(() -> 0).serialize(Codec.INT).copyOnDeath().build());
 
+    /** last Stand: how many revives spent (persisted, survives death); the blessing breaks at lastStandMaxUses. */
+    public static final Supplier<AttachmentType<Integer>> LAST_STAND_USES = ATTACHMENT_TYPES.register("last_stand_uses",
+            () -> AttachmentType.builder(() -> 0).serialize(Codec.INT).copyOnDeath().build());
+    /** last Stand: game-tick the escalating cooldown ends (persisted). Below it, a fatal blow is NOT saved. */
+    public static final Supplier<AttachmentType<Long>> LAST_STAND_COOLDOWN_END = ATTACHMENT_TYPES.register("last_stand_cooldown_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).copyOnDeath().build());
+
     /**
      * Set on the ITEM ENTITIES an Immortality rebuild spills onto the ground: the owner's UUID as a string
      * ({@code ""} = not an Immortality drop). The owner can never pick these back up (the blessing's whole
@@ -545,8 +586,17 @@ public final class WitchModAttachments {
      * looks normal but fires at full power). With the flag synced, the client speeds up the visible draw to
      * match. The client can't read {@code ACTIVE_EFFECTS} (not synced), so it reads this instead.
      */
-    public static final Supplier<AttachmentType<Integer>> STEADY_HANDS_ACTIVE = ATTACHMENT_TYPES.register("steady_hands_active",
+    public static final Supplier<AttachmentType<Integer>> DEXTEROUS_ACTIVE = ATTACHMENT_TYPES.register("dexterous_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** amethyst Bell: game-tick the "consume" purple-dust ramp ends on a caught player (0 = none). Synced to
+     * trackers so every client renders the ramp itself — the server sends NO consume particles. */
+    public static final Supplier<AttachmentType<Long>> AMETHYST_CONSUME_END = ATTACHMENT_TYPES.register("amethyst_consume_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /** amethyst Bell: {@code 1} while the consume ramp is a pre-decided FIZZLE (lighter, no inward stream). Synced. */
+    public static final Supplier<AttachmentType<Integer>> AMETHYST_CONSUME_FIZZLE = ATTACHMENT_TYPES.register("amethyst_consume_fizzle",
+            () -> AttachmentType.builder(() -> 0).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
     /**
      * Nightowl: {@code -1} inactive, {@code 1} active. SYNCED — the client needs it to strip fog everywhere and
@@ -554,6 +604,18 @@ public final class WitchModAttachments {
      * which isn't synced). Blindness/Darkness immunity is handled server-side.
      */
     public static final Supplier<AttachmentType<Integer>> NIGHTOWL_ACTIVE = ATTACHMENT_TYPES.register("nightowl_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** organised: {@code 1} while active — synced so the inventory screen can show its stash button. */
+    public static final Supplier<AttachmentType<Integer>> ORGANISED_ACTIVE = ATTACHMENT_TYPES.register("organised_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** farmer's Spirit: {@code 1} while active — synced so the client can draw the radius ring + plant motes. */
+    public static final Supplier<AttachmentType<Integer>> FARMERS_SPIRIT_ACTIVE = ATTACHMENT_TYPES.register("farmers_spirit_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** leader: {@code 1} while active — synced so the client can draw the aura radius ring. */
+    public static final Supplier<AttachmentType<Integer>> LEADER_ACTIVE = ATTACHMENT_TYPES.register("leader_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
     /**
@@ -611,78 +673,78 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Long>> REVIVE_FLASH_END = ATTACHMENT_TYPES.register("revive_flash_end",
             () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment (Nightcore bug): a synced game-tick at which the higher-pitch window ends. */
+    /** bedrock Moment (Nightcore bug): a synced game-tick at which the higher-pitch window ends. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_NIGHTCORE = ATTACHMENT_TYPES.register("bedrock_nightcore",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment (Chunk Rejection bug): a synced game-tick at which the forced-low-render-distance window ends. */
+    /** bedrock Moment (Chunk Rejection bug): a synced game-tick at which the forced-low-render-distance window ends. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_CHUNK_REJECT = ATTACHMENT_TYPES.register("bedrock_chunk_reject",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment: {@code 1} while the curse is on you, {@code -1} otherwise — gates the always-on client bugs (silent creepers, hotbar drift). */
+    /** bedrock Moment: {@code 1} while the curse is on you, {@code -1} otherwise — gates the always-on client bugs (silent creepers, hotbar drift). */
     public static final Supplier<AttachmentType<Integer>> BEDROCK_ACTIVE = ATTACHMENT_TYPES.register("bedrock_active",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Bedrock Moment (Marketplace popup): a nonce that changes each time an ad should pop up on the client. */
+    /** bedrock Moment (Marketplace popup): a nonce that changes each time an ad should pop up on the client. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_MARKETPLACE = ATTACHMENT_TYPES.register("bedrock_marketplace",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment (Sound Delay bug): synced game-tick the delayed-sound window ends. */
+    /** bedrock Moment (Sound Delay bug): synced game-tick the delayed-sound window ends. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_SOUND_DELAY = ATTACHMENT_TYPES.register("bedrock_sound_delay",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment (Phantom Durability bug): synced game-tick the jittering-durability window ends. */
+    /** bedrock Moment (Phantom Durability bug): synced game-tick the jittering-durability window ends. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_PHANTOM_DUR = ATTACHMENT_TYPES.register("bedrock_phantom_dur",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
-    /** Bedrock Moment (Perspective Flip bug): synced game-tick the forced-third-person window ends. */
+    /** bedrock Moment (Perspective Flip bug): synced game-tick the forced-third-person window ends. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_PERSPECTIVE = ATTACHMENT_TYPES.register("bedrock_perspective",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
-    // Bedrock Moment — client windows for the newer bugs. Each is a synced game-tick the window ends at.
+    // bedrock Moment — client windows for the newer bugs. Each is a synced game-tick the window ends at.
     private static Supplier<AttachmentType<Long>> bedrockWindow(String id) {
         return ATTACHMENT_TYPES.register(id, () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
     }
 
-    /** Ghost Item: your held item renders as a random other item. */
+    /** ghost Item: your held item renders as a random other item. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_GHOST_ITEM = bedrockWindow("bedrock_ghost_item");
-    /** Input Lag: movement input is applied ~0.3s late. */
+    /** input Lag: movement input is applied ~0.3s late. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_INPUT_LAG = bedrockWindow("bedrock_input_lag");
-    /** Texture Flicker: the missing-texture checker flashes over the screen. */
+    /** texture Flicker: the missing-texture checker flashes over the screen. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_TEXTURE_FLICKER = bedrockWindow("bedrock_texture_flicker");
-    /** Sprint Reset: sprint keeps cutting out. */
+    /** sprint Reset: sprint keeps cutting out. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_SPRINT_RESET = bedrockWindow("bedrock_sprint_reset");
-    /** Language Error: the game language swaps to pirate/welsh. */
+    /** language Error: the game language swaps to pirate/welsh. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_LANGUAGE = bedrockWindow("bedrock_language");
-    /** Speed Blitz: the FREEZE half ends at this tick (movement is recorded, not applied). */
+    /** speed Blitz: the FREEZE half ends at this tick (movement is recorded, not applied). */
     public static final Supplier<AttachmentType<Long>> BEDROCK_SPEEDBLITZ_FREEZE = bedrockWindow("bedrock_speedblitz_freeze");
-    /** Speed Blitz: the whole effect (freeze + 3x replay) ends by this tick. */
+    /** speed Blitz: the whole effect (freeze + 3x replay) ends by this tick. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_SPEEDBLITZ_END = bedrockWindow("bedrock_speedblitz_end");
-    /** Fake BSOD: the blue-screen window ends at this tick. */
+    /** fake BSOD: the blue-screen window ends at this tick. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_BSOD = bedrockWindow("bedrock_bsod");
-    /** Fake Kick: a nonce — when it CHANGES, the client shows the fake disconnect screen. */
+    /** fake Kick: a nonce — when it CHANGES, the client shows the fake disconnect screen. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_FAKE_KICK = ATTACHMENT_TYPES.register("bedrock_fake_kick",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
-    /** Air Swimming: you keep swimming through air like it's water until this tick. */
+    /** air Swimming: you keep swimming through air like it's water until this tick. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_AIR_SWIM = bedrockWindow("bedrock_air_swim");
-    /** Hungry: right-click eats whatever you're holding until this tick. */
+    /** hungry: right-click eats whatever you're holding until this tick. */
     public static final Supplier<AttachmentType<Long>> BEDROCK_HUNGRY = bedrockWindow("bedrock_hungry");
 
 
     // --- Splitscreen curse -----------------------------------------------------------------------------
-    /** Splitscreen: entity id of the partner sharing your screen, or -1. Synced (set on BOTH players). */
+    /** splitscreen: entity id of the partner sharing your screen, or -1. Synced (set on BOTH players). */
     public static final Supplier<AttachmentType<Integer>> SPLITSCREEN_PARTNER = ATTACHMENT_TYPES.register("splitscreen_partner",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
-    /** Splitscreen phase: 0 off, 1 ENTERING (fake-load), 2 ACTIVE (split), 3 EXITING (fake-load). Synced. */
+    /** splitscreen phase: 0 off, 1 ENTERING (fake-load), 2 ACTIVE (split), 3 EXITING (fake-load). Synced. */
     public static final Supplier<AttachmentType<Integer>> SPLITSCREEN_PHASE = ATTACHMENT_TYPES.register("splitscreen_phase",
             () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
-    /** Splitscreen: game-tick the current enter/exit fake-loading transition ends. Synced. */
+    /** splitscreen: game-tick the current enter/exit fake-loading transition ends. Synced. */
     public static final Supplier<AttachmentType<Long>> SPLITSCREEN_LOAD_END = ATTACHMENT_TYPES.register("splitscreen_load_end",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
-    /** Splitscreen: 1 while EITHER of you has a sign open — both freeze (shared screen). Synced. */
+    /** splitscreen: 1 while EITHER of you has a sign open — both freeze (shared screen). Synced. */
     public static final Supplier<AttachmentType<Integer>> SPLITSCREEN_SIGN_LOCK = ATTACHMENT_TYPES.register("splitscreen_sign_lock",
             () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
-    /** Splitscreen: a nonce bumped when a sign UI must force-close (someone took damage). Synced. */
+    /** splitscreen: a nonce bumped when a sign UI must force-close (someone took damage). Synced. */
     public static final Supplier<AttachmentType<Long>> SPLITSCREEN_SIGN_CLOSE = ATTACHMENT_TYPES.register("splitscreen_sign_close",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
 
@@ -694,7 +756,7 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Integer>> CUTAWAY_TARGET = ATTACHMENT_TYPES.register("cutaway_target",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
 
-    /** Cutaway Gag (Annoying Music): synced game-tick the annoying-music window ends; the client loops a track. */
+    /** cutaway Gag (Annoying Music): synced game-tick the annoying-music window ends; the client loops a track. */
     public static final Supplier<AttachmentType<Long>> CUTAWAY_MUSIC_END = ATTACHMENT_TYPES.register("cutaway_music_end",
             () -> AttachmentType.builder(() -> Long.MIN_VALUE).sync(ByteBufCodecs.VAR_LONG).build());
 
@@ -706,7 +768,7 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<net.minecraft.nbt.CompoundTag>> CUTAWAY_RETURN = ATTACHMENT_TYPES.register("cutaway_return",
             () -> AttachmentType.<net.minecraft.nbt.CompoundTag>builder(() -> new net.minecraft.nbt.CompoundTag()).serialize(net.minecraft.nbt.CompoundTag.CODEC).build());
 
-    /** Cutaway Gag: which looped SFX the watcher's client should play (-1 none, 0 helicopter, 1 tractor beam). Synced. */
+    /** cutaway Gag: which looped SFX the watcher's client should play (-1 none, 0 helicopter, 1 tractor beam). Synced. */
     public static final Supplier<AttachmentType<Integer>> CUTAWAY_LOOP = ATTACHMENT_TYPES.register("cutaway_loop",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
 
@@ -735,6 +797,11 @@ public final class WitchModAttachments {
     // / 2 pig); the server flips it to -1 while the disguise is "broken". ---
     public static final Supplier<AttachmentType<Integer>> DISGUISE_TYPE = ATTACHMENT_TYPES.register("disguise_type",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+
+    // --- Concealment synergy (Prop Hunt + Disguise): a synced tick until which a form change keeps you briefly
+    // unrendered (armour and all, like Unseen), so a switch reads as a puff-of-smoke vanish. ---
+    public static final Supplier<AttachmentType<Long>> CONCEAL_FLASH_END = ATTACHMENT_TYPES.register("conceal_flash_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
 
     private WitchModAttachments() {}
 

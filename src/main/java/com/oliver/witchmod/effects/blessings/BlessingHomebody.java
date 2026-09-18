@@ -12,7 +12,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Homebody (sacrificial item BED): there's no place like home. While you're near your SPAWN POINT — your bed
+ * homebody (sacrificial item BED): there's no place like home. While you're near your SPAWN POINT — your bed
  * (or the world spawn if you've no bed) — you're granted Regeneration and Haste, so base is where you heal
  * and build fastest. Wander off and the comfort fades.
  */
@@ -21,7 +21,7 @@ public final class BlessingHomebody extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.RED_BED);
     }
 
-    /** Not instantly noticeable — you discover it the first time home wraps you in its comfort. */
+    /** not instantly noticeable — you discover it the first time home wraps you in its comfort. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -37,14 +37,14 @@ public final class BlessingHomebody extends Effect {
         if (target.distanceToSqr(home.getX() + 0.5, home.getY() + 0.5, home.getZ() + 0.5) > r * r) {
             return;
         }
-        // Refreshed each tick (short duration + ambient so it doesn't clutter the HUD with swirls).
+        // refreshed each tick (short duration + ambient so it doesn't clutter the HUD with swirls).
         int amp = Config.HOMEBODY_REGEN_AMPLIFIER.get();
         target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, amp, true, false, true));
         target.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, Config.HOMEBODY_HASTE_AMPLIFIER.get(), true, false, true));
         markDiscoveredByVictim(target);
     }
 
-    /** Your spawn point in THIS dimension: your bed/anchor if set here, otherwise the overworld's shared spawn. */
+    /** your spawn point in THIS dimension: your bed/anchor if set here, otherwise the overworld's shared spawn. */
     private static BlockPos homeIn(ServerPlayer target) {
         BlockPos respawn = target.getRespawnPosition();
         if (respawn != null && target.getRespawnDimension() == target.level().dimension()) {

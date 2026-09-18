@@ -52,7 +52,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * Bedrock Moment (sacrificial item CRYING OBSIDIAN): one of the most OVERLOADED curses you can get — very
+ * bedrock Moment (sacrificial item CRYING OBSIDIAN): one of the most OVERLOADED curses you can get — very
  * expensive, no benefit, and it plagues the victim's game with a stream of pointlessly elaborate "bugs", a
  * parody of those old short-form clips of infamous Bedrock-edition jank.
  *
@@ -61,9 +61,9 @@ import com.oliver.witchmod.effects.Curses;
  */
 public final class CurseBedrockMoment extends Effect {
     private static final Map<UUID, State> STATES = new HashMap<>();
-    /** Guards damage we re-apply ourselves (Bluetooth/Delay) from being caught by the hook again. */
+    /** guards damage we re-apply ourselves (Bluetooth/Delay) from being caught by the hook again. */
     private static final Set<UUID> APPLYING = new HashSet<>();
-    /** Bedrock Cooldowns (the beneficial bug): the ATTACK_SPEED modifier that quarters your swing cooldown. */
+    /** bedrock Cooldowns (the beneficial bug): the ATTACK_SPEED modifier that quarters your swing cooldown. */
     private static final net.minecraft.resources.ResourceLocation COOLDOWNS_ID =
             com.oliver.witchmod.data.EffectUtil.modifierId("bedrock_cooldowns");
 
@@ -83,30 +83,30 @@ public final class CurseBedrockMoment extends Effect {
 
     private record Cand(int weight, BooleanSupplier fn) {}
 
-    /** Package-visible so the extracted {@link BedrockEvent} registry can pass it through. */
+    /** package-visible so the extracted {@link BedrockEvent} registry can pass it through. */
     static final class State {
         int nextEvent;
         boolean discovered;
         final List<Pending> pending = new ArrayList<>();
-        // Bluetooth
+        // bluetooth
         long bluetoothUntil;
         double bluetoothStored;
-        // Delay / Pause / Aimbot bookkeeping
+        // delay / Pause / Aimbot bookkeeping
         final Set<Integer> seenOwnProjectiles = new HashSet<>();
         final Set<Integer> boostedArrows = new HashSet<>();
         int lastVehicleId = -1;
-        // Drowning
+        // drowning
         boolean drowning;
         int drownTick;
-        // Helicopter
+        // helicopter
         int heliId = -1;
         int heliTimer;
         int heliGround;   // on-ground spin grace before it starts rising
-        // Server lag
+        // server lag
         final List<Integer> laggedIds = new ArrayList<>();
         final Map<Integer, Vec3> lagPos = new HashMap<>();
         int lagTimer;
-        // Creeper boats / blitz creepers
+        // creeper boats / blitz creepers
         final List<Integer> creeperBoats = new ArrayList<>();
         final List<Integer> blitzCreepers = new ArrayList<>();
         long ghostPhaseUntil;   // Ghost Block Phase: blocks placed/broken until this tick revert
@@ -159,7 +159,7 @@ public final class CurseBedrockMoment extends Effect {
             }
         }
         com.oliver.witchmod.data.EffectUtil.removeModifier(target, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED, COOLDOWNS_ID);
-        // Drop any TNT still clinging to you when the curse ends.
+        // drop any TNT still clinging to you when the curse ends.
         for (net.minecraft.world.entity.item.PrimedTnt tnt : target.serverLevel().getEntitiesOfClass(
                 net.minecraft.world.entity.item.PrimedTnt.class, target.getBoundingBox().inflate(3.0),
                 t -> t.getVehicle() == target)) {
@@ -223,13 +223,13 @@ public final class CurseBedrockMoment extends Effect {
         tickFling(target, s);
         stickTnt(target, level);       // Sticky TNT (passive): lit TNT you touch clings to you
         tickCooldowns(target, s);      // Bedrock Cooldowns (beneficial): maintain/expire the quartered-swing buff
-        // Air Swimming (passive): a chance, WHILE swimming, that you keep swimming after you leave the water.
+        // air Swimming (passive): a chance, WHILE swimming, that you keep swimming after you leave the water.
         if (target.isSwimming()
                 && level.getGameTime() >= target.getData(WitchModAttachments.BEDROCK_AIR_SWIM)
                 && target.getRandom().nextDouble() < Config.BEDROCK_AIR_SWIM_CHANCE.get()) {
             airSwim(target, level);
         }
-        // Sleep Cancel (passive): a chance each tick while sleeping to be booted out of the bed.
+        // sleep Cancel (passive): a chance each tick while sleeping to be booted out of the bed.
         if (target.isSleeping() && target.getRandom().nextDouble() < Config.BEDROCK_SLEEP_CANCEL_CHANCE.get()) {
             target.stopSleeping();
         }
@@ -241,10 +241,10 @@ public final class CurseBedrockMoment extends Effect {
     }
 
     /**
-     * Debug: {@code arg} names a sub-bug to force (or none = a random active one). Passive/condition-based bugs
-     * (aimbot, pause, delay, ghost blocks, silent creeper, hotbar drift) report how they trigger. See §16.2b.
+     * debug: {@code arg} names a sub-bug to force (or none = a random active one). Passive/condition-based bugs
+     * (aimbot, pause, delay, ghost blocks, silent creeper, hotbar drift) report how they trigger.
      */
-    /** Tab-suggests every forcible name: all active events (from the registry) + the passive/info keys. */
+    /** tab-suggests every forcible name: all active events (from the registry) + the passive/info keys. */
     @Override
     public java.util.List<String> debugArgs() {
         java.util.List<String> args = new java.util.ArrayList<>();
@@ -267,7 +267,7 @@ public final class CurseBedrockMoment extends Effect {
             return "fired a random active bug";
         }
         String key = arg.toLowerCase(java.util.Locale.ROOT);
-        // Fling + the passive/hook-driven bugs aren't in the active registry — handled specially.
+        // fling + the passive/hook-driven bugs aren't in the active registry — handled specially.
         switch (key) {
             case "fling": {
                 Entity veh = target.getVehicle();
@@ -301,7 +301,7 @@ public final class CurseBedrockMoment extends Effect {
 
     // --- Sticky TNT (passive) + Bedrock Cooldowns (beneficial) ------------------------------------------
 
-    /** Passive: any lit TNT you're touching CLINGS to you (rides you), so it goes off in your face. */
+    /** passive: any lit TNT you're touching CLINGS to you (rides you), so it goes off in your face. */
     void stickTnt(ServerPlayer target, ServerLevel level) {
         for (net.minecraft.world.entity.item.PrimedTnt tnt : level.getEntitiesOfClass(
                 net.minecraft.world.entity.item.PrimedTnt.class, target.getBoundingBox().inflate(0.9),
@@ -310,7 +310,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Debug/force: spawns a lit TNT already stuck to you (the passive version needs live TNT to be near). */
+    /** debug/force: spawns a lit TNT already stuck to you (the passive version needs live TNT to be near). */
     boolean stickyTntEvent(ServerPlayer target, ServerLevel level) {
         net.minecraft.world.entity.item.PrimedTnt tnt =
                 new net.minecraft.world.entity.item.PrimedTnt(level, target.getX(), target.getY(), target.getZ(), target);
@@ -321,7 +321,7 @@ public final class CurseBedrockMoment extends Effect {
     }
 
     /**
-     * Bedrock Cooldowns (the one BENEFICIAL bug): quarters your weapon swing cooldown for 8-28s — Bedrock has no
+     * bedrock Cooldowns (the one BENEFICIAL bug): quarters your weapon swing cooldown for 8-28s — Bedrock has no
      * attack cooldown, so this mimics it. Done as a temporary ATTACK_SPEED ×4 modifier.
      */
     boolean cooldownsEvent(ServerPlayer target, State state) {
@@ -343,7 +343,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Keeps the cooldowns buff applied for its window and strips it when the window ends. */
+    /** keeps the cooldowns buff applied for its window and strips it when the window ends. */
     private void tickCooldowns(ServerPlayer target, State state) {
         if (state.cooldownsUntil <= 0) {
             return;
@@ -408,7 +408,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Adds a weighted pool candidate that runs a {@link BedrockEvent}. */
+    /** adds a weighted pool candidate that runs a {@link BedrockEvent}. */
     private void add(List<Cand> pool, int weight, BedrockEvent event, ServerPlayer target, State state, ServerLevel level) {
         pool.add(new Cand(weight, () -> event.run(this, target, state, level)));
     }
@@ -482,7 +482,7 @@ public final class CurseBedrockMoment extends Effect {
             }
             Vec3 to = target.position().subtract(boat.position());
             double dist = to.horizontalDistance();
-            // Drifted past / lost / timed out — despawn quickly.
+            // drifted past / lost / timed out — despawn quickly.
             if (dist > 24.0 || boat.tickCount > 220) {
                 boat.getPassengers().forEach(Entity::discard);
                 boat.discard();
@@ -527,7 +527,7 @@ public final class CurseBedrockMoment extends Effect {
                 continue;
             }
             if (c.distanceToSqr(target) <= det * det) {
-                // No windup — instant detonation.
+                // no windup — instant detonation.
                 level.explode(c, c.getX(), c.getY(), c.getZ(), c.isPowered() ? 6.0F : 3.0F, Level.ExplosionInteraction.MOB);
                 c.discard();
                 it.remove();
@@ -578,7 +578,7 @@ public final class CurseBedrockMoment extends Effect {
         }
         for (int i = 1; i <= count; i++) {
             state.pending.add(new Pending((tgt, lvl) ->
-                    // No sound — real rubberbanding is silent; the yank itself is the whole effect.
+                    // no sound — real rubberbanding is silent; the yank itself is the whole effect.
                     tgt.connection.teleport(saved.x, saved.y, saved.z, yaw, pitch), i * delay));
         }
         return true;
@@ -648,7 +648,7 @@ public final class CurseBedrockMoment extends Effect {
     boolean inventoryShuffle(ServerPlayer target) {
         var inv = target.getInventory();
         RandomSource r = target.getRandom();
-        // Fisher-Yates over the main (non-hotbar) slots 9..35.
+        // fisher-Yates over the main (non-hotbar) slots 9..35.
         for (int i = 35; i > 9; i--) {
             int j = 9 + r.nextInt(i - 9 + 1);
             ItemStack a = inv.getItem(i);
@@ -692,7 +692,7 @@ public final class CurseBedrockMoment extends Effect {
         if (!state.drowning) {
             return;
         }
-        // Ends the moment you touch water, or after it gives up on its own.
+        // ends the moment you touch water, or after it gives up on its own.
         if (target.isInWater() || ++state.drownTick > Config.BEDROCK_DROWN_TICKS.get()) {
             state.drowning = false;
             state.drownTick = 0;
@@ -705,7 +705,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Called from the death handler — a death clears the fake drowning (it doesn't persist to respawn). */
+    /** called from the death handler — a death clears the fake drowning (it doesn't persist to respawn). */
     public static void onDeath(ServerPlayer player) {
         State s = STATES.get(player.getUUID());
         if (s != null && s.drowning) {
@@ -748,7 +748,7 @@ public final class CurseBedrockMoment extends Effect {
         }
         m.setNoGravity(true);
         m.setDeltaMovement(0, 0, 0);
-        // Spins IN PLACE on the ground first (the sudden whip-up), THEN starts to rise.
+        // spins IN PLACE on the ground first (the sudden whip-up), THEN starts to rise.
         boolean rising = state.heliGround <= 0;
         if (rising) {
             m.setPos(m.getX(), m.getY() + 0.06, m.getZ());
@@ -780,7 +780,7 @@ public final class CurseBedrockMoment extends Effect {
         if (mobs.isEmpty()) {
             return false;
         }
-        // Not a Speed potion — the entities are literally TICKED extra times each server tick, so they move,
+        // not a Speed potion — the entities are literally TICKED extra times each server tick, so they move,
         // path and animate at high tickspeed (the "server lag / everything sped up" clip). No sound.
         state.tickspeedIds.clear();
         for (Mob m : mobs) {
@@ -791,7 +791,7 @@ public final class CurseBedrockMoment extends Effect {
         return true;
     }
 
-    /** Tickspeed: run each affected entity's tick the extra times per server tick, for the window. */
+    /** tickspeed: run each affected entity's tick the extra times per server tick, for the window. */
     void tickTickspeed(State state, ServerLevel level) {
         if (state.tickspeedTimer <= 0) {
             return;
@@ -879,7 +879,7 @@ public final class CurseBedrockMoment extends Effect {
         if (r.nextFloat() >= Config.BEDROCK_FLING_CHANCE.get()) {
             return;
         }
-        // Physics engine "failing": catapult in a RANDOM 3D direction (with enough lift to clear the ground),
+        // physics engine "failing": catapult in a RANDOM 3D direction (with enough lift to clear the ground),
         // not the old axis-aligned slide that only worked launching straight up.
         double f = Config.BEDROCK_FLING_FORCE.get();
         double az = r.nextDouble() * Math.PI * 2.0;
@@ -892,7 +892,7 @@ public final class CurseBedrockMoment extends Effect {
 
     // --- Damage hook (static, called from the event handler) -------------------------------------------
 
-    /** Bluetooth (whole window) + Delay (fall damage). Returns true if it consumed the damage. */
+    /** bluetooth (whole window) + Delay (fall damage). Returns true if it consumed the damage. */
     public static boolean onIncomingDamage(ServerPlayer player, LivingIncomingDamageEvent event) {
         if (APPLYING.contains(player.getUUID())) {
             return false; // our own re-applied hit — let it through
@@ -905,13 +905,13 @@ public final class CurseBedrockMoment extends Effect {
         if (amount <= 0) {
             return false;
         }
-        // Bluetooth: everything during the window is withheld and stored.
+        // bluetooth: everything during the window is withheld and stored.
         if (s.bluetoothUntil != 0) {
             s.bluetoothStored += amount;
             event.setAmount(0.0F);
             return true;
         }
-        // Delay: fall damage lands late.
+        // delay: fall damage lands late.
         if (event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) {
             event.setAmount(0.0F);
             int min = Config.BEDROCK_DELAY_FALL_MIN_TICKS.get();
@@ -954,7 +954,7 @@ public final class CurseBedrockMoment extends Effect {
         target.setData(WitchModAttachments.BEDROCK_INPUT_LAG, level.getGameTime() + Config.BEDROCK_INPUT_LAG_TICKS.get());
     }
 
-    /** Vibrant: a client saturation-boost post shader for the window ("Bedrock is more vibrant"). */
+    /** vibrant: a client saturation-boost post shader for the window ("Bedrock is more vibrant"). */
     void vibrant(ServerPlayer target, ServerLevel level) {
         target.setData(WitchModAttachments.BEDROCK_TEXTURE_FLICKER, level.getGameTime() + Config.BEDROCK_TEXTURE_FLICKER_TICKS.get());
     }
@@ -971,7 +971,7 @@ public final class CurseBedrockMoment extends Effect {
         target.setData(WitchModAttachments.BEDROCK_AIR_SWIM, level.getGameTime() + min + target.getRandom().nextInt(max - min + 1));
     }
 
-    /** Pause: nearby non-boss entities have AI off + are frozen for 0.3–5s, then a high-tick catch-up burst. */
+    /** pause: nearby non-boss entities have AI off + are frozen for 0.3–5s, then a high-tick catch-up burst. */
     boolean pauseEntities(ServerPlayer target, State state, ServerLevel level) {
         List<Mob> mobs = level.getEntitiesOfClass(Mob.class, target.getBoundingBox().inflate(16.0),
                 m -> m.isAlive()
@@ -993,7 +993,7 @@ public final class CurseBedrockMoment extends Effect {
     }
 
     void tickPauseEntities(ServerPlayer target, State state, ServerLevel level) {
-        // Paused phase: hold everything dead-still.
+        // paused phase: hold everything dead-still.
         if (state.pauseTimer > 0) {
             for (int id : state.pausedIds) {
                 if (level.getEntity(id) instanceof Mob m && m.isAlive()) {
@@ -1005,7 +1005,7 @@ public final class CurseBedrockMoment extends Effect {
                 releasePause(target, state);
             }
         }
-        // Catch-up phase: they tick MUCH faster than tickspeed for a bit, lurching to catch up.
+        // catch-up phase: they tick MUCH faster than tickspeed for a bit, lurching to catch up.
         if (state.catchupTimer > 0) {
             for (int id : state.catchupIds) {
                 Entity e = level.getEntity(id);
@@ -1021,7 +1021,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Un-pauses the entities and kicks off the high-tick catch-up burst. */
+    /** un-pauses the entities and kicks off the high-tick catch-up burst. */
     private void releasePause(ServerPlayer target, State state) {
         for (int id : state.pausedIds) {
             if (target.serverLevel().getEntity(id) instanceof Mob m) {
@@ -1038,7 +1038,7 @@ public final class CurseBedrockMoment extends Effect {
         state.catchupMult = Config.BEDROCK_PAUSE_CATCHUP_MULT.get();
     }
 
-    /** Force-unpause: if a PAUSED entity is hit, its curse's whole pause ends early (→ the catch-up burst). */
+    /** force-unpause: if a PAUSED entity is hit, its curse's whole pause ends early (→ the catch-up burst). */
     public static void onEntityHurt(Entity victim) {
         for (var entry : STATES.entrySet()) {
             State s = entry.getValue();
@@ -1053,7 +1053,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Float: nearby entities lose gravity (chance each) but keep pathfinding — they drift toward you. */
+    /** float: nearby entities lose gravity (chance each) but keep pathfinding — they drift toward you. */
     boolean floatEvent(ServerPlayer target, State state, ServerLevel level) {
         List<Entity> nearby = level.getEntitiesOfClass(Entity.class, target.getBoundingBox().inflate(16.0),
                 e -> e != target && e.isAlive() && !e.isNoGravity());
@@ -1088,7 +1088,7 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** Hungry: consume one of the held stack (called from the client's C2S when its eat animation finishes). */
+    /** hungry: consume one of the held stack (called from the client's C2S when its eat animation finishes). */
     public static void onHungryEat(ServerPlayer player, net.minecraft.world.InteractionHand hand) {
         if (player.level().getGameTime() >= player.getData(WitchModAttachments.BEDROCK_HUNGRY)) {
             return; // window closed — ignore stale packets
@@ -1122,18 +1122,18 @@ public final class CurseBedrockMoment extends Effect {
         long now = level.getGameTime();
         int freeze = Config.BEDROCK_SPEEDBLITZ_FREEZE_TICKS.get();
         target.setData(WitchModAttachments.BEDROCK_SPEEDBLITZ_FREEZE, now + freeze);
-        // The client ends the 3x replay once its buffer empties; this is just a hard safety cap.
+        // the client ends the 3x replay once its buffer empties; this is just a hard safety cap.
         target.setData(WitchModAttachments.BEDROCK_SPEEDBLITZ_END, now + freeze + freeze + 40L);
     }
 
     void fakeKick(ServerPlayer target, ServerLevel level) {
-        // Bump the nonce → the client shows the (fake) disconnect screen.
+        // bump the nonce → the client shows the (fake) disconnect screen.
         target.setData(WitchModAttachments.BEDROCK_FAKE_KICK, level.getGameTime());
     }
 
     void fakeBsod(ServerPlayer target, ServerLevel level) {
         target.setData(WitchModAttachments.BEDROCK_BSOD, level.getGameTime() + Config.BEDROCK_BSOD_TICKS.get());
-        // Broadcast the exact vanilla "left the game" message to EVERYONE, so it looks like they crashed out.
+        // broadcast the exact vanilla "left the game" message to EVERYONE, so it looks like they crashed out.
         net.minecraft.network.chat.Component msg = net.minecraft.network.chat.Component
                 .translatable("multiplayer.player.left", target.getDisplayName())
                 .withStyle(net.minecraft.ChatFormatting.YELLOW);
@@ -1144,18 +1144,18 @@ public final class CurseBedrockMoment extends Effect {
         }
     }
 
-    /** True while a Ghost Block Phase is running for this player (blocks placed/broken revert). */
+    /** true while a Ghost Block Phase is running for this player (blocks placed/broken revert). */
     public static boolean inGhostPhase(ServerPlayer player) {
         State s = STATES.get(player.getUUID());
         return s != null && player.level().getGameTime() < s.ghostPhaseUntil;
     }
 
-    /** Ghost Block Phase break: cancel the break so the block re-appears (client predicted removal → desync). */
+    /** ghost Block Phase break: cancel the break so the block re-appears (client predicted removal → desync). */
     public static boolean onBlockBroken(ServerPlayer player) {
         return inGhostPhase(player);
     }
 
-    /** Food Reg: chance an eaten food gives NO hunger. Returns true if it negated the gain. */
+    /** food Reg: chance an eaten food gives NO hunger. Returns true if it negated the gain. */
     public static boolean onFoodEaten(ServerPlayer player, net.minecraft.world.item.ItemStack stack) {
         if (player.getRandom().nextInt(100) >= Config.BEDROCK_FOOD_REG_CHANCE.get()) {
             return false;
@@ -1168,7 +1168,7 @@ public final class CurseBedrockMoment extends Effect {
         return true;
     }
 
-    /** Hit Reg: chance a melee hit is invalidated (whiffs). Returns true to cancel + play the empty-swing sound. */
+    /** hit Reg: chance a melee hit is invalidated (whiffs). Returns true to cancel + play the empty-swing sound. */
     public static boolean onAttack(ServerPlayer player) {
         if (player.getRandom().nextInt(100) >= Config.BEDROCK_HIT_REG_CHANCE.get()) {
             return false;
@@ -1184,13 +1184,13 @@ public final class CurseBedrockMoment extends Effect {
     }
 
 
-    /** Ghost Blocks (passive): a block you place briefly appears, then rejects itself. Called from the place hook. */
+    /** ghost Blocks (passive): a block you place briefly appears, then rejects itself. Called from the place hook. */
     public static void onBlockPlaced(ServerPlayer player, BlockPos pos) {
         State s = STATES.get(player.getUUID());
         if (s == null) {
             return;
         }
-        // In a Ghost Block Phase every placed block is a ghost; otherwise it's the low passive chance.
+        // in a Ghost Block Phase every placed block is a ghost; otherwise it's the low passive chance.
         boolean phase = player.level().getGameTime() < s.ghostPhaseUntil;
         if (!phase && player.getRandom().nextFloat() >= Config.BEDROCK_GHOST_BLOCK_CHANCE.get()) {
             return;

@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Blessing of Flight (ELYTRA): creative-style flight tied to a resource. Hold JUMP to rise, draining a small
+ * blessing of Flight (ELYTRA): creative-style flight tied to a resource. Hold JUMP to rise, draining a small
  * yellow energy bar above your XP; let go and it refills. Taking a hit spends 20% of the bar and knocks you
  * out of flight for 0.6s. The rising itself is client-authoritative (see {@code client/FlightClient}); the
  * SERVER owns the energy + the hit-lockout and cancels fall damage while the blessing is active.
@@ -73,9 +73,12 @@ public final class BlessingFlight extends Effect {
         }
 
         if (rising) {
-            // Glide (mode 2) drains more than a plain push-up (mode 1).
+            // glide (mode 2) drains more than a plain push-up (mode 1); flying an elytra burns faster still.
             double drain = Config.FLIGHT_DRAIN_PER_TICK.get()
                     * (mode == 2 ? Config.FLIGHT_GLIDE_DRAIN_MULT.get() : 1.0);
+            if (target.isFallFlying()) {
+                drain *= Config.FLIGHT_ELYTRA_DRAIN_MULT.get();
+            }
             energy -= (float) drain;
             markDiscoveredByVictim(target);
             LAST_RISE_TICK.put(id, now);
@@ -85,12 +88,16 @@ public final class BlessingFlight extends Effect {
                     target.getX(), target.getY() + 1.95, target.getZ(), 2, 0.16, 0.25, 0.16, 0.006);
             level.sendParticles(net.minecraft.core.particles.ParticleTypes.ENCHANT,
                     target.getX(), target.getY() + 2.5, target.getZ(), 3, 0.28, 0.35, 0.28, 0.0);
+        } else if (target.isFallFlying()) {
+            // elytra glide with NO active push-up: the blessing REFUELS while you soar — its niche as an
+            // elytra enhancer. (While actively rising above, it still drains.)
+            energy += (float) (double) Config.FLIGHT_GLIDE_REGEN_PER_TICK.get();
         } else if (airborne && airTicks > Config.FLIGHT_AIRBORNE_GRACE_TICKS.get()) {
-            // Just being aloft (past a short grace, so a natural jump is free) costs a trickle — refill by landing.
+            // just being aloft (past a short grace, so a natural jump is free) costs a trickle — refill by landing.
             energy -= (float) (double) Config.FLIGHT_AIRBORNE_DRAIN.get();
         } else if (!airborne) {
-            // On the ground: refill, after a short beat once flight ends.
-            long lastRise = LAST_RISE_TICK.getOrDefault(id, Long.MIN_VALUE);
+            // on the ground: refill, after a short beat once flight ends.
+            long lastRise = LAST_RISE_TICK.getOrDefault(id, Long.MIN_VALUE / 2);
             if (now - lastRise >= Config.FLIGHT_REGEN_DELAY_TICKS.get()) {
                 energy += (float) (double) Config.FLIGHT_REGEN_PER_TICK.get();
             }
@@ -98,7 +105,7 @@ public final class BlessingFlight extends Effect {
         energy = Math.max(0.0F, Math.min(1.0F, energy));
         target.setData(WitchModAttachments.FLIGHT_ENERGY, energy);
 
-        // Depletion lockout: hit 0 and you're grounded until the bar refills to the threshold.
+        // depletion lockout: hit 0 and you're grounded until the bar refills to the threshold.
         if (energy <= 0.0F) {
             depleted = true;
         } else if (energy >= REFILL_THRESHOLD) {
@@ -113,7 +120,7 @@ public final class BlessingFlight extends Effect {
         target.setData(WitchModAttachments.FLIGHT_ACTIVE, depleted ? 2 : 1);
     }
 
-    /** Set from the {@code FlightRisePayload} (0 none / 1 push-up / 2 sprint-glide). */
+    /** set from the {@code FlightRisePayload} (0 none / 1 push-up / 2 sprint-glide). */
     public static void setMode(ServerPlayer player, int mode) {
         if (mode <= 0) {
             MODE.remove(player.getUUID());
@@ -122,7 +129,7 @@ public final class BlessingFlight extends Effect {
         }
     }
 
-    /** Called from {@code BlessingEventHandler} when a Flight-blessed player takes damage: spend 20% + lock out. */
+    /** called from {@code BlessingEventHandler} when a Flight-blessed player takes damage: spend 20% + lock out. */
     public static void onHurt(ServerPlayer player) {
         float energy = player.getData(WitchModAttachments.FLIGHT_ENERGY);
         energy = Math.max(0.0F, energy - (float) (double) Config.FLIGHT_DAMAGE_COST.get());

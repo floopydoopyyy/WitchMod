@@ -15,7 +15,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.SnailEntity;
 
 /**
- * Client driver for the Snail's music: every tick it looks for Snail entities within the music distance of the
+ * client driver for the Snail's music: every tick it looks for Snail entities within the music distance of the
  * local player and makes sure a looping {@link SnailSoundInstance} is playing at each. The instance stops
  * ITSELF the moment the snail leaves range or dies; this only (re)starts one, so the loop begins cleanly.
  */

@@ -12,9 +12,8 @@ import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * Crafting-menu binding: a Voodoo Doll + a bound Player Essence anywhere in the grid → a doll bound to that
- * player (the essence is consumed by the craft). A shapeless "special" recipe so it can copy the essence's
- * bound-player component onto the result, which a plain JSON recipe can't do.
+ * crafting-grid binding: doll + a bound player essence → a doll bound to that player (essence consumed). a
+ * shapeless special recipe so it can copy the essence's bound-player component onto the result.
  */
 public final class VoodooBindRecipe extends CustomRecipe {
     public VoodooBindRecipe(CraftingBookCategory category) {

@@ -23,7 +23,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Something you eat really doesn't agree with you any more (master-spec Allergic). On application one of
+ * something you eat really doesn't agree with you any more. On application one of
  * three diets is rolled; eating anything that diet forbids blinds and poisons you, and you only keep a
  * fraction of the hunger AND saturation it would normally give.
  *
@@ -42,7 +42,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * config-exposed (see {@link Config}). Triggered from {@code CurseEventHandler}'s item-use hooks.
  */
 public final class CurseAllergic extends Effect {
-    /** The three diets. Ordinals are persisted in {@link WitchModAttachments#ALLERGIC_DIET} — don't reorder. */
+    /** the three diets. Ordinals are persisted in {@link WitchModAttachments#ALLERGIC_DIET} — don't reorder. */
     public enum Diet {
         VEGETARIAN("Vegetarian — meat makes you violently ill"),
         CARNIVORE("Carnivore — plants make you violently ill"),
@@ -74,19 +74,19 @@ public final class CurseAllergic extends Effect {
         target.setData(WitchModAttachments.ALLERGIC_DIET, -1);
     }
 
-    /** The Scrying Mirror is the one thing that names your exact allergy instead of making you find out. */
+    /** the Scrying Mirror is the one thing that names your exact allergy instead of making you find out. */
     @Override
     public Optional<String> scryingDetail(ServerPlayer target) {
         return Optional.of(dietOf(target).displayName());
     }
 
-    /** You only learn you're Allergic when something you ate first disagrees with you (Rule 2). */
+    /** you only learn you're Allergic when something you ate first disagrees with you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** The player's rolled diet, rolling one if it's somehow unset (self-heals old/!onApply'd data). */
+    /** the player's rolled diet, rolling one if it's somehow unset (self-heals old/!onApply'd data). */
     public static Diet dietOf(ServerPlayer player) {
         int index = player.getData(WitchModAttachments.ALLERGIC_DIET);
         if (index < 0 || index >= Diet.values().length) {
@@ -97,7 +97,7 @@ public final class CurseAllergic extends Effect {
         return Diet.values()[index];
     }
 
-    /** Whether {@code stack} is off-limits for {@code diet}. Category-based, so modded foods are covered. */
+    /** whether {@code stack} is off-limits for {@code diet}. Category-based, so modded foods are covered. */
     public static boolean isForbidden(Diet diet, ItemStack stack) {
         FoodProperties food = stack.get(DataComponents.FOOD);
         PotionContents potion = stack.get(DataComponents.POTION_CONTENTS);
@@ -113,7 +113,7 @@ public final class CurseAllergic extends Effect {
         };
     }
 
-    /** The allergic reaction itself: blindness + poison. */
+    /** the allergic reaction itself: blindness + poison. */
     public static void reactBadly(ServerPlayer player) {
         int blindTicks = Config.ALLERGIC_BLINDNESS_SECONDS.get() * 20;
         int poisonTicks = Config.ALLERGIC_POISON_SECONDS.get() * 20;
@@ -126,7 +126,7 @@ public final class CurseAllergic extends Effect {
     }
 
     /**
-     * Takes back most of what the food just gave. Called AFTER vanilla applied it (the item-use Finish event
+     * takes back most of what the food just gave. Called AFTER vanilla applied it (the item-use Finish event
      * fires post-application), using the pre-eat readings so the player keeps exactly
      * {@code allergicNutritionPercent}% of the REAL gain — correct even if they were nearly full and the
      * gain got clamped.
@@ -145,7 +145,7 @@ public final class CurseAllergic extends Effect {
         }
     }
 
-    /** Clean eaters get nothing good out of a potion — strip the beneficial effects it just applied. */
+    /** clean eaters get nothing good out of a potion — strip the beneficial effects it just applied. */
     public static void stripBeneficialEffects(ServerPlayer player, ItemStack stack) {
         PotionContents potion = stack.get(DataComponents.POTION_CONTENTS);
         if (potion == null) {

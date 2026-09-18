@@ -9,7 +9,7 @@ import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.core.particles.SimpleParticleType;
 
 /**
- * The sleep "Z" — drifts slowly UP off a sleeper's head, swaying side to side, fading in then out. Spawned
+ * the sleep "Z" — drifts slowly UP off a sleeper's head, swaying side to side, fading in then out. Spawned
  * server-side (so every viewer sees it) via {@code level.sendParticles(WitchModParticles.SLEEP_Z, ...)}.
  */
 public class SleepZParticle extends TextureSheetParticle {
@@ -35,13 +35,13 @@ public class SleepZParticle extends TextureSheetParticle {
 
     @Override
     public void tick() {
-        // Update the drift BEFORE the move (super.tick moves by xd/yd/zd), so the sway shows this tick.
+        // update the drift BEFORE the move (super.tick moves by xd/yd/zd), so the sway shows this tick.
         double t = this.age * 0.22 + this.swayPhase;
         this.xd = Math.cos(t) * this.swayAmount;
         this.zd = Math.sin(t * 0.7) * this.swayAmount * 0.5;
         this.yd = 0.027;
         super.tick();
-        // Fade in over the first sixth, hold, then fade out over the last third.
+        // fade in over the first sixth, hold, then fade out over the last third.
         float frac = (float) this.age / (float) this.lifetime;
         this.alpha = frac < 0.16F ? frac / 0.16F
                 : (frac > 0.62F ? Math.max(0.0F, 1.0F - (frac - 0.62F) / 0.38F) : 1.0F);
@@ -52,7 +52,7 @@ public class SleepZParticle extends TextureSheetParticle {
         return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
     }
 
-    /** Client factory registered against {@code WitchModParticles.SLEEP_Z}. */
+    /** client factory registered against {@code WitchModParticles.SLEEP_Z}. */
     public static class Provider implements ParticleProvider<SimpleParticleType> {
         private final SpriteSet sprites;
 

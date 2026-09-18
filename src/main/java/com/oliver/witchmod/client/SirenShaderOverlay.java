@@ -10,7 +10,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Siren's Call's magenta "mind-control" tint. Drawn while the sea has (or is releasing) its hold: the synced
+ * siren's Call's magenta "mind-control" tint. Drawn while the sea has (or is releasing) its hold: the synced
  * {@link WitchModAttachments#SIREN_SHADER} value (0..1) ramps up as the march takes over and fades to 0 across
  * the water grace period, so the screen is clear again by the time the longing actually starts to drop.
  *
@@ -19,7 +19,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * rather than a colour wash. All driven off the local player's attachment, so it needs no per-frame state.
  */
 public final class SirenShaderOverlay implements LayeredDraw.Layer {
-    /** Magenta, RGB only — the alpha is filled in per frame from the synced strength. */
+    /** magenta, RGB only — the alpha is filled in per frame from the synced strength. */
     private static final int MAGENTA = 0xC81E8C;
 
     @Override
@@ -43,7 +43,7 @@ public final class SirenShaderOverlay implements LayeredDraw.Layer {
         int width = guiGraphics.guiWidth();
         int height = guiGraphics.guiHeight();
 
-        // The flat tint over everything.
+        // the flat tint over everything.
         guiGraphics.fill(0, 0, width, height, (alpha << 24) | MAGENTA);
 
         // A heavier band down each edge so it feels like the sea pressing in from the sides.

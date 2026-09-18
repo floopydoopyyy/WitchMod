@@ -12,9 +12,8 @@ import com.oliver.witchmod.items.JarEffects;
 import com.oliver.witchmod.items.WitchModItems;
 
 /**
- * A thrown jar — a bespoke splash-potion. It flies like a potion and, on any impact, {@link JarEffects#splash}
- * scatters its stored curses/blessings over an (over-sized) area and paints coloured particles; if it caught
- * nobody, a homing "lash" surges out to punish whoever threw it away.
+ * a thrown jar — flies like a splash potion; on impact {@link JarEffects#splash} scatters its stored effects
+ * over an over-sized area, and if it caught nobody a homing lash surges out.
  */
 public final class JarThrowEntity extends ThrowableItemProjectile {
     public JarThrowEntity(EntityType<? extends JarThrowEntity> type, Level level) {

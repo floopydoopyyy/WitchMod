@@ -26,11 +26,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import com.oliver.witchmod.ui.BewitchingTableMenu;
 
 /**
- * The ritual block (CLAUDE.md section 2.1). Right-clicking opens the real Bewitching Table screen (Phase
- * 5, {@link BewitchingTableMenu}/{@code BewitchingTableScreen}), which replaces the Phase 4 placeholder's
- * direct item-insertion/cast-on-click interaction. {@code useItemOn} isn't overridden — vanilla's default
- * ({@code PASS_TO_DEFAULT_BLOCK_INTERACTION}) already falls through to {@code useWithoutItem} below
- * regardless of what's in the player's hand, so a single method covers both cases.
+ * the ritual table block — right-clicking opens its screen. {@code useItemOn} isn't overridden; vanilla's
+ * default falls through to {@code useWithoutItem} regardless of held item, so one method covers both cases.
  */
 public final class BewitchingTableBlock extends BaseEntityBlock {
     public static final MapCodec<BewitchingTableBlock> CODEC = simpleCodec(BewitchingTableBlock::new);
@@ -61,7 +58,7 @@ public final class BewitchingTableBlock extends BaseEntityBlock {
         return defaultBlockState().setValue(CAPPED, isCapped(context.getLevel(), context.getClickedPos()));
     }
 
-    /** Recompute the candle cap whenever the block directly above changes. */
+    /** recompute the candle cap whenever the block directly above changes. */
     @Override
     protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
                                      LevelAccessor level, BlockPos pos, BlockPos neighborPos) {

@@ -10,14 +10,14 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Cast-iron guts (master-spec Iron Stomach, sacrificial item RAW CHICKEN): you can eat any of the game's
+ * cast-iron guts: you can eat any of the game's
  * "bad" foods with NO penalty, and you actually get MORE hunger and saturation out of them than anyone else
  * would. The work — stripping the food's negative effects and granting the bonus nutrition — happens on the
  * eat, in {@code BlessingEventHandler.onIronStomachEat}.
  */
 public final class BlessingIronStomach extends Effect {
     /**
-     * The vanilla foods that come with a downside — the ones this blessing is about. Kept a curated set rather
+     * the vanilla foods that come with a downside — the ones this blessing is about. Kept a curated set rather
      * than reflecting each food's effects, which changed shape across 1.21.x; modded bad foods aren't covered
      * automatically, which is an acceptable simplification for now.
      */
@@ -28,7 +28,7 @@ public final class BlessingIronStomach extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.CHICKEN);
     }
 
-    /** You find out the first time you wolf down something rank and feel great for it (Rule 2). */
+    /** you find out the first time you wolf down something rank and feel great for it (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;

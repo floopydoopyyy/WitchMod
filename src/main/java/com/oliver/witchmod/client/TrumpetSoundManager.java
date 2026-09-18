@@ -14,7 +14,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Client-side driver for the Trumpet curse's music. Every client tick it looks over the players it can see
+ * client-side driver for the Trumpet curse's music. Every client tick it looks over the players it can see
  * (the local player and every remote player within tracking range — the ones whose position it actually
  * knows) and, for any that are cursed AND walking AND not crouched, makes sure a {@link TrumpetSoundInstance}
  * is playing at them. The instance stops ITSELF the moment the conditions lapse; this only handles (re)starting
@@ -29,7 +29,7 @@ public final class TrumpetSoundManager {
     /** cursed player -> the loop currently following them, so we never double up. */
     private static final Map<UUID, TrumpetSoundInstance> ACTIVE = new HashMap<>();
 
-    // Real-displacement tracker — an EXTRA gate so the loop self-corrects even when walkAnimation.speed() is
+    // real-displacement tracker — an EXTRA gate so the loop self-corrects even when walkAnimation.speed() is
     // wrong (it can get stuck non-zero — pushed, in a current, animation state not decaying — which made the
     // trumpet loop CONSTANTLY, not just while walking). We measure actual movement per tick and treat a player
     // as "moving" only if they've genuinely displaced recently.
@@ -40,7 +40,7 @@ public final class TrumpetSoundManager {
 
     private TrumpetSoundManager() {}
 
-    /** True only if the player has actually MOVED within the last few ticks (independent of walkAnimation). */
+    /** true only if the player has actually MOVED within the last few ticks (independent of walkAnimation). */
     static boolean isMoving(Player player) {
         return STILL_TICKS.getOrDefault(player.getUUID(), 99) <= STILL_LIMIT;
     }
@@ -55,7 +55,7 @@ public final class TrumpetSoundManager {
             return;
         }
 
-        // Update the real-movement tracker for every player we can see this tick.
+        // update the real-movement tracker for every player we can see this tick.
         java.util.Set<UUID> seen = new java.util.HashSet<>();
         for (Player player : mc.level.players()) {
             UUID id = player.getUUID();
@@ -70,7 +70,7 @@ public final class TrumpetSoundManager {
         LAST_POS.keySet().removeIf(id -> !seen.contains(id));
         STILL_TICKS.keySet().removeIf(id -> !seen.contains(id));
 
-        // Drop finished loops (a player stopped, crouched, cured, or went out of range) so they can restart.
+        // drop finished loops (a player stopped, crouched, cured, or went out of range) so they can restart.
         ACTIVE.values().removeIf(TrumpetSoundInstance::isStopped);
 
         for (Player player : mc.level.players()) {

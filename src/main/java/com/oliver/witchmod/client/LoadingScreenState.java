@@ -24,13 +24,13 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * The whole Loading Screen curse, client-side: how long the fake load runs, when it stutters, when it
+ * the whole Loading Screen curse, client-side: how long the fake load runs, when it stutters, when it
  * cruelly starts over, and the input lock that lasts exactly as long as the animation.
  *
  * <p>The server only ever hands over a session id (a random long). Everything else is decided here, because
  * the length is <b>dynamic</b> — a stutter or a restart extends it — and the input lock has to release on
  * precisely the frame the bar finishes. Splitting that across the network would let the two drift apart.
- * The session id seeds the RNG, so the same door gives the same screen if it's ever replayed.
+ * the session id seeds the RNG, so the same door gives the same screen if it's ever replayed.
  */
 public final class LoadingScreenState {
     private static final ResourceLocation TIPS_FILE = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "text/loading_tips.json");
@@ -56,7 +56,7 @@ public final class LoadingScreenState {
     private static int tipIndex;
     private static float tipScroll = Float.NaN; // pixel offset of the marquee; NaN = needs initialising
 
-    /** The hold music currently playing, kept so it can be cut off the instant the screen ends. */
+    /** the hold music currently playing, kept so it can be cut off the instant the screen ends. */
     @Nullable
     private static SoundInstance music;
 
@@ -86,7 +86,7 @@ public final class LoadingScreenState {
         tipIndex++;
     }
 
-    /** Which animation frame to draw, derived from wall-clock ticks so it keeps spinning through stutters. */
+    /** which animation frame to draw, derived from wall-clock ticks so it keeps spinning through stutters. */
     public static int animationFrame() {
         return (totalTicks / Config.LOADING_SCREEN_FRAME_TICKS.get()) % Config.LOADING_SCREEN_FRAME_COUNT.get();
     }
@@ -100,7 +100,7 @@ public final class LoadingScreenState {
         return 1 + (totalTicks / DOT_CYCLE_TICKS) % 3;
     }
 
-    /** Drives the whole thing. Called once per client tick from {@code ClientCurseHandler}. */
+    /** drives the whole thing. Called once per client tick from {@code ClientCurseHandler}. */
     public static void tick(LocalPlayer player) {
         long session = player.getData(WitchModAttachments.LOADING_SCREEN_SESSION);
 
@@ -123,7 +123,7 @@ public final class LoadingScreenState {
         }
 
         if (slideBackLeft > 0) {
-            // The bar is visibly whipping back down to zero before loading "again".
+            // the bar is visibly whipping back down to zero before loading "again".
             slideBackLeft--;
             progress = progressAtSlideStart * (slideBackLeft / (float) SLIDE_BACK_TICKS);
             if (slideBackLeft == 0) {
@@ -139,7 +139,7 @@ public final class LoadingScreenState {
             stutterLeft--; // frozen: the bar holds exactly where it is, as if the game has hung
             return;
         }
-        // Once a second, the bar might just... stop for a bit.
+        // once a second, the bar might just... stop for a bit.
         if (totalTicks % 20 == 0 && rng.nextInt(100) < Config.LOADING_SCREEN_STUTTER_CHANCE_PERCENT.get()) {
             stutterLeft = randomBetween(Config.LOADING_SCREEN_STUTTER_MIN_TICKS.get(),
                     Config.LOADING_SCREEN_STUTTER_MAX_TICKS.get());
@@ -181,7 +181,7 @@ public final class LoadingScreenState {
     }
 
     /**
-     * Picks a hold-music track by weight and plays it straight through the client's own SoundManager — so
+     * picks a hold-music track by weight and plays it straight through the client's own SoundManager — so
      * it exists only on the cursed player's machine, and nobody else hears a thing.
      */
     private static void startMusic() {
@@ -212,7 +212,7 @@ public final class LoadingScreenState {
         Minecraft.getInstance().getSoundManager().play(music);
     }
 
-    /** Cuts the music dead. Called the instant the screen stops, however it stopped. */
+    /** cuts the music dead. Called the instant the screen stops, however it stopped. */
     private static void stopMusic() {
         if (music != null) {
             Minecraft.getInstance().getSoundManager().stop(music);
@@ -220,7 +220,7 @@ public final class LoadingScreenState {
         }
     }
 
-    /** Ends the screen and kills the music together, so the two can never fall out of step. */
+    /** ends the screen and kills the music together, so the two can never fall out of step. */
     private static void finish() {
         active = false;
         stopMusic();
@@ -233,7 +233,7 @@ public final class LoadingScreenState {
     }
 
     /**
-     * Reads the writable tip list. Re-read per session so editing the file (plus F3+T) shows up without a
+     * reads the writable tip list. Re-read per session so editing the file (plus F3+T) shows up without a
      * restart; it's one tiny file, once per door.
      */
     private static List<String> loadTips() {

@@ -25,7 +25,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Nobody's there (master-spec Social Outcast). Other players and villagers simply aren't rendered on your
+ * nobody's there. Other players and villagers simply aren't rendered on your
  * client — no model, no nametag — unless they get right on top of you, or they hit you.
  *
  * <p><b>The hiding itself is pure client-side render</b> ({@code ClientCurseHandler} cancels
@@ -52,7 +52,7 @@ public final class CurseSocialOutcast extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 35, () -> Items.WITHER_ROSE);
     }
 
-    /** You notice the moment the world empties out (Rule 2). */
+    /** you notice the moment the world empties out (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -62,7 +62,7 @@ public final class CurseSocialOutcast extends Effect {
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
         target.setData(WitchModAttachments.SOCIAL_OUTCAST_ACTIVE, 1);
         target.setData(WitchModAttachments.SOCIAL_OUTCAST_REVEALED, List.of());
-        // Deliberately NOT discovered here: until somebody actually pops into view there is nothing to
+        // deliberately NOT discovered here: until somebody actually pops into view there is nothing to
         // notice, and an empty world looks like an empty world.
     }
 
@@ -84,7 +84,7 @@ public final class CurseSocialOutcast extends Effect {
     }
 
     /**
-     * Discovery fires the moment someone actually POPS INTO VIEW — the transition from out of reveal range
+     * discovery fires the moment someone actually POPS INTO VIEW — the transition from out of reveal range
      * to inside it — rather than when the curse lands. Until something appears out of nowhere there's nothing
      * to notice: an empty world just looks like an empty world.
      *
@@ -131,14 +131,14 @@ public final class CurseSocialOutcast extends Effect {
         }
     }
 
-    /** The same rule the client renders by, so the two never disagree about who is hidden. */
+    /** the same rule the client renders by, so the two never disagree about who is hidden. */
     public static boolean isHideable(Entity entity) {
         return entity instanceof Player
                 || (entity instanceof Villager && Config.OUTCAST_HIDES_VILLAGERS.get());
     }
 
     /**
-     * Someone hurt you, so you can see them for a while. Called from {@code CurseEventHandler}.
+     * someone hurt you, so you can see them for a while. Called from {@code CurseEventHandler}.
      *
      * <p>Only players and villagers are tracked, because they're the only things ever hidden — revealing a
      * zombie you could already see would just be pointless network traffic.

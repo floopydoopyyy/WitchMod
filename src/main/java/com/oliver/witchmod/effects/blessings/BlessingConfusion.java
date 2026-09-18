@@ -29,7 +29,7 @@ import com.oliver.witchmod.entities.CloneEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * Blessing of Confusion (OMINOUS BOTTLE): you throw off exact clones of yourself — same skin, same nametag —
+ * blessing of Confusion (OMINOUS BOTTLE): you throw off exact clones of yourself — same skin, same nametag —
  * that wander and do fake actions (swinging at nearby monsters, looking about), so onlookers and mobs can't
  * tell which one is you. Each clone has 1 HP, popping in a flash of dust when hit. It's meant to help you
  * blend into a crowd, so clones are emitted only rarely when there's nobody around to fool.
@@ -65,7 +65,7 @@ public final class BlessingConfusion extends Effect {
         UUID id = target.getUUID();
         ServerLevel level = target.serverLevel();
         List<Integer> ids = CLONES.computeIfAbsent(id, k -> new ArrayList<>());
-        // Prune dead / gone clones.
+        // prune dead / gone clones.
         for (Iterator<Integer> it = ids.iterator(); it.hasNext(); ) {
             Entity e = level.getEntity(it.next());
             if (!(e instanceof CloneEntity c) || !c.isAlive()) {
@@ -73,7 +73,7 @@ public final class BlessingConfusion extends Effect {
             }
         }
 
-        // Every so often, tug a nearby hostile onto a clone instead of you — sow confusion.
+        // every so often, tug a nearby hostile onto a clone instead of you — sow confusion.
         if (target.tickCount % 20 == 0 && !ids.isEmpty()) {
             confuseHostiles(target, ids);
         }
@@ -130,7 +130,7 @@ public final class BlessingConfusion extends Effect {
         }
     }
 
-    /** Redirect some nearby hostiles onto the clones so you get lost in the crowd. */
+    /** redirect some nearby hostiles onto the clones so you get lost in the crowd. */
     private void confuseHostiles(ServerPlayer target, List<Integer> ids) {
         ServerLevel level = target.serverLevel();
         AABB box = target.getBoundingBox().inflate(16.0);
@@ -143,7 +143,7 @@ public final class BlessingConfusion extends Effect {
         if (clones.isEmpty()) {
             return;
         }
-        // Nearby hostiles auto-aggro onto the doppelgangers: anything idle, or already coming for YOU, gets
+        // nearby hostiles auto-aggro onto the doppelgangers: anything idle, or already coming for YOU, gets
         // pointed at a clone instead — so the crowd of copies draws the heat.
         for (Mob m : level.getEntitiesOfClass(Mob.class, box, e -> e instanceof Enemy
                 && (e.getTarget() == null || e.getTarget() == target))) {
@@ -151,7 +151,7 @@ public final class BlessingConfusion extends Effect {
         }
     }
 
-    /** Other players or hostile/angry mobs nearby — someone worth blending in from. */
+    /** other players or hostile/angry mobs nearby — someone worth blending in from. */
     private static boolean hasAudience(ServerPlayer target) {
         AABB box = target.getBoundingBox().inflate(24.0);
         for (LivingEntity e : target.serverLevel().getEntitiesOfClass(LivingEntity.class, box,

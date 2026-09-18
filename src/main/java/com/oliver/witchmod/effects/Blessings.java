@@ -7,11 +7,8 @@ import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.blessings.*;
 
 /**
- * Registers the blessings (master-spec Section 6; Company was CUT on Oliver's call). {@code locked_in} was renamed to {@code hawk_guy}
- * (Target Block) so its display name reads "Hawk Guy" (names derive from the id path); {@code trainer} is
- * still the prototype id for "Personal Trainer" — ids kept stable to
- * avoid breaking saved data, display names are a lang concern. (Workman was renamed from its old
- * {@code tools_dont_use_durability} id to {@code workman}.) The final block is Phase A's newly-built blessings.
+ * registers all the blessings. some ids differ from their display names (e.g. {@code locked_in} = "hawk guy",
+ * {@code trainer} = "personal trainer") — ids are kept stable to protect saved data; names derive from lang / the id path.
  */
 public final class Blessings {
     public static final DeferredHolder<Effect, BlessingFortune> FORTUNE = register("fortune", BlessingFortune::new);
@@ -39,13 +36,13 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingTwistOfFate> TWIST_OF_FATE = register("twist_of_fate", BlessingTwistOfFate::new);
     public static final DeferredHolder<Effect, BlessingOrganised> ORGANISED = register("organised", BlessingOrganised::new);
     public static final DeferredHolder<Effect, BlessingNightowl> NIGHTOWL = register("nightowl", BlessingNightowl::new);
-    public static final DeferredHolder<Effect, BlessingSteadyHands> STEADY_HANDS = register("steady_hands", BlessingSteadyHands::new);
+    /** renamed Steady Hands → Dexterous (id drives the display name); also speeds shield-raise/eat/drink. */
+    public static final DeferredHolder<Effect, BlessingDexterous> DEXTEROUS = register("dexterous", BlessingDexterous::new);
     public static final DeferredHolder<Effect, BlessingHawkGuy> HAWK_GUY = register("hawk_guy", BlessingHawkGuy::new);
     public static final DeferredHolder<Effect, BlessingMainCharacter> MAIN_CHARACTER = register("main_character", BlessingMainCharacter::new);
     public static final DeferredHolder<Effect, BlessingJesus> JESUS = register("jesus", BlessingJesus::new);
 
-    // Phase A (master-spec Section 16): the 15 previously NOT-PROTOTYPED blessings, now built to the same
-    // loosely-functional/command-startable bar as the rest.
+    // the previously not-prototyped blessings
     public static final DeferredHolder<Effect, BlessingThickSkinned> THICK_SKINNED = register("thick_skinned", BlessingThickSkinned::new);
     public static final DeferredHolder<Effect, BlessingFarmersSpirit> FARMERS_SPIRIT = register("farmers_spirit", BlessingFarmersSpirit::new);
     public static final DeferredHolder<Effect, BlessingBrute> BRUTE = register("brute", BlessingBrute::new);
@@ -91,12 +88,18 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingConfusion> CONFUSION = register("confusion", BlessingConfusion::new);
     public static final DeferredHolder<Effect, BlessingPhotosynthesis> PHOTOSYNTHESIS = register("photosynthesis", BlessingPhotosynthesis::new);
 
+    // new blessing batch (2026-09-02).
+    public static final DeferredHolder<Effect, BlessingLeader> LEADER = register("leader", BlessingLeader::new);
+    public static final DeferredHolder<Effect, BlessingUnderdog> UNDERDOG = register("underdog", BlessingUnderdog::new);
+    public static final DeferredHolder<Effect, BlessingBloodhound> BLOODHOUND = register("bloodhound", BlessingBloodhound::new);
+    public static final DeferredHolder<Effect, BlessingGuardianAngel> GUARDIAN_ANGEL = register("guardian_angel", BlessingGuardianAngel::new);
+
     private Blessings() {}
 
     private static <T extends Effect> DeferredHolder<Effect, T> register(String name, java.util.function.Supplier<T> factory) {
         return WitchModRegistries.EFFECTS.register(name, factory);
     }
 
-    /** Forces this class to load (and thus register its blessings) before {@code RegisterEvent} fires. */
+    /** forces this class to load (and thus register its blessings) before {@code RegisterEvent} fires. */
     public static void bootstrap() {}
 }

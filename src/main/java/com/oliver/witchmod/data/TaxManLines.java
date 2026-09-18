@@ -18,12 +18,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Tax Man's patter, loaded from {@code data/witchmod/text/taxman.json} and reloadable with
- * {@code /reload}. Keyed by what he's currently doing, so the lines react to his state rather than being
- * one undifferentiated pool: {@code arrive}, {@code searching}, {@code taking}, {@code satisfied},
- * {@code empty_handed}, {@code ender_chest}, {@code gave_up}.
- */
+/** tax man patter ({@code data/witchmod/text/taxman.json}, /reload-able), keyed by his current state so lines react to what he's doing. */
 public final class TaxManLines extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "taxman");

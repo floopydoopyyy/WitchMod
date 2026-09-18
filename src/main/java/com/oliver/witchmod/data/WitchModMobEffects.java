@@ -10,9 +10,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The wrapper status effects from CLAUDE.md section 2.6. Purely informational — they carry no mechanical
- * behavior of their own; {@link StatusEffectSync} keeps their duration matched to whatever curses/blessings
- * are actually active.
+ * the informational wrapper status effects (cursed/blessed + a few markers). no behaviour of their own;
+ * {@link StatusEffectSync} keeps their duration matched to whatever's actually active.
  */
 public final class WitchModMobEffects {
     public static final DeferredRegister<MobEffect> MOB_EFFECTS = DeferredRegister.create(Registries.MOB_EFFECT, WitchMod.MODID);
@@ -22,31 +21,21 @@ public final class WitchModMobEffects {
     public static final DeferredHolder<MobEffect, MobEffect> BLESSED =
             MOB_EFFECTS.register("blessed", () -> new SimpleMobEffect(MobEffectCategory.BENEFICIAL, 0xFFD700));
 
-    /**
-     * Thirst Meter's Dehydration — Hunger, but for thirst: it makes the bar drain faster. The draining
-     * itself lives in {@code CurseThirstMeter}; this is only the marker and the HUD icon.
-     *
-     * <p>Applied with {@code visible=false} so it shows NO ambient particles (Oliver's call — it comes and
-     * goes far too often to be spewing swirls the whole time) but keeps {@code showIcon=true} so the effect
-     * bar still tells you why the bar is emptying.
-     */
+    /** thirst meter's dehydration marker + hud icon (the draining lives in CurseThirstMeter). icon only, no swirls. */
     public static final DeferredHolder<MobEffect, MobEffect> DEHYDRATION =
             MOB_EFFECTS.register("dehydration", () -> new SimpleMobEffect(MobEffectCategory.HARMFUL, 0x4A90C2));
 
-    /**
-     * Soul Bond's marker on the tethered entity — nearest living thing to the caster. It carries no behaviour
-     * of its own (the damage-sharing and particles are driven by {@code BlessingSoulBond} on the caster);
-     * this is the icon and the "you are bound" tell. Applied {@code visible=false} so it shows no vanilla
-     * swirls — the bond has its own custom golden particles instead — but {@code showIcon=true} for the bar.
-     * Gold, to match the Totem of Undying it's cast with.
-     */
+    /** soul bond's marker on the tethered entity — icon-only "you are bound" tell; the sharing lives in BlessingSoulBond. */
     public static final DeferredHolder<MobEffect, MobEffect> SOUL_BOUND =
             MOB_EFFECTS.register("soul_bound", () -> new SimpleMobEffect(MobEffectCategory.NEUTRAL, 0xFFC83C));
 
-    /** Warding Totem: you're inside a totem's shield — no curse/blessing/voodoo can land on you. Applied
-     *  invisibly (no swirl) with its icon shown, so it reads as a subtle "protected" marker. */
+    /** warding totem / holy water: protected — no curse/blessing/voodoo lands. icon only, no swirl. */
     public static final DeferredHolder<MobEffect, MobEffect> PROTECTED =
             MOB_EFFECTS.register("protected", () -> new SimpleMobEffect(MobEffectCategory.BENEFICIAL, 0x9B59D0));
+
+    /** unseen blessing: icon-only marker shown while you're actually cloaked. */
+    public static final DeferredHolder<MobEffect, MobEffect> UNSEEN =
+            MOB_EFFECTS.register("unseen", () -> new SimpleMobEffect(MobEffectCategory.BENEFICIAL, 0x37374F));
 
     private WitchModMobEffects() {}
 
@@ -54,7 +43,7 @@ public final class WitchModMobEffects {
         MOB_EFFECTS.register(modEventBus);
     }
 
-    /** {@link MobEffect}'s constructor is protected; this just exposes it. */
+    /** exposes MobEffect's protected constructor. */
     private static final class SimpleMobEffect extends MobEffect {
         SimpleMobEffect(MobEffectCategory category, int color) {
             super(category, color);

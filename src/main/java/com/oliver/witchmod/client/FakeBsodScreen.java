@@ -9,7 +9,7 @@ import net.minecraft.util.Mth;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Bedrock Moment (Fake BSOD): a full-screen fake blue-screen. The chosen image ROLLS DOWN from the top like a
+ * bedrock Moment (Fake BSOD): a full-screen fake blue-screen. The chosen image ROLLS DOWN from the top like a
  * real BSOD painting itself in, then holds. Dismissed by {@link BedrockClientBugs} when the synced window
  * ends (not by the player) — no buttons, no Esc; the world keeps ticking behind it.
  */
@@ -38,7 +38,7 @@ public final class FakeBsodScreen extends Screen {
         if (shownAtMs < 0) {
             shownAtMs = System.currentTimeMillis();
         }
-        // Behind everything is black — the machine is "gone".
+        // behind everything is black — the machine is "gone".
         g.fill(0, 0, this.width, this.height, 0xFF000000);
 
         float roll = Mth.clamp((System.currentTimeMillis() - shownAtMs) / (float) ROLL_MS, 0.0F, 1.0F);

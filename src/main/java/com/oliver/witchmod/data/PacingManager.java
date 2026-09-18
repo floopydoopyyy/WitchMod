@@ -22,15 +22,9 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Pacing (master-spec, refactored per Oliver): a One Piece-style "dramatic moment". The trigger chance
- * RAMPS the longer it's gone without one — high right when the curse lands, resetting each time a moment
- * fires; if it maxes out without a combat hit, it fires anyway on a non-combat tick.
- *
- * <p>The moment is a total time-stop of a <b>random 5–30s, biased short</b>: everyone caught in the radius is
- * frozen and made invulnerable, and every <i>player</i> caught in it (not just the victim) has their camera
- * hijacked into the same cinematic — the cuts themselves are done client-side in {@code ClientCurseHandler},
- * always orbiting the victim, so the camera never becomes a mob and never inherits a disorienting spectator
- * shader.
+ * pacing — a one piece-style "dramatic moment" time-stop. trigger chance ramps the longer it's gone; the
+ * moment freezes + pins everything in the radius (re-swept so newcomers freeze too) and hijacks every caught
+ * player's camera into the cinematic (cuts run client-side). capped for server safety.
  */
 public final class PacingManager {
     private static final ResourceLocation PACING_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "pacing");
@@ -41,24 +35,24 @@ public final class PacingManager {
     /** {@code anchor} is where the entity stood when it froze — it is pinned back there every tick. */
     private record Frozen(Entity entity, boolean wasInvulnerable, boolean wasNoAi, Vec3 anchor, long restoreTick) {}
 
-    /** An in-progress moment, kept so newcomers wandering into the radius get frozen too. */
+    /** an in-progress moment, kept so newcomers wandering into the radius get frozen too. */
     private record Moment(ServerPlayer victim, long end) {}
 
     private static final List<Frozen> FROZEN = new ArrayList<>();
     private static final List<Moment> MOMENTS = new ArrayList<>();
     private static final Set<Integer> FROZEN_IDS = new HashSet<>();
-    /** How often the radius is re-swept for entities that have wandered in mid-moment. */
+    /** how often the radius is re-swept for entities that have wandered in mid-moment. */
     private static final int RESWEEP_INTERVAL = 5;
 
     private PacingManager() {}
 
-    /** Called from the curse's onApply — pre-charges the ramp so the first moment comes quickly. */
+    /** called from the curse's onApply — pre-charges the ramp so the first moment comes quickly. */
     public static void onApply(ServerPlayer player) {
         long now = player.serverLevel().getGameTime();
         player.setData(WitchModAttachments.PACING_CHARGE_START, now - (long) (RAMP_TICKS * INITIAL_CHARGE));
     }
 
-    /** Clears any lingering camera-focus flag when the curse ends. */
+    /** clears any lingering camera-focus flag when the curse ends. */
     public static void onRemove(ServerPlayer player) {
         player.setData(WitchModAttachments.PACING_FOCUS_ID, -1);
         player.setData(WitchModAttachments.PACING_END_TICK, 0L);
@@ -73,7 +67,7 @@ public final class PacingManager {
         return now < player.getData(WitchModAttachments.PACING_END_TICK);
     }
 
-    /** A combat hit by the cursed player: rolls the ramped per-hit chance. */
+    /** a combat hit by the cursed player: rolls the ramped per-hit chance. */
     public static void onHit(ServerPlayer player) {
         long now = player.serverLevel().getGameTime();
         if (inMoment(player, now)) {
@@ -84,7 +78,7 @@ public final class PacingManager {
         }
     }
 
-    /** Per-tick check for the cursed player: if the ramp has maxed out without a combat trigger, fire anyway. */
+    /** per-tick check for the cursed player: if the ramp has maxed out without a combat trigger, fire anyway. */
     public static void tickCharge(ServerPlayer player) {
         long now = player.serverLevel().getGameTime();
         if (!inMoment(player, now) && charge(player, now) >= 1.0F) {
@@ -92,7 +86,7 @@ public final class PacingManager {
         }
     }
 
-    /** Rolls the dramatic-moment length: min..max seconds, biased toward the short end. */
+    /** rolls the dramatic-moment length: min..max seconds, biased toward the short end. */
     private static int rollDurationTicks(ServerPlayer victim) {
         int min = Config.PACING_MIN_SECONDS.get() * 20;
         int max = Math.max(min, Config.PACING_MAX_SECONDS.get() * 20);
@@ -101,7 +95,7 @@ public final class PacingManager {
         return min + (int) Math.round((max - min) * biased);
     }
 
-    /** Debug: force a dramatic time-stop moment now (used by {@code /bewitch debug force witchmod:pacing}). */
+    /** debug: force a dramatic time-stop moment now (used by {@code /bewitch debug force witchmod:pacing}). */
     public static void debugTrigger(ServerPlayer victim) {
         trigger(victim);
     }
@@ -143,7 +137,7 @@ public final class PacingManager {
                 break;
             }
             boolean fresh = freeze(nearby, end);
-            // Any OTHER player caught in it experiences the cinematic too, focused on the victim.
+            // any OTHER player caught in it experiences the cinematic too, focused on the victim.
             if (fresh && nearby instanceof ServerPlayer other) {
                 other.setData(WitchModAttachments.PACING_END_TICK, end);
                 other.setData(WitchModAttachments.PACING_FOCUS_ID, victim.getId());
@@ -164,7 +158,7 @@ public final class PacingManager {
         if (entity instanceof Mob mob) {
             mob.setNoAi(true);
         }
-        // A player moves client-side, so the server can't truly pin them; heavy slowness plus the
+        // a player moves client-side, so the server can't truly pin them; heavy slowness plus the
         // client-side input lock (ClientCurseHandler) is what actually holds them still.
         //
         // ⚠ NO Jump Boost here. It used to apply amplifier 128 with a comment claiming "level 129 = no jump",
@@ -173,18 +167,18 @@ public final class PacingManager {
         // already stops jumping properly, so the effect was both redundant and the cause of the bug.
         if (entity instanceof ServerPlayer player) {
             int ticks = (int) Math.max(1, end - player.serverLevel().getGameTime());
-            // Amplifier 10 already clamps movement speed to zero, and stays well clear of the byte
+            // amplifier 10 already clamps movement speed to zero, and stays well clear of the byte
             // boundaries that make extreme amplifiers behave unpredictably.
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, ticks, 10, false, false));
         }
         return true;
     }
 
-    /** Called every server tick: keeps the freeze current, holds everything still, and restores on expiry. */
+    /** called every server tick: keeps the freeze current, holds everything still, and restores on expiry. */
     public static void tickFreeze(MinecraftServer server) {
         long now = server.overworld().getGameTime();
 
-        // Pick up anything that has wandered into an in-progress moment.
+        // pick up anything that has wandered into an in-progress moment.
         Iterator<Moment> moments = MOMENTS.iterator();
         while (moments.hasNext()) {
             Moment moment = moments.next();
@@ -206,8 +200,8 @@ public final class PacingManager {
                 it.remove();
                 continue;
             }
-            // Hold it. Re-asserting every tick is what makes the pause actually reliable — noAi stops the
-            // AI but a single zeroing at the start doesn't survive knockback, gravity or anything else that
+            // hold it. Re-asserting every tick is what makes the pause actually reliable — noAi stops the
+            // aI but a single zeroing at the start doesn't survive knockback, gravity or anything else that
             // nudges the entity over a 30-second stop. Players are left alone: their movement is
             // client-authoritative, so pinning them server-side would only fight the client and rubber-band.
             if (!(f.entity() instanceof ServerPlayer)) {
@@ -228,7 +222,7 @@ public final class PacingManager {
         }
         if (f.entity() instanceof ServerPlayer player) {
             player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-            // Clear the old Jump Boost too, so anyone still carrying one from a previous build isn't left
+            // clear the old Jump Boost too, so anyone still carrying one from a previous build isn't left
             // with a launch pad attached to them.
             player.removeEffect(MobEffects.JUMP);
             player.setData(WitchModAttachments.PACING_FOCUS_ID, -1);

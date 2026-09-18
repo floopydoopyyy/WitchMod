@@ -1,24 +1,20 @@
 package com.oliver.witchmod.blocks;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.WeakHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -31,31 +27,20 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-import com.oliver.witchmod.data.ActiveEffects;
-import com.oliver.witchmod.data.Effect;
-import com.oliver.witchmod.data.EffectCategory;
-import com.oliver.witchmod.data.EffectManager;
+import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
-import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * A floor-standing amethyst bell (deepslate stand + amethyst bell). Unlike the vanilla bell it only places as
- * a free-standing stand (never on walls/ceilings) in one of TWO orientations (horizontal axis). Right-clicking
- * RINGS it — the bell swings (block-entity animation, like vanilla), a dramatic bell tolls, amethyst sparks
- * burst — and it flips one of the ringer's active effects for another of the same category, on a cooldown.
+ * a floor-standing amethyst bell. right-click rings it: an aoe "gamble" ({@link AmethystBellEffects}) reshapes
+ * every caught player's fate. ringing greys out EVERY bell in the dimension for a recharge window; that clock
+ * is persisted ({@link AmethystBellData}) so a reload, a second bell, or a break-and-replace can't dodge it.
  */
 public final class AmethystBellBlock extends Block implements EntityBlock {
     public static final EnumProperty<Direction.Axis> AXIS =
             EnumProperty.create("axis", Direction.Axis.class, Direction.Axis.X, Direction.Axis.Z);
 
-    private static final int COOLDOWN_TICKS = 20 * 30;
     private static final int RING_EVENT = 1;
-    /** A very subtle camera jolt for anyone nearby when it's rung — for impact. */
-    public static final int SHAKE_TICKS = 6;
-    public static final double SHAKE_STRENGTH = 0.4;
-    private static final double SHAKE_RADIUS = 10.0;
-    private static final Map<UUID, Long> LAST_USE_TICK = new WeakHashMap<>();
 
     public AmethystBellBlock(Properties properties) {
         super(properties);
@@ -92,55 +77,76 @@ public final class AmethystBellBlock extends Block implements EntityBlock {
         return expected == got ? (BlockEntityTicker<A>) ticker : null;
     }
 
+    /** A bell placed while the dimension is still recharging comes up already greyed/locked. */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level instanceof ServerLevel sl && level.getBlockEntity(pos) instanceof AmethystBellBlockEntity bell) {
+            long until = AmethystBellData.get(sl).until();
+            if (until > sl.getGameTime()) {
+                bell.setInactiveUntil(until);
+            }
+        }
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!(level.getBlockEntity(pos) instanceof AmethystBellBlockEntity bell)) {
+            return InteractionResult.PASS;
+        }
+        // Fully unresponsive while recharging — no swing, no toll, no message (both sides use the synced field).
+        if (bell.isInactive()) {
+            return InteractionResult.PASS;
+        }
         if (level.isClientSide() || !(player instanceof ServerPlayer serverPlayer)) {
             return InteractionResult.SUCCESS;
         }
-
-        long now = level.getGameTime();
-        Long lastUse = LAST_USE_TICK.get(serverPlayer.getUUID());
-        boolean onCooldown = lastUse != null && now - lastUse < COOLDOWN_TICKS;
-
-        // Ring visually + audibly regardless (it always tolls); only the EFFECT flip is gated by the cooldown.
-        Direction swing = player.getDirection();
-        ring((ServerLevel) level, pos, state, swing);
-
-        if (onCooldown) {
-            long secondsLeft = Math.max(1, (COOLDOWN_TICKS - (now - lastUse)) / 20);
-            serverPlayer.displayClientMessage(Component.literal("On cooldown — its magic returns in " + secondsLeft + "s.")
-                    .withStyle(ChatFormatting.YELLOW), true);
-            return InteractionResult.SUCCESS;
+        ServerLevel sl = (ServerLevel) level;
+        // Server authority: the whole dimension shares one recharge, so a second bell (or a break-and-replace)
+        // can't dodge it. A fresh block entity still greys itself from the clock here.
+        if (AmethystBellData.get(sl).isInactive(sl)) {
+            bell.setInactiveUntil(AmethystBellData.get(sl).until());
+            return InteractionResult.PASS;
         }
-        if (flipRandomEffect(serverPlayer)) {
-            LAST_USE_TICK.put(serverPlayer.getUUID(), now);
-        } else {
-            serverPlayer.displayClientMessage(Component.literal("Nothing to flip — you carry no curses or blessings.")
-                    .withStyle(ChatFormatting.GRAY), true);
+
+        ring(sl, pos, state, player.getDirection());
+
+        double cx = pos.getX() + 0.5, cy = pos.getY() + 0.85, cz = pos.getZ() + 0.5;
+        double aoe = Config.BELL_AOE_RADIUS.get();
+        List<ServerPlayer> caught = sl.getPlayers(p -> p.isAlive()
+                && p.distanceToSqr(cx, cy, cz) <= aoe * aoe);
+        // Decide each caught player's fate NOW (so the consume ramp knows its length + weight), and play the
+        // golden-apple-to-a-zombie-villager toll on each — the block entity runs the 3s ramp then resolves it.
+        List<AmethystBellBlockEntity.Pending> pending = new ArrayList<>();
+        for (ServerPlayer p : caught) {
+            AmethystBellEffects.Outcome outcome = AmethystBellEffects.decide(p, p.getRandom());
+            pending.add(new AmethystBellBlockEntity.Pending(p.getUUID(), outcome));
+            boolean fizzle = outcome == AmethystBellEffects.Outcome.FIZZLE;
+            int rampTicks = fizzle ? AmethystBellEffects.fizzleRampTicks() : AmethystBellEffects.applyRampTicks();
+            // Synced to trackers so every client renders the consume ramp itself (no server particle packets).
+            p.setData(WitchModAttachments.AMETHYST_CONSUME_END, sl.getGameTime() + rampTicks);
+            p.setData(WitchModAttachments.AMETHYST_CONSUME_FIZZLE, fizzle ? 1 : 0);
+            sl.playSound(null, p.blockPosition(), SoundEvents.ZOMBIE_VILLAGER_CURE, SoundSource.PLAYERS, 0.9F, 1.0F);
         }
+        // Lock every bell in the dimension for the recharge window.
+        long until = sl.getGameTime() + Config.BELL_INACTIVE_TICKS.get();
+        AmethystBellData.get(sl).set(sl, until);
+        bell.ringActivate(pending);
         return InteractionResult.SUCCESS;
     }
 
-    /** Fires the block event (syncs the swing to all clients) + a dramatic toll + amethyst FX. */
+    /** Swing (block event) + a dramatic toll + a bright central burst. The shockwave itself runs in the BE tick. */
     private void ring(ServerLevel level, BlockPos pos, BlockState state, Direction swing) {
         level.blockEvent(pos, this, RING_EVENT, swing.get3DDataValue());
-        level.playSound(null, pos, WitchModSounds.AMETHYST_BELL_RING.get(), SoundSource.BLOCKS, 2.5F, 1.0F);
+        level.playSound(null, pos, WitchModSounds.AMETHYST_BELL_RING.get(), SoundSource.BLOCKS, 3.0F, 1.0F);
+        level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 1.2F, 0.7F);
         double cx = pos.getX() + 0.5, cy = pos.getY() + 0.85, cz = pos.getZ() + 0.5;
-        // On-brand amethyst FX only: a ring of purple witch sparks bursting outward, an amethyst dust puff, and
-        // a few white glints. (No enchant/glow-squid blue — those read as off-theme.)
-        net.minecraft.core.particles.DustParticleOptions amethyst =
-                new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.66F, 0.36F, 0.82F), 1.4F);
-        for (int i = 0; i < 28; i++) {
-            double a = i / 28.0 * Math.PI * 2;
-            double dx = Math.cos(a), dz = Math.sin(a);
-            level.sendParticles(ParticleTypes.WITCH, cx + dx * 0.45, cy, cz + dz * 0.45, 0, dx * 0.22, 0.06, dz * 0.22, 1.0);
-        }
-        level.sendParticles(amethyst, cx, cy + 0.15, cz, 24, 0.32, 0.35, 0.32, 0.0);
-        level.sendParticles(ParticleTypes.END_ROD, cx, cy, cz, 8, 0.22, 0.28, 0.22, 0.02);
+        // The central burst + expanding shockwave are rendered CLIENT-side (AmethystBellBlockEntity, started by
+        // the ring block-event above) so the server sends no particles for them.
 
-        // A very subtle camera jolt for anyone close enough to feel the toll.
-        long until = level.getGameTime() + SHAKE_TICKS;
-        for (ServerPlayer nearby : level.getPlayers(p -> p.distanceToSqr(cx, cy, cz) <= SHAKE_RADIUS * SHAKE_RADIUS)) {
+        long until = level.getGameTime() + Config.BELL_SHAKE_TICKS.get();
+        double shakeR = Config.BELL_SHAKE_RADIUS.get();
+        for (ServerPlayer nearby : level.getPlayers(p -> p.distanceToSqr(cx, cy, cz) <= shakeR * shakeR)) {
             nearby.setData(WitchModAttachments.AMETHYST_BELL_SHAKE_END, until);
         }
     }
@@ -154,33 +160,5 @@ public final class AmethystBellBlock extends Block implements EntityBlock {
             return true;
         }
         return super.triggerEvent(state, level, pos, id, param);
-    }
-
-    private boolean flipRandomEffect(ServerPlayer player) {
-        ActiveEffects active = player.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
-        if (active == null || active.isEmpty()) {
-            return false;
-        }
-        ResourceLocation currentId = active.activeIds().stream()
-                .skip(player.getRandom().nextInt(active.activeIds().size()))
-                .findFirst().orElseThrow();
-        Holder.Reference<Effect> current = WitchModRegistries.EFFECT_REGISTRY.getHolderOrThrow(
-                net.minecraft.resources.ResourceKey.create(WitchModRegistries.EFFECT_REGISTRY_KEY, currentId));
-        EffectCategory category = current.value().category();
-        int remainingTicks = active.get(currentId).map(instance -> instance.remainingTicks()).orElse(20 * 60);
-
-        List<Holder.Reference<Effect>> sameCategoryPool = WitchModRegistries.EFFECT_REGISTRY.holders()
-                .filter(holder -> holder.value().selectable())
-                .filter(holder -> holder.value().category() == category && !holder.key().location().equals(currentId))
-                .toList();
-        if (sameCategoryPool.isEmpty()) {
-            return false;
-        }
-        Holder.Reference<Effect> replacement = sameCategoryPool.get(player.getRandom().nextInt(sameCategoryPool.size()));
-        EffectManager.remove(player, current);
-        EffectManager.apply(player, replacement, remainingTicks, null);
-        player.displayClientMessage(Component.literal("The bell tolls — something flips inside you...")
-                .withStyle(ChatFormatting.LIGHT_PURPLE), true);
-        return true;
     }
 }

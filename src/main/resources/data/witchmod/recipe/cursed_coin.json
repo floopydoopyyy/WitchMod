@@ -1,8 +1,9 @@
 {
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [
-    { "item": "minecraft:gold_ingot" },
-    { "item": "witchmod:cursed_essence" }
-  ],
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": { "item": "witchmod:cursed_essence" },
+    "G": { "item": "minecraft:gold_block" }
+  },
+  "pattern": [ "CCC", "CGC", "CCC" ],
   "result": { "id": "witchmod:cursed_coin", "count": 1 }
 }

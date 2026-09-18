@@ -16,8 +16,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * You just never seem to get hungry (master-spec Fullness — renamed from "Full"; id {@code full} →
- * {@code fullness}, since display names derive from the id path). Hunger — and the hidden saturation buffer
+ * you just never seem to get hungry. Hunger — and the hidden saturation buffer
  * behind it — drains at {@code fullnessDrainRate} of the normal rate, so you rarely have to eat.
  *
  * <p><b>There's no event to scale hunger drain, so this WATCHES the outputs.</b> {@code onTick} runs on
@@ -33,7 +32,7 @@ import com.oliver.witchmod.data.EffectCostTier;
  * natural drain is slowed.
  */
 public final class BlessingFullness extends Effect {
-    /** Per-player last-seen food/saturation plus the banked fractional food debt. */
+    /** per-player last-seen food/saturation plus the banked fractional food debt. */
     private record Snapshot(int food, float saturation, float foodDebt) {}
 
     private static final Map<UUID, Snapshot> STATE = new HashMap<>();
@@ -42,7 +41,7 @@ public final class BlessingFullness extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.BREAD);
     }
 
-    /** You notice it the first time your hunger goes down slower than it should. */
+    /** you notice it the first time your hunger goes down slower than it should. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -68,7 +67,7 @@ public final class BlessingFullness extends Effect {
 
         Snapshot prev = STATE.get(id);
         if (prev == null) {
-            // Missing (e.g. after a relog while the blessing persisted) — re-seed and wait a tick.
+            // missing (e.g. after a relog while the blessing persisted) — re-seed and wait a tick.
             STATE.put(id, new Snapshot(food, sat, 0.0F));
             return;
         }
@@ -77,7 +76,7 @@ public final class BlessingFullness extends Effect {
         float debt = prev.foodDebt();
         boolean slowed = false;
 
-        // Saturation drained naturally this tick? Refund most of it (kept no higher than the food bar).
+        // saturation drained naturally this tick? Refund most of it (kept no higher than the food bar).
         if (sat < prev.saturation()) {
             float drop = prev.saturation() - sat;
             sat = Math.min(food, sat + drop * (float) (1.0 - rate));
@@ -85,7 +84,7 @@ public final class BlessingFullness extends Effect {
             slowed = true;
         }
 
-        // Food bar dropped (saturation was empty)? Undo it, bank the drop, release one point per 1/rate banked.
+        // food bar dropped (saturation was empty)? Undo it, bank the drop, release one point per 1/rate banked.
         if (food < prev.food()) {
             int drop = prev.food() - food;
             food = prev.food();

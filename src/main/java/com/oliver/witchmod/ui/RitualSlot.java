@@ -10,9 +10,8 @@ import com.oliver.witchmod.data.SacrificialItems;
 import com.oliver.witchmod.items.WitchModItems;
 
 /**
- * One of the Table's 4 ritual slots (CLAUDE.md section 2.1), restricted to the item type that slot
- * accepts — mirrors the item-identity checks the Phase 4 placeholder ({@code BewitchingTableBlock})
- * used directly, now centralized here since the GUI is the only way to fill these slots.
+ * one of the table's 4 ritual slots. any item can be placed; a wrong one is flagged (isCorrect) rather than
+ * bounced, so the ui can teach what goes where.
  */
 final class RitualSlot extends Slot {
     enum Kind {
@@ -33,32 +32,26 @@ final class RitualSlot extends Slot {
         return kind;
     }
 
-    /**
-     * Any item may be PLACED in any ritual slot — a wrong one is highlighted red and blocks the cast (see
-     * {@link BewitchingTableScreen}). This is friendlier than silently bouncing the item back with no reason,
-     * and lets the UI teach the player what goes where. Correctness is {@link #isCorrect}.
-     */
+    /** any item may be placed; correctness (isCorrect) drives the red flag and cast validity instead. */
     @Override
     public boolean mayPlace(ItemStack stack) {
         return true;
     }
 
-    /** Whether {@code stack} is the RIGHT item for this slot — drives the red highlight, shift-click routing and cast validity. */
+    /** whether {@code stack} is the right item for this slot — drives the red highlight, shift-click routing and cast validity. */
     boolean isCorrect(ItemStack stack) {
         if (stack.isEmpty()) {
-            return true; // empty is never "wrong" — only the Sacrificial slot being empty blocks a cast
+            return true; // empty is never wrong; only an empty sacrificial slot blocks a cast
         }
         return switch (kind) {
-            // A Player Essence targets a player; a jar bottles the effect instead of hitting anyone (it can't
-            // already be full — a full jar has nowhere to put the result).
+            // player essence targets a player; a non-full jar bottles the effect instead
             case PLAYER_ESSENCE -> stack.getItem() == WitchModItems.PLAYER_ESSENCE.get()
                     || (stack.getItem() instanceof com.oliver.witchmod.items.ItemVoodooDoll
                         && stack.has(com.oliver.witchmod.data.WitchModDataComponents.BOUND_PLAYER))
                     || (stack.getItem() instanceof com.oliver.witchmod.items.ItemJar
                         && !com.oliver.witchmod.items.JarContents.isFull(stack));
-            case CURSED_ESSENCE -> stack.getItem() == WitchModItems.CURSED_ESSENCE.get();
-            // Redstone Dust is accepted too: it's the "random attachment" table mechanic (master-spec
-            // Section 3), not a normal effect selector.
+            case CURSED_ESSENCE -> com.oliver.witchmod.blocks.BewitchingTableRitual.isEssenceItem(stack);
+            // redstone is the "random attachment" table mechanic, not a normal selector
             case SACRIFICIAL_ITEM -> stack.is(Items.REDSTONE)
                     || com.oliver.witchmod.data.CoinGamble.typeOf(stack.getItem()) != null
                     || SacrificialItems.findEffect(stack.getItem()).isPresent();
@@ -66,7 +59,7 @@ final class RitualSlot extends Slot {
         };
     }
 
-    /** Only Cursed Essence stacks (essenceSpent = stack count, CLAUDE.md section 5.7) — the other 3 are single-item selectors. */
+    /** only cursed essence stacks (essenceSpent = count); the other 3 are single-item selectors. */
     @Override
     public int getMaxStackSize() {
         return kind == Kind.CURSED_ESSENCE ? 64 : 1;

@@ -20,7 +20,7 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * Assassin's edge (sacrificial item NETHER BRICK — Echo Shard was requested but is taken by Echoes): a melee
+ * assassin's edge (sacrificial item NETHER BRICK — Echo Shard was requested but is taken by Echoes): a melee
  * hit landed while you're BEHIND the target does {@code backstabDamageMultiplier}× (multiplying the final
  * damage, so it stacks with crits/enchants) with reduced knockback, and a sharp riposte ring.
  *
@@ -65,7 +65,7 @@ public final class BlessingBackstabbing extends Effect {
         return 1.0F;
     }
 
-    /** Is the attacker in the target's rear arc? More generous for mobs than players. */
+    /** is the attacker in the target's rear arc? More generous for mobs than players. */
     private static boolean isBehind(ServerPlayer attacker, LivingEntity victim) {
         float yaw = victim instanceof Mob mob ? mob.yBodyRot : victim.getYRot();
         Vec3 facing = new Vec3(-Mth.sin(yaw * Mth.DEG_TO_RAD), 0, Mth.cos(yaw * Mth.DEG_TO_RAD));

@@ -3,10 +3,7 @@ package com.oliver.witchmod.entities;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 
-/**
- * Attributes for the mod's custom entities. Registered directly on the MOD event bus from
- * {@code WitchMod}'s constructor — {@code @EventBusSubscriber(bus = MOD)} is deprecated in NeoForge 21.1.
- */
+/** attributes for the mod's custom entities, registered on the mod bus from WitchMod's constructor. */
 public final class WitchModEntityAttributes {
     private WitchModEntityAttributes() {}
 

@@ -18,9 +18,8 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * The Holy (Purifying) Water block. Bathing rapidly burns down active curse/blessing timers — that drain,
- * the shine particles and the magic-blocking are all driven per-player in {@link HolyWaterHandler}
- * (so they fire once per tick and cover flowing water too, not per-overlapping-block).
+ * the holy water block. the bathing behaviour (timer drain, shine, protection) is driven per-player in
+ * {@link HolyWaterHandler} — once per tick, covering flowing water too — not per-block here.
  */
 public final class PurifyingWaterBlock extends LiquidBlock {
     public PurifyingWaterBlock(FlowingFluid fluid, Properties properties) {
@@ -39,7 +38,7 @@ public final class PurifyingWaterBlock extends LiquidBlock {
         }
     }
 
-    /** Undead that wade into holy water are burned — periodic tick damage (spaced by vanilla invuln frames). */
+    /** undead that wade into holy water are burned — periodic tick damage (spaced by vanilla invuln frames). */
     @Override
     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
         super.entityInside(state, level, pos, entity);
@@ -54,10 +53,10 @@ public final class PurifyingWaterBlock extends LiquidBlock {
         }
     }
 
-    /** Occasional shiny white "star" motes drifting up off the holy water's surface. */
+    /** occasional shiny white "star" motes drifting up off the holy water's surface. */
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-        // Rare (roughly 1/20 of the old rate — a 95% cut) so the surface only occasionally glints.
+        // rare (roughly 1/20 of the old rate — a 95% cut) so the surface only occasionally glints.
         if (!level.getBlockState(pos.above()).isAir() || random.nextInt(200) != 0) {
             return;
         }

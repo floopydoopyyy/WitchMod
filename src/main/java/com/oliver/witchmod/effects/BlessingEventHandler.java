@@ -1,8 +1,11 @@
 package com.oliver.witchmod.effects;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -65,6 +68,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.trading.MerchantOffer;
 
@@ -87,7 +91,7 @@ import com.oliver.witchmod.effects.blessings.BlessingMainCharacter;
 import com.oliver.witchmod.effects.blessings.BlessingThickSkinned;
 import com.oliver.witchmod.effects.blessings.BlessingTwistOfFate;
 
-/** Blessing hooks that need a game event rather than onApply/onTick/onRemove. */
+/** blessing hooks that need a game event rather than onApply/onTick/onRemove. */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingEventHandler {
     private BlessingEventHandler() {}
@@ -97,20 +101,17 @@ public final class BlessingEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        // Immortality: death instead drops you into a slow golden "rebuild" recovery (never the respawn
+        // immortality: death instead drops you into a slow golden "rebuild" recovery (never the respawn
         // screen), repeatable with a growing recovery time, breaking after immortalityMaxUses. See
-        // BlessingImmortality for the rebuild + finish.
+        // blessingImmortality for the rebuild + finish.
         if (EffectManager.isActive(player, Blessings.IMMORTALITY)) {
             event.setCanceled(true);
             BlessingImmortality.beginRecovery(player);
             return;
         }
-        // Last Stand: single-use revive to half a heart + Strength/Speed/Fire Resistance and an outward
-        // knockback burst; consumes the blessing (master-spec Section 6).
-        if (EffectManager.isActive(player, Blessings.LAST_STAND)) {
+        // last Stand: revive with a brief invuln comeback window (off cooldown); on cooldown you die normally.
+        if (EffectManager.isActive(player, Blessings.LAST_STAND) && BlessingLastStand.tryTrigger(player)) {
             event.setCanceled(true);
-            EffectManager.remove(player, Blessings.LAST_STAND);
-            BlessingLastStand.trigger(player);
             Blessings.LAST_STAND.get().markDiscoveredByVictim(player);
         }
     }
@@ -120,41 +121,56 @@ public final class BlessingEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        // Immortality: while you're mid-rebuild you can't be touched — nothing gets to finish you off (and
+        // immortality: while you're mid-rebuild you can't be touched — nothing gets to finish you off (and
         // this is also what keeps you safe without a persistent invulnerable flag that could leak on relog).
         if (EffectManager.isActive(player, Blessings.IMMORTALITY) && BlessingImmortality.isRecovering(player)) {
             event.setCanceled(true);
             return;
         }
+        // last Stand: the brief post-revive invuln window (checked without isActive, so it still holds on the
+        // final revive that consumed the blessing).
+        if (BlessingLastStand.isInvulnerable(player)) {
+            event.setCanceled(true);
+            return;
+        }
+        // layered_hide synergy (with Tank): the negation floor is raised by a point.
+        double thickFloor = Config.THICKSKIN_DAMAGE_FLOOR.get()
+                + (com.oliver.witchmod.synergy.Synergies.LAYERED_HIDE.activeFor(player)
+                        ? Config.LAYERED_HIDE_FLOOR_BONUS.get() : 0.0);
         if (EffectManager.isActive(player, Blessings.THICK_SKINNED)
-                && event.getAmount() <= Config.THICKSKIN_DAMAGE_FLOOR.get()
+                && event.getAmount() <= thickFloor
                 && !event.getSource().is(DamageTypes.DROWN)) {
-            // Small tick damage ignored — single events at or below the floor are fully negated, with feedback.
-            // Drowning is deliberately NOT mitigated (you still need air).
+            // small tick damage ignored — single events at or below the floor are fully negated, with feedback.
+            // drowning is deliberately NOT mitigated (you still need air).
             event.setCanceled(true);
             BlessingThickSkinned.neutralise(player);
             Blessings.THICK_SKINNED.get().markDiscoveredByVictim(player);
             return;
         }
-        // Twist of Fate: a small chance (off cooldown) that a hit just doesn't happen, with a chime + particles.
+        // twist of Fate: a small chance (off cooldown) that a hit just doesn't happen, with a chime + particles.
         if (EffectManager.isActive(player, Blessings.TWIST_OF_FATE) && BlessingTwistOfFate.tryNegate(player)) {
             event.setCanceled(true);
             Blessings.TWIST_OF_FATE.get().markDiscoveredByVictim(player);
         }
-        // Bouncy "get off me": whatever MELEES you pings straight back off your rubbery hide.
+        // bouncy "get off me": whatever MELEES you pings straight back off your rubbery hide.
         if (EffectManager.isActive(player, Curses.BOUNCY)
                 && event.getSource().getDirectEntity() instanceof net.minecraft.world.entity.LivingEntity attacker
                 && attacker != player) {
             com.oliver.witchmod.effects.curses.CurseBouncy.bounceAway(player, attacker, Config.BOUNCY_ENTITY_FORCE.get());
             Curses.BOUNCY.get().markDiscoveredByVictim(player);
         }
-        // Flight: taking a hit spends 20% of the energy bar and knocks you out of flight for a moment.
+        // flight: taking a hit spends 20% of the energy bar and knocks you out of flight for a moment.
         if (!event.isCanceled() && EffectManager.isActive(player, Blessings.FLIGHT)) {
             com.oliver.witchmod.effects.blessings.BlessingFlight.onHurt(player);
         }
-        // Disguise: taking a hit breaks the costume (handled server-side — flip to the real model + start the timer).
+        // disguise: taking a hit breaks the costume (handled server-side — flip to the real model + start the timer).
+        // with the concealment synergy it cascades prop -> animal -> player one step per hit instead.
         if (EffectManager.isActive(player, Blessings.DISGUISE)) {
-            com.oliver.witchmod.effects.blessings.BlessingDisguise.breakDisguise(player);
+            if (com.oliver.witchmod.synergy.Synergies.CONCEALMENT.activeFor(player)) {
+                com.oliver.witchmod.effects.blessings.BlessingDisguise.concealCascade(player);
+            } else {
+                com.oliver.witchmod.effects.blessings.BlessingDisguise.breakDisguise(player);
+            }
         }
     }
 
@@ -164,21 +180,26 @@ public final class BlessingEventHandler {
             return;
         }
         if (EffectManager.isActive(player, Curses.BOUNCY)) {
-            // Fall damage negated; the actual upward rebound is applied client-side (ClientCurseHandler.tickBouncy)
+            // fall damage negated; the actual upward rebound is applied client-side (ClientCurseHandler.tickBouncy)
             // so it can build height with repeated jumps.
             event.setDamageMultiplier(0.0F);
             Curses.BOUNCY.get().markDiscoveredByVictim(player);
         }
-        // Twinkletoes: total fall-damage immunity. Only fire discovery if the fall would ACTUALLY have hurt,
+        // twinkletoes: total fall-damage immunity. Only fire discovery if the fall would ACTUALLY have hurt,
         // so stepping off a block doesn't spend the "first save" moment.
         if (EffectManager.isActive(player, Blessings.TWINKLETOES)) {
             boolean wouldHaveHurt = event.getDistance() > 3.0F && event.getDamageMultiplier() > 0.0F;
             event.setDamageMultiplier(0.0F);
             if (wouldHaveHurt) {
                 Blessings.TWINKLETOES.get().markDiscoveredByVictim(player);
+                // A soft landing puff at the feet — more of it the harder the fall you just shrugged off.
+                ServerLevel level = player.serverLevel();
+                int count = (int) Math.min(24, 6 + event.getDistance());
+                level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.05, player.getZ(),
+                        count, 0.28, 0.02, 0.28, 0.02);
             }
         }
-        // Low Gravity: soft landings — scale fall damage down (on top of the lighter gravity already
+        // low Gravity: soft landings — scale fall damage down (on top of the lighter gravity already
         // reducing your terminal velocity).
         if (EffectManager.isActive(player, Blessings.LOW_GRAVITY)) {
             event.setDamageMultiplier(event.getDamageMultiplier()
@@ -198,12 +219,12 @@ public final class BlessingEventHandler {
                 || !BlessingIronStomach.BAD_FOODS.contains(event.getItem().getItem())) {
             return;
         }
-        // No penalty: clear the negative effects a bad food inflicts (just applied, so this removes them).
+        // no penalty: clear the negative effects a bad food inflicts (just applied, so this removes them).
         player.removeEffect(MobEffects.HUNGER);
         player.removeEffect(MobEffects.POISON);
         player.removeEffect(MobEffects.CONFUSION);
 
-        // More out of it than anyone else: bonus hunger + saturation on top of what you just gained.
+        // more out of it than anyone else: bonus hunger + saturation on top of what you just gained.
         FoodProperties food = event.getItem().get(DataComponents.FOOD);
         if (food != null) {
             int bonusNutrition = (int) Math.ceil(food.nutrition() * (Config.IRONSTOMACH_HUNGER_MULT.get() - 1.0));
@@ -215,7 +236,7 @@ public final class BlessingEventHandler {
         Blessings.IRON_STOMACH.get().markDiscoveredByVictim(player);
     }
 
-    /** Excavation: each block you break ramps your (invisible) mining-speed bonus up. */
+    /** excavation: each block you break ramps your (invisible) mining-speed bonus up. */
     @SubscribeEvent
     static void onExcavationBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent event) {
         if (event.getPlayer() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.EXCAVATION)) {
@@ -236,14 +257,14 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Angler: a catch has a decent chance to pull out multiple things, and a smaller chance for a comical surprise. */
+    /** angler: a catch has a decent chance to pull out multiple things, and a smaller chance for a comical surprise. */
     @SubscribeEvent
     static void onAnglerFished(net.neoforged.neoforge.event.entity.player.ItemFishedEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
                 || !EffectManager.isActive(player, Blessings.ANGLER)) {
             return;
         }
-        // Multi-catch: sometimes reel in an extra copy of what you caught (luck is untouched — that's Luck's job).
+        // multi-catch: sometimes reel in an extra copy of what you caught (luck is untouched — that's Luck's job).
         if (player.getRandom().nextDouble() < Config.ANGLER_MULTI_CHANCE.get()) {
             java.util.List<net.minecraft.world.item.ItemStack> extra = new java.util.ArrayList<>();
             for (net.minecraft.world.item.ItemStack drop : event.getDrops()) {
@@ -251,14 +272,14 @@ public final class BlessingEventHandler {
             }
             event.getDrops().addAll(extra);
         }
-        // Comical surprise dragged out of the water.
+        // comical surprise dragged out of the water.
         if (player.getRandom().nextDouble() < Config.ANGLER_SURPRISE_CHANCE.get()) {
             BlessingAngler.spawnSurprise(player, event.getHookEntity());
         }
         Blessings.ANGLER.get().markDiscoveredByVictim(player);
     }
 
-    /** Nightowl: Blindness and Darkness can't be applied to you (immune to darkening effects). */
+    /** nightowl: Blindness and Darkness can't be applied to you (immune to darkening effects). */
     @SubscribeEvent
     static void onNightowlEffect(net.neoforged.neoforge.event.entity.living.MobEffectEvent.Applicable event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
@@ -271,7 +292,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Personal Trainer: villagers gain extra XP from your trades, so they level their profession faster. */
+    /** personal Trainer: villagers gain extra XP from your trades and level up fast — the whole crowd learns. */
     @SubscribeEvent
     static void onPersonalTrainerTrade(TradeWithVillagerEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
@@ -280,15 +301,61 @@ public final class BlessingEventHandler {
             return;
         }
         MerchantOffer offer = event.getMerchantOffer();
-        if (!offer.shouldRewardExp() || offer.getXp() <= 0) {
-            return;
-        }
-        // Vanilla already granted the base XP; top the villager up to the multiplied total.
-        int extra = (int) Math.round(offer.getXp() * (Config.TRAINER_VILLAGER_XP_MULT.get() - 1.0));
+        int extra = (offer.shouldRewardExp() && offer.getXp() > 0)
+                ? (int) Math.round(offer.getXp() * (Config.TRAINER_VILLAGER_XP_MULT.get() - 1.0)) : 0;
         if (extra > 0) {
-            villager.setVillagerXp(villager.getVillagerXp() + extra);
+            coachVillager(player, villager, extra, true);
+            double r = Config.TRAINER_NEARBY_RADIUS.get();
+            if (r > 0) {
+                for (Villager other : player.serverLevel().getEntitiesOfClass(Villager.class,
+                        villager.getBoundingBox().inflate(r), v -> v != villager && v.isAlive())) {
+                    coachVillager(player, other, extra, false);
+                }
+            }
         }
         Blessings.TRAINER.get().markDiscoveredByVictim(player);
+    }
+
+    /** silver villager synergy (Silver Tongue + Disguise): a villager-shaped trader sometimes waives a trade's cost. */
+    @SubscribeEvent
+    static void onSilverVillagerRefund(TradeWithVillagerEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || !com.oliver.witchmod.synergy.Synergies.SILVER_VILLAGER.activeFor(player)
+                || player.getRandom().nextInt(100) >= Config.SILVER_VILLAGER_REFUND_CHANCE.get()) {
+            return;
+        }
+        MerchantOffer offer = event.getMerchantOffer();
+        refundCost(player, offer.getCostA());
+        refundCost(player, offer.getCostB());
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("witchmod.silver_tongue.refund"), true);
+        player.serverLevel().sendParticles(ParticleTypes.HAPPY_VILLAGER, player.getX(),
+                player.getY() + 1.0, player.getZ(), 8, 0.3, 0.4, 0.3, 0.0);
+    }
+
+    private static void refundCost(ServerPlayer player, net.minecraft.world.item.ItemStack cost) {
+        if (cost.isEmpty()) {
+            return;
+        }
+        net.minecraft.world.item.ItemStack give = cost.copy();
+        if (!player.getInventory().add(give)) {
+            player.drop(give, false);
+        }
+    }
+
+    /** add coached XP to one villager, schedule its fast level-up, and (for the traded one) live-update the screen. */
+    private static void coachVillager(ServerPlayer player, Villager villager, int extra, boolean traded) {
+        villager.setVillagerXp(villager.getVillagerXp() + extra);
+        scheduleVillagerLevelUp(villager);
+        ServerLevel level = player.serverLevel();
+        level.sendParticles(ParticleTypes.HAPPY_VILLAGER, villager.getX(),
+                villager.getY() + villager.getBbHeight() * 0.6, villager.getZ(), traded ? 14 : 8, 0.4, 0.5, 0.4, 0.0);
+        level.playSound(null, villager.blockPosition(), SoundEvents.VILLAGER_CELEBRATE, SoundSource.NEUTRAL, 0.6F, 1.2F);
+        // the traded villager's screen keeps the xp it synced at open — re-push so its bar fills live (showProgress
+        // hard TRUE: a villager always shows the bar; the server menu's own flag reads false and hid it).
+        if (traded && player.containerMenu instanceof net.minecraft.world.inventory.MerchantMenu menu) {
+            player.sendMerchantOffers(menu.containerId, villager.getOffers(),
+                    villager.getVillagerData().getLevel(), villager.getVillagerXp(), true, menu.canRestock());
+        }
     }
 
     /**
@@ -325,25 +392,89 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Studious: all XP you take in is multiplied (spending XP is left alone). */
+    /**
+     * Studious: all XP you take in is multiplied. Hooked on {@code PickupXp} (fires the instant an orb is
+     * collected, BEFORE the mending/XP split) and boosts the orb's own value — so every real XP source (mobs,
+     * mining, furnaces, fishing, breeding, bottles o' enchanting) is multiplied reliably, even through Mending
+     * gear. Using {@code XpChange} instead silently missed all XP that Mending ate before it ever became XP.
+     */
     @SubscribeEvent
-    static void onStudiousXp(PlayerXpEvent.XpChange event) {
+    static void onStudiousXp(PlayerXpEvent.PickupXp event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
                 || !EffectManager.isActive(player, Blessings.STUDIOUS)) {
             return;
         }
-        int amount = event.getAmount();
-        if (amount <= 0) {
-            return; // only boost gains, never make spending cost more
-        }
-        int boosted = (int) Math.round(amount * Config.STUDIOUS_XP_MULT.get());
-        if (boosted != amount) {
-            event.setAmount(boosted);
+        net.minecraft.world.entity.ExperienceOrb orb = event.getOrb();
+        int before = orb.value;
+        int boosted = (int) Math.round(before * Config.STUDIOUS_XP_MULT.get());
+        if (boosted > before) {
+            orb.value = boosted;
             Blessings.STUDIOUS.get().markDiscoveredByVictim(player);
+            // feedback that the XP was multiplied — an amethyst chime + subtle green motes. Rate-limited, since a
+            // pile of orbs fires this many times a tick and we don't want a machine-gun of chimes.
+            long now = player.serverLevel().getGameTime();
+            if (now - STUDIOUS_FX_LAST.getOrDefault(player.getUUID(), Long.MIN_VALUE / 2) >= 6L) {
+                STUDIOUS_FX_LAST.put(player.getUUID(), now);
+                ServerLevel level = player.serverLevel();
+                level.sendParticles(ParticleTypes.HAPPY_VILLAGER, player.getX(),
+                        player.getY() + player.getBbHeight() * 0.6, player.getZ(), 6, 0.3, 0.4, 0.3, 0.0);
+                level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                        SoundSource.PLAYERS, 0.5F, 1.6F);
+            }
         }
     }
 
-    /** Main Character: while you're powered up, mark anyone you hit so their knockback is multiplied. */
+    /** studious: last game-tick the multiply-FX played, per player, to rate-limit the chime across orb piles. */
+    private static final Map<UUID, Long> STUDIOUS_FX_LAST = new ConcurrentHashMap<>();
+
+    // villager's private level-up scheduling fields (Mojang-mapped at runtime), resolved once. This is the same
+    // pair vanilla's rewardTradeXp writes: the flag says "level up on the next merchant update" and the timer
+    // (which only counts down while you're NOT trading with it) delays it a beat, so trades don't regenerate
+    // out from under your open screen.
+    private static java.lang.reflect.Field villagerLevelUpFlag;
+    private static java.lang.reflect.Field villagerUpdateTimer;
+    private static boolean villagerFieldsResolved;
+
+    private static void resolveVillagerFields() {
+        if (villagerFieldsResolved) {
+            return;
+        }
+        villagerFieldsResolved = true;
+        try {
+            villagerLevelUpFlag = Villager.class.getDeclaredField("increaseProfessionLevelOnUpdate");
+            villagerLevelUpFlag.setAccessible(true);
+            villagerUpdateTimer = Villager.class.getDeclaredField("updateMerchantTimer");
+            villagerUpdateTimer.setAccessible(true);
+        } catch (ReflectiveOperationException e) {
+            WitchMod.LOGGER.error("[Trainer] could not resolve villager level-up fields — villagers won't level "
+                    + "up faster: {}", e.toString());
+        }
+    }
+
+    /**
+     * If the villager's XP is now at/over its level-up threshold, schedule the profession level-up exactly the
+     * way vanilla does — needed because vanilla's own check ran on the base XP before this event fired.
+     */
+    private static void scheduleVillagerLevelUp(Villager villager) {
+        int level = villager.getVillagerData().getLevel();
+        if (!VillagerData.canLevelUp(level) || villager.getVillagerXp() < VillagerData.getMaxXpPerLevel(level)) {
+            return; // not actually over the threshold yet
+        }
+        resolveVillagerFields();
+        if (villagerLevelUpFlag == null || villagerUpdateTimer == null) {
+            return;
+        }
+        try {
+            if (!villagerLevelUpFlag.getBoolean(villager)) { // don't reset an already-scheduled level-up
+                villagerLevelUpFlag.setBoolean(villager, true);
+                villagerUpdateTimer.setInt(villager, Config.TRAINER_LEVELUP_DELAY_TICKS.get());
+            }
+        } catch (ReflectiveOperationException e) {
+            WitchMod.LOGGER.error("[Trainer] couldn't schedule villager level-up: {}", e.toString());
+        }
+    }
+
+    /** main Character: while you're powered up, mark anyone you hit so their knockback is multiplied. */
     @SubscribeEvent
     static void onMainCharAttack(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -351,11 +482,16 @@ public final class BlessingEventHandler {
             int tier = player.getData(WitchModAttachments.MAINCHAR_TIER);
             if (tier > 0 && EffectManager.isActive(player, Blessings.MAIN_CHARACTER)) {
                 BlessingMainCharacter.queueKnockback(victim, BlessingMainCharacter.knockbackMultiplier(tier));
+                ServerLevel level = player.serverLevel();
+                double vy = victim.getY() + victim.getBbHeight() * 0.6;
+                level.sendParticles(ParticleTypes.FIREWORK, victim.getX(), vy, victim.getZ(),
+                        tier >= 2 ? 16 : 10, 0.3, 0.4, 0.3, 0.12);
+                level.sendParticles(ParticleTypes.CRIT, victim.getX(), vy, victim.getZ(), 8, 0.3, 0.3, 0.3, 0.15);
             }
         }
     }
 
-    /** Applies the queued Main Character knockback multiplier when the hit's knockback resolves. */
+    /** applies the queued Main Character knockback multiplier when the hit's knockback resolves. */
     @SubscribeEvent
     static void onMainCharKnockback(LivingKnockBackEvent event) {
         float mult = BlessingMainCharacter.consumeKnockback(event.getEntity());
@@ -395,14 +531,14 @@ public final class BlessingEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player) || !EffectManager.isActive(player, Blessings.GLADIATOR)) {
             return;
         }
-        // Melee (the DIRECT entity is the living attacker) → full parry + riposte. Projectiles go through
+        // melee (the DIRECT entity is the living attacker) → full parry + riposte. Projectiles go through
         // onGladiatorProjectileParry (reflect) instead.
         if (event.getSource().getDirectEntity() != null
                 && com.oliver.witchmod.effects.blessings.BlessingGladiator.tryParry(player, event.getSource().getDirectEntity())) {
             event.setCanceled(true);
             return;
         }
-        // Anything else a shield could block (explosions, unreflected hurting projectiles...) → EMPTY parry.
+        // anything else a shield could block (explosions, unreflected hurting projectiles...) → EMPTY parry.
         if (com.oliver.witchmod.effects.blessings.BlessingGladiator.tryEmptyParry(player, event.getSource())) {
             event.setCanceled(true);
         }
@@ -410,7 +546,7 @@ public final class BlessingEventHandler {
 
     @SubscribeEvent
     static void onDisguiseAttack(AttackEntityEvent event) {
-        // Throwing a punch blows your cover too, not just taking one.
+        // throwing a punch blows your cover too, not just taking one.
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.DISGUISE)) {
             com.oliver.witchmod.effects.blessings.BlessingDisguise.breakDisguise(player);
         }
@@ -483,7 +619,7 @@ public final class BlessingEventHandler {
     // --- Tank blessing ----------------------------------------------------------------------------------
     @SubscribeEvent
     static void onTankRegen(LivingHealEvent event) {
-        // Small heals are natural regen ticks — slow those slightly. Potions/food (bigger heals) are untouched.
+        // small heals are natural regen ticks — slow those slightly. Potions/food (bigger heals) are untouched.
         if (event.getEntity() instanceof ServerPlayer player
                 && event.getAmount() <= 1.0F
                 && EffectManager.isActive(player, Blessings.TANK)) {
@@ -491,7 +627,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Sanguine: natural regen throttled to a fraction — you don't heal by resting, you heal by bleeding others. */
+    /** sanguine: natural regen throttled to a fraction — you don't heal by resting, you heal by bleeding others. */
     @SubscribeEvent
     static void onSanguineRegen(LivingHealEvent event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -500,7 +636,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Sanguine: lifesteal a share of the damage you deal — melee AND projectile (the attacker is the source entity). */
+    /** sanguine: lifesteal a share of the damage you deal — melee AND projectile (the attacker is the source entity). */
     @SubscribeEvent
     static void onSanguineLifesteal(LivingDamageEvent.Post event) {
         if (event.getSource().getEntity() instanceof ServerPlayer attacker
@@ -510,7 +646,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Sonar: every hit you take sharpens your senses — shave time off the next ping. */
+    /** sonar: every hit you take sharpens your senses — shave time off the next ping. */
     @SubscribeEvent
     static void onSonarDamaged(LivingIncomingDamageEvent event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -519,7 +655,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Vein Miner: breaking an ore/log fells the whole connected vein/tree. */
+    /** vein Miner: breaking an ore/log fells the whole connected vein/tree. */
     @SubscribeEvent
     static void onVeinMine(BlockEvent.BreakEvent event) {
         if (event.getPlayer() instanceof ServerPlayer player
@@ -595,6 +731,7 @@ public final class BlessingEventHandler {
                 && event.getEntity() instanceof net.minecraft.world.entity.LivingEntity victim && victim != attacker
                 && EffectManager.isActive(attacker, Blessings.HEAVY_HITTER)) {
             com.oliver.witchmod.effects.blessings.BlessingHeavyHitter.onMeleeHit(attacker, victim);
+            event.setAmount(event.getAmount() + Config.HEAVY_HITTER_FLAT_DAMAGE.get().floatValue()); // flat extra hurt
         }
     }
 
@@ -609,7 +746,7 @@ public final class BlessingEventHandler {
     // --- Enchanter blessing -----------------------------------------------------------------------------
     @SubscribeEvent
     static void onEnchanterCost(PlayerXpEvent.LevelChange event) {
-        // Soften the level loss while an enchanting table is open (so we don't touch anvils or XP overflow).
+        // soften the level loss while an enchanting table is open (so we don't touch anvils or XP overflow).
         if (event.getEntity() instanceof ServerPlayer player
                 && event.getLevels() < 0
                 && player.containerMenu instanceof net.minecraft.world.inventory.EnchantmentMenu
@@ -622,7 +759,7 @@ public final class BlessingEventHandler {
 
     @SubscribeEvent
     static void onEnchanterLevels(EnchantmentLevelSetEvent event) {
-        // Not player-aware, so find the Enchanter standing at this table and bump the offered level.
+        // not player-aware, so find the Enchanter standing at this table and bump the offered level.
         if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) {
             return;
         }
@@ -644,7 +781,7 @@ public final class BlessingEventHandler {
 
     @SubscribeEvent
     static void onOceansTargetVeto(LivingChangeTargetEvent event) {
-        // Aggressive mobs won't lock onto an Ocean's-blessed player while they're in the water.
+        // aggressive mobs won't lock onto an Ocean's-blessed player while they're in the water.
         if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player
                 && player.isInWater()
                 && EffectManager.isActive(player, Blessings.OCEANS_BLESSING)) {
@@ -677,7 +814,7 @@ public final class BlessingEventHandler {
             BlessingChat.highlight(killer, pvp ? "pvp_kill" : "kill",
                     pvp ? Config.CHAT_PVP_KILL_SCORE.get() : Config.CHAT_KILL_SCORE.get());
         }
-        // The streamer dying — interest tanks and chat spams the mocking gifs.
+        // the streamer dying — interest tanks and chat spams the mocking gifs.
         if (chatOn(event.getEntity())) {
             BlessingChat.onStreamerDeath((ServerPlayer) event.getEntity());
         }
@@ -762,10 +899,25 @@ public final class BlessingEventHandler {
     }
 
     @SubscribeEvent
+    static void onBruteKnockback(LivingKnockBackEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.BRUTE)
+                && com.oliver.witchmod.effects.blessings.BlessingBrute.isCharged(player)) {
+            event.setCanceled(true); // nothing shoves a fully-charged brute
+        }
+    }
+
+    @SubscribeEvent
     static void onAnchorKnockback(LivingKnockBackEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.ANCHOR)) {
             event.setCanceled(true); // immovable — no attack/projectile knockback at all
             Blessings.ANCHOR.get().markDiscoveredByVictim(player); // discovered on the first shove resisted
+            // very, very subtle 'braced' feedback: a soft chain tink + a few sparks settling at the feet, so a
+            // shove that went nowhere still reads as being planted rather than as nothing happening.
+            ServerLevel level = player.serverLevel();
+            level.playSound(null, player.blockPosition(), SoundEvents.CHAIN_HIT, SoundSource.PLAYERS, 0.18F, 0.7F);
+            level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 0.1, player.getZ(),
+                    4, 0.22, 0.03, 0.22, 0.0);
         }
     }
 
@@ -780,7 +932,7 @@ public final class BlessingEventHandler {
         if (player.containerMenu instanceof net.minecraft.world.inventory.AnvilMenu anvil) {
             anvil.setMaximumCost(Integer.MAX_VALUE);
         }
-        // Much cheaper: wipe the accumulated "prior work" penalty from the inputs — that's the exponential
+        // much cheaper: wipe the accumulated "prior work" penalty from the inputs — that's the exponential
         // driver of anvil costs (1,3,7,15,...), and a skilled blacksmith just doesn't rack it up. Vanilla then
         // recomputes the (now-low) cost from these. Also set the event cost for any custom-recipe output path.
         clearPriorWork(event.getLeft());
@@ -799,10 +951,13 @@ public final class BlessingEventHandler {
 
     @SubscribeEvent
     static void onServerChat(ServerChatEvent event) {
-        ServerPlayer speaker = event.getPlayer();
-        if (!EffectManager.isActive(speaker, Blessings.LAUGH_TRACK)) {
-            return;
+        if (EffectManager.isActive(event.getPlayer(), Blessings.LAUGH_TRACK)) {
+            triggerLaughTrack(event.getPlayer());
         }
+    }
+
+    /** a server-wide crowd reaction for the speaker, on the shared cooldown — also called by Yap's comedic_timing. */
+    public static void triggerLaughTrack(ServerPlayer speaker) {
         long now = speaker.serverLevel().getGameTime();
         Long ready = LAUGH_TRACK_COOLDOWN.get(speaker.getUUID());
         if (ready != null && now < ready) {
@@ -810,9 +965,7 @@ public final class BlessingEventHandler {
         }
         LAUGH_TRACK_COOLDOWN.put(speaker.getUUID(), now + Config.LAUGHTRACK_COOLDOWN.get());
 
-        // A random crowd reaction plays for EVERY online player, server-wide (all dimensions) — the whole point
-        // of the blessing, and its only effect. Mostly laughs (90%), the odd cheer (10%). Sent per-listener so
-        // it's a global "TV laugh track", not a positional noise in the world.
+        // mostly laughs (90%), the odd cheer. Sent per-listener so it's a global "TV laugh track", not positional.
         var sound = speaker.getRandom().nextDouble() < Config.LAUGHTRACK_CHEER_CHANCE.get()
                 ? com.oliver.witchmod.data.WitchModSounds.LAUGHTRACK_CHEER.get()
                 : com.oliver.witchmod.data.WitchModSounds.LAUGHTRACK_LAUGH.get();
@@ -892,13 +1045,13 @@ public final class BlessingEventHandler {
         if (nearby == null) {
             return;
         }
-        // Allow only PEACE_SPAWN_RATE_MULT of them; cancel the rest.
+        // allow only PEACE_SPAWN_RATE_MULT of them; cancel the rest.
         if (event.getEntity().getRandom().nextDouble() >= Config.PEACE_SPAWN_RATE_MULT.get()) {
             event.setSpawnCancelled(true);
         }
     }
 
-    /** Luck: discovered the first time it could actually have mattered — reeling in a catch. */
+    /** luck: discovered the first time it could actually have mattered — reeling in a catch. */
     @SubscribeEvent
     static void onItemFished(ItemFishedEvent event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -907,7 +1060,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Luck: also discovered on opening a loot-tabled container (its loot table is still pending pre-open). */
+    /** luck: also discovered on opening a loot-tabled container (its loot table is still pending pre-open). */
     @SubscribeEvent
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
@@ -924,7 +1077,7 @@ public final class BlessingEventHandler {
      * Army: a nearby hostile can't even acquire you as a target — vetoed at the source, so its own goals never
      * lock on (rather than clearing the target afterward, which flickered and let hits slip through).
      */
-    /** Unseen: a mob can't lock onto a cloaked player it isn't within reveal distance of. */
+    /** unseen: a mob can't lock onto a cloaked player it isn't within reveal distance of. */
     @SubscribeEvent
     static void onDisguiseChangeTarget(LivingChangeTargetEvent event) {
         // A convincing livestock disguise: hostiles won't lock onto a currently-disguised player (DISGUISE_TYPE
@@ -1004,10 +1157,14 @@ public final class BlessingEventHandler {
             return;
         }
         event.setCanceled(true);
-        float speed = (float) (projectile.getDeltaMovement().length() * Config.REFLECT_VELOCITY_MULT.get());
+        double mult = Config.REFLECT_VELOCITY_MULT.get();
+        if (com.oliver.witchmod.synergy.Synergies.DUELISTS.activeFor(player)) {
+            mult *= Config.REFLECT_GLADIATOR_VELOCITY_MULT.get(); // duellist's flourish: send it further
+        }
+        float speed = (float) (projectile.getDeltaMovement().length() * mult);
         projectile.setOwner(player);
         projectile.shoot(dir.x, dir.y, dir.z, speed, (float) (double) Config.REFLECT_INACCURACY.get());
-        // Nudge it a block out of your hitbox toward the shooter so it doesn't immediately re-collide with you.
+        // nudge it a block out of your hitbox toward the shooter so it doesn't immediately re-collide with you.
         Vec3 out = dir.normalize();
         projectile.setPos(player.getX() + out.x, player.getEyeY() + out.y * 0.5, player.getZ() + out.z);
         Blessings.REFLECT.get().markDiscoveredByVictim(player);
@@ -1044,6 +1201,102 @@ public final class BlessingEventHandler {
         Blessings.SOUL_BOND.get().markDiscoveredByVictim(caster); // discovered the first time damage is shared
     }
 
+    /** guardian Angel (Guiding light): you deal bonus damage to the highlighted highest-health foe. */
+    @SubscribeEvent
+    static void onGuardianGuidingBonus(LivingDamageEvent.Pre event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer owner
+                && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)) {
+            float bonus = com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.guidingBonus(owner, event.getEntity());
+            if (bonus > 0.0F) {
+                event.setNewDamage(event.getNewDamage() + bonus);
+            }
+        }
+    }
+
+    /** guardian Angel: attacking anything puts you "in combat" (enables the zap) and sulks at villager/pet hits. */
+    @SubscribeEvent
+    static void onGuardianOwnerAttack(net.neoforged.neoforge.event.entity.player.AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer owner && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)) {
+            com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.onOwnerAttack(owner, event.getTarget());
+        }
+    }
+
+    /** guardian Angel: breaking a hard block, or a run of them, earns Haste + a watchful hover. */
+    @SubscribeEvent
+    static void onGuardianMined(BlockEvent.BreakEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer owner && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)) {
+            float hardness = event.getState().getDestroySpeed(owner.level(), event.getPos());
+            com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.onOwnerMined(owner, event.getPos(), hardness);
+        }
+    }
+
+    /** guardian Angel: a killing blow is negated — the guardian dies in your place, leaving you at 1 HP. */
+    @SubscribeEvent
+    static void onGuardianLethal(LivingDamageEvent.Pre event) {
+        if (event.getEntity() instanceof ServerPlayer owner
+                && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)
+                && event.getNewDamage() >= owner.getHealth()
+                && com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.tryGuardianSacrifice(owner)) {
+            event.setNewDamage(Math.max(0.0F, owner.getHealth() - 1.0F)); // survive at 1 HP
+        }
+    }
+
+    /** guardian Angel: the owner being hit makes the guardian panic around them. */
+    @SubscribeEvent
+    static void onGuardianOwnerHit(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer owner
+                && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)
+                && event.getSource().getEntity() instanceof LivingEntity attacker
+                && attacker != owner
+                && !(attacker instanceof net.minecraft.world.entity.animal.allay.Allay)) {
+            com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.onOwnerAttacked(owner, attacker);
+        }
+    }
+
+    /** guardian Angel: the allay can be killed — its owner then waits out the respawn cooldown. */
+    @SubscribeEvent
+    static void onGuardianAllayDeath(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.world.entity.animal.allay.Allay allay)
+                || !(allay.level() instanceof ServerLevel level)) {
+            return;
+        }
+        String ownerTag = allay.getTags().stream().filter(t -> t.startsWith("guardian_")).findFirst().orElse(null);
+        if (ownerTag == null) {
+            return;
+        }
+        com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.onAllayKilled(allay);
+        // companionship banter: a surviving bodyguard/solicitor may remark on the angel falling.
+        try {
+            ServerPlayer owner = level.getServer().getPlayerList()
+                    .getPlayer(java.util.UUID.fromString(ownerTag.substring("guardian_".length())));
+            if (owner != null && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)) {
+                CompanionshipBanter.reactToDeath(owner, "guardian");
+            }
+        } catch (IllegalArgumentException ignored) {
+            // malformed tag — nothing to do
+        }
+    }
+
+    /** guardian Angel: a player being kidnapped can't dismount the allay to escape. */
+    @SubscribeEvent
+    static void onGuardianKidnapDismount(net.neoforged.neoforge.event.entity.EntityMountEvent event) {
+        if (event.isDismounting() && event.getEntityMounting() instanceof ServerPlayer p
+                && event.getEntityBeingMounted() instanceof net.minecraft.world.entity.animal.allay.Allay
+                && com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.isKidnapVictim(p)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** guardian Angel: killing the last nearby hostile can trigger a celebratory firework display. */
+    @SubscribeEvent
+    static void onGuardianKill(LivingDeathEvent event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.monster.Enemy
+                && event.getSource().getEntity() instanceof ServerPlayer killer
+                && EffectManager.isActive(killer, Blessings.GUARDIAN_ANGEL)) {
+            com.oliver.witchmod.effects.blessings.BlessingGuardianAngel.onOwnerKill(killer);
+        }
+    }
+
     /**
      * Bodyguard: anything striking the anchor — a player, a zombie, a golem — commits the bodyguard to
      * ATTACKING it, so it's an actual guard and not just set dressing.
@@ -1059,11 +1312,11 @@ public final class BlessingEventHandler {
         }
         BodyguardEntity bodyguard = BlessingBodyguard.get(anchor);
         if (bodyguard != null) {
-            bodyguard.escalateToAttacking(attacker);
+            bodyguard.escalateToAttacking(attacker, true); // a real threat — pursue it on the longer leash
         }
     }
 
-    /** Bodyguard: the entity dying no longer breaks the blessing — a replacement is hired 6 minutes later. */
+    /** bodyguard: the entity dying no longer breaks the blessing — a replacement is hired 6 minutes later. */
     @SubscribeEvent
     static void onBodyguardDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof BodyguardEntity bodyguard)
@@ -1078,8 +1331,10 @@ public final class BlessingEventHandler {
         ServerPlayer anchor = level.getServer().getPlayerList().getPlayer(anchorId);
         if (anchor != null && EffectManager.isActive(anchor, Blessings.BODYGUARD)) {
             BlessingBodyguard.onBodyguardDeath(anchor); // schedule the replacement + announce the fall
+            CompanionshipBanter.reactToDeath(anchor, "bodyguard"); // the solicitor may pipe up
         }
     }
+
 
     /** A golden trail from the caster to the entity that just took a share of their damage. */
     private static void soulBondTrail(ServerLevel level, ServerPlayer caster, LivingEntity bound) {
@@ -1095,7 +1350,7 @@ public final class BlessingEventHandler {
 
     // --- Hype Man: the crowd praises the blessed player for what they do ---------------------------------
 
-    /** Combat — swinging on anything earns a cheer. */
+    /** combat — swinging on anything earns a cheer. */
     @SubscribeEvent
     static void onHypeManCombat(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
@@ -1103,7 +1358,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Picking an item up off the floor. */
+    /** picking an item up off the floor. */
     @SubscribeEvent
     static void onHypeManPickup(ItemEntityPickupEvent.Post event) {
         if (event.getPlayer() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
@@ -1130,7 +1385,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Opening a chest/barrel (a ChestMenu) — "looting". */
+    /** opening a chest/barrel (a ChestMenu) — "looting". */
     @SubscribeEvent
     static void onHypeManLoot(PlayerContainerEvent.Open event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -1140,7 +1395,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Placing a block — the crowd compliments your builds. */
+    /** placing a block — the crowd compliments your builds. */
     @SubscribeEvent
     static void onHypeManBuild(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
@@ -1148,7 +1403,7 @@ public final class BlessingEventHandler {
         }
     }
 
-    /** Iron Lung: breathe in blocks — suffocation is negated (and drowning too, backing up Water Breathing). */
+    /** iron Lung: breathe in blocks — suffocation is negated (and drowning too, backing up Water Breathing). */
     @SubscribeEvent
     static void onIronLungDamage(LivingIncomingDamageEvent event) {
         if (event.getEntity() instanceof ServerPlayer player

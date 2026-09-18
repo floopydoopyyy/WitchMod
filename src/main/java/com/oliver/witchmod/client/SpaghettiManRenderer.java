@@ -9,7 +9,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.SpaghettiManEntity;
 
 /**
- * Draws the {@link SpaghettiManEntity} with the code-baked {@link SpaghettiManModel} + glowing
+ * draws the {@link SpaghettiManEntity} with the code-baked {@link SpaghettiManModel} + glowing
  * {@link SpaghettiManEyesLayer}. Whether it's drawn AT ALL — only ever for its victim — is decided in
  * {@code ClientCurseHandler.onRenderLiving}, which cancels the render for anyone else.
  */

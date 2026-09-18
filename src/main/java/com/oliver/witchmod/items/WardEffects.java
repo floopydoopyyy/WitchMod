@@ -21,9 +21,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Ward's incoming-lash visual: when a Ward blocks an attachment from someone else, a moving coloured lash
- * (like a bottled curse's) streaks IN from the caster's direction, then flares and is blocked at the victim
- * with a shield clang. Curse lashes are purple, blessing lashes are warm gold.
+ * the ward's block visual: a coloured lash streaks in from the caster's direction, then flares and is blocked
+ * at the victim with a shield clang (purple curse / gold blessing).
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class WardEffects {
@@ -51,7 +50,7 @@ public final class WardEffects {
 
     private WardEffects() {}
 
-    /** Fire a lash coming from the caster toward the victim, which ends in a block flare. */
+    /** fire a lash coming from the caster toward the victim, which ends in a block flare. */
     public static void startLash(ServerPlayer victim, ServerPlayer caster, boolean curse) {
         ServerLevel level = victim.serverLevel();
         Vec3 to = victim.position().add(0, 1.0, 0);
@@ -62,7 +61,7 @@ public final class WardEffects {
             blockFlare(level, to, curse); // caster right on top of you — just the block flare
             return;
         }
-        // Start a few blocks out toward the caster (capped, so a distant cast still resolves quickly).
+        // start a few blocks out toward the caster (capped, so a distant cast still resolves quickly).
         Vec3 start = to.add(dir.scale(Math.min(dist, 8.0) / dist));
         LASHES.add(new Lash(level, victim.getUUID(), start, curse, 60));
     }
@@ -98,7 +97,7 @@ public final class WardEffects {
         level.sendParticles(curse ? ParticleTypes.WITCH : ParticleTypes.END_ROD, pos.x, pos.y, pos.z, 1, 0.02, 0.02, 0.02, 0.0);
     }
 
-    /** The block itself: a bright ring flare + a subtle shield clang. */
+    /** the block itself: a bright ring flare + a subtle shield clang. */
     private static void blockFlare(ServerLevel level, Vec3 at, boolean curse) {
         DustParticleOptions dust = curse ? CURSE_DUST : BLESS_DUST;
         for (int i = 0; i < 16; i++) {

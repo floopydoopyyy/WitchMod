@@ -25,7 +25,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The floor can't take you (master-spec Heavyweight). Stand on anything with air beneath it — a second
+ * the floor can't take you. Stand on anything with air beneath it — a second
  * storey, a bridge, a ledge — and it starts to give way under your weight.
  *
  * <p><b>Break time scales with the block's own hardness</b>: leaves ~0.8s, dirt ~1.1s, stone ~2.4s, planks
@@ -53,7 +53,7 @@ public final class CurseHeavyweight extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.IRON_BLOCK);
     }
 
-    /** You find out the first time the floor gives out (Rule 2). */
+    /** you find out the first time the floor gives out (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -85,7 +85,7 @@ public final class CurseHeavyweight extends Effect {
 
         Progress current = BREAKING.get(target.getUUID());
         if (current == null || !current.pos().equals(standing)) {
-            // Stepped onto a different block — the old one recovers completely.
+            // stepped onto a different block — the old one recovers completely.
             clear(target);
             current = new Progress(standing, 0);
         }
@@ -103,7 +103,7 @@ public final class CurseHeavyweight extends Effect {
     }
 
     /**
-     * The block underfoot, but only if there's air beneath it — a floor with nothing holding it up. Returns
+     * the block underfoot, but only if there's air beneath it — a floor with nothing holding it up. Returns
      * null if it isn't a candidate, including for anything unbreakable.
      */
     @Nullable
@@ -131,7 +131,7 @@ public final class CurseHeavyweight extends Effect {
     }
 
     /**
-     * The warning. <b>Primarily VISUAL</b> — the crack overlay plus dust that thickens as it goes, with the
+     * the warning. <b>Primarily VISUAL</b> — the crack overlay plus dust that thickens as it goes, with the
      * audio kept sparse and quiet. An early version creaked constantly and loudly, which was both grating and
      * easy to tune out; particles falling harder and harder out of the block you're standing on read far
      * better and don't fight everything else the game is doing.
@@ -141,14 +141,14 @@ public final class CurseHeavyweight extends Effect {
         int stage = Math.min(9, (int) (fraction * 10.0F));
         level.destroyBlockProgress(target.getId(), pos, stage);
 
-        // Dust from the underside, scaling the whole way through rather than only after the warn point, so
+        // dust from the underside, scaling the whole way through rather than only after the warn point, so
         // the block is visibly failing long before it makes any noise about it.
         int dust = 1 + (int) (fraction * 7.0F);
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
                 pos.getX() + 0.5, pos.getY() - 0.05, pos.getZ() + 0.5,
                 dust, 0.3, 0.02, 0.3, 0.0);
         if (fraction > 0.6F) {
-            // Fragments spitting off the top edge too, once it's genuinely close.
+            // fragments spitting off the top edge too, once it's genuinely close.
             level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
                     pos.getX() + 0.5, pos.getY() + 1.02, pos.getZ() + 0.5,
                     2 + (int) (fraction * 4.0F), 0.35, 0.05, 0.35, 0.04);
@@ -157,7 +157,7 @@ public final class CurseHeavyweight extends Effect {
         if (fraction < Config.HEAVYWEIGHT_WARN_FRACTION.get()) {
             return;
         }
-        // Sparse and quiet: an occasional creak that speeds up slightly, not a constant grinding.
+        // sparse and quiet: an occasional creak that speeds up slightly, not a constant grinding.
         int interval = Math.max(8, (int) (26 - fraction * 14.0F));
         if (target.tickCount % interval != 0) {
             return;
@@ -168,7 +168,7 @@ public final class CurseHeavyweight extends Effect {
     }
 
     /**
-     * The floor going. Deliberately loud and messy: the zombie door-smash sound (the most "something just
+     * the floor going. Deliberately loud and messy: the zombie door-smash sound (the most "something just
      * gave way" noise vanilla has), a burst of debris, a camera shake, and a ragged hole rather than one neat
      * missing block — a single block quietly disappearing didn't read as a collapse at all.
      */
@@ -190,7 +190,7 @@ public final class CurseHeavyweight extends Effect {
         com.oliver.witchmod.effects.Curses.DENSE.value().markDiscoveredByVictim(target);
     }
 
-    /** Takes a ragged bite out of the surrounding floor, so it reads as a collapse and not a trapdoor. */
+    /** takes a ragged bite out of the surrounding floor, so it reads as a collapse and not a trapdoor. */
     private static void spreadCollapse(ServerPlayer target, ServerLevel level, BlockPos centre) {
         int radius = Config.HEAVYWEIGHT_COLLAPSE_RADIUS.get();
         int chance = Config.HEAVYWEIGHT_COLLAPSE_CHANCE.get();
@@ -226,7 +226,7 @@ public final class CurseHeavyweight extends Effect {
     private static void clear(Player target) {
         Progress previous = BREAKING.remove(target.getUUID());
         if (previous != null && target.level() instanceof ServerLevel level) {
-            // Anything outside 0..9 removes it. Left set, the cracks would stick on that block for good.
+            // anything outside 0..9 removes it. Left set, the cracks would stick on that block for good.
             level.destroyBlockProgress(target.getId(), previous.pos(), -1);
         }
     }

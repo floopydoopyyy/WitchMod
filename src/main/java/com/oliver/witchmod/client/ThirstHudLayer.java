@@ -14,13 +14,13 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModMobEffects;
 
 /**
- * The Thirst Meter bar: a row of droplets mirroring vanilla's hunger row, driven by the auto-synced
+ * the Thirst Meter bar: a row of droplets mirroring vanilla's hunger row, driven by the auto-synced
  * {@link WitchModAttachments#THIRST} value ({@code -1} = curse inactive → hidden entirely).
  *
  * <p>Deliberately built as a close copy of {@code Gui#renderFood} so it reads as part of the HUD rather than
  * as something bolted on: same 10 icons, same 8px spacing, same right-to-left fill, and the same **jitter**
  * vanilla applies when you're in trouble — here driven by the Dehydration effect rather than by hunger.
- * Under Dehydration the icons also swap to their own tinted variants, which is what tells you at a glance
+ * under Dehydration the icons also swap to their own tinted variants, which is what tells you at a glance
  * why the bar is emptying so fast.
  *
  * <p>Hidden in creative and spectator via the same {@code canHurtPlayer} gate vanilla uses for health,
@@ -45,7 +45,7 @@ public final class ThirstHudLayer implements LayeredDraw.Layer {
     @Override
     public void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
-        // Hidden in creative/spectator, matching vanilla's survival-HUD gate (hunger, health, air).
+        // hidden in creative/spectator, matching vanilla's survival-HUD gate (hunger, health, air).
         if (mc.options.hideGui || mc.player == null || mc.gameMode == null || !mc.gameMode.canHurtPlayer()) {
             return;
         }
@@ -64,7 +64,7 @@ public final class ThirstHudLayer implements LayeredDraw.Layer {
         int right = guiGraphics.guiWidth() / 2 + 91;                       // vanilla food-bar right edge
         int top = HudBars.topForRow(player, guiGraphics.guiHeight(), HudBars.thirstRow(player));
 
-        // Vanilla jitters the hunger icons when you're starving; here it's Dehydration that shakes them,
+        // vanilla jitters the hunger icons when you're starving; here it's Dehydration that shakes them,
         // seeded off the tick so the whole row doesn't wobble in lockstep.
         RandomSource jitter = player.getRandom();
 
@@ -74,7 +74,7 @@ public final class ThirstHudLayer implements LayeredDraw.Layer {
             if (dry && jitter.nextFloat() < 0.08F) {
                 y += jitter.nextInt(3) - 1;
             }
-            // Two thirst points per icon, filling right to left exactly like hunger.
+            // two thirst points per icon, filling right to left exactly like hunger.
             int pointsHere = Math.max(0, Math.min(2, thirst - i * (max / ICONS)));
 
             guiGraphics.blit(empty, x, y, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);

@@ -17,13 +17,16 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.blocks.AmethystBellBlockEntity;
 
 /**
- * Swings the amethyst bell body exactly like vanilla's {@code BellRenderer} — the same {@link ModelLayers#BELL}
+ * swings the amethyst bell body exactly like vanilla's {@code BellRenderer} — the same {@link ModelLayers#BELL}
  * part and the same decaying-sine swing driven by the block entity's shake state — with the purple amethyst
  * texture.
  */
 public final class AmethystBellRenderer implements BlockEntityRenderer<AmethystBellBlockEntity> {
     private static final ResourceLocation TEXTURE =
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/entity/amethyst_bell.png");
+    /** desaturated bell shown while it's rung/recharging (30 min), so its inactive state reads at a glance. */
+    private static final ResourceLocation INACTIVE_TEXTURE =
+            ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/entity/amethyst_bell_inactive.png");
 
     private final ModelPart bellBody;
 
@@ -48,7 +51,8 @@ public final class AmethystBellRenderer implements BlockEntityRenderer<AmethystB
         }
         this.bellBody.xRot = xRot;
         this.bellBody.zRot = zRot;
-        VertexConsumer vc = buffers.getBuffer(RenderType.entitySolid(TEXTURE));
+        ResourceLocation texture = be.isInactive() ? INACTIVE_TEXTURE : TEXTURE;
+        VertexConsumer vc = buffers.getBuffer(RenderType.entitySolid(texture));
         this.bellBody.render(pose, vc, light, overlay);
     }
 }

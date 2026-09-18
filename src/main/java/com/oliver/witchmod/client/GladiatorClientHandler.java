@@ -23,7 +23,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Makes the Gladiator hold the weapon in a defensive guard while a parry window is open — <b>both</b>
+ * makes the Gladiator hold the weapon in a defensive guard while a parry window is open — <b>both</b>
  * perspectives, no mixins:
  * <ul>
  *   <li><b>Third person</b> (and other players' view): {@link #PARRY_POSE} is registered as a client item
@@ -37,7 +37,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 public final class GladiatorClientHandler {
     private GladiatorClientHandler() {}
 
-    /** Registered for all swords/axes (see {@code WitchModClient}); poses the arm as a block while parrying. */
+    /** registered for all swords/axes (see {@code WitchModClient}); poses the arm as a block while parrying. */
     public static final IClientItemExtensions PARRY_POSE = new IClientItemExtensions() {
         @Override
         public HumanoidModel.ArmPose getArmPose(LivingEntity entity, InteractionHand hand, ItemStack stack) {
@@ -65,7 +65,7 @@ public final class GladiatorClientHandler {
         if (!(item instanceof SwordItem) && !(item instanceof AxeItem)) {
             return;
         }
-        // Bring the blade up into a guard and angle it across — an approximation of the classic 1.8 block.
+        // bring the blade up into a guard and angle it across — an approximation of the classic 1.8 block.
         PoseStack pose = event.getPoseStack();
         pose.translate(0.05, 0.02, -0.08);
         pose.mulPose(Axis.YP.rotationDegrees(-32));

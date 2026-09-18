@@ -19,15 +19,8 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Bodyguard's patter, from {@code data/witchmod/text/bodyguard.json} ({@code /reload}-able). Keyed by
- * state — {@code warning}, {@code aggression}, {@code attacking}, {@code ambient} — and each state holds a
- * list of <b>dialogue trees</b>: a tree is a SEQUENCE of lines the bodyguard delivers one after another, so
- * an outburst can be a little multi-line rant rather than a single barked line. A tree may be written either
- * as an array of strings (a real sequence) or as a bare string (a one-liner tree), so the file stays easy to
- * write.
- *
- * <p>Lines may contain <b>{@code {player}}</b>, which the bodyguard swaps for the intruder's username — so
- * whether a given line names them is entirely the writer's choice, line by line.
+ * bodyguard patter ({@code data/witchmod/text/bodyguard.json}, /reload-able), keyed by state. each state
+ * holds dialogue trees (a sequence delivered line-by-line; a bare string = a one-liner tree). {player}=intruder.
  */
 public final class BodyguardLines extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
@@ -78,7 +71,7 @@ public final class BodyguardLines extends SimpleJsonResourceReloadListener {
         trees = Map.copyOf(parsed);
     }
 
-    /** A random dialogue tree (sequence of lines) for {@code state}, or an empty list if there are none. */
+    /** a random dialogue tree for {@code state}, or empty if none. */
     public static List<String> pickTree(String state, RandomSource random) {
         List<List<String>> bucket = trees.get(state);
         if (bucket == null || bucket.isEmpty()) {

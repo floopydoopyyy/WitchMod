@@ -37,7 +37,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModRegistries;
 
 /**
- * The Compendium's custom book UI: a Chapters sidebar (Curses / Blessings / Items / Blocks) and a two-page
+ * the Compendium's custom book UI: a Chapters sidebar (Curses / Blessings / Items / Blocks) and a two-page
  * spread showing ONE entry per page. Curses/Blessings show name, sacrificial item, power and description
  * (undiscovered ones are RUMOURS behind {@code rumour.png}); Items/Blocks show name, image, a description,
  * durability (if any) and up to TWO crafting/smelting recipes, all pulled LIVE from the recipe manager.
@@ -106,7 +106,7 @@ public final class CompendiumScreen extends Screen {
     private int leftArrowX, rightArrowX, arrowY;
     private int panelLeft;
 
-    // Per-page-slot scroll state (0 = left page, 1 = right page) so long descriptions can be read in full
+    // per-page-slot scroll state (0 = left page, 1 = right page) so long descriptions can be read in full
     // while the recipe/power stay fixed. Rebuilt each frame by drawScrollingText.
     private static final int LINE_H = 10;
     private final int[] scroll = new int[PER_SPREAD];
@@ -163,7 +163,7 @@ public final class CompendiumScreen extends Screen {
         curses.sort(order);
         blessings.sort(order);
 
-        // Items + Blocks, with recipes (crafting + smelting) pulled live from the recipe manager.
+        // items + Blocks, with recipes (crafting + smelting) pulled live from the recipe manager.
         Map<Item, List<RecipeView>> recipeMap = new HashMap<>();
         HolderLookup.Provider ra = mc.level != null ? mc.level.registryAccess() : null;
         if (mc.level != null && ra != null) {
@@ -181,6 +181,11 @@ public final class CompendiumScreen extends Screen {
                     ItemStack in = ings.isEmpty() ? ItemStack.EMPTY : repr(ings.get(0));
                     addRecipe(recipeMap, res.getItem(), new RecipeView(true, null, in, res));
                 }
+            }
+            // cursed Essence: show the SMELT recipe first (how you actually MAKE it), ahead of the block-uncraft.
+            List<RecipeView> ce = recipeMap.get(com.oliver.witchmod.items.WitchModItems.CURSED_ESSENCE.get());
+            if (ce != null && ce.size() > 1) {
+                ce.sort((a, b) -> Boolean.compare(b.smelting(), a.smelting()));
             }
         }
         List<Entry> items = new ArrayList<>();
@@ -203,7 +208,7 @@ public final class CompendiumScreen extends Screen {
         items.sort(byName);
         blocks.sort(byName);
 
-        // Modifiers — always show the item name + icon; the description stays a rumour until the player has
+        // modifiers — always show the item name + icon; the description stays a rumour until the player has
         // cast a ritual using that modifier (its own discovery track, DISCOVERED_MODIFIERS).
         Set<ResourceLocation> discMods = mc.player != null
                 ? mc.player.getData(WitchModAttachments.DISCOVERED_MODIFIERS) : Set.of();
@@ -220,7 +225,7 @@ public final class CompendiumScreen extends Screen {
         }
         modifiers.sort(order);
 
-        // Each of the entry chapters opens with an introductory page (title + paragraphs) explaining what it is.
+        // each of the entry chapters opens with an introductory page (title + paragraphs) explaining what it is.
         String[] introKeys = {"curses", "blessings", "items", "blocks", "modifiers"};
         List<List<Entry>> raw = List.of(curses, blessings, items, blocks, modifiers);
         chapters.clear();
@@ -231,7 +236,7 @@ public final class CompendiumScreen extends Screen {
             chapters.add(chapter);
         }
 
-        // Rituals — a how-to chapter: every page is a written explanation of one area of the ritual system,
+        // rituals — a how-to chapter: every page is a written explanation of one area of the ritual system,
         // teaching the mod's core. All info pages (title + paragraphs), so no separate intro is prepended.
         String[] ritualTopics = {"overview", "table", "sacrifice", "essence", "targeting",
                 "modifiers", "outcome", "counterplay", "discovery", "example"};
@@ -322,7 +327,7 @@ public final class CompendiumScreen extends Screen {
         g.fill(left - 3, top - 3, left + PANEL_W + 3, top + PANEL_H + 3, FRAME);
         g.fill(left - 1, top - 1, left + PANEL_W + 1, top + PANEL_H + 1, FRAME_HI);
 
-        // Sidebar.
+        // sidebar.
         int sbLeft = left;
         int sbRight = left + SIDEBAR_W;
         g.fill(sbLeft, top, sbRight, top + PANEL_H, SIDEBAR);
@@ -340,7 +345,7 @@ public final class CompendiumScreen extends Screen {
         }
         g.drawString(font, Component.literal(chapters.get(chapter).size() + " entries"), sbLeft + 12, top + PANEL_H - 18, INK_SOFT, false);
 
-        // Pages.
+        // pages.
         int pagesLeft = sbRight + 6;
         int pagesRight = left + PANEL_W - 6;
         int pagesTop = top + 8;
@@ -357,7 +362,7 @@ public final class CompendiumScreen extends Screen {
         int spineX = pagesLeft + pageW + SPINE_GAP / 2 - 2;
         g.fill(spineX, pagesTop, spineX + 4, pagesBottom, SPINE);
 
-        // Footer nav.
+        // footer nav.
         arrowY = pagesBottom + 4;
         int centre = (pagesLeft + pagesRight) / 2;
         String pageStr = "Page " + (page + 1) + " / " + pageCount();
@@ -371,7 +376,7 @@ public final class CompendiumScreen extends Screen {
 
         super.render(g, mouseX, mouseY, partial);
 
-        // Item tooltips (main icon + recipe slots).
+        // item tooltips (main icon + recipe slots).
         for (Hover h : hovers) {
             if (!h.stack().isEmpty() && hovering(mouseX, mouseY, h.x(), h.y(), h.w(), h.h())) {
                 g.renderTooltip(font, h.stack(), mouseX, mouseY);
@@ -404,7 +409,7 @@ public final class CompendiumScreen extends Screen {
         g.drawString(font, Component.literal(cat), cx - font.width(cat) / 2, top + 17, INK_SOFT, false);
         g.fill(x + 10, top + 28, x + w - 10, top + 29, 0x33000000 | (accent & 0xFFFFFF));
 
-        // Big icon (image) — or the rumour glyph for undiscovered attachments.
+        // big icon (image) — or the rumour glyph for undiscovered attachments.
         int boxX = cx - 18;
         int boxY = top + 36;
         g.fill(boxX - 2, boxY - 2, boxX + 34, boxY + 34, 0x33000000);
@@ -453,13 +458,13 @@ public final class CompendiumScreen extends Screen {
         }
         g.fill(x + 14, ty + 3, x + w - 14, ty + 4, 0x66000000 | (accent & 0xFFFFFF));
 
-        // Paragraphs: the lang value may contain blank lines (\n\n), which split() renders as spacing.
+        // paragraphs: the lang value may contain blank lines (\n\n), which split() renders as spacing.
         List<FormattedCharSequence> lines = font.split(Component.translatable(e.textKey), w - 14);
         drawScrollingText(g, font, slot, lines, x + 6, ty + 12, w - 14, bottom, INK);
     }
 
     private void drawModifierBody(GuiGraphics g, Font font, Entry e, int slot, boolean rumour, int x, int w, int boxY, int bottom) {
-        // Name + item icon are already drawn by drawSide; the description scrolls (a rumour until discovered).
+        // name + item icon are already drawn by drawSide; the description scrolls (a rumour until discovered).
         Component body = Component.translatable(rumour ? e.rumourKey : e.descKey);
         List<FormattedCharSequence> lines = font.split(body, w - 14);
         drawScrollingText(g, font, slot, lines, x + 6, boxY + 44, w - 14, bottom, rumour ? INK_SOFT : INK);
@@ -476,7 +481,7 @@ public final class CompendiumScreen extends Screen {
         drawPower(g, font, cx, boxY + 54, e.power, accent);
         g.fill(x + 10, boxY + 78, x + w - 10, boxY + 79, 0x22000000);
 
-        // Description scrolls (power stays fixed above) so long text can be read in full.
+        // description scrolls (power stays fixed above) so long text can be read in full.
         Component body = Component.translatable(rumour ? e.rumourKey : e.descKey);
         List<FormattedCharSequence> lines = font.split(body, w - 14);
         drawScrollingText(g, font, slot, lines, x + 6, boxY + 84, w - 14, bottom, rumour ? INK_SOFT : INK);
@@ -485,7 +490,7 @@ public final class CompendiumScreen extends Screen {
     private void drawItemBody(GuiGraphics g, Font font, Entry e, int slot, int x, int w, int cx, int boxY, int bottom) {
         boolean hasRecipe = !e.recipes.isEmpty();
 
-        // Durability sits where an effect's power would.
+        // durability sits where an effect's power would.
         String dur = e.durability > 0 ? "Durability: " + e.durability : null;
         if (dur != null) {
             g.drawString(font, Component.literal(dur), cx - font.width(dur) / 2, boxY + 40, INK, false);
@@ -493,10 +498,11 @@ public final class CompendiumScreen extends Screen {
         int divY = boxY + (dur != null ? 52 : 44);
         g.fill(x + 10, divY, x + w - 10, divY + 1, 0x22000000);
 
-        // The recipe (or "not craftable" note) is PINNED to the bottom of the page so it's always visible,
+        // the recipe (or "not craftable" note) is PINNED to the bottom of the page so it's always visible,
         // and the description scrolls in the space between — so long documentation reads all the way through.
         RecipeView rv = hasRecipe ? e.recipes.get(e.recipeShown % e.recipes.size()) : null;
-        int footerH = !hasRecipe ? 14 : (rv.smelting() ? 46 : 70);
+        boolean holyWater = e.icon.getItem() == com.oliver.witchmod.blocks.WitchModFluids.PURIFYING_WATER_BUCKET.get();
+        int footerH = !hasRecipe ? (holyWater ? 30 : 14) : (rv.smelting() ? 46 : 70);
         int footerTop = bottom - footerH;
 
         List<FormattedCharSequence> lines = font.split(Component.translatable(e.descKey), w - 14);
@@ -504,12 +510,22 @@ public final class CompendiumScreen extends Screen {
         g.fill(x + 10, footerTop - 3, x + w - 10, footerTop - 2, 0x18000000);
 
         if (!hasRecipe) {
-            String note = "— not craftable —";
-            g.drawString(font, Component.literal(note), cx - font.width(note) / 2, footerTop + 2, INK_SOFT, false);
+            if (holyWater) {
+                // holy water isn't crafted — tell people how it's actually made.
+                List<FormattedCharSequence> nl = font.split(Component.translatable("witchmod.compendium.holy_water.recipe_note"), w - 16);
+                int ny = footerTop + 2;
+                for (FormattedCharSequence seq : nl) {
+                    g.drawString(font, seq, cx - font.width(seq) / 2, ny, INK_SOFT, false);
+                    ny += 10;
+                }
+            } else {
+                String note = "— not craftable —";
+                g.drawString(font, Component.literal(note), cx - font.width(note) / 2, footerTop + 2, INK_SOFT, false);
+            }
             return;
         }
 
-        // Recipe header (+ toggle if there are two).
+        // recipe header (+ toggle if there are two).
         String header = "Recipe";
         g.drawString(font, Component.literal(header).withStyle(s -> s.withBold(true)), cx - font.width(header) / 2, footerTop, INK, false);
         if (e.recipes.size() > 1) {
@@ -528,7 +544,7 @@ public final class CompendiumScreen extends Screen {
     }
 
     /**
-     * Draws a block of wrapped text clipped to [top, bottom], scrollable by the per-slot offset with a small
+     * draws a block of wrapped text clipped to [top, bottom], scrollable by the per-slot offset with a small
      * scrollbar when it overflows. Records the region so {@link #mouseScrolled} can route the wheel to it.
      */
     private void drawScrollingText(GuiGraphics g, Font font, int slot, List<FormattedCharSequence> lines,

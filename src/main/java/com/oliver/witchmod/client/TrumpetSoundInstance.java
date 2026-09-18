@@ -11,7 +11,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The Trumpet curse's looping fat-trumpet music, following one cursed player. A looping tickable instance so
+ * the Trumpet curse's looping fat-trumpet music, following one cursed player. A looping tickable instance so
  * it (a) loops seamlessly — the engine sets OpenAL {@code AL_LOOPING} on the fully-buffered sound — and
  * (b) can be stopped the instant the player stops moving, which a fire-and-forget {@code playSound} can't.
  *
@@ -40,7 +40,7 @@ public final class TrumpetSoundInstance extends AbstractTickableSoundInstance {
         this.z = player.getZ();
     }
 
-    /** Whether this instance should still be playing for {@code player} this tick. */
+    /** whether this instance should still be playing for {@code player} this tick. */
     static boolean shouldPlay(Player player) {
         return player.isAlive()
                 && !player.isRemoved()

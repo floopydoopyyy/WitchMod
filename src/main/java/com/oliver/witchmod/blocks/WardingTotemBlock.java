@@ -37,17 +37,13 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModMobEffects;
 
 /**
- * A placed shield-totem: every player within {@link Config#WARDING_TOTEM_RANGE} of one gets the subtle
- * <b>Protected</b> effect and CANNOT have any curse/blessing/voodoo applied to them — a base defence against
- * being hexed (CLAUDE.md section 2.4/3). Blocked attempts flare a magic force-field around the shielded player.
- *
- * <p>Totem positions are tracked in an in-memory registry via place/break; a server restart re-registers them
- * as their chunks reload (place events don't fire on load, but the shield tick re-validates each position and
- * a totem only shields once its chunk is loaded anyway).
+ * a placed shield-totem: players within {@link Config#WARDING_TOTEM_RANGE} get the Protected effect and can't
+ * be hexed; blocked attempts flare a force-field. positions live in an in-memory registry keyed by
+ * place/break and re-registered on chunk load, so a restart doesn't lose them.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class WardingTotemBlock extends Block {
-    /** Right-click toggles the totem on/off; while OFF it shields nobody and its amethyst greys out. */
+    /** right-click toggles the totem on/off; while OFF it shields nobody and its amethyst greys out. */
     public static final BooleanProperty ENABLED = BooleanProperty.create("enabled");
 
     private static final Map<ResourceKey<Level>, Set<BlockPos>> ACTIVE_TOTEMS = new HashMap<>();
@@ -57,6 +53,9 @@ public final class WardingTotemBlock extends Block {
             new DustParticleOptions(new Vector3f(0.61F, 0.35F, 0.82F), 1.2F);
     private static final DustParticleOptions DEAD =
             new DustParticleOptions(new Vector3f(0.42F, 0.40F, 0.46F), 1.2F); // grey — powering down
+    /** magenta — the one-shot "you crossed the boundary" cue when you enter or leave the ward. */
+    private static final DustParticleOptions MAGENTA =
+            new DustParticleOptions(new Vector3f(0.95F, 0.15F, 0.75F), 1.3F);
 
     public WardingTotemBlock(Properties properties) {
         super(properties);
@@ -68,7 +67,7 @@ public final class WardingTotemBlock extends Block {
         builder.add(ENABLED);
     }
 
-    /** Right-click to switch the ward on/off, with amethyst-recolour + power-up/down sound feedback. */
+    /** right-click to switch the ward on/off, with amethyst-recolour + power-up/down sound feedback. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         boolean nowOn = !state.getValue(ENABLED);
@@ -83,11 +82,29 @@ public final class WardingTotemBlock extends Block {
         return InteractionResult.sidedSuccess(level.isClientSide());
     }
 
+    /** whether {@code player} is currently inside an enabled totem's radius (for the "Test the Waters" report). */
+    public static boolean isInRange(ServerPlayer player) {
+        Set<BlockPos> totems = ACTIVE_TOTEMS.get(player.level().dimension());
+        if (totems == null) {
+            return false;
+        }
+        double r2 = (double) Config.WARDING_TOTEM_RANGE.get() * Config.WARDING_TOTEM_RANGE.get();
+        for (BlockPos t : totems) {
+            if (Vec3.atCenterOf(t).distanceToSqr(player.position()) <= r2 && isEnabledTotem(player.level(), t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** A placed totem at {@code pos} that is switched ON. */
     private static boolean isEnabledTotem(Level level, BlockPos pos) {
         BlockState s = level.getBlockState(pos);
         return s.getBlock() instanceof WardingTotemBlock && s.getValue(ENABLED);
     }
+
+    /** players currently inside an enabled totem's radius — so we can play a one-shot cue when they enter. */
+    private static final java.util.Set<java.util.UUID> INSIDE = ConcurrentHashMap.newKeySet();
 
     @SubscribeEvent
     static void onServerTick(ServerTickEvent.Post event) {
@@ -98,35 +115,87 @@ public final class WardingTotemBlock extends Block {
         double r2 = (double) Config.WARDING_TOTEM_RANGE.get() * Config.WARDING_TOTEM_RANGE.get();
         for (ServerLevel level : server.getAllLevels()) {
             Set<BlockPos> totems = ACTIVE_TOTEMS.get(level.dimension());
-            if (totems == null || totems.isEmpty()) {
-                continue;
-            }
             for (ServerPlayer player : level.players()) {
                 boolean near = false;
-                for (BlockPos t : totems) {
-                    if (Vec3.atCenterOf(t).distanceToSqr(player.position()) <= r2 && isEnabledTotem(level, t)) {
-                        near = true;
-                        break;
+                if (totems != null) {
+                    for (BlockPos t : totems) {
+                        if (Vec3.atCenterOf(t).distanceToSqr(player.position()) <= r2 && isEnabledTotem(level, t)) {
+                            near = true;
+                            break;
+                        }
                     }
                 }
                 if (near) {
-                    // AMBIENT + invisible + no HUD icon: it only shows in the inventory effects list, and never
-                    // spams particles on the player (they spend a lot of time here) — the field flares only on a
-                    // block. The BLOCK itself emits the ambient purple particles (see animateTick).
+                    // the Protected effect: shields you AND shows its inventory icon, but NO particles of its
+                    // own (showParticles=false) — the only player particles are the enter/exit cue below.
                     player.addEffect(new MobEffectInstance(WitchModMobEffects.PROTECTED,
-                            PROTECTED_DURATION, 0, true, false, false));
+                            PROTECTED_DURATION, 0, true, false, true));
+                    if (INSIDE.add(player.getUUID())) {
+                        // just crossed IN — a subtle chime + a ring of magenta "entered a magic zone" motes.
+                        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                                SoundSource.PLAYERS, 0.35F, 1.7F);
+                        wardBoundary(level, player);
+                    }
+                } else if (INSIDE.remove(player.getUUID())) {
+                    // just crossed OUT (or the totem was switched off) — the same magenta cue, a touch lower.
+                    level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                            SoundSource.PLAYERS, 0.3F, 1.1F);
+                    wardBoundary(level, player);
                 }
             }
         }
     }
 
-    /** Client-side ambient FX: the totem's amethyst (the mid-shaft core AND the crown) breathes purple magic. */
+    /**
+     * The totem registry is in-memory, and {@code onPlace} only fires on real placement — so after a server
+     * restart or {@code /reload} it would be empty and no one gets shielded. Re-register totems as their chunks
+     * load, by scanning the chunk's non-empty sections.
+     */
+    @SubscribeEvent
+    static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        net.minecraft.world.level.chunk.ChunkAccess chunk = event.getChunk();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        for (int si = 0; si < sections.length; si++) {
+            net.minecraft.world.level.chunk.LevelChunkSection sec = sections[si];
+            if (sec == null || sec.hasOnlyAir()) {
+                continue;
+            }
+            int y0 = level.getMinBuildHeight() + si * 16;
+            for (int x = 0; x < 16; x++) {
+                for (int y = 0; y < 16; y++) {
+                    for (int z = 0; z < 16; z++) {
+                        if (sec.getBlockState(x, y, z).getBlock() instanceof WardingTotemBlock) {
+                            ACTIVE_TOTEMS.computeIfAbsent(level.dimension(), k -> ConcurrentHashMap.newKeySet())
+                                    .add(new BlockPos(baseX + x, y0 + y, baseZ + z));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** A one-shot ring of magenta motes around a player who just entered/left the ward — the "boundary" cue. */
+    private static void wardBoundary(ServerLevel level, ServerPlayer p) {
+        double cy = p.getY() + p.getBbHeight() * 0.5;
+        for (int i = 0; i < 14; i++) {
+            double a = i / 14.0 * Math.PI * 2;
+            level.sendParticles(MAGENTA, p.getX() + Math.cos(a) * 0.7, cy + (level.random.nextDouble() - 0.5) * 0.9,
+                    p.getZ() + Math.sin(a) * 0.7, 1, 0.0, 0.02, 0.0, 0.0);
+        }
+    }
+
+    /** client-side ambient FX: the totem's amethyst (the mid-shaft core AND the crown) breathes purple magic. */
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (!state.getValue(ENABLED) || random.nextInt(3) != 0) {
             return; // a disabled totem is dead — no magic aura
         }
-        // Emit from either the embedded core band (~y9-12) or the crowning crystal (~y15-24).
+        // emit from either the embedded core band (~y9-12) or the crowning crystal (~y15-24).
         double x = pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.4;
         double z = pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.4;
         double y = random.nextBoolean()

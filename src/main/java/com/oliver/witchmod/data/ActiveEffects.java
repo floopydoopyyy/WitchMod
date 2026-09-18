@@ -11,10 +11,7 @@ import com.mojang.serialization.Codec;
 
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * The set of curses/blessings currently active on one player. Persisted per-player (see
- * {@link WitchModAttachments#ACTIVE_EFFECTS}); mutated only through {@link EffectManager}.
- */
+/** the curses/blessings active on one player. persisted per-player; mutated only through {@link EffectManager}. */
 public final class ActiveEffects {
     public static final Codec<ActiveEffects> CODEC = Codec.unboundedMap(ResourceLocation.CODEC, ActiveEffectInstance.CODEC)
             .xmap(ActiveEffects::new, ActiveEffects::asMap);
@@ -61,12 +58,12 @@ public final class ActiveEffects {
         return effects.remove(id);
     }
 
-    /** Decrements every active effect by one tick and returns the ids of any that just expired. */
+    /** decrement every effect by one tick; returns ids that just expired. */
     List<ResourceLocation> tickDown() {
         return reduceAll(1);
     }
 
-    /** Decrements every active effect by {@code amount} ticks and returns the ids of any that just expired. */
+    /** decrement every effect by {@code amount} ticks; returns ids that just expired. */
     List<ResourceLocation> reduceAll(int amount) {
         List<ResourceLocation> expired = new ArrayList<>();
         for (var entry : effects.entrySet()) {

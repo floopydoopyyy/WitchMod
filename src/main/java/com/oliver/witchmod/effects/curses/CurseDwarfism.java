@@ -19,7 +19,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * You're half the man you were (master-spec Dwarfism). Half height, half health — and small enough that the
+ * you're half the man you were. Half height, half health — and small enough that the
  * only sensible way to get anywhere is to climb on someone.
  *
  * <p><b>Both halves are attribute modifiers</b>, so nothing here fights vanilla. {@code Attributes.SCALE}
@@ -44,7 +44,7 @@ public final class CurseDwarfism extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.TURTLE_EGG);
     }
 
-    /** You notice the moment you shrink (Rule 2). */
+    /** you notice the moment you shrink (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -58,14 +58,25 @@ public final class CurseDwarfism extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
+        // size-crisis synergy (with Giant): the oscillator owns the size while both are active.
+        if (com.oliver.witchmod.synergy.Synergies.SIZE_CRISIS.activeFor(target)) {
+            SizeCrisis.tick(target);
+            return;
+        }
         shrink(target);
     }
 
     @Override
     public void onRemove(ServerPlayer target) {
+        clearModifiers(target);
+        SizeCrisis.clear(target); // end the oscillation cleanly if it was running
+        target.stopRiding();
+    }
+
+    /** strip the dwarfism attribute modifiers (used by onRemove and the size-crisis synergy takeover). */
+    public static void clearModifiers(ServerPlayer target) {
         EffectUtil.removeModifier(target, Attributes.SCALE, SCALE_MODIFIER_ID);
         EffectUtil.removeModifier(target, Attributes.MAX_HEALTH, HEALTH_MODIFIER_ID);
-        target.stopRiding();
     }
 
     private static void shrink(ServerPlayer target) {
@@ -78,7 +89,7 @@ public final class CurseDwarfism extends Effect {
         if (health != null && !health.hasModifier(HEALTH_MODIFIER_ID)) {
             health.addOrUpdateTransientModifier(new AttributeModifier(HEALTH_MODIFIER_ID,
                     Config.DWARFISM_HEALTH_MULT.get() - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
-            // Lowering the maximum doesn't lower what you currently have — without this you'd sit above your
+            // lowering the maximum doesn't lower what you currently have — without this you'd sit above your
             // own cap, which vanilla just draws as a full bar, hiding the downside entirely.
             if (target.getHealth() > target.getMaxHealth()) {
                 target.setHealth(target.getMaxHealth());
@@ -87,7 +98,7 @@ public final class CurseDwarfism extends Effect {
     }
 
     /**
-     * Hook for right-clicking something rideable — see {@code CurseEventHandler}.
+     * hook for right-clicking something rideable — see {@code CurseEventHandler}.
      *
      * @return true if the interaction was consumed (so it doesn't also open a trade screen)
      */

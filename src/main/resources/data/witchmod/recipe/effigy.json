@@ -1,8 +1,10 @@
 {
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [
-    { "item": "minecraft:totem_of_undying" },
-    { "item": "witchmod:cursed_essence" }
-  ],
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "P": { "item": "minecraft:cobbled_deepslate" },
+    "C": { "item": "witchmod:cursed_essence" },
+    "T": { "item": "minecraft:totem_of_undying" }
+  },
+  "pattern": [ "PCP", "PTP", "PPP" ],
   "result": { "id": "witchmod:effigy", "count": 1 }
 }

@@ -10,7 +10,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Bedrock Moment (Marketplace popup): a fake in-your-face "Marketplace" ad that takes over the screen and can
+ * bedrock Moment (Marketplace popup): a fake in-your-face "Marketplace" ad that takes over the screen and can
  * ONLY be dismissed by clicking its little ✕ with the cursor (Esc won't save you). The game keeps running
  * behind it — so fumbling for the X while a creeper closes in is entirely your problem.
  *
@@ -48,13 +48,13 @@ public final class MarketplaceAdScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int px = panelX();
         int py = panelY();
-        // Dim the world behind, and give the ad a drop shadow / border.
+        // dim the world behind, and give the ad a drop shadow / border.
         g.fill(0, 0, this.width, this.height, 0x66000000);
         g.fill(px - 3, py - 3, px + PANEL + 3, py + PANEL + 3, 0xFF161616);
         g.blit(texture, px, py, PANEL, PANEL, 0.0F, 0.0F, 256, 256, 256, 256);
         g.drawString(this.font, "SPONSORED", px + 2, py - 11, 0xFFBBBBBB, false);
 
-        // The tiny, deliberately-awkward close button.
+        // the tiny, deliberately-awkward close button.
         int xx = xX();
         int xy = xY();
         boolean hover = mouseX >= xx && mouseX <= xx + X_SIZE && mouseY >= xy && mouseY <= xy + X_SIZE;

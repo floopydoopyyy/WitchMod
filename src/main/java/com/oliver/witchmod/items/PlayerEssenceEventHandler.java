@@ -28,24 +28,17 @@ import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * Player Essence is bottled by INTERACTION with an empty JAR ({@code WitchModItems.JAR}), three ways:
- * <ul>
- *   <li><b>Own</b> — crouch, look down and use it: you bottle a trace of yourself;</li>
- *   <li><b>Another player</b> — right-click them: you pull a trace of their essence into the jar (curses and
- *       blessings are put INTO jars at the Bewitching Table now, never captured off a person).</li>
- *   <li><b>A bed</b> — right-click a bed that is someone's spawn: you bottle whoever's spawn is set there (works
- *       even if they're offline, via {@link BedSpawnRegistry}); if several share the bed, a random one is taken.</li>
- * </ul>
- * Every method streams particles toward the person doing it and makes its own sound.
+ * bottles player essence with an empty jar, three ways: crouch+look-down = yourself, right-click a player =
+ * theirs, right-click a bed = its spawn-owner (offline-aware via {@link BedSpawnRegistry}).
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class PlayerEssenceEventHandler {
-    /** How steeply down you must be looking (pitch degrees) to bottle your OWN essence. */
+    /** how steeply down you must be looking (pitch degrees) to bottle your OWN essence. */
     private static final float LOOK_DOWN_PITCH = 45.0F;
 
     private PlayerEssenceEventHandler() {}
 
-    /** Keep the offline-aware bed→spawn map current whenever a player sets/clears their spawn. */
+    /** keep the offline-aware bed→spawn map current whenever a player sets/clears their spawn. */
     @SubscribeEvent
     static void onSetSpawn(PlayerSetSpawnEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
@@ -60,7 +53,7 @@ public final class PlayerEssenceEventHandler {
         }
     }
 
-    /** Right-click another player with an empty jar → a trace of their essence, bound to them. */
+    /** right-click another player with an empty jar → a trace of their essence, bound to them. */
     @SubscribeEvent
     static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (!event.getItemStack().is(WitchModItems.JAR.get()) || event.getLevel().isClientSide()) {
@@ -78,7 +71,7 @@ public final class PlayerEssenceEventHandler {
         event.setCancellationResult(InteractionResult.SUCCESS);
     }
 
-    /** Right-click a bed → a spawn-owner's essence; or crouch+look-down on any block → your own. */
+    /** right-click a bed → a spawn-owner's essence; or crouch+look-down on any block → your own. */
     @SubscribeEvent
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (!event.getItemStack().is(WitchModItems.JAR.get()) || !(event.getEntity() instanceof ServerPlayer user)) {
@@ -93,7 +86,7 @@ public final class PlayerEssenceEventHandler {
             event.setCancellationResult(InteractionResult.SUCCESS);
             return;
         }
-        // Not a bed — the crouch + look-down gesture bottles your OWN essence off whatever's underfoot.
+        // not a bed — the crouch + look-down gesture bottles your OWN essence off whatever's underfoot.
         if (user.isCrouching() && user.getXRot() >= LOOK_DOWN_PITCH) {
             bottleOwn(user, level);
             event.setCanceled(true);
@@ -101,7 +94,7 @@ public final class PlayerEssenceEventHandler {
         }
     }
 
-    /** The same own-essence gesture, for when you're looking down at open air rather than a block. */
+    /** the same own-essence gesture, for when you're looking down at open air rather than a block. */
     @SubscribeEvent
     static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (!event.getItemStack().is(WitchModItems.JAR.get()) || !(event.getEntity() instanceof ServerPlayer user)
@@ -123,7 +116,7 @@ public final class PlayerEssenceEventHandler {
 
     private static void bottleFromBed(ServerPlayer user, ServerLevel level, BlockPos bedPos) {
         List<PlayerEssenceData> owners = BedSpawnRegistry.get(level.getServer()).at(level.dimension(), bedPos);
-        // Belt-and-suspenders: also fold in any ONLINE player whose current respawn sits on this bed (covers
+        // belt-and-suspenders: also fold in any ONLINE player whose current respawn sits on this bed (covers
         // spawns set before this feature existed), without duplicating anyone already in the registry.
         for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) {
             if (p.getRespawnDimension() == level.dimension() && p.getRespawnPosition() != null
@@ -159,7 +152,7 @@ public final class PlayerEssenceEventHandler {
         level.sendParticles(ParticleTypes.WITCH, source.x, source.y, source.z, 24, 0.3, 0.4, 0.3, 0.06);
         level.sendParticles(ParticleTypes.ENCHANT, source.x, source.y, source.z, 30, 0.3, 0.4, 0.3, 0.7);
 
-        // The essence FLOWS toward the person bottling it — a directed stream of soul particles from source to you.
+        // the essence FLOWS toward the person bottling it — a directed stream of soul particles from source to you.
         Vec3 to = user.position().add(0, user.getBbHeight() * 0.6, 0);
         Vec3 dir = to.subtract(source);
         double dist = dir.length();

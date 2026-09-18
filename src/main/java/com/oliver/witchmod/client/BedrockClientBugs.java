@@ -25,8 +25,8 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Client half of the newer Bedrock Moment bugs, driven off synced windows on the local player: Ghost Item,
- * Input Lag, Texture Flicker, Sprint Reset, Language Error, Speed Blitz, Fake Kick and Fake BSOD. Kept
+ * client half of the newer Bedrock Moment bugs, driven off synced windows on the local player: Ghost Item,
+ * input Lag, Texture Flicker, Sprint Reset, Language Error, Speed Blitz, Fake Kick and Fake BSOD. Kept
  * separate from {@link ClientCurseHandler} to isolate the pile of new handlers.
  */
 @EventBusSubscriber(modid = WitchMod.MODID, value = Dist.CLIENT)
@@ -69,7 +69,7 @@ public final class BedrockClientBugs {
         }
         Input in = event.getInput();
 
-        // Fake BSOD glitch pre-phase: dampen movement — and cut it out entirely in stutters — so it feels like
+        // fake BSOD glitch pre-phase: dampen movement — and cut it out entirely in stutters — so it feels like
         // the OS is dying under you just before the blue screen appears.
         if (bsodGlitchPhase) {
             in.forwardImpulse *= 0.15F;
@@ -80,7 +80,7 @@ public final class BedrockClientBugs {
             return;
         }
 
-        // Speed Blitz: FREEZE (record + zero) then a 3x replay (still zero here; driven by velocity in tick).
+        // speed Blitz: FREEZE (record + zero) then a 3x replay (still zero here; driven by velocity in tick).
         long blitzEnd = player.getData(WitchModAttachments.BEDROCK_SPEEDBLITZ_END);
         if (blitzEnd != Long.MIN_VALUE && mc.level.getGameTime() < blitzEnd) {
             long freezeEnd = player.getData(WitchModAttachments.BEDROCK_SPEEDBLITZ_FREEZE);
@@ -94,7 +94,7 @@ public final class BedrockClientBugs {
             return;
         }
 
-        // Input Lag: apply the input from `delay` ticks ago.
+        // input Lag: apply the input from `delay` ticks ago.
         long lagEnd = player.getData(WitchModAttachments.BEDROCK_INPUT_LAG);
         if (lagEnd != Long.MIN_VALUE && mc.level.getGameTime() < lagEnd) {
             INPUT_BUF.addLast(new InputSnap(in.forwardImpulse, in.leftImpulse, in.up, in.down, in.left, in.right, in.jumping, in.shiftKeyDown));
@@ -138,14 +138,14 @@ public final class BedrockClientBugs {
         }
         long now = mc.level.getGameTime();
 
-        // Sprint Reset — sprint cuts out for 5 of every 24 ticks.
+        // sprint Reset — sprint cuts out for 5 of every 24 ticks.
         long sprintEnd = player.getData(WitchModAttachments.BEDROCK_SPRINT_RESET);
         if (sprintEnd != Long.MIN_VALUE && now < sprintEnd && now % 24 < 5) {
             mc.options.keySprint.setDown(false);
             player.setSprinting(false);
         }
 
-        // Speed Blitz replay — drain 3 recorded moves per tick as a velocity burst (≈3x).
+        // speed Blitz replay — drain 3 recorded moves per tick as a velocity burst (≈3x).
         long blitzEnd = player.getData(WitchModAttachments.BEDROCK_SPEEDBLITZ_END);
         long freezeEnd = player.getData(WitchModAttachments.BEDROCK_SPEEDBLITZ_FREEZE);
         if (blitzEnd != Long.MIN_VALUE && now >= freezeEnd && now < blitzEnd && !BLITZ_BUF.isEmpty()) {
@@ -160,12 +160,12 @@ public final class BedrockClientBugs {
             BLITZ_BUF.clear();
         }
 
-        // Language Error — swap to pirate/welsh, restore after.
+        // language Error — swap to pirate/welsh, restore after.
         long langEnd = player.getData(WitchModAttachments.BEDROCK_LANGUAGE);
         boolean langActive = langEnd != Long.MIN_VALUE && now < langEnd;
         if (langActive && !languageSwapped) {
             languageSwapped = true;
-            // Any of Minecraft's joke/novelty languages (Pirate, LOLCAT, Upside-down, Anglish...) plus Welsh —
+            // any of Minecraft's joke/novelty languages (Pirate, LOLCAT, Upside-down, Anglish...) plus Welsh —
             // but only ones actually present on this build, so it doesn't keep falling back to the same one.
             String[] fun = {"en_pt", "lol_us", "en_ud", "cy_gb", "enp", "tok"};
             java.util.List<String> valid = new java.util.ArrayList<>();
@@ -182,7 +182,7 @@ public final class BedrockClientBugs {
             setLanguage(mc, null); // restore (no resource reload)
         }
 
-        // Fake Kick — a changed nonce pops the (fake) disconnect screen.
+        // fake Kick — a changed nonce pops the (fake) disconnect screen.
         long kickNonce = player.getData(WitchModAttachments.BEDROCK_FAKE_KICK);
         if (kickNonce != 0L && kickNonce != fakeKickSeen) {
             fakeKickSeen = kickNonce;
@@ -198,7 +198,7 @@ public final class BedrockClientBugs {
     }
 
     /**
-     * Air Swimming: while the window is open and you're OUT of water, you SWIM through the air exactly like
+     * air Swimming: while the window is open and you're OUT of water, you SWIM through the air exactly like
      * it's water — the swimming/crawling pose, near-neutral buoyancy, and moving forward strokes you along
      * your look direction (up, down, around). Force-cancelled when the window ends (you drop).
      */
@@ -208,7 +208,7 @@ public final class BedrockClientBugs {
                 || player.isInWater() || player.getAbilities().flying) {
             return;
         }
-        // The crawl/swim pose in mid-air (both flags — one drives the pose, one the animation).
+        // the crawl/swim pose in mid-air (both flags — one drives the pose, one the animation).
         player.setSwimming(true);
         player.setPose(net.minecraft.world.entity.Pose.SWIMMING);
         player.setSprinting(true); // vanilla ties the swim animation to sprinting
@@ -216,10 +216,10 @@ public final class BedrockClientBugs {
         Vec3 v = player.getDeltaMovement();
         Vec3 nv;
         if (mc.options.keyUp.isDown()) {
-            // Swim toward where you're looking — full 3D, like a real swim stroke.
+            // swim toward where you're looking — full 3D, like a real swim stroke.
             nv = v.scale(0.55).add(player.getLookAngle().scale(0.11));
         } else {
-            // Coast + near-neutral buoyancy (barely sinks) when not stroking.
+            // coast + near-neutral buoyancy (barely sinks) when not stroking.
             nv = new Vec3(v.x * 0.85, v.y * 0.35, v.z * 0.85);
         }
         double cap = 0.4; // swim speed cap
@@ -235,7 +235,7 @@ public final class BedrockClientBugs {
     private static int hungrySlot = -1;
 
     /**
-     * Hungry: while the window is open, holding right-click "eats" whatever is in your main hand — eat FX build
+     * hungry: while the window is open, holding right-click "eats" whatever is in your main hand — eat FX build
      * over the eat duration and, if you let it finish, the server consumes one (via a C2S packet). Releasing
      * early cancels it. (For non-food items the exact arm animation can't be forced without item mixins, so
      * it's sold with the eat sounds + particles.)
@@ -271,7 +271,7 @@ public final class BedrockClientBugs {
     }
 
     /**
-     * Fake BSOD, made believable: a short GLITCH pre-phase where the machine looks like it's "coping" —
+     * fake BSOD, made believable: a short GLITCH pre-phase where the machine looks like it's "coping" —
      * MC's own audio cuts out, the window jitters (windowed) and the screen stutter-flickers black while input
      * is dampened — THEN it forces fullscreen and the chosen blue-screen ROLLS down from the top and holds
      * (see {@link FakeBsodScreen}). 50% the standard image, 50% one of the three funny ones. Restores on end.
@@ -330,7 +330,7 @@ public final class BedrockClientBugs {
     private static net.minecraft.locale.Language savedLangObj = null;
 
     /**
-     * Swaps the client's active translations WITHOUT a resource reload — builds the target language directly
+     * swaps the client's active translations WITHOUT a resource reload — builds the target language directly
      * with {@code ClientLanguage.loadFrom} and injects it via {@code Language.inject}, exactly like the
      * language screen does internally but without touching resource packs. Purely client render — nothing is
      * sent to the server, and the player's real language setting is never changed. Restore re-injects the
@@ -380,7 +380,7 @@ public final class BedrockClientBugs {
         g.renderItem(ghostStack, x, y);
     }
 
-    /** Fake BSOD glitch pre-phase: stutter the screen to black (a struggling-device look, NOT a fast strobe). */
+    /** fake BSOD glitch pre-phase: stutter the screen to black (a struggling-device look, NOT a fast strobe). */
     @SubscribeEvent
     static void onBsodGlitch(RenderGuiEvent.Post event) {
         if (!bsodGlitchPhase) {
@@ -393,7 +393,7 @@ public final class BedrockClientBugs {
         }
     }
 
-    // Vibrant: the saturation-boost post shader (replaces the old missing-texture checker).
+    // vibrant: the saturation-boost post shader (replaces the old missing-texture checker).
     private static final net.minecraft.resources.ResourceLocation VIBRANT_SHADER =
             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "shaders/post/bedrock_vibrant.json");
     private static boolean vibrantActive = false;

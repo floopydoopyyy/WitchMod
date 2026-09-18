@@ -21,7 +21,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Client-side lifecycle for the Delusions curse: spawns the fake players, decides when one has been stared
+ * client-side lifecycle for the Delusions curse: spawns the fake players, decides when one has been stared
  * at long enough to stare back, and pops them when they're hit, walked into, or simply outstay their welcome.
  *
  * <p>The server contributes exactly one number — {@link WitchModAttachments#DELUSIONS_SIGNAL} — which is
@@ -45,7 +45,7 @@ public final class DelusionManager {
 
         long signal = victim.getData(WitchModAttachments.DELUSIONS_SIGNAL);
         if (signal == 0L) {
-            // Curse cured or expired: they were never there in the first place, so they go without a puff.
+            // curse cured or expired: they were never there in the first place, so they go without a puff.
             if (!ACTIVE.isEmpty()) {
                 clearAll();
             }
@@ -56,7 +56,7 @@ public final class DelusionManager {
         double despawn = Config.DELUSIONS_DESPAWN_DISTANCE.get();
         int lifetime = Config.DELUSIONS_LIFETIME_MAX.get();
 
-        // Retire the finished ones FIRST. The concurrent cap is checked against this list, so pruning after
+        // retire the finished ones FIRST. The concurrent cap is checked against this list, so pruning after
         // spawning would let it be judged against stale entries.
         Iterator<DelusionPlayer> iterator = ACTIVE.iterator();
         while (iterator.hasNext()) {
@@ -66,7 +66,7 @@ public final class DelusionManager {
                 pop(delusion, false);
                 continue;
             }
-            // Blundered into: close enough to touch counts as contact, since they aren't really collidable.
+            // blundered into: close enough to touch counts as contact, since they aren't really collidable.
             if (delusion.distanceToSqr(victim) < 1.0) {
                 iterator.remove();
                 pop(delusion, true);
@@ -85,7 +85,7 @@ public final class DelusionManager {
             }
         }
 
-        // Only now, against an accurate count, consider adding another.
+        // only now, against an accurate count, consider adding another.
         if (signal != lastSignal) {
             lastSignal = signal;
             trySpawn(minecraft, victim, level, signal);
@@ -93,7 +93,7 @@ public final class DelusionManager {
     }
 
     /**
-     * The victim swung. Ray-traces their reach against delusions only — vanilla's crosshair deliberately
+     * the victim swung. Ray-traces their reach against delusions only — vanilla's crosshair deliberately
      * can't see them ({@code isPickable} is false), because targeting one would make the client send the
      * server an attack packet for an entity that does not exist on it.
      *
@@ -128,7 +128,7 @@ public final class DelusionManager {
         return true;
     }
 
-    /** Used by the realisation state to remove itself mid-tick. */
+    /** used by the realisation state to remove itself mid-tick. */
     static void vanish(DelusionPlayer delusion, boolean withPuff) {
         ACTIVE.remove(delusion);
         pop(delusion, withPuff);
@@ -137,7 +137,7 @@ public final class DelusionManager {
     private static void pop(DelusionPlayer delusion, boolean withPuff) {
         if (withPuff) {
             delusion.puff(14);
-            // Vanilla on purpose (Oliver's call — this curse needs no custom sounds). Pitched-up enderman
+            // vanilla on purpose (Oliver's call — this curse needs no custom sounds). Pitched-up enderman
             // reads as "gone in a puff" and quietly ties back to the Ender Pearl it's cast with.
             delusion.playAt(SoundEvents.ENDERMAN_TELEPORT, 0.6F, 1.3F);
         }
@@ -180,7 +180,7 @@ public final class DelusionManager {
     }
 
     /**
-     * Someone really on the server, so the skin and nametag are ones the victim recognises. Their own is in
+     * someone really on the server, so the skin and nametag are ones the victim recognises. Their own is in
      * the pool by default — and unavoidably so when they're alone, since there is nobody else to be.
      */
     private static PlayerInfo pickPlayerToMirror(Minecraft minecraft, LocalPlayer victim, long seed) {
@@ -212,7 +212,7 @@ public final class DelusionManager {
     }
 
     /**
-     * Somewhere it could plausibly already have been standing: real ground, at a distance, and — where
+     * somewhere it could plausibly already have been standing: real ground, at a distance, and — where
      * possible — out of the victim's current view, so they turn round and find it rather than watching it
      * blink into existence.
      */
@@ -235,7 +235,7 @@ public final class DelusionManager {
             if (fallback == null) {
                 fallback = spot;
             }
-            // Prefer somewhere they aren't looking right now.
+            // prefer somewhere they aren't looking right now.
             Vec3 toSpot = spot.add(0.0, 1.0, 0.0).subtract(victim.getEyePosition()).normalize();
             if (victim.getViewVector(1.0F).dot(toSpot) < 0.4) {
                 return spot;
@@ -258,7 +258,7 @@ public final class DelusionManager {
         return null;
     }
 
-    /** In the view cone, in line of sight, and not so close it's about to be walked into anyway. */
+    /** in the view cone, in line of sight, and not so close it's about to be walked into anyway. */
     private static boolean isWatchedBy(DelusionPlayer delusion, LocalPlayer victim, double reach) {
         Vec3 eye = victim.getEyePosition();
         Vec3 theirEye = delusion.getEyePosition();

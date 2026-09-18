@@ -16,10 +16,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Echo Shard modifier delays a cast's ONSET by a few minutes: instead of applying the effect immediately,
- * the ritual schedules it here and it lands later (with its full, normal onset). Kept as a simple server-time
- * queue — the target/caster are resolved by UUID at fire time, so it survives them wandering off (and just
- * skips if the target has logged out).
+ * echo shard modifier — delays a cast's onset by a few minutes via a simple server-time queue. target/caster
+ * are resolved by uuid at fire time, so it survives them moving and just lapses if the target logged out.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class DelayedCasts {

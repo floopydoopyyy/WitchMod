@@ -26,8 +26,7 @@ import com.oliver.witchmod.data.HypeManMessages;
 import com.oliver.witchmod.data.Usernames;
 
 /**
- * You've got a personal hype man — a crowd, really (master-spec Hype Man, sacrificial item ANY MUSIC DISC, a
- * Rule 9 tag exception). Your every move makes nearby players gush about you in chat, addressing you by name,
+ * you've got a personal hype man — a crowd, really. Your every move makes nearby players gush about you in chat, addressing you by name,
  * sometimes to an unhinged degree. It does NOTHING mechanical — it's purely for the comedy — hence it's cheap.
  *
  * <p>Praise is triggered by what you do: <b>combat</b>, <b>picking items up</b>, <b>looting a chest</b>, and
@@ -43,10 +42,10 @@ public final class BlessingHypeMan extends Effect {
     /** blessed player -> game tick of their last praise, so all triggers share one cooldown. */
     private static final Map<UUID, Long> LAST_PRAISE = new HashMap<>();
 
-    /** The only trigger that fires with NOBODY around (using a made-up name); the rest need a real audience. */
+    /** the only trigger that fires with NOBODY around (using a made-up name); the rest need a real audience. */
     private static final String SIGHTING = "nearby";
 
-    /** The vanilla music-disc tag — any disc selects this blessing at the Table. */
+    /** the vanilla music-disc tag — any disc selects this blessing at the Table. */
     private static final TagKey<Item> MUSIC_DISCS =
             TagKey.create(Registries.ITEM, ResourceLocation.withDefaultNamespace("music_discs"));
 
@@ -59,7 +58,7 @@ public final class BlessingHypeMan extends Effect {
         return Optional.of(MUSIC_DISCS);
     }
 
-    /** You find out the first time the crowd actually gushes about you (Rule 2), not when it's cast. */
+    /** you find out the first time the crowd actually gushes about you (Rule 2), not when it's cast. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -72,14 +71,14 @@ public final class BlessingHypeMan extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Unprompted "just being here" praise, gated by the shared cooldown + chance inside praise().
+        // unprompted "just being here" praise, gated by the shared cooldown + chance inside praise().
         if (EffectUtil.every(ticksRemaining, Config.HYPEMAN_AMBIENT_INTERVAL.get())) {
             praise(target, "nearby");
         }
     }
 
     /**
-     * Have the nearby crowd praise {@code blessed} for a {@code key} action, if the shared cooldown is up and
+     * have the nearby crowd praise {@code blessed} for a {@code key} action, if the shared cooldown is up and
      * the chance roll passes. Safe to call from any trigger.
      */
     public static void praise(ServerPlayer blessed, String key) {
@@ -96,7 +95,7 @@ public final class BlessingHypeMan extends Effect {
         List<ServerPlayer> nearby = level.getPlayers(p -> p != blessed
                 && p.distanceToSqr(blessed) <= radius * radius);
 
-        // Who does the praising? A real nearby player if there is one. If there isn't, ONLY the "sighting"
+        // who does the praising? A real nearby player if there is one. If there isn't, ONLY the "sighting"
         // praise carries on — with a made-up name from usernames.json. The specific-action praises (combat,
         // pickup, loot, building) need a genuine audience and simply stay quiet when you're alone.
         String speaker;
@@ -120,9 +119,9 @@ public final class BlessingHypeMan extends Effect {
         Component message = Component.literal("<" + speaker + "> "
                 + line.replace("{player}", blessed.getGameProfile().getName()));
 
-        // Everyone in earshot hears it — including the blessed player, the subject of the adoration.
+        // everyone in earshot hears it — including the blessed player, the subject of the adoration.
         level.getPlayers(p -> p.distanceToSqr(blessed) <= radius * radius)
-                .forEach(p -> p.sendSystemMessage(message));
+.forEach(p -> p.sendSystemMessage(message));
         Blessings.HYPE_MAN.get().markDiscoveredByVictim(blessed); // discovered on the first cheer, not on cast
     }
 }

@@ -16,10 +16,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 
 /**
- * A pair of disembodied glowing eyes in the dark (The Dweller's "watchers" event). The body is invisible —
- * only the emissive eyes render ({@link com.oliver.witchmod.client.WatcherEyesEyesLayer}) — and, like the Mind
- * Dweller, it exists ONLY in the victim's world (render cancelled for everyone else, keyed off the synced
- * victim UUID). No AI; the curse owns its position.
+ * disembodied glowing eyes in the dark (the dweller's "watchers" event) — invisible body, only the emissive
+ * eyes render, and only for the victim (render cancelled for everyone else via the synced victim uuid). no ai.
  */
 public final class WatcherEyesEntity extends PathfinderMob {
     private static final EntityDataAccessor<Optional<UUID>> VICTIM =

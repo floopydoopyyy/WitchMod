@@ -9,7 +9,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Please wait... loading region... this Bethesda joke never ends (master-spec Loading Screen).
+ * please wait... loading region... this Bethesda joke never ends.
  *
  * <p><b>Every</b> door, trapdoor or fence gate you open drops a full fake loading screen over your entire
  * view — no chance roll, no cooldown. That's deliberate: unlike most curses this one is <i>completely
@@ -26,13 +26,13 @@ public final class CurseLoadingScreen extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 15, () -> Items.GLISTERING_MELON_SLICE);
     }
 
-    /** You find out by having it happen to you (Rule 2). */
+    /** you find out by having it happen to you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Hook for opening a door-ish block — see {@code CurseEventHandler}. */
+    /** hook for opening a door-ish block — see {@code CurseEventHandler}. */
     public static void trigger(ServerPlayer player) {
         long session = player.getRandom().nextLong();
         if (session == 0L) {

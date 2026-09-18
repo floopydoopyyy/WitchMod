@@ -12,17 +12,13 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * The Unhygienic curse's "get away from that smell" AI. Any non-undead mob that strays inside the stink
- * radius turns tail and paths away from the victim, re-picking its escape route as the victim follows.
- *
- * <p>Goes dormant on its own once the curse ends or the mob is clear of the radius, so nothing has to remove
- * it. Bound to a specific player and checked with {@link #isTargeting}, because the victim's
- * {@code ServerPlayer} object is replaced on respawn/relog and a stale reference would leave the mob
- * permanently unbothered.
+ * unhygienic's "get away from that smell" ai — a non-undead mob inside the stink radius paths away, re-picking
+ * its route as the victim follows. bound to a specific player and checked with {@link #isTargeting} (the
+ * ServerPlayer is replaced on respawn/relog and a stale reference would leave the mob unbothered).
  */
 public final class UnhygienicFleeGoal extends Goal {
     private static final int REPATH_INTERVAL = 10;
-    /** How far ahead to aim the escape route. */
+    /** how far ahead to aim the escape route. */
     private static final double FLEE_DISTANCE = 10.0;
 
     private final PathfinderMob mob;
@@ -77,12 +73,12 @@ public final class UnhygienicFleeGoal extends Goal {
         Vec3 away = mob.position().subtract(target.position());
         Vec3 flat = new Vec3(away.x, 0.0, away.z);
         if (flat.lengthSqr() < 1.0E-4) {
-            // Standing right on top of them — bolt in any direction.
+            // standing right on top of them — bolt in any direction.
             double angle = mob.getRandom().nextDouble() * Math.PI * 2.0;
             flat = new Vec3(Math.cos(angle), 0.0, Math.sin(angle));
         }
         Vec3 escape = mob.position().add(flat.normalize().scale(FLEE_DISTANCE));
-        // Close enough to really smell it? Break into a run rather than an unhurried walk away.
+        // close enough to really smell it? Break into a run rather than an unhurried walk away.
         double panic = Config.UNHYGIENIC_PANIC_RADIUS.get();
         double speed = mob.distanceToSqr(target) <= panic * panic
                 ? Config.UNHYGIENIC_PANIC_SPEED.get()

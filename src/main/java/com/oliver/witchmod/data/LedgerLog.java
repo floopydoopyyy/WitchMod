@@ -13,13 +13,9 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * A lightweight, in-memory record of who cursed/blessed whom (CLAUDE.md section 2.3), including blocked
- * attempts. Each entry can carry the WORLD POSITION where the hex occurred and the MODIFIER used, so a
- * {@link com.oliver.witchmod.blocks.LedgerBlock} can show only the activity within its configurable range
- * ({@link com.oliver.witchmod.Config#LEDGER_RANGE}) and react with particle feedback.
- *
- * <p>Stores player <em>names</em> rather than UUIDs — this is a display log for the Ledger UI, not an
- * authoritative record needing offline-safe identity resolution. Not persisted to disk (kept per-session).
+ * in-memory log of who cursed/blessed whom (incl. blocked attempts). entries carry the world position + the
+ * modifier used so a ledger block can filter to its range. stores names, not uuids (display only); not
+ * persisted — per session.
  */
 public final class LedgerLog {
     private static final int MAX_ENTRIES = 400;
@@ -34,13 +30,13 @@ public final class LedgerLog {
         log(casterName, targetName, effectId, result, gameTime, false);
     }
 
-    /** {@code scribbled} entries (the Paper modifier) render as an unreadable scrawl in the Ledger. */
+    /** scribbled entries (the paper modifier) render as an unreadable scrawl. */
     public static void log(Optional<String> casterName, String targetName, ResourceLocation effectId, String result,
                            long gameTime, boolean scribbled) {
         log(casterName, targetName, effectId, result, gameTime, scribbled, null, null);
     }
 
-    /** Full entry: {@code pos} is where the hex occurred (for range filtering + particle feedback); both nullable. */
+    /** full entry: {@code pos} is where it happened (for range filtering); both nullable. */
     public static void log(Optional<String> casterName, String targetName, ResourceLocation effectId, String result,
                            long gameTime, boolean scribbled, @Nullable GlobalPos pos, @Nullable String modifier) {
         ENTRIES.addLast(new Entry(casterName, targetName, effectId, result, gameTime, scribbled,
@@ -54,7 +50,7 @@ public final class LedgerLog {
         return List.copyOf(ENTRIES);
     }
 
-    /** Entries whose position is within {@code range} of {@code center} (same dimension), NEWEST first. */
+    /** entries within {@code range} of {@code center} (same dimension), newest first. */
     public static List<Entry> entriesNear(GlobalPos center, double range) {
         double r2 = range * range;
         List<Entry> out = new ArrayList<>();

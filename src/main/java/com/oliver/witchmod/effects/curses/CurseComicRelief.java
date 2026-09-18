@@ -21,7 +21,7 @@ import com.oliver.witchmod.data.EffectUtil;
 
 /**
  * A reference to the genre of clip where someone is quietly having a bad time and the sky finishes the job
- * (master-spec Comic Relief). While you're low on health there's a small chance per check of a
+ *. While you're low on health there's a small chance per check of a
  * comedically-timed bolt that kills you outright — and if you've got a pile of dropped items lying about,
  * the bolt may take those instead.
  *
@@ -40,12 +40,14 @@ public final class CurseComicRelief extends Effect {
     private record Posthumous(ServerLevel level, Vec3 pos, long dueTick) {}
 
     private static final List<Posthumous> PENDING = new ArrayList<>();
+    /** the Thunder-synergy smite barrage: extra VISUAL bolts staggered over a few ticks (no loot touched). */
+    private static final List<Posthumous> SMITES = new ArrayList<>();
 
     public CurseComicRelief() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.LIGHTNING_ROD);
     }
 
-    /** You find out the moment the sky takes an interest in you (Rule 2). */
+    /** you find out the moment the sky takes an interest in you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -53,8 +55,23 @@ public final class CurseComicRelief extends Effect {
 
     @Override
     public String debugForce(ServerPlayer target, String arg) {
-        strikeVictim(target, target.serverLevel());
-        return "comedic lightning called down (low-health condition bypassed)";
+        ServerLevel level = target.serverLevel();
+        // `items` forces the item-pile strike; anything else forces the low-health bolt (condition bypassed).
+        if (arg != null && arg.toLowerCase().startsWith("item")) {
+            List<ItemEntity> pile = nearbyItems(target, level);
+            if (pile.isEmpty()) {
+                return "no dropped items nearby to smite — drop some first, then force `items`.";
+            }
+            strikeItems(target, level, pile);
+            return "comedic lightning vaporised your item pile (" + pile.size() + " items).";
+        }
+        strikeVictim(target, level);
+        return "comedic lightning called down on you (low-health condition bypassed).";
+    }
+
+    @Override
+    public java.util.List<String> debugArgs() {
+        return java.util.List.of("items");
     }
 
     @Override
@@ -66,20 +83,20 @@ public final class CurseComicRelief extends Effect {
         ServerLevel level = target.serverLevel();
         double multiplier = level.isThundering() ? Config.COMIC_THUNDER_MULTIPLIER.get() : 1.0;
 
-        // The main event: low on health, and the sky notices.
+        // the main event: low on health, and the sky notices.
         if (target.getHealth() <= Config.COMIC_LOW_HEALTH.get()
                 && roll(target, Config.COMIC_STRIKE_CHANCE.get() * multiplier)) {
             strikeVictim(target, level);
             return; // one bolt per check is plenty
         }
 
-        // Or it takes your things instead, which is arguably worse.
+        // or it takes your things instead, which is arguably worse.
         List<ItemEntity> pile = nearbyItems(target, level);
         int minimum = Config.COMIC_ITEM_PILE_MIN.get();
         if (pile.size() < minimum) {
             return;
         }
-        // The chance CLIMBS with the size of the pile: everything you own scattered in a field is precisely
+        // the chance CLIMBS with the size of the pile: everything you own scattered in a field is precisely
         // the shot this joke wants, so a big heap is far likelier to be taken than a couple of stray blocks.
         double chance = Math.min(
                 Config.COMIC_ITEM_CHANCE_CAP.get(),
@@ -100,9 +117,19 @@ public final class CurseComicRelief extends Effect {
         return level.getEntitiesOfClass(ItemEntity.class, area, ItemEntity::isAlive);
     }
 
-    /** Instantly fatal — a bolt's normal 5 hearts wouldn't be the joke, and might not even finish you. */
+    /** instantly fatal — a bolt's normal 5 hearts wouldn't be the joke, and might not even finish you. */
     private void strikeVictim(ServerPlayer target, ServerLevel level) {
         bolt(level, target.position());
+        // smiting synergy (with Thunder): rain a quick barrage of extra visual bolts on the spot for comic overkill.
+        if (com.oliver.witchmod.synergy.Synergies.SMITING.activeFor(target)) {
+            Vec3 spot = target.position();
+            long now = level.getGameTime();
+            int spacing = Config.COMIC_SMITE_SPACING_TICKS.get();
+            for (int i = 1; i <= Config.COMIC_SMITE_BOLTS.get(); i++) {
+                Vec3 jitter = spot.add((level.random.nextDouble() - 0.5) * 2.0, 0.0, (level.random.nextDouble() - 0.5) * 2.0);
+                SMITES.add(new Posthumous(level, jitter, now + (long) i * spacing));
+            }
+        }
         target.hurt(level.damageSources().lightningBolt(), Float.MAX_VALUE);
         markDiscoveredByVictim(target);
     }
@@ -119,7 +146,7 @@ public final class CurseComicRelief extends Effect {
         markDiscoveredByVictim(target);
     }
 
-    /** Called from the death hook — see {@code CurseEventHandler}. */
+    /** called from the death hook — see {@code CurseEventHandler}. */
     public static void onDeath(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         double multiplier = level.isThundering() ? Config.COMIC_THUNDER_MULTIPLIER.get() : 1.0;
@@ -130,8 +157,15 @@ public final class CurseComicRelief extends Effect {
                 level.getGameTime() + Config.COMIC_POSTHUMOUS_DELAY.get()));
     }
 
-    /** Called every server tick — lands any parting bolts that have waited long enough. */
+    /** called every server tick — lands any parting bolts (and smite-barrage visual bolts) that are due. */
     public static void tickPending() {
+        SMITES.removeIf(smite -> {
+            if (smite.level().getGameTime() < smite.dueTick()) {
+                return false;
+            }
+            bolt(smite.level(), smite.pos()); // visual only — the kill already happened, loot untouched
+            return true;
+        });
         if (PENDING.isEmpty()) {
             return;
         }
@@ -140,7 +174,7 @@ public final class CurseComicRelief extends Effect {
                 return false;
             }
             bolt(pending.level(), pending.pos());
-            // Whatever they dropped is standing right there, and lightning starts fires.
+            // whatever they dropped is standing right there, and lightning starts fires.
             AABB area = new AABB(pending.pos(), pending.pos()).inflate(3.0);
             for (ItemEntity item : pending.level().getEntitiesOfClass(ItemEntity.class, area)) {
                 item.discard();
@@ -155,7 +189,7 @@ public final class CurseComicRelief extends Effect {
             return;
         }
         lightning.moveTo(Vec3.atBottomCenterOf(BlockPos.containing(pos)));
-        // Visual only — the damage is applied directly, so this can't set fire to half the neighbourhood.
+        // visual only — the damage is applied directly, so this can't set fire to half the neighbourhood.
         lightning.setVisualOnly(true);
         level.addFreshEntity(lightning);
     }

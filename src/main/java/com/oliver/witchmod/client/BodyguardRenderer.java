@@ -18,15 +18,12 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.BodyguardEntity;
 
 /**
- * Draws the Bodyguard as an ordinary (vanilla-textured) skeleton, wearing its iron armour via the standard
- * armour layer, plus a {@link SunglassesLayer} across the eyes. The skeleton read is deliberate — a person's
- * hired muscle, unmistakably a skeleton, not some bespoke boss.
- *
- * <p><b>Sunglasses texture:</b> {@code assets/witchmod/textures/entity/bodyguard/sunglasses.png} (32x32). A
- * solid-black placeholder ships with the mod; see the guide in CLAUDE.md 13.7 for authoring a nicer pair.
+ * draws the bodyguard as an ordinary vanilla skeleton in iron armour with sunglasses across the eyes — a
+ * person's hired muscle, deliberately read as a plain skeleton rather than a bespoke boss. sunglasses texture
+ * lives at {@code assets/witchmod/textures/entity/bodyguard/sunglasses.png} (a solid-black placeholder ships).
  */
 public final class BodyguardRenderer extends HumanoidMobRenderer<BodyguardEntity, BodyguardModel<BodyguardEntity>> {
-    /** The little box across the eyes. Registered as its own layer definition and baked in the ctor. */
+    /** the little box across the eyes. Registered as its own layer definition and baked in the ctor. */
     public static final ModelLayerLocation SUNGLASSES_LAYER = new ModelLayerLocation(
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "bodyguard"), "sunglasses");
 
@@ -34,7 +31,7 @@ public final class BodyguardRenderer extends HumanoidMobRenderer<BodyguardEntity
             ResourceLocation.withDefaultNamespace("textures/entity/skeleton/skeleton.png");
 
     public BodyguardRenderer(EntityRendererProvider.Context context) {
-        // The SKELETON layer carries the thin-armed skeleton geometry; BodyguardModel adds proper held-item
+        // the SKELETON layer carries the thin-armed skeleton geometry; BodyguardModel adds proper held-item
         // arm posing (SkeletonModel only adds the bow-aiming pose, and requires a RangedAttackMob).
         super(context, new BodyguardModel<>(context.bakeLayer(ModelLayers.SKELETON)), 0.5F);
         addLayer(new HumanoidArmorLayer<>(this,
@@ -49,9 +46,10 @@ public final class BodyguardRenderer extends HumanoidMobRenderer<BodyguardEntity
     public static LayerDefinition createSunglassesLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
+        // sits just off the front of the skull (front face is z=-4); nudged out to -4.9 so it doesn't clip in.
         root.addOrReplaceChild("glasses",
                 CubeListBuilder.create().texOffs(0, 0)
-                        .addBox(-4.0F, -5.0F, -4.6F, 8.0F, 2.0F, 0.6F),
+                        .addBox(-4.0F, -5.0F, -4.9F, 8.0F, 2.0F, 0.6F),
                 PartPose.ZERO);
         return LayerDefinition.create(mesh, 32, 32);
     }

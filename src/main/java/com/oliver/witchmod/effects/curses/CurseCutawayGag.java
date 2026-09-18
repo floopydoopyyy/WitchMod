@@ -46,7 +46,7 @@ import com.oliver.witchmod.entities.SnailEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * Cutaway Gag (statement curse) — Spyglass. Occasionally your camera CUTS AWAY to a random other player on
+ * cutaway Gag (statement curse) — Spyglass. Occasionally your camera CUTS AWAY to a random other player on
  * the server and you're forced to spectate, frozen, while a stupid event is inflicted on them; being hit
  * has a high chance to snap you back (the gag's effects still stick). A Family-Guy cutaway made real.
  *
@@ -61,14 +61,14 @@ import com.oliver.witchmod.entities.WitchModEntities;
  * griefed) — flip {@link EffectCategory} if that's ever reconsidered.
  */
 public final class CurseCutawayGag extends Effect {
-    /** The gag inflicted on the spectated victim. Most fire once; a few play out over the cutaway. */
+    /** the gag inflicted on the spectated victim. Most fire once; a few play out over the cutaway. */
     private enum Gag {
         CREEPER, ANVIL, GOLEM, WOOLIAM, DRIVEBY, DREAM, JUMPED, SNAIL, HOLE, ABDUCTION, LAUNCH,
         TOKYO_DRIFTING, PIED_PIPER, FAKE_TNT, AQUARIUM, I_LIKE_TRAINS, BOWLING, THE_BOUNCER, ANNOYING_MUSIC,
         BOUNCY, MARRIAGE, SPEED, HELICOPTER, PARADE
     }
 
-    /** Parade: the pool of entity types that march by (a varied, mostly-passive lineup). */
+    /** parade: the pool of entity types that march by (a varied, mostly-passive lineup). */
     private static final net.minecraft.world.entity.EntityType<?>[] PARADE_TYPES = {
         net.minecraft.world.entity.EntityType.COW, net.minecraft.world.entity.EntityType.PIG,
         net.minecraft.world.entity.EntityType.SHEEP, net.minecraft.world.entity.EntityType.CHICKEN,
@@ -80,13 +80,13 @@ public final class CurseCutawayGag extends Effect {
         net.minecraft.world.entity.EntityType.POLAR_BEAR, net.minecraft.world.entity.EntityType.SNIFFER
     };
 
-    /** Watcher UUID -> earliest tick a cutaway may next START (the hard cooldown). */
+    /** watcher UUID -> earliest tick a cutaway may next START (the hard cooldown). */
     private static final Map<UUID, Long> COOLDOWN_END = new HashMap<>();
     private static final Map<UUID, Long> END_TICK = new HashMap<>();
     private static final Map<UUID, SavedPos> SAVED = new HashMap<>();
     private static final Map<UUID, ActiveGag> GAG = new HashMap<>();
-    /** Last gag each watcher got — the picker biases away from it so the same gag never fires twice running. */
-    /** Watcher UUID -> the last few gags (newest first), so a gag can't repeat within RECENT_GAG_MEMORY. */
+    /** last gag each watcher got — the picker biases away from it so the same gag never fires twice running. */
+    /** watcher UUID -> the last few gags (newest first), so a gag can't repeat within RECENT_GAG_MEMORY. */
     private static final Map<UUID, java.util.Deque<Gag>> RECENT_GAGS = new HashMap<>();
     private static final int RECENT_GAG_MEMORY = 3;
 
@@ -119,14 +119,14 @@ public final class CurseCutawayGag extends Effect {
         long now = level.getGameTime();
         UUID id = watcher.getUUID();
 
-        // While a cutaway is in flight, the shared server-tick driver ({@link #driveActiveCutaway}) progresses
+        // while a cutaway is in flight, the shared server-tick driver ({@link #driveActiveCutaway}) progresses
         // it — so don't drive it here too (that would double-tick the gag), and let it run even for a
         // debug-forced cutaway where the curse itself isn't applied.
         if (watcher.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
             return;
         }
 
-        // Not mid-cutaway: after the hard cooldown, roll a low-but-ramping per-second chance.
+        // not mid-cutaway: after the hard cooldown, roll a low-but-ramping per-second chance.
         Long cd = COOLDOWN_END.get(id);
         if (cd == null) {
             setCooldown(watcher, now);
@@ -143,7 +143,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * Progresses an in-flight cutaway. Called EVERY server tick (from {@code CurseEventHandler}) for any player
+     * progresses an in-flight cutaway. Called EVERY server tick (from {@code CurseEventHandler}) for any player
      * with {@code CUTAWAY_TARGET >= 0}, independent of whether the curse is applied — so a debug-forced cutaway
      * fires its gag and ends, and a cutaway whose curse was removed mid-flight still cleans up.
      */
@@ -157,20 +157,20 @@ public final class CurseCutawayGag extends Effect {
         SavedPos saved = SAVED.get(id);
         ActiveGag gag = GAG.get(id);
         if (saved == null || gag == null) {
-            // Transient state lost (relog / world-reload). Teleport them HOME from the persisted return
+            // transient state lost (relog / world-reload). Teleport them HOME from the persisted return
             // position rather than stranding them at the overhead vantage, then clear.
             restoreFromReturnTag(watcher, level);
             clearSpectateState(watcher);
             setCooldown(watcher, now);
             return;
         }
-        // If the victim died or logged off, the camera has nothing to frame — end it (no strobing).
+        // if the victim died or logged off, the camera has nothing to frame — end it (no strobing).
         LivingEntity victim = level.getEntity(gag.victim) instanceof LivingEntity le ? le : null;
         if (victim == null || !victim.isAlive()) {
             endCutaway(watcher, now);
             return;
         }
-        // Fire the gag once the 2–6s delay has elapsed, then let the ongoing ones play out. A misbehaving
+        // fire the gag once the 2–6s delay has elapsed, then let the ongoing ones play out. A misbehaving
         // gag must NEVER be able to abort the end-of-cutaway logic below — otherwise the watcher is stuck
         // spectating forever and looping sounds never stop — so the whole gag step is exception-guarded.
         try {
@@ -211,7 +211,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * Death gate: dying mid-cutaway while the camera is hijacked strobes against the respawn screen, so snap
+     * death gate: dying mid-cutaway while the camera is hijacked strobes against the respawn screen, so snap
      * out of it immediately — WITHOUT teleporting the (now dead) body back, since respawn handles position.
      */
     public static void onWatcherDeath(ServerPlayer watcher) {
@@ -240,7 +240,7 @@ public final class CurseCutawayGag extends Effect {
         for (Gag g : Gag.values()) {
             args.add(g.name().toLowerCase(java.util.Locale.ROOT));
         }
-        // Marriage sub-paths (forcible via the same arg channel).
+        // marriage sub-paths (forcible via the same arg channel).
         args.add("object");
         args.add("explode");
         args.add("what");
@@ -266,7 +266,7 @@ public final class CurseCutawayGag extends Effect {
                     targetVillager = true;
                     continue;
                 }
-                // Marriage sub-paths: force which of the four weddings the marriage gag plays.
+                // marriage sub-paths: force which of the four weddings the marriage gag plays.
                 int mp = switch (tok) {
                     case "normal", "kiss" -> MARRIAGE_NORMAL;
                     case "object", "objection", "objected" -> MARRIAGE_OBJECT;
@@ -300,10 +300,10 @@ public final class CurseCutawayGag extends Effect {
         COOLDOWN_END.put(watcher.getUUID(), now + Config.CUTAWAY_COOLDOWN_SECONDS.get() * 20L);
     }
 
-    /** Uniform-random gag, but never the SAME as last time, and never Hole unless the ground suits it. */
+    /** uniform-random gag, but never the SAME as last time, and never Hole unless the ground suits it. */
     private static Gag pickGag(ServerLevel level, LivingEntity victim, java.util.Collection<Gag> recent, RandomSource rng) {
         boolean natural = naturalBelow(level, victim);
-        // Bowling loves a crowd: the more entities clustered around the victim, the likelier it's picked — a
+        // bowling loves a crowd: the more entities clustered around the victim, the likelier it's picked — a
         // group makes for a proper set of pins.
         if (!recent.contains(Gag.BOWLING)) {
             int cluster = level.getEntitiesOfClass(LivingEntity.class, victim.getBoundingBox().inflate(6.0),
@@ -328,7 +328,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * Picks a victim + gag and relocates the watcher to an overhead vantage to spectate — the GAG itself is
+     * picks a victim + gag and relocates the watcher to an overhead vantage to spectate — the GAG itself is
      * deferred 2–6s (see {@link #onTick}), so you first watch the oblivious victim before it lands. False if
      * nobody to watch. {@code targetVillager} cuts away to the nearest villager instead of a random player,
      * so the curse can be tested solo (the "debug modes use villagers as stand-in players" pattern).
@@ -339,7 +339,7 @@ public final class CurseCutawayGag extends Effect {
         LivingEntity victim;
         if (targetVillager) {
             victim = level.getEntitiesOfClass(Villager.class, watcher.getBoundingBox().inflate(64.0), Villager::isAlive)
-                    .stream().min(java.util.Comparator.comparingDouble(watcher::distanceToSqr)).orElse(null);
+.stream().min(java.util.Comparator.comparingDouble(watcher::distanceToSqr)).orElse(null);
             if (victim == null) {
                 return false;
             }
@@ -363,11 +363,11 @@ public final class CurseCutawayGag extends Effect {
             recent.removeLast();
         }
 
-        // Save where the watcher really is, then relocate them (invisible + gravity-less) to the vantage.
+        // save where the watcher really is, then relocate them (invisible + gravity-less) to the vantage.
         SavedPos saved = new SavedPos(watcher.getX(), watcher.getY(), watcher.getZ(),
                 watcher.getYRot(), watcher.getXRot(), watcher.isInvisible(), watcher.isNoGravity());
         SAVED.put(watcher.getUUID(), saved);
-        // Persist the return position too, so a relog/world-reload mid-cutaway can teleport them home
+        // persist the return position too, so a relog/world-reload mid-cutaway can teleport them home
         // instead of stranding them at the overhead vantage (the SAVED map above is transient).
         watcher.setData(WitchModAttachments.CUTAWAY_RETURN, saved.toTag(level.dimension()));
 
@@ -375,7 +375,7 @@ public final class CurseCutawayGag extends Effect {
         Vec3 centre = victim.position().add(0.0, victim.getBbHeight() * 0.5, 0.0);
         float[] look = lookAngles(vantage.add(0.0, watcher.getEyeHeight(), 0.0), centre);
         watcher.setInvisible(true);
-        // Hold non-flyers in the air with noGravity. A FLYING player is already held by flight, and toggling
+        // hold non-flyers in the air with noGravity. A FLYING player is already held by flight, and toggling
         // gravity on them was leaving their descent broken afterwards — so leave flyers' gravity alone.
         if (!watcher.getAbilities().flying) {
             watcher.setNoGravity(true);
@@ -401,7 +401,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * The Family-Guy "cutaway" camera-cut click. The title card itself ("Meanwhile…" + "with &lt;victim&gt;")
+     * the Family-Guy "cutaway" camera-cut click. The title card itself ("Meanwhile…" + "with &lt;victim&gt;")
      * is drawn CLIENT-side as a cinematic overlay ({@code ClientCurseHandler} + the writable
      * {@code assets/witchmod/text/cutaway_titles.json}) so it sits over the letterbox bars and can't be hidden.
      */
@@ -410,7 +410,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     private static void endCutaway(ServerPlayer watcher, long now) {
-        // Un-stick the camera + kill any looped SFX FIRST, so even if a step below throws the watcher is
+        // un-stick the camera + kill any looped SFX FIRST, so even if a step below throws the watcher is
         // never left permanently spectating with a helicopter/tractor-beam loop droning on.
         watcher.setData(WitchModAttachments.CUTAWAY_TARGET, -1);
         watcher.setData(WitchModAttachments.CUTAWAY_LOOP, -1); // stop any looped SFX (helicopter / tractor beam)
@@ -432,7 +432,7 @@ public final class CurseCutawayGag extends Effect {
         if (saved != null) {
             restoreTo(watcher, watcher.serverLevel(), saved, null);
         } else {
-            // Transient SAVED gone (reload): fall back to the persisted return position if present.
+            // transient SAVED gone (reload): fall back to the persisted return position if present.
             net.minecraft.nbt.CompoundTag ret = watcher.getData(WitchModAttachments.CUTAWAY_RETURN);
             if (ret != null && ret.contains("x")) {
                 restoreTo(watcher, watcher.serverLevel(), SavedPos.fromTag(ret), null);
@@ -446,7 +446,7 @@ public final class CurseCutawayGag extends Effect {
         setCooldown(watcher, now);
     }
 
-    /** Clears the synced spectate target + server maps without teleporting (used on death, where respawn handles position). */
+    /** clears the synced spectate target + server maps without teleporting (used on death, where respawn handles position). */
     private static void clearSpectateState(ServerPlayer watcher) {
         watcher.setData(WitchModAttachments.CUTAWAY_TARGET, -1);
         watcher.setData(WitchModAttachments.CUTAWAY_LOOP, -1);
@@ -457,7 +457,7 @@ public final class CurseCutawayGag extends Effect {
         END_TICK.remove(watcher.getUUID());
     }
 
-    /** Removes the "slide/run away" gag entities (driveby, dream, the fake snail); real threats stay. */
+    /** removes the "slide/run away" gag entities (driveby, dream, the fake snail); real threats stay. */
     private static void discardTemps(ServerPlayer watcher) {
         ActiveGag gag = GAG.get(watcher.getUUID());
         if (gag != null) {
@@ -470,7 +470,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Called from the damage hook: a hit mid-cutaway has a high chance to snap the watcher back early. */
+    /** called from the damage hook: a hit mid-cutaway has a high chance to snap the watcher back early. */
     public static void onWatcherHit(ServerPlayer watcher) {
         if (watcher.getData(WitchModAttachments.CUTAWAY_TARGET) < 0) {
             return;
@@ -480,7 +480,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Per-gag cleanup when a cutaway ends: clear placed blocks and undo lingering victim/entity state. */
+    /** per-gag cleanup when a cutaway ends: clear placed blocks and undo lingering victim/entity state. */
     private static void finishGag(ServerPlayer watcher, ActiveGag gag) {
         ServerLevel level = watcher.serverLevel();
         for (BlockPos p : gag.placed) {
@@ -529,12 +529,12 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Spawns the train (once) after the "I like trains" warning finishes, and plays the roll sound at it. */
+    /** spawns the train (once) after the "I like trains" warning finishes, and plays the roll sound at it. */
     private static void spawnTrainCarts(ServerLevel level, LivingEntity victim, ActiveGag active) {
         RandomSource rng = level.random;
         EntityType<?>[] riders = {EntityType.VILLAGER, EntityType.COW};
         Vec3 dir = active.heliDir;
-        // Anchor line the carts are pinned to (keeps them dead on the spawned rails).
+        // anchor line the carts are pinned to (keeps them dead on the spawned rails).
         active.trainAlongX = dir.x != 0;
         active.trainY = victim.getY() + 0.3;
         active.trainPerp = active.trainAlongX ? victim.getZ() : victim.getX();
@@ -571,7 +571,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Hurls a (noclip) black-concrete "bowling ball" at the victim; counts toward the max of 4 bowls. */
+    /** hurls a (noclip) black-concrete "bowling ball" at the victim; counts toward the max of 4 bowls. */
     private static void throwBowlingBall(ServerLevel level, LivingEntity victim, ActiveGag active) {
         Vec3 from = ringPos(victim, 10.0, level.random).getCenter();
         var ball = FallingBlockEntity.fall(level, BlockPos.containing(from), Blocks.BLACK_CONCRETE.defaultBlockState());
@@ -585,10 +585,10 @@ public final class CurseCutawayGag extends Effect {
         level.playSound(null, BlockPos.containing(from), com.oliver.witchmod.data.WitchModSounds.CUTAWAY_BALL_THROW.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
     }
 
-    /** Bowl over ONE pin (any entity the ball passes through) — a real scatter-launch in the ball's direction. */
+    /** bowl over ONE pin (any entity the ball passes through) — a real scatter-launch in the ball's direction. */
     private static void bowlPin(ServerLevel level, net.minecraft.world.entity.Entity ball, LivingEntity pin, Vec3 dir) {
         pin.hurt(com.oliver.witchmod.data.WitchModDamageTypes.bowling(level), (float) (double) Config.CUTAWAY_BOWLING_DAMAGE.get());
-        // Pins SCATTER — knocked forward along the ball's travel + up, like a struck bowling pin.
+        // pins SCATTER — knocked forward along the ball's travel + up, like a struck bowling pin.
         Vec3 launch = dir.scale(1.3).add((level.random.nextDouble() - 0.5) * 0.4, 0.55, (level.random.nextDouble() - 0.5) * 0.4);
         pin.setDeltaMovement(pin.getDeltaMovement().add(launch));
         pin.hurtMarked = true;
@@ -599,7 +599,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * The Bouncer speaks with the EXACT Bodyguard blessing voice — same {@code bodyguard.json} line pool,
+     * the Bouncer speaks with the EXACT Bodyguard blessing voice — same {@code bodyguard.json} line pool,
      * same {@code <Bodyguard> …} plain format, same {@link Config#BODYGUARD_CHAT_RADIUS} — so it reads as the
      * same character rather than a separate bespoke set.
      */
@@ -636,7 +636,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     // ==== Marriage (four comical paths + cinematic camera work) ========================================
-    // Lines live in data/witchmod/text/marriage.json (via MarriageLines). The spectate camera aims at the
+    // lines live in data/witchmod/text/marriage.json (via MarriageLines). The spectate camera aims at the
     // victim by default, or at CUTAWAY_LOOK when a path wants to frame something else (objector / spouse);
     // its POSITION is the watcher's body, teleported around each tick for dolly / cut / orbit shots.
 
@@ -656,7 +656,7 @@ public final class CurseCutawayGag extends Effect {
         active.marriageAisle = aisle;
         Vec3 perp = new Vec3(aisle.z, 0.0, -aisle.x); // sideways across the aisle (for guest seating / the officiant)
 
-        // Red-carpet aisle under the couple.
+        // red-carpet aisle under the couple.
         boolean alongX = Math.abs(aisle.x) >= Math.abs(aisle.z);
         BlockPos foot = victim.blockPosition();
         for (int d = -1; d <= 4; d++) {
@@ -668,7 +668,7 @@ public final class CurseCutawayGag extends Effect {
             }
         }
 
-        // The spouse: usually a villager, but comically sometimes a random creature.
+        // the spouse: usually a villager, but comically sometimes a random creature.
         Vec3 spouseAt = victim.position().add(aisle.scale(2.5));
         EntityType<?> spouseType = EntityType.VILLAGER;
         if (rng.nextInt(100) < 35) {
@@ -690,7 +690,7 @@ public final class CurseCutawayGag extends Effect {
             active.marriageSpouseId = m.getId();
         }
 
-        // The officiant: a villager standing to one side of the couple, facing across the aisle.
+        // the officiant: a villager standing to one side of the couple, facing across the aisle.
         Vec3 offAt = victim.position().add(aisle.scale(1.25)).add(perp.scale(1.8));
         var officiant = EntityType.VILLAGER.spawn(level, BlockPos.containing(offAt), MobSpawnType.EVENT);
         if (officiant != null) {
@@ -705,7 +705,7 @@ public final class CurseCutawayGag extends Effect {
             active.marriageOfficiantId = officiant.getId();
         }
 
-        // Guests seated down both sides of the aisle.
+        // guests seated down both sides of the aisle.
         EntityType<?>[] guestTypes = {EntityType.VILLAGER, EntityType.VILLAGER, EntityType.VILLAGER,
                 EntityType.ALLAY, EntityType.CAT, EntityType.WANDERING_TRADER};
         for (int side = -1; side <= 1; side += 2) {
@@ -726,21 +726,21 @@ public final class CurseCutawayGag extends Effect {
             }
         }
 
-        // Ceremony script (open / vows / pronounce) from the editable list.
+        // ceremony script (open / vows / pronounce) from the editable list.
         active.marriageScript.add(com.oliver.witchmod.data.MarriageLines.pick("open", rng, "We are gathered here today..."));
         active.marriageScript.add(com.oliver.witchmod.data.MarriageLines.pick("vows", rng, "Do you, {v}, take {s}?")
-                .replace("{v}", victimName(victim)).replace("{s}", name));
+.replace("{v}", victimName(victim)).replace("{s}", name));
         active.marriageScript.add(com.oliver.witchmod.data.MarriageLines.pick("pronounce", rng, "I now pronounce you married!")
-                .replace("{v}", victimName(victim)).replace("{s}", name));
+.replace("{v}", victimName(victim)).replace("{s}", name));
 
-        // Which of the four weddings is this? (debug can force it.)
+        // which of the four weddings is this? (debug can force it.)
         active.marriagePath = forcedMarriagePath >= 0 ? forcedMarriagePath : rng.nextInt(4);
         forcedMarriagePath = -1;
 
-        // Give the ceremony room to play out. Each path needs AT LEAST enough ticks for its last scripted beat
+        // give the ceremony room to play out. Each path needs AT LEAST enough ticks for its last scripted beat
         // (+ a tail), so we floor to that regardless of the configured base — otherwise a small/stale config
         // value cuts a path off before its event ever fires (explode/what were ending abruptly at base 260).
-        // The config value can only EXTEND a path, never shorten it below what its choreography requires.
+        // the config value can only EXTEND a path, never shorten it below what its choreography requires.
         int base = Config.CUTAWAY_MARRIAGE_TICKS.get();
         int total = switch (active.marriagePath) {
             case MARRIAGE_OBJECT -> Math.max(base, 720);   // record-scratch 300 … wedding OFF 665 … drift
@@ -752,13 +752,13 @@ public final class CurseCutawayGag extends Effect {
 
         marriageSay(level, watcher, victim, "§d❤ A wedding! §f" + victimName(victim) + " §d& §f" + name + " §d❤");
         level.playSound(null, victim.blockPosition(), SoundEvents.BELL_BLOCK, SoundSource.HOSTILE, 0.8F, 1.0F);
-        // The wedding MUSIC — played ONCE at the ceremony (it outlasts the scene), heard by everyone nearby
+        // the wedding MUSIC — played ONCE at the ceremony (it outlasts the scene), heard by everyone nearby
         // (incl. the spectating watcher). Stopped abruptly when an absurd event fires or the wedding ends.
         level.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
                 com.oliver.witchmod.data.WitchModSounds.CUTAWAY_WEDDING.get(), SoundSource.RECORDS, 1.0F, 1.0F);
     }
 
-    /** Cuts the wedding music dead for everyone who could hear it (an absurd twist, or the ceremony ending). */
+    /** cuts the wedding music dead for everyone who could hear it (an absurd twist, or the ceremony ending). */
     private static void stopWedding(ServerLevel level, LivingEntity victim) {
         var id = com.oliver.witchmod.data.WitchModSounds.CUTAWAY_WEDDING.get().getLocation();
         var pkt = new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(id, SoundSource.RECORDS);
@@ -769,7 +769,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Cuts BOTH parade tracks (drums + march) dead when the gag ends. */
+    /** cuts BOTH parade tracks (drums + march) dead when the gag ends. */
     private static void stopParade(ServerLevel level, LivingEntity victim) {
         var drum = new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(
                 com.oliver.witchmod.data.WitchModSounds.CUTAWAY_PARADE_DRUM.get().getLocation(), SoundSource.RECORDS);
@@ -783,7 +783,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Sends a marriage line to the spectating watcher AND anyone nearby the ceremony. */
+    /** sends a marriage line to the spectating watcher AND anyone nearby the ceremony. */
     private static void marriageSay(ServerLevel level, ServerPlayer watcher, LivingEntity victim, String msg) {
         Component c = Component.literal(msg);
         watcher.sendSystemMessage(c);
@@ -801,7 +801,7 @@ public final class CurseCutawayGag extends Effect {
         return new Vec3(v.x * c - v.z * s, 0.0, v.x * s + v.z * c);
     }
 
-    /** Point the camera (the watcher's body) at an orbit position around {@code focus}: dist/height out, angle° around the aisle. */
+    /** point the camera (the watcher's body) at an orbit position around {@code focus}: dist/height out, angle° around the aisle. */
     private static void camShot(ActiveGag a, Vec3 focus, double dist, double height, double angleDeg, double lerp) {
         Vec3 base = rotY(a.marriageAisle.scale(-1.0), angleDeg); // -aisle = in front of the bride/groom's face
         base = base.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : base.normalize();
@@ -809,7 +809,7 @@ public final class CurseCutawayGag extends Effect {
         a.camLerp = lerp;
     }
 
-    /** Eases the watcher's body toward {@code camTarget} each tick — a hard cut (lerp≥1) or a smooth push. */
+    /** eases the watcher's body toward {@code camTarget} each tick — a hard cut (lerp≥1) or a smooth push. */
     private static void applyCam(ServerLevel level, ServerPlayer watcher, ActiveGag a) {
         if (a.camTarget == null) {
             return;
@@ -822,12 +822,12 @@ public final class CurseCutawayGag extends Effect {
         watcher.fallDistance = 0;
     }
 
-    /** Officiant line, tagged in grey. */
+    /** officiant line, tagged in grey. */
     private static void officiantSay(ServerLevel level, ServerPlayer watcher, LivingEntity victim, String line) {
         marriageSay(level, watcher, victim, "§7[Officiant] " + line);
     }
 
-    /** Cherry-blossom confetti drifting down over the aisle, plus the odd rising heart. */
+    /** cherry-blossom confetti drifting down over the aisle, plus the odd rising heart. */
     private static void marriagePetals(ServerLevel level, LivingEntity victim, ActiveGag a, Vec3 couple) {
         Vec3 along = a.marriageAisle.scale((level.random.nextDouble() - 0.3) * 4.0);
         Vec3 side = new Vec3(a.marriageAisle.z, 0, -a.marriageAisle.x).scale((level.random.nextDouble() - 0.5) * 5.0);
@@ -839,7 +839,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Guests react: a little hop + a sound (cheer or gasp). */
+    /** guests react: a little hop + a sound (cheer or gasp). */
     private static void guestsReact(ServerLevel level, ActiveGag a, boolean hop, net.minecraft.sounds.SoundEvent sound, float pitch) {
         for (int id : a.marriageGuests) {
             if (level.getEntity(id) instanceof LivingEntity g) {
@@ -855,7 +855,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     private static void tickMarriage(ServerLevel level, ServerPlayer watcher, LivingEntity victim, ActiveGag a, long elapsed) {
-        // Pin the bride/groom at the altar (kill all motion, incl. Y).
+        // pin the bride/groom at the altar (kill all motion, incl. Y).
         victim.setDeltaMovement(Vec3.ZERO);
         victim.hurtMarked = true;
         victim.fallDistance = 0;
@@ -887,14 +887,14 @@ public final class CurseCutawayGag extends Effect {
             default -> tickMarriageNormal(level, watcher, victim, spouse, couple, a, elapsed);
         }
 
-        // Falling petals throughout (except once the explode path has soured the mood).
+        // falling petals throughout (except once the explode path has soured the mood).
         if (elapsed % 2 == 0 && !(a.marriagePath == MARRIAGE_EXPLODE && elapsed >= 240)) {
             marriagePetals(level, victim, a, couple);
         }
         applyCam(level, watcher, a);
     }
 
-    /** Path 0 — a lovely wedding: pronounce, romantic zoom, kiss + fanfare, guests cheer, slow orbit of the newlyweds. */
+    /** path 0 — a lovely wedding: pronounce, romantic zoom, kiss + fanfare, guests cheer, slow orbit of the newlyweds. */
     private static void tickMarriageNormal(ServerLevel level, ServerPlayer watcher, LivingEntity victim, @Nullable LivingEntity spouse, Vec3 couple, ActiveGag a, long elapsed) {
         if (elapsed == 300) {
             camShot(a, couple, 2.6, 1.7, 15, 0.03);    // slow push toward a two-shot
@@ -909,7 +909,7 @@ public final class CurseCutawayGag extends Effect {
             camShot(a, couple, 1.7, 1.7, 24, 1.0);     // hard cut to an extreme close-up
             marriageSay(level, watcher, victim, com.oliver.witchmod.data.MarriageLines.pick("kiss", level.random,
                     "§d💍 They kissed! {v} & {s} are married! 💍")
-                    .replace("{v}", victimName(victim)).replace("{s}", spouseName(spouse)));
+.replace("{v}", victimName(victim)).replace("{s}", spouseName(spouse)));
             level.sendParticles(ParticleTypes.HEART, couple.x, couple.y + 0.5, couple.z, 60, 0.7, 0.7, 0.7, 0.15);
             level.playSound(null, victim.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.HOSTILE, 1.0F, 1.4F);
             level.playSound(null, victim.blockPosition(), SoundEvents.BELL_BLOCK, SoundSource.HOSTILE, 1.0F, 1.5F);
@@ -926,11 +926,11 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Path 1 — OBJECTION: a player-mimic bursts in — slow, drawn-out, readable drama — and the wedding is called off. */
+    /** path 1 — OBJECTION: a player-mimic bursts in — slow, drawn-out, readable drama — and the wedding is called off. */
     private static void tickMarriageObject(ServerLevel level, ServerPlayer watcher, LivingEntity victim, @Nullable LivingEntity spouse, Vec3 couple, ActiveGag a, long elapsed) {
         RandomSource rng = level.random;
         if (elapsed == 300) {
-            // Mid-sentence — the record-scratch beat. Officiant trails off; long ominous hold.
+            // mid-sentence — the record-scratch beat. Officiant trails off; long ominous hold.
             camShot(a, couple, 2.6, 0.6, 0, 1.0);      // low-hero on the couple
             if (a.marriageScript.size() > 2) {
                 officiantSay(level, watcher, victim, a.marriageScript.get(2) + "§7...");
@@ -951,7 +951,7 @@ public final class CurseCutawayGag extends Effect {
                 a.camLerp = 1.0; // hard cut
             }
         } else if (elapsed > 350 && elapsed < 665) {
-            // While the camera is ON the objector, ease toward its face and let it stride slowly in.
+            // while the camera is ON the objector, ease toward its face and let it stride slowly in.
             LivingEntity objector = a.marriageObjectorId >= 0 && level.getEntity(a.marriageObjectorId) instanceof LivingEntity o ? o : null;
             if (objector != null && watcher.getData(WitchModAttachments.CUTAWAY_LOOK) == objector.getId()) {
                 Vec3 toCouple = couple.subtract(objector.position());
@@ -966,7 +966,7 @@ public final class CurseCutawayGag extends Effect {
                 aimCameraAtObjector(a, objector, couple);
                 a.camLerp = 0.06; // very gentle push toward the face
             }
-            // Beats ~50+ ticks apart so every line + cut is readable.
+            // beats ~50+ ticks apart so every line + cut is readable.
             if (elapsed == 405 || elapsed == 505 || elapsed == 620) { // objector lines (on its shots)
                 LivingEntity o = a.marriageObjectorId >= 0 && level.getEntity(a.marriageObjectorId) instanceof LivingEntity oo ? oo : null;
                 if (o != null) {
@@ -991,7 +991,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
         } else if (elapsed == 665) {
-            // The wedding is OFF. Spouse bolts; camera pulls back to the wreckage.
+            // the wedding is OFF. Spouse bolts; camera pulls back to the wreckage.
             watcher.setData(WitchModAttachments.CUTAWAY_LOOK, -1);
             camShot(a, couple, 5.2, 2.6, 30, 1.0);
             marriageSay(level, watcher, victim, com.oliver.witchmod.data.MarriageLines.pick("objected", rng,
@@ -1011,7 +1011,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Path 2 — EXPLODE: the spouse just... goes off. Slight world damage, and a deadpan death line. */
+    /** path 2 — EXPLODE: the spouse just... goes off. Slight world damage, and a deadpan death line. */
     private static void tickMarriageExplode(ServerLevel level, ServerPlayer watcher, LivingEntity victim, @Nullable LivingEntity spouse, Vec3 couple, ActiveGag a, long elapsed) {
         if (elapsed == 300 && spouse != null) {
             stopWedding(level, victim); // the mood's about to turn — kill the music
@@ -1046,7 +1046,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Path 3 — "what": the ceremony line becomes just "what", and the spouse is flung away or turns into a strider. */
+    /** path 3 — "what": the ceremony line becomes just "what", and the spouse is flung away or turns into a strider. */
     private static void tickMarriageWhat(ServerLevel level, ServerPlayer watcher, LivingEntity victim, @Nullable LivingEntity spouse, Vec3 couple, ActiveGag a, long elapsed) {
         if (elapsed == 300) {
             camShot(a, couple, 3.0, 1.7, 6, 1.0);      // deadpan flat medium shot, dead still
@@ -1087,7 +1087,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Places the objector player-mimic (Dream entity, or a villager fallback) down the aisle in front of the couple. */
+    /** places the objector player-mimic (Dream entity, or a villager fallback) down the aisle in front of the couple. */
     @Nullable
     private static LivingEntity spawnObjector(ServerLevel level, LivingEntity victim, ActiveGag a, RandomSource rng) {
         Vec3 at = victim.position().add(a.marriageAisle.scale(7.0)); // burst in from down the aisle, a longer dramatic walk-in
@@ -1120,7 +1120,7 @@ public final class CurseCutawayGag extends Effect {
         return objector;
     }
 
-    /** Frames the objector's FACE: camera sits between the objector and the couple, looking back at it (aim = objector). */
+    /** frames the objector's FACE: camera sits between the objector and the couple, looking back at it (aim = objector). */
     private static void aimCameraAtObjector(ActiveGag a, LivingEntity objector, Vec3 couple) {
         Vec3 eye = objector.position().add(0, objector.getBbHeight() * 0.85, 0);
         Vec3 toCouple = couple.subtract(objector.position());
@@ -1147,7 +1147,7 @@ public final class CurseCutawayGag extends Effect {
         return spouse != null ? spouse.getName().getString() : "them";
     }
 
-    /** An overhead spot with a clear line of sight to the victim; falls back to straight above. */
+    /** an overhead spot with a clear line of sight to the victim; falls back to straight above. */
     private static Vec3 computeVantage(ServerLevel level, LivingEntity victim, RandomSource rng) {
         double dist = Config.CUTAWAY_SPECTATE_DISTANCE.get();
         double height = Config.CUTAWAY_CAMERA_HEIGHT.get();
@@ -1174,7 +1174,7 @@ public final class CurseCutawayGag extends Effect {
         return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
     }
 
-    /** Minecraft yaw/pitch (degrees) to look from {@code from} at {@code to}. */
+    /** minecraft yaw/pitch (degrees) to look from {@code from} at {@code to}. */
     private static float[] lookAngles(Vec3 from, Vec3 to) {
         double dx = to.x - from.x;
         double dy = to.y - from.y;
@@ -1251,7 +1251,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case SNAIL -> {
-                // The snail has no gravity, so it must be placed on real ground close by, not floating in a ring.
+                // the snail has no gravity, so it must be placed on real ground close by, not floating in a ring.
                 // NO one-shot music here — SnailSoundManager already loops the theme for any nearby SnailEntity
                 // and stops it the moment the snail is removed, so playing it again just left it droning on.
                 SnailEntity snail = WitchModEntities.SNAIL.get().spawn(level, groundSpotNear(level, victim, 6.0, rng), MobSpawnType.EVENT);
@@ -1265,7 +1265,7 @@ public final class CurseCutawayGag extends Effect {
                 active.anchorY = victim.getY(); // the UFO towers over the ground, not the rising victim
                 victim.addEffect(new MobEffectInstance(MobEffects.LEVITATION, lift, Config.CUTAWAY_ABDUCTION_LEVITATION.get()));
                 victim.addEffect(new MobEffectInstance(MobEffects.GLOWING, lift + 40, 0));
-                // The UFO arrives (one-shot), then the tractor beam hums for the whole lift (client loop, id 1).
+                // the UFO arrives (one-shot), then the tractor beam hums for the whole lift (client loop, id 1).
                 level.playSound(null, victim.blockPosition(), com.oliver.witchmod.data.WitchModSounds.CUTAWAY_UFO_ENTER.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
                 watcher.setData(WitchModAttachments.CUTAWAY_LOOP, 1);
             }
@@ -1298,7 +1298,7 @@ public final class CurseCutawayGag extends Effect {
                 // (the drift screech plays repeatedly, varied, from the boat — see tickGag)
             }
             case PIED_PIPER -> {
-                // Recruit nearby passive animals, then spawn to fill the minimum quota.
+                // recruit nearby passive animals, then spawn to fill the minimum quota.
                 for (net.minecraft.world.entity.animal.Animal a : level.getEntitiesOfClass(
                         net.minecraft.world.entity.animal.Animal.class, victim.getBoundingBox().inflate(24.0), net.minecraft.world.entity.animal.Animal::isAlive)) {
                     active.flock.add(a.getId());
@@ -1340,7 +1340,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case I_LIKE_TRAINS -> {
-                // Lay the (purely cosmetic) rails and record the direction, then play "I like trains" IN FULL —
+                // lay the (purely cosmetic) rails and record the direction, then play "I like trains" IN FULL —
                 // tickGag spawns the actual train only once the warning has finished (cutawayTrainWarningTicks).
                 boolean alongX = rng.nextBoolean();
                 BlockPos foot = victim.blockPosition().below();
@@ -1376,7 +1376,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case ANNOYING_MUSIC -> {
-                // Positional loop at the victim (id 2), stopped when the cutaway ends (endCutaway clears CUTAWAY_LOOP).
+                // positional loop at the victim (id 2), stopped when the cutaway ends (endCutaway clears CUTAWAY_LOOP).
                 watcher.setData(WitchModAttachments.CUTAWAY_LOOP, 2);
                 // NOTE: dedicated "annoying music" track pending — the client loops a Loading-Screen hold track for now.
             }
@@ -1397,12 +1397,12 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * Parade: a big lineup of varied entities spawns in a column to one side and MARCHES across the victim's
+     * parade: a big lineup of varied entities spawns in a column to one side and MARCHES across the victim's
      * front in a straight line. All AI is off — they do nothing but march (driven in {@link #tickGag}) — and
      * they despawn (temps) when the cutaway ends.
      */
     private static void startParade(ServerLevel level, ServerPlayer watcher, LivingEntity victim, ActiveGag active, RandomSource rng) {
-        // Frame it to the SPECTATOR camera, not the victim's own facing: the camera looks from its vantage at
+        // frame it to the SPECTATOR camera, not the victim's own facing: the camera looks from its vantage at
         // the victim, so the parade must sweep across THAT line of sight. "forward" = the horizontal direction
         // from the camera to the victim; the column marches perpendicular to it and passes just in front of the
         // victim toward the camera, so it crosses the middle of frame, close and unmissable.
@@ -1419,7 +1419,7 @@ public final class CurseCutawayGag extends Effect {
         Vec3 marchDir = new Vec3(-forward.z, 0, forward.x); // 90° to the camera line — they sweep across frame
         active.paradeDir = marchDir;
 
-        // Sit the column BETWEEN the camera and the victim (a little toward the camera), so it fills the frame
+        // sit the column BETWEEN the camera and the victim (a little toward the camera), so it fills the frame
         // and reads big instead of shrinking off behind the victim.
         Vec3 crossCentre = victim.position().subtract(forward.scale(2.5));
         int count = Config.CUTAWAY_PARADE_COUNT.get();
@@ -1437,11 +1437,11 @@ public final class CurseCutawayGag extends Effect {
                 continue;
             }
             Vec3 spot = crossCentre
-                    .add(marchDir.scale(-startBack + row * along))
-                    .add(forward.scale((col - (perRow - 1) / 2.0) * across));
-            // Spawn at the VICTIM's height (NOT the surface heightmap — that put the column on the surface far
+.add(marchDir.scale(-startBack + row * along))
+.add(forward.scale((col - (perRow - 1) / 2.0) * across));
+            // spawn at the VICTIM's height (NOT the surface heightmap — that put the column on the surface far
             // above an underground victim, up near the spectator camera, which is what let it hit the spectator).
-            // Per-tick gravity in tickGag settles them onto whatever floor is actually there.
+            // per-tick gravity in tickGag settles them onto whatever floor is actually there.
             m.moveTo(spot.x, victim.getY(), spot.z, marchYaw(marchDir), 0F);
             m.setNoAi(true);
             m.setYBodyRot(marchYaw(marchDir));
@@ -1453,7 +1453,7 @@ public final class CurseCutawayGag extends Effect {
             active.temps.add(m.getId()); // despawns when the cutaway ends
             active.flock.add(m.getId()); // driven each tick in tickGag
         }
-        // Both tracks together (drums + march music) at the parade, at 55% volume (45% quieter), heard by
+        // both tracks together (drums + march music) at the parade, at 55% volume (45% quieter), heard by
         // everyone nearby — cut when the gag ends. Positioned at the marching column so it comes FROM the parade.
         float vol = 0.55F;
         level.playSound(null, crossCentre.x, crossCentre.y, crossCentre.z,
@@ -1466,13 +1466,13 @@ public final class CurseCutawayGag extends Effect {
         return (float) (net.minecraft.util.Mth.atan2(-dir.x, dir.z) * (180.0 / Math.PI));
     }
 
-    /** Ongoing choreography for the few gags that play out over the cutaway. */
+    /** ongoing choreography for the few gags that play out over the cutaway. */
     private static void tickGag(ServerLevel level, ServerPlayer watcher, ActiveGag active, long now) {
         LivingEntity victim = level.getEntity(active.victim) instanceof LivingEntity le ? le : null;
         long elapsed = now - active.gagStart;
         switch (active.gag) {
             case WOOLIAM -> {
-                // Double the flock rate — two sheep per interval.
+                // double the flock rate — two sheep per interval.
                 if (victim != null && elapsed % 15 == 0) {
                     for (int n = 0; n < 2 && active.flock.size() < Config.CUTAWAY_WOOLIAM_CAP.get(); n++) {
                         Vec3 near = victim.position().add((level.random.nextDouble() - 0.5) * 3.0, 0, (level.random.nextDouble() - 0.5) * 3.0);
@@ -1495,7 +1495,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case ABDUCTION -> {
-                // Only while the beam is actively yanking them up — once they're dropped, everything stops
+                // only while the beam is actively yanking them up — once they're dropped, everything stops
                 // (no particles left hanging in the sky).
                 if (victim != null && elapsed < Config.CUTAWAY_ABDUCTION_LIFT_TICKS.get()) {
                     double cx = victim.getX();
@@ -1508,10 +1508,10 @@ public final class CurseCutawayGag extends Effect {
                         double a = spin + i * (Math.PI * 2.0 / pts);
                         level.sendParticles(ParticleTypes.END_ROD, cx + Math.cos(a) * 3.0, discY, cz + Math.sin(a) * 3.0, 1, 0.0, 0.0, 0.0, 0.0);
                     }
-                    // ...a glowing dome on top...
+                    //...a glowing dome on top...
                     level.sendParticles(ParticleTypes.GLOW, cx, discY + 0.8, cz, 6, 1.0, 0.4, 1.0, 0.0);
                     level.sendParticles(ParticleTypes.END_ROD, cx, discY + 1.4, cz, 3, 0.3, 0.2, 0.3, 0.0);
-                    // ...and a tall green tractor beam from the victim right up to the saucer.
+                    //...and a tall green tractor beam from the victim right up to the saucer.
                     for (double y = victim.getY() + 0.2; y < discY; y += 0.6) {
                         double frac = (y - active.anchorY) / (discY - active.anchorY);
                         double r = 0.3 + (1.0 - frac) * 1.6; // widest at the ground, narrowing to the UFO
@@ -1524,12 +1524,12 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case SNAIL -> {
-                // The immortal snail creeps toward the victim (it's AI-less, so it's slid by hand each tick).
+                // the immortal snail creeps toward the victim (it's AI-less, so it's slid by hand each tick).
                 if (victim != null && !active.temps.isEmpty()
                         && level.getEntity(active.temps.get(0)) instanceof SnailEntity snail) {
                     moveSnailToward(level, snail, victim, Config.CUTAWAY_SNAIL_SPEED.get());
                     if (snail.distanceToSqr(victim) < 1.3 * 1.3) {
-                        // It caught you — a blast that LOOKS real but only hits the victim (no terrain damage, no
+                        // it caught you — a blast that LOOKS real but only hits the victim (no terrain damage, no
                         // collateral on the watcher/bystanders), for a fixed amount, then the gag ends.
                         level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, victim.getX(), victim.getY() + 0.4, victim.getZ(), 1, 0, 0, 0, 0);
                         level.sendParticles(ParticleTypes.EXPLOSION, victim.getX(), victim.getY() + 0.5, victim.getZ(), 6, 0.4, 0.4, 0.4, 0.0);
@@ -1551,7 +1551,7 @@ public final class CurseCutawayGag extends Effect {
                     boat.setDeltaMovement(v);
                     boat.setYRot((float) (Mth.atan2(-v.x, v.z) * (180.0 / Math.PI)));
                     boat.hurtMarked = true;
-                    // Each drift: the screech at a widely-varied pitch, slightly quieter, at the boat.
+                    // each drift: the screech at a widely-varied pitch, slightly quieter, at the boat.
                     if (elapsed % 22 == 0) {
                         level.playSound(null, boat.blockPosition(), com.oliver.witchmod.data.WitchModSounds.CUTAWAY_DRIFTING.get(),
                                 SoundSource.HOSTILE, 0.75F, 0.6F + level.random.nextFloat() * 0.9F);
@@ -1603,7 +1603,7 @@ public final class CurseCutawayGag extends Effect {
             }
             case I_LIKE_TRAINS -> {
                 if (victim != null) {
-                    // Wait for the "I like trains" line to finish, THEN spawn the train (once) and roll it.
+                    // wait for the "I like trains" line to finish, THEN spawn the train (once) and roll it.
                     if (!active.secondaryDone && elapsed >= Config.CUTAWAY_TRAIN_WARNING_TICKS.get()) {
                         active.secondaryDone = true;
                         spawnTrainCarts(level, victim, active);
@@ -1611,7 +1611,7 @@ public final class CurseCutawayGag extends Effect {
                     double trainSpeed = Config.CUTAWAY_TRAIN_SPEED.get();
                     for (int id : new ArrayList<>(active.flock)) {
                         if (level.getEntity(id) instanceof net.minecraft.world.entity.vehicle.Minecart cart) {
-                            // Drive by hand + PIN to the rail line (Y + perpendicular coord) so nothing can slow,
+                            // drive by hand + PIN to the rail line (Y + perpendicular coord) so nothing can slow,
                             // stop, or knock it off the tracks — it just barrels straight down the rails.
                             cart.noPhysics = true;
                             double along = (active.trainAlongX ? cart.getX() : cart.getZ())
@@ -1637,7 +1637,7 @@ public final class CurseCutawayGag extends Effect {
                 }
                 if (victim != null && !active.flock.isEmpty()
                         && level.getEntity(active.flock.get(0)) instanceof FallingBlockEntity ball) {
-                    // Fly STRAIGHT (no homing) at a steady speed along its launch direction, so it's dodgeable —
+                    // fly STRAIGHT (no homing) at a steady speed along its launch direction, so it's dodgeable —
                     // step out of the way and it whiffs right past you.
                     Vec3 v = ball.getDeltaMovement();
                     if (v.lengthSqr() > 1.0e-4) {
@@ -1665,7 +1665,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case PARADE -> {
-                // Drive the marchers in a dead-straight line — AI is off, so they're moved BY HAND each tick
+                // drive the marchers in a dead-straight line — AI is off, so they're moved BY HAND each tick
                 // (move() + manual gravity + a hop when blocked) so they walk over any terrain instead of
                 // floating or getting stuck. Plus a shower of confetti over the column.
                 double speed = Config.CUTAWAY_PARADE_SPEED.get();
@@ -1685,8 +1685,8 @@ public final class CurseCutawayGag extends Effect {
                         m.setYBodyRot(yaw);
                         m.setYHeadRot(yaw);
                         m.hurtMarked = true;
-                        // Trample: anything in the column's path is knocked away + hurt (vanilla i-frames stop spam).
-                        // The spectating WATCHER is explicitly excluded — the cutaway must never hurt them.
+                        // trample: anything in the column's path is knocked away + hurt (vanilla i-frames stop spam).
+                        // the spectating WATCHER is explicitly excluded — the cutaway must never hurt them.
                         for (LivingEntity hit : level.getEntitiesOfClass(LivingEntity.class, m.getBoundingBox().inflate(0.5),
                                 le -> le.isAlive() && le != m && le != watcher && !active.flock.contains(le.getId()))) {
                             hit.hurt(com.oliver.witchmod.data.WitchModDamageTypes.parade(level),
@@ -1695,7 +1695,7 @@ public final class CurseCutawayGag extends Effect {
                             hit.setDeltaMovement(hit.getDeltaMovement().add(kb));
                             hit.hurtMarked = true;
                         }
-                        // Confetti raining over the marcher.
+                        // confetti raining over the marcher.
                         if (level.random.nextInt(2) == 0) {
                             var confetti = new net.minecraft.core.particles.DustParticleOptions(
                                     new org.joml.Vector3f(level.random.nextFloat(), level.random.nextFloat(), level.random.nextFloat()), 1.2F);
@@ -1724,7 +1724,7 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case DRIVEBY -> {
-                // Force the skeletons to fire ~3x as fast (33% of the normal ~20t gap) by shooting them by hand.
+                // force the skeletons to fire ~3x as fast (33% of the normal ~20t gap) by shooting them by hand.
                 if (victim != null && elapsed % 7 == 0) {
                     for (int id : active.flock) {
                         if (level.getEntity(id) instanceof net.minecraft.world.entity.monster.AbstractSkeleton s && s.isAlive()) {
@@ -1734,11 +1734,11 @@ public final class CurseCutawayGag extends Effect {
                 }
             }
             case BOUNCY -> {
-                // Actually FLING them so they ping around — a strong random launch every few ticks (the client
-                // Bouncy bounce, borrowed via BOUNCY_ACTIVE, then rebounds them off whatever they hit).
+                // actually FLING them so they ping around — a strong random launch every few ticks (the client
+                // bouncy bounce, borrowed via BOUNCY_ACTIVE, then rebounds them off whatever they hit).
                 if (victim != null && elapsed % 8 == 0) {
                     double a = level.random.nextDouble() * Math.PI * 2.0;
-                    // Heavy HORIZONTAL launch, only a little pop of height — pinball, not a catapult.
+                    // heavy HORIZONTAL launch, only a little pop of height — pinball, not a catapult.
                     double h = 1.4 + level.random.nextDouble() * 0.6;
                     victim.setDeltaMovement(Math.cos(a) * h, 0.2 + level.random.nextDouble() * 0.15, Math.sin(a) * h);
                     victim.hurtMarked = true;
@@ -1753,7 +1753,7 @@ public final class CurseCutawayGag extends Effect {
                     if (victim.getVehicle() != boat) {
                         victim.startRiding(boat, true); // no escape
                     }
-                    // Spin RAMPS up with the ascent — winds from moderate to a fast blur. Advance the yaw by a
+                    // spin RAMPS up with the ascent — winds from moderate to a fast blur. Advance the yaw by a
                     // per-tick delta with yRotO = the PREVIOUS yaw, so the client interpolates FORWARD (the old
                     // absolute-yaw approach crossed the ±180 wrap and read as a back-and-forth wiggle).
                     float spinRate = (float) Math.min(Config.CUTAWAY_HELICOPTER_SPIN.get(), 12.0 + elapsed * 3.0);
@@ -1773,7 +1773,7 @@ public final class CurseCutawayGag extends Effect {
         Sheep sheep = EntityType.SHEEP.spawn(level, BlockPos.containing(pos), MobSpawnType.EVENT);
         if (sheep != null) {
             sheep.moveTo(pos.x, pos.y, pos.z, victim.getYRot(), 0.0F);
-            // Just the custom name — NOT setCustomNameVisible(true), which forces the always-on tag that reads
+            // just the custom name — NOT setCustomNameVisible(true), which forces the always-on tag that reads
             // wrong (vanilla named mobs only show the tag when you look at them).
             sheep.setCustomName(Component.literal("Woolliam"));
         }
@@ -1795,7 +1795,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** True if the ground under the victim is mainly natural terrain (so the Hole gag fits). */
+    /** true if the ground under the victim is mainly natural terrain (so the Hole gag fits). */
     private static boolean naturalBelow(ServerLevel level, LivingEntity victim) {
         int natural = 0;
         int solid = 0;
@@ -1814,7 +1814,7 @@ public final class CurseCutawayGag extends Effect {
         return solid >= 3 && natural >= solid - 1;
     }
 
-    /** Slides the AI-less snail one step toward the victim, snapped to the ground surface and facing them. */
+    /** slides the AI-less snail one step toward the victim, snapped to the ground surface and facing them. */
     private static void moveSnailToward(ServerLevel level, SnailEntity snail, LivingEntity victim, double speed) {
         Vec3 from = snail.position();
         double dx = victim.getX() - from.x;
@@ -1903,7 +1903,7 @@ public final class CurseCutawayGag extends Effect {
         }
     }
 
-    /** Teleport a watcher back to a saved spot and undo the spectate invisibility/gravity, robust to a cross-dimension return. */
+    /** teleport a watcher back to a saved spot and undo the spectate invisibility/gravity, robust to a cross-dimension return. */
     private static void restoreTo(ServerPlayer watcher, ServerLevel level, SavedPos saved, @Nullable net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimKey) {
         ServerLevel dest = level;
         if (dimKey != null) {
@@ -1921,7 +1921,7 @@ public final class CurseCutawayGag extends Effect {
         watcher.onUpdateAbilities();
     }
 
-    /** Teleport home from the persisted return tag, if present. Returns true if a recovery happened. */
+    /** teleport home from the persisted return tag, if present. Returns true if a recovery happened. */
     private static boolean restoreFromReturnTag(ServerPlayer watcher, ServerLevel level) {
         net.minecraft.nbt.CompoundTag ret = watcher.getData(WitchModAttachments.CUTAWAY_RETURN);
         if (ret == null || !ret.contains("x")) {
@@ -1978,14 +1978,14 @@ public final class CurseCutawayGag extends Effect {
         boolean trainAlongX;
         double trainY;
         double trainPerp;
-        // Bowling: sequential bowls (50% chance each to throw another, max 4). The ball PIERCES the cluster,
+        // bowling: sequential bowls (50% chance each to throw another, max 4). The ball PIERCES the cluster,
         // bowling over everyone in its path like pins — bowledIds stops it re-hitting the same pin each tick.
         int bowlCount;
         int nextBowlTick = -1;
         final java.util.Set<Integer> bowledIds = new java.util.HashSet<>();
-        // Parade: the straight-line march direction the columns walk in.
+        // parade: the straight-line march direction the columns walk in.
         Vec3 paradeDir = Vec3.ZERO;
-        // Marriage: the randomly-chosen ceremony lines + which of the four paths this wedding takes.
+        // marriage: the randomly-chosen ceremony lines + which of the four paths this wedding takes.
         final List<String> marriageScript = new ArrayList<>();
         int marriageOutcome;
         boolean marriageObjection;

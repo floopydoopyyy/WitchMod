@@ -11,7 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Carelessness (Black Wool): your entire health bar is rendered as identical black hearts, so you genuinely
+ * carelessness (Black Wool): your entire health bar is rendered as identical black hearts, so you genuinely
  * can't tell what health you're on. Purely a client-render change off the synced
  * {@link WitchModAttachments#CARELESSNESS_ACTIVE} flag — the real health value and all mechanics are untouched
  * (see {@code client/CarelessnessHud}), you're just flying blind.
@@ -21,7 +21,7 @@ public final class CurseCarelessness extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.BLACK_WOOL);
     }
 
-    // Discovery on apply (the centralised default): the blacked-out hearts are obvious the instant it lands.
+    // discovery on apply (the centralised default): the blacked-out hearts are obvious the instant it lands.
 
     @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {

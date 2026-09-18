@@ -14,7 +14,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Main Character's looping battle theme, following a powered-up player. Everyone nearby hears it, not just the
+ * main Character's looping battle theme, following a powered-up player. Everyone nearby hears it, not just the
  * protagonist. The supplied track is stereo, which OpenAL can't positionally attenuate, so the volume is faded
  * MANUALLY by distance each tick (full at the source, silent past {@code mainCharMusicRange}). A looping
  * tickable instance so it stops the instant the tier drops to 0 (the server's sticky window keeps it up ~4s
@@ -35,7 +35,7 @@ public final class MainCharSoundInstance extends AbstractTickableSoundInstance {
         this.volume = computeVolume();
     }
 
-    /** Whether this source should still have a theme playing. */
+    /** whether this source should still have a theme playing. */
     static boolean shouldPlay(Player source) {
         return source.isAlive() && !source.isRemoved()
                 && source.getData(WitchModAttachments.MAINCHAR_TIER) > 0;

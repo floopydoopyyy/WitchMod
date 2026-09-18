@@ -11,7 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Forgiveness (sacrificial item NAME TAG): entity hitboxes are effectively ~40% bigger — but ONLY for YOU.
+ * forgiveness (sacrificial item NAME TAG): entity hitboxes are effectively ~40% bigger — but ONLY for YOU.
  * Near-misses land: a melee swing that just grazed a mob connects anyway (client-side enlarged pick on a
  * miss, see {@code client/ClientCurseHandler}), and YOUR projectiles curve onto an entity whose enlarged box
  * they were about to pass through (server-side, in {@code ProjectileBlessingHandler}). Nobody else's aim is
@@ -25,7 +25,7 @@ public final class BlessingForgiveness extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.NAME_TAG);
     }
 
-    /** Not instantly noticeable — you discover it the first time a shot curves onto a near-miss (see the projectile handler). */
+    /** not instantly noticeable — you discover it the first time a shot curves onto a near-miss (see the projectile handler). */
     @Override
     public boolean discoversOnTrigger() {
         return true;

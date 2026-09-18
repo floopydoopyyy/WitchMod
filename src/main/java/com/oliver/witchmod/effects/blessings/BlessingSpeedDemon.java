@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Speed Demon (Carrot on a Stick — ⚠ Lightning Rod was requested but is Comic Relief's item): any LIVING
+ * speed Demon (Carrot on a Stick — ⚠ Lightning Rod was requested but is Comic Relief's item): any LIVING
  * mount you ride moves twice as fast, via a transient {@code MOVEMENT_SPEED} MULTIPLY_TOTAL modifier applied
  * while you're aboard and stripped the moment you get off (or the blessing ends).
  *
@@ -34,6 +34,9 @@ import com.oliver.witchmod.data.EffectCostTier;
 public final class BlessingSpeedDemon extends Effect {
     private static final ResourceLocation MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "speed_demon_mount");
+    /** an extra stacking mount-speed modifier for the greased_mount synergy (with Ice Skates). */
+    private static final ResourceLocation ICE_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "speed_demon_greased");
     /** rider UUID -> the mount entity id we last boosted, so we can strip it when they change/leave mounts. */
     private static final Map<UUID, Integer> BOOSTED = new HashMap<>();
 
@@ -58,13 +61,16 @@ public final class BlessingSpeedDemon extends Effect {
         }
         Entity vehicle = target.getVehicle();
 
-        // Minecarts are server-authoritative, but their delta is clamped to a hardcoded max speed — so nudge
+        // minecarts are server-authoritative, but their delta is clamped to a hardcoded max speed — so nudge
         // them an EXTRA (mult-1)× their travel each tick via a second move(), which the clamp doesn't touch.
         if (vehicle instanceof net.minecraft.world.entity.vehicle.AbstractMinecart cart) {
             net.minecraft.world.phys.Vec3 v = cart.getDeltaMovement();
             double horiz = Math.hypot(v.x, v.z);
             if (horiz > 0.01) {
                 double extra = Config.SPEED_DEMON_MOUNT_MULTIPLIER.get() - 1.0;
+                if (com.oliver.witchmod.synergy.Synergies.GREASED_MOUNT.activeFor(target)) {
+                    extra += Config.SPEED_DEMON_ICE_BONUS.get(); // greased_mount: extra stacking speed
+                }
                 cart.move(net.minecraft.world.entity.MoverType.SELF, new net.minecraft.world.phys.Vec3(v.x, 0, v.z).scale(extra));
                 speedParticles(target.serverLevel(), cart);
                 markDiscoveredByVictim(target);
@@ -74,7 +80,7 @@ public final class BlessingSpeedDemon extends Effect {
         LivingEntity mount = vehicle instanceof LivingEntity le ? le : null;
         Integer boostedId = BOOSTED.get(target.getUUID());
 
-        // Left the mount (or swapped to a new one / a non-living one) — strip the old boost.
+        // left the mount (or swapped to a new one / a non-living one) — strip the old boost.
         if (boostedId != null && (mount == null || mount.getId() != boostedId)) {
             stripById(target.serverLevel(), boostedId);
             BOOSTED.remove(target.getUUID());
@@ -91,6 +97,15 @@ public final class BlessingSpeedDemon extends Effect {
             attr.addTransientModifier(new AttributeModifier(MODIFIER_ID, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             BOOSTED.put(target.getUUID(), mount.getId());
             markDiscoveredByVictim(target);
+        }
+        // greased_mount synergy (with Ice Skates): a second, live-toggled stacking speed modifier.
+        boolean greased = com.oliver.witchmod.synergy.Synergies.GREASED_MOUNT.activeFor(target);
+        boolean hasIce = attr.getModifier(ICE_MODIFIER_ID) != null;
+        if (greased && !hasIce) {
+            attr.addTransientModifier(new AttributeModifier(ICE_MODIFIER_ID,
+                    Config.SPEED_DEMON_ICE_BONUS.get(), AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        } else if (!greased && hasIce) {
+            attr.removeModifier(ICE_MODIFIER_ID);
         }
         speedParticles(target.serverLevel(), mount);
     }
@@ -124,6 +139,7 @@ public final class BlessingSpeedDemon extends Effect {
             AttributeInstance attr = mount.getAttribute(Attributes.MOVEMENT_SPEED);
             if (attr != null) {
                 attr.removeModifier(MODIFIER_ID);
+                attr.removeModifier(ICE_MODIFIER_ID);
             }
         }
     }

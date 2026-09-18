@@ -1,12 +1,6 @@
 package com.oliver.witchmod;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -44,43 +38,24 @@ import com.oliver.witchmod.entities.WitchModEntities;
 import com.oliver.witchmod.ui.BewitchingTableScreen;
 import com.oliver.witchmod.ui.WitchModMenus;
 
-// This class will not load on dedicated servers. Accessing client side code from here is safe.
+/** client-side entrypoint — registers renderers, hud layers, particle/fluid extensions. never loaded on a dedicated server. */
 @Mod(value = WitchMod.MODID, dist = Dist.CLIENT)
-// You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
 @EventBusSubscriber(modid = WitchMod.MODID, value = Dist.CLIENT)
 public class WitchModClient {
-    /** Opens the Organised blessing's extra inventory row (default: O). Only does anything if you have it. */
-    public static final KeyMapping ORGANISED_KEY = new KeyMapping(
-            "key.witchmod.organised", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, "key.categories.witchmod");
-
     public WitchModClient(ModContainer container) {
-        // Allows NeoForge to create a config screen for this mod's configs.
-        // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
-        // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
     }
 
     @SubscribeEvent
-    static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        event.register(ORGANISED_KEY);
-    }
-
-    @SubscribeEvent
     static void onClientSetup(FMLClientSetupEvent event) {
-        // Some client setup code
-        WitchMod.LOGGER.info("HELLO FROM CLIENT SETUP");
-        WitchMod.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
-
-        // Holy Water has to be on the TRANSLUCENT layer or the alpha in its tint colour is simply discarded
-        // — an unregistered fluid falls back to a solid render type, which does no blending at all. Vanilla
-        // registers its own water the same way. Both the source and flowing fluids need it.
+        // holy water needs the translucent layer or its tint alpha is discarded (an unregistered fluid falls
+        // back to a solid, non-blending render type); both source and flowing need it
         event.enqueueWork(() -> {
             ItemBlockRenderTypes.setRenderLayer(WitchModFluids.PURIFYING_WATER.get(), RenderType.translucent());
             ItemBlockRenderTypes.setRenderLayer(WitchModFluids.PURIFYING_WATER_FLOWING.get(), RenderType.translucent());
 
-            // Player Essence's "colour" is picked by the bound player's UUID (stable forever) — a purely visual
-            // differential. This model property returns index/16 so the item model's overrides select the matching
-            // recolour; an unbound essence returns 0 (the default player_essence texture).
+            // player essence colour keys off the bound uuid (stable) — the model property returns index/16 so
+            // the model overrides pick the matching recolour; unbound = 0 (default texture)
             net.minecraft.client.renderer.item.ItemProperties.register(
                     com.oliver.witchmod.items.WitchModItems.PLAYER_ESSENCE.get(),
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "essence_colour"),
@@ -92,23 +67,20 @@ public class WitchModClient {
         });
     }
 
-    /**
-     * Ugly: re-scan the skin folder on every resource reload, so dropping a new PNG in and pressing F3+T
-     * picks it up without a restart — which is the whole promise of that folder.
-     */
+    /** ugly: re-scan the skin folder on every resource reload, so a dropped-in png shows up on f3+t. */
     @SubscribeEvent
     static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((ResourceManagerReloadListener) manager -> UglySkinManager.reload());
     }
 
-    /** Custom particle factories. */
+    /** custom particle factories. */
     @SubscribeEvent
     static void onRegisterParticleProviders(net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(com.oliver.witchmod.data.WitchModParticles.SLEEP_Z.get(),
                 com.oliver.witchmod.client.SleepZParticle.Provider::new);
     }
 
-    /** The custom entities' model layers. */
+    /** custom entity model layers. */
     @SubscribeEvent
     static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(TaxManRenderer.LAYER, TaxManRenderer::createBodyLayer);
@@ -142,31 +114,25 @@ public class WitchModClient {
 
     @SubscribeEvent
     static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
-        // WitchMod's stacked right-side bars sit above the vanilla hunger bar (Phase D / Section 13.4);
-        // HudBars keeps them from overlapping when several are active at once.
+        // stacked right-side bars sit above the hunger bar; the layers themselves stagger to avoid overlap
         event.registerAbove(VanillaGuiLayers.FOOD_LEVEL,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "gluttony_bar"), new GluttonyHudLayer());
         event.registerAbove(VanillaGuiLayers.FOOD_LEVEL,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "thirst_bar"), new ThirstHudLayer());
-        // Chat blessing's Twitch overlay (a side panel, above the HUD but below any fullscreen overlay).
         event.registerAbove(VanillaGuiLayers.FOOD_LEVEL,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "chat_overlay"), new ChatOverlayLayer());
-        // Gladiator parry-stage bar, drawn near the crosshair (below the vanilla attack indicator).
+        // gladiator parry gauge, near the crosshair
         event.registerAbove(VanillaGuiLayers.CROSSHAIR,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "gladiator_parry"), new GladiatorParryLayer());
-        // Blessing of Flight energy bar, just above the XP bar.
+        // flight energy bar, above the xp bar
         event.registerAbove(VanillaGuiLayers.EXPERIENCE_BAR,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "flight_bar"), new com.oliver.witchmod.client.FlightBarLayer());
-        // Scrying Mirror result panel.
         event.registerAbove(VanillaGuiLayers.EXPERIENCE_BAR,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "scrying"), new com.oliver.witchmod.client.ScryingOverlay());
-        // Siren's Call magenta mind-control tint — over the HUD but below the loading-screen prank.
+        // fullscreen washes/overlays sit above everything
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "siren_shader"), new SirenShaderOverlay());
-        // Immortality's gold->white rebuild wash while recovering from a death.
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "immortality_recovery"), new ImmortalityRecoveryOverlay());
-        // The Last Stand / Immortality revive "totem" pop (Blessed icon, gold->white).
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "revive_flash"), new ReviveFlashOverlay());
-        // Loading Screen prank overlay sits above everything (it's a fake fullscreen loading screen).
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "loading_screen"), new LoadingScreenOverlay());
     }
 
@@ -188,8 +154,7 @@ public class WitchModClient {
                 return WitchModFluids.TINT_COLOR;
             }
 
-            // Submerged in holy water: a bright, almost-white fog that closes in very tight, so it reads as a
-            // radiant haze rather than the murky green/blue of normal water.
+            // submerged in holy water: a bright near-white fog, radiant rather than murky
             @Override
             public org.joml.Vector3f modifyFogColor(net.minecraft.client.Camera camera, float partialTick,
                     net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float darkenWorldAmount,
@@ -201,13 +166,13 @@ public class WitchModClient {
             public void modifyFogRender(net.minecraft.client.Camera camera,
                     net.minecraft.client.renderer.FogRenderer.FogMode mode, float renderDistance, float partialTick,
                     float nearDistance, float farDistance, com.mojang.blaze3d.shaders.FogShape shape) {
-                // Very close haze so the holy water blinds you to the world beyond arm's reach.
+                // very close haze — holy water blinds you past arm's reach
                 com.mojang.blaze3d.systems.RenderSystem.setShaderFogStart(0.1F);
                 com.mojang.blaze3d.systems.RenderSystem.setShaderFogEnd(3.5F);
             }
         }, WitchModFluids.PURIFYING_WATER_TYPE.get());
 
-        // Gladiator: give every sword/axe the parry block-pose extension (it only poses while parrying).
+        // gladiator: give every sword/axe the parry block-pose extension (poses only while parrying)
         for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
             if (item instanceof net.minecraft.world.item.SwordItem || item instanceof net.minecraft.world.item.AxeItem) {
                 event.registerItem(GladiatorClientHandler.PARRY_POSE, item);

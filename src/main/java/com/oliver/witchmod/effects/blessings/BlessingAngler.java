@@ -19,12 +19,10 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * A born fisher (master-spec Angler, sacrificial item SALMON). Fish bite very fast, and you've a decent chance
- * to reel in more than one thing. Your LUCK is untouched — that's a different blessing's job.
+ * fish bite fast - does not touch luck because otherwise that very important blessing would be less important.
  *
- * <p>And every so often the water gives up something it shouldn't (weighted, most→least likely): bonus
- * treasure, a live fish or squid, a Drowned, a Strider, a sheep called Woolliam, or — rarest, to discourage
- * AFK-farming — a lit stick of TNT. The fast-bite half reflects into {@link FishingHook#timeUntilLured}; the
+ * And every so often the water gives up something it shouldn't (weighted, most→least likely): bonus
+ * treasure, a live fish or squid, Drowned Strider, Woolliam, or — rarest, TNT cus funny The fast-bite half reflects into {@link FishingHook#timeUntilLured}; the
  * multi-catch and the surprises are applied on the catch in {@code BlessingEventHandler}.
  */
 public final class BlessingAngler extends Effect {
@@ -35,7 +33,7 @@ public final class BlessingAngler extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 21, () -> Items.SALMON);
     }
 
-    /** You find out the first time a bite comes suspiciously fast (Rule 2). */
+    /** you find out the first time a bite comes suspiciously fast (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -48,13 +46,23 @@ public final class BlessingAngler extends Effect {
             return;
         }
         int extra = Config.ANGLER_BITE_EXTRA_TICKS.get();
-        // Hurry the "waiting for a bite" timer along — reflected, since the fields are private (the project
-        // already uses reflection elsewhere rather than take on an access transformer).
         boolean lured = reduceField(hook, timeUntilLuredField(), extra);
         reduceField(hook, timeUntilHookedField(), extra);
         if (lured) {
             markDiscoveredByVictim(target);
         }
+        ServerLevel level = target.serverLevel();
+        if (level.getGameTime() % 10 == 0) {
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.SPLASH,
+                    hook.getX(), hook.getY() + 0.1, hook.getZ(), 1, 0.12, 0.04, 0.12, 0.0);
+        }
+    }
+
+    /** shave {@code by} ticks off BOTH bite timers (shared by Guardian Angel's fishing hover — stacks with Angler). SYNERGY!!! */
+    public static boolean hurry(FishingHook hook, int by) {
+        boolean lured = reduceField(hook, timeUntilLuredField(), by);
+        reduceField(hook, timeUntilHookedField(), by);
+        return lured;
     }
 
     private static boolean reduceField(FishingHook hook, @org.jetbrains.annotations.Nullable Field field, int by) {
@@ -68,7 +76,7 @@ public final class BlessingAngler extends Effect {
                 return true;
             }
         } catch (IllegalAccessException ignored) {
-            // give up quietly; the bite just runs at vanilla speed
+            // give up quietly and run it vanilla
         }
         return false;
     }
@@ -98,15 +106,15 @@ public final class BlessingAngler extends Effect {
         }
     }
 
-    // --- The comical "surprise" pull, called from the fishing-catch handler. --------------------------------
+    // SURPRISE FISHES
 
-    /** Spawn a comical surprise flung out of the water at the hook, weighted most→least likely. */
+    /** spawn a comical surprise flung out of the water at the hook, weighted most→least likely. */
     public static void spawnSurprise(ServerPlayer player, FishingHook hook) {
         ServerLevel level = player.serverLevel();
         Vec3 at = hook.position();
         int roll = player.getRandom().nextInt(100);
 
-        // Weighted (cumulative): treasure 44 · fish/squid 26 · drowned 14 · strider 8 · Woolliam 5 · TNT 3.
+        // weighted (cumulative): treasure 44 · fish/squid 26 · drowned 14 · strider 8 · Woolliam 5 · TNT 2.
         if (roll < 44) {
             spawnTreasure(player, hook);
             return;
@@ -128,13 +136,13 @@ public final class BlessingAngler extends Effect {
             }
             entity = sheep;
         } else {
-            entity = EntityType.TNT.create(level); // rarest — a nasty surprise for AFK anglers
+            entity = EntityType.TNT.create(level); // rarest — i tell myself this is to discourage afk but no its because its funny
         }
         if (entity == null) {
             return;
         }
         entity.moveTo(at.x, at.y + 0.2, at.z, level.random.nextFloat() * 360.0F, 0.0F);
-        // Fling it up and toward you, arcing out of the water.
+        // arc it toward user
         Vec3 toPlayer = player.position().subtract(at);
         Vec3 flat = new Vec3(toPlayer.x, 0.0, toPlayer.z);
         Vec3 launch = (flat.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : flat.normalize()).scale(0.35).add(0.0, 0.55, 0.0);

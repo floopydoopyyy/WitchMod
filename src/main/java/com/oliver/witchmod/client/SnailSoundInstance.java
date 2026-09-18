@@ -12,7 +12,7 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.entities.SnailEntity;
 
 /**
- * The Snail curse's looping dread music, following one Snail entity. A looping tickable instance (so it loops
+ * the Snail curse's looping dread music, following one Snail entity. A looping tickable instance (so it loops
  * seamlessly via OpenAL {@code AL_LOOPING} on the fully-buffered sound, and can be stopped the instant the
  * snail leaves range). Positional at the snail with LINEAR attenuation, so it swells as it closes in.
  */
@@ -20,7 +20,7 @@ import com.oliver.witchmod.entities.SnailEntity;
 public final class SnailSoundInstance extends AbstractTickableSoundInstance {
     private final SnailEntity snail;
 
-    // Constant playback speed; the VOLUME scales through these distance stages instead (louder as it nears).
+    // constant playback speed; the VOLUME scales through these distance stages instead (louder as it nears).
     private static final float PITCH = 1.1F;
     private static final double MID_DIST = 10.0;
     private static final double NEAR_DIST = 5.0;
@@ -39,7 +39,7 @@ public final class SnailSoundInstance extends AbstractTickableSoundInstance {
         this.z = snail.getZ();
     }
 
-    /** Whether the music should still play: the snail is alive and within the MAX music distance of the player. */
+    /** whether the music should still play: the snail is alive and within the MAX music distance of the player. */
     static boolean shouldPlay(SnailEntity snail) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || snail.isRemoved() || !snail.isAlive()) {
@@ -67,7 +67,7 @@ public final class SnailSoundInstance extends AbstractTickableSoundInstance {
         this.pitch = PITCH; // permanent 1.1x
     }
 
-    /** Volume steps UP as it nears (0.7 at the full ring → 0.85 at 10 → 1.0 within 5), fading to silence at max. */
+    /** volume steps UP as it nears (0.7 at the full ring → 0.85 at 10 → 1.0 within 5), fading to silence at max. */
     private static float volumeFactor(double dist, double full, double max) {
         if (dist <= NEAR_DIST) {
             return VOL_NEAR;

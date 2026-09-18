@@ -7,13 +7,10 @@ import java.util.Map;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * Real server config (CLAUDE.md section 7/10 Phase 6), replacing the MDK's example scaffold. Every
- * gamerule named in section 7 lives here, plus the section 5.7 success/backfire formula constants, plus a
- * generic "id=value" override list for the ~70 individual per-effect essence costs from sections 5.1/5.2 —
- * a full one-field-per-effect config would be ~150 static fields for numbers this document itself calls
- * "brief functional prototype... treat none of the current implementations as final design intent"
- * (section 4), so the override-list format keeps every cost genuinely tunable without code changes while
- * staying proportionate to how provisional those numbers are.
+ * server config — the gamerules, the success/backfire formula constants, and every per-attachment balancing
+ * knob, all tunable without code changes. per-effect essence costs use a generic "id=value" override list
+ * rather than a field each. server-type (per-world, auto-synced to clients) since the values decide cast
+ * resolution. the .comment() strings are user-facing toml docs, so they stay full sentences.
  */
 public final class Config {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -42,8 +39,9 @@ public final class Config {
             .defineInRange("gracePeriodTicks", 6000, 0, Integer.MAX_VALUE);
 
     public static final ModConfigSpec.IntValue MAX_ACTIVE_EFFECTS_PER_PLAYER = BUILDER
-            .comment("Max simultaneous curses+blessings a player can carry before further casts risk",
-                    "backfiring instead of landing cleanly (CLAUDE.md section 2.7).")
+            .comment("The Limit: the most curses AND the most blessings a player can carry at once. This is an",
+                    "ABSOLUTE hard cap — every apply path (table, jar, coin, effigy, command) refuses to exceed it",
+                    "(Infectious is exempt). It also doubles as the backfire-RISK threshold at the Table.")
             .defineInRange("maxActiveEffectsPerPlayer", 3, 1, 64);
 
     public static final ModConfigSpec.IntValue LEDGER_RANGE = BUILDER
@@ -61,6 +59,10 @@ public final class Config {
                     "while a player with active effects stands in it. 20 = 1 real second of timer drained every tick",
                     "(20x speed), so the timers visibly race down. Higher = faster cleanse.")
             .defineInRange("purifyDrainTicksPerTick", 20, 1, 1200);
+    public static final ModConfigSpec.IntValue HOLY_WATER_DRINK_DRAIN_TICKS = BUILDER
+            .comment("Holy (Purifying) Water: ticks of timer washed off EVERY active attachment when a Thirst-cursed",
+                    "player DRINKS it (a clean, risk-free drink). 6000 = 5 minutes.")
+            .defineInRange("holyWaterDrinkDrainTicks", 6000, 0, 72000);
 
     public static final ModConfigSpec.DoubleValue PURIFY_UNDEAD_DAMAGE = BUILDER
             .comment("Holy (Purifying) Water: damage dealt to an undead mob per hit while it stands in the fluid",
@@ -74,12 +76,12 @@ public final class Config {
 
     public static final ModConfigSpec.IntValue LIMIT_BACKFIRE_BOOST_PERCENT = BUILDER
             .comment("Flat backfire-chance increase (percentage points) applied when the target is already",
-                    "at or over maxActiveEffectsPerPlayer. A Phase 6 balancing knob, not a value CLAUDE.md pins down.")
+                    "at or over maxActiveEffectsPerPlayer.")
             .defineInRange("limitBackfireBoostPercent", 20, 0, 100);
 
     public static final ModConfigSpec.IntValue ESCALATING_COST_PERCENT = BUILDER
             .comment("Extra essence cost (percent) required to cast an effect on a target who already has",
-                    "that exact effect active (CLAUDE.md section 2.7's \"escalating cost\").")
+                    "that exact effect active (the escalating cost).")
             .defineInRange("escalatingCostPercent", 50, 0, 500);
 
     public static final ModConfigSpec.IntValue SUCCESS_FLOOR_PERCENT = BUILDER
@@ -98,8 +100,7 @@ public final class Config {
             .comment("Section 5.7 formula: backfire chance at essenceSpent = 0, scaling down to 0 at full cost.")
             .defineInRange("backfireStartPercent", 25, 0, 100);
 
-    // --- Backfire tiering (⚠ PLACEHOLDER — keyed off baseCost as a stand-in for a real per-attachment tier/
-    //     strength value that doesn't exist yet; see CLAUDE.md "Attachment strength/tier TODO"). ------------
+    // backfire tiering — keyed off baseCost as a stand-in for a real per-attachment tier/strength value
     public static final ModConfigSpec.IntValue BACKFIRE_LOW_TIER_COST = BUILDER
             .comment("PLACEHOLDER tier: attachments with baseCost <= this are LOW tier and never backfire (0%).")
             .defineInRange("backfireLowTierCost", 20, 0, 1000);
@@ -146,7 +147,7 @@ public final class Config {
             .comment("Thrown Jar (lash): how long (ticks) the lash chases before it fizzles out. Run far enough and it can't reach you.")
             .defineInRange("jarLashExpiryTicks", 200, 20, 1200);
 
-    // --- Per-attachment balancing constants (added as each attachment is refined; see CLAUDE.md §16) ---
+    // per-attachment balancing constants
 
     public static final ModConfigSpec.IntValue ALLERGIC_BLINDNESS_SECONDS = BUILDER
             .comment("Allergic: how long the blindness lasts after eating a food your rolled diet forbids.")
@@ -170,9 +171,6 @@ public final class Config {
             .comment("Backseat Driver: how long the AI keeps the wheel once it takes over.")
             .defineInRange("backseatEpisodeSeconds", 10, 1, 300);
 
-    public static final ModConfigSpec.IntValue BACKSEAT_COOLDOWN_SECONDS = BUILDER
-            .comment("Backseat Driver: cooldown after a full-length takeover before another can start.")
-            .defineInRange("backseatCooldownSeconds", 60, 0, 3600);
 
     public static final ModConfigSpec.IntValue BACKSEAT_EARLY_EXIT_COOLDOWN_SECONDS = BUILDER
             .comment("Backseat Driver: SHORTER cooldown used when the rider bailed out to end it early —",
@@ -434,7 +432,7 @@ public final class Config {
             .defineInRange("loadingScreenMaxTotalTicks", 400, 20, 12000);
 
     public static final ModConfigSpec.IntValue LOADING_SCREEN_FRAME_COUNT = BUILDER
-            .comment("Loading Screen: number of frames in the animation sprite sheet (see CLAUDE.md 13.6).",
+            .comment("Loading Screen: number of frames in the animation sprite sheet.",
                     "The shipped chest sheet is 36 frames.")
             .defineInRange("loadingScreenFrameCount", 36, 1, 512);
 
@@ -627,6 +625,9 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue YAP_PROXIMITY_RADIUS = BUILDER
             .comment("Yap: how close another player must be to set off the 'someone's near' reaction.")
             .defineInRange("yapProximityRadius", 6.0, 1.0, 32.0);
+    public static final ModConfigSpec.IntValue YAP_STREAMER_CHANCE = BUILDER
+            .comment("Yap+Chat synergy: percent chance an ambient outburst is a 'talking to chat' streamer line (from the yap.json events 'streamer' list) instead of a normal one.")
+            .defineInRange("yapStreamerChancePercent", 35, 0, 100);
 
     public static final ModConfigSpec.DoubleValue REPEL_RADIUS = BUILDER
             .comment("Repel: how close a dropped item or XP orb must be to the victim to start sliding away.")
@@ -890,9 +891,22 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue FORGIVENESS_PROJECTILE_STEER = BUILDER
             .comment("Forgiveness: how hard YOUR projectile curves onto an entity whose enlarged box it was about to pass through (0..1). Higher = it connects more reliably.")
             .defineInRange("forgivenessProjectileSteer", 0.35, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue FORGIVENESS_PROJECTILE_LOOKAHEAD_TICKS = BUILDER
+            .comment("Forgiveness: how many ticks of travel ahead the projectile scans for an about-to-pass entity.",
+                    "Scaled by the shot's speed, so FAST arrows (≈3 blocks/tick) are actually caught, not just slow lobs.")
+            .defineInRange("forgivenessProjectileLookaheadTicks", 4.0, 1.0, 20.0);
     public static final ModConfigSpec.DoubleValue DRIVE_RADIUS = BUILDER
             .comment("Drive: radius (blocks) within which nearby animals have their breeding cooldown cleared each tick.")
             .defineInRange("driveRadius", 16.0, 2.0, 64.0);
+    public static final ModConfigSpec.IntValue DRIVE_AUTO_BREED_IDLE_TICKS = BUILDER
+            .comment("Drive: after this long without the blessed player breeding an animal themselves, nearby pairs start breeding on their own.")
+            .defineInRange("driveAutoBreedIdleTicks", 600, 0, 24000);
+    public static final ModConfigSpec.IntValue DRIVE_AUTO_BREED_INTERVAL_TICKS = BUILDER
+            .comment("Drive: how often a spontaneous auto-breed is attempted (once the idle window has passed).")
+            .defineInRange("driveAutoBreedIntervalTicks", 100, 20, 2400);
+    public static final ModConfigSpec.IntValue DRIVE_AUTO_BREED_CHANCE_PERCENT = BUILDER
+            .comment("Drive: chance per attempt that a nearby same-type pair breeds with no food. With the Farmhand synergy the idle gate is ignored and babies join the nuisance.")
+            .defineInRange("driveAutoBreedChancePercent", 60, 0, 100);
 
     // --- More QoL blessings: Vein Miner / Collector / Restock / Sanguine / Homebody / Sonar -----------
     public static final ModConfigSpec.IntValue VEIN_MINER_MAX = BUILDER
@@ -1022,6 +1036,19 @@ public final class Config {
     public static final ModConfigSpec.IntValue IMMORTALITY_MAX_USES = BUILDER
             .comment("Immortality: how many deaths it saves you from before the blessing breaks. Default 3.")
             .defineInRange("immortalityMaxUses", 3, 1, 20);
+    public static final ModConfigSpec.IntValue IMMORTALITY_SHINE_SOUND_INTERVAL = BUILDER
+            .comment("Immortality: how often (ticks) a soft crystalline 'shine' chime plays while you rebuild —",
+                    "its pitch rises as you knit back together. 0 = silent rebuild.")
+            .defineInRange("immortalityShineSoundIntervalTicks", 8, 0, 200);
+    public static final ModConfigSpec.DoubleValue IMMORTALITY_SHINE_VOLUME = BUILDER
+            .comment("Immortality: volume of the rebuild shine chime.")
+            .defineInRange("immortalityShineVolume", 0.5, 0.0, 1.0);
+
+    // --- Jesus (blessing) ------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue JESUS_DEPTH_STRIDER_SPEED_PER_LEVEL = BUILDER
+            .comment("Jesus: while walking on the water SURFACE, Depth Strider on your boots instead speeds you up —",
+                    "this fractional MOVEMENT_SPEED bonus per Depth Strider level (0.2 = +20% per level, +60% at III).")
+            .defineInRange("jesusDepthStriderSpeedPerLevel", 0.2, 0.0, 2.0);
 
     // --- Sixth Sense (blessing) ------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue SIXTHSENSE_INTERVAL_MIN = BUILDER
@@ -1065,23 +1092,37 @@ public final class Config {
             .comment("Iron Stomach: saturation gain from a BAD food is multiplied by this. 1.5 = +50%.")
             .defineInRange("ironStomachSaturationMultiplier", 1.5, 1.0, 4.0);
 
-    // --- Steady Hands (blessing) -----------------------------------------------------------------------
-    public static final ModConfigSpec.DoubleValue STEADYHANDS_SPREAD_RETAIN = BUILDER
-            .comment("Steady Hands: fraction of a shot's NATURAL spread to keep (0 = dead on the crosshair, 1 = vanilla).",
+    // --- Dexterous (blessing) --------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue DEXTEROUS_SPREAD_RETAIN = BUILDER
+            .comment("Dexterous: fraction of a shot's NATURAL spread to keep (0 = dead on the crosshair, 1 = vanilla).",
                     "Compresses each shot toward your aim: single shots become very accurate, and multishot's",
                     "±10° fan is squeezed to a tight-but-visible spread that can still all hit one target. 0.2 = keep 20%.")
-            .defineInRange("steadyHandsSpreadRetain", 0.2, 0.0, 1.0);
+            .defineInRange("dexterousSpreadRetain", 0.2, 0.0, 1.0);
 
-    public static final ModConfigSpec.IntValue STEADYHANDS_CHARGE_SPEEDUP_TICKS = BUILDER
-            .comment("Steady Hands: extra charge ticks credited each use tick while drawing a bow/loading a crossbow.",
+    public static final ModConfigSpec.IntValue DEXTEROUS_CHARGE_SPEEDUP_TICKS = BUILDER
+            .comment("Dexterous: extra charge ticks credited each use tick while drawing a bow/loading a crossbow.",
                     "1 = roughly double charge speed.")
-            .defineInRange("steadyHandsChargeSpeedupTicks", 1, 0, 10);
+            .defineInRange("dexterousChargeSpeedupTicks", 1, 0, 10);
+
+    public static final ModConfigSpec.IntValue DEXTEROUS_SHIELD_DELAY_TICKS = BUILDER
+            .comment("Dexterous: ticks a shield takes to raise into a block (vanilla is 5). Lower = faster guard.")
+            .defineInRange("dexterousShieldDelayTicks", 2, 0, 5);
 
     // --- Hawk Guy (blessing) ---------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue HAWKGUY_HOMING_STRENGTH = BUILDER
-            .comment("Hawk Guy: how hard your projectiles bend toward the marked target each tick while airborne (0..1).",
-                    "Higher = more blatant curving. 0.3 is a strong, obvious homing arc.")
+            .comment("Hawk Guy: how hard your projectiles bend toward the marked target each tick while airborne (0..1)",
+                    "at CLOSE range (<= hawkGuyHomingNearDistance). 0.3 is a strong, obvious homing arc up close.")
             .defineInRange("hawkGuyHomingStrength", 0.3, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue HAWKGUY_HOMING_STRENGTH_FAR = BUILDER
+            .comment("Hawk Guy: homing strength at/beyond hawkGuyHomingFarDistance — much more blatant, so a long-range",
+                    "shot curves hard onto the target even when it left your bow well off-line. Lerped from the close value.")
+            .defineInRange("hawkGuyHomingStrengthFar", 0.7, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue HAWKGUY_HOMING_NEAR_DISTANCE = BUILDER
+            .comment("Hawk Guy: at/under this distance (blocks) from the target the CLOSE strength applies (kept gentle).")
+            .defineInRange("hawkGuyHomingNearDistance", 10.0, 0.0, 128.0);
+    public static final ModConfigSpec.DoubleValue HAWKGUY_HOMING_FAR_DISTANCE = BUILDER
+            .comment("Hawk Guy: at/over this distance (blocks) the FAR strength applies; between the two it lerps.")
+            .defineInRange("hawkGuyHomingFarDistance", 32.0, 1.0, 256.0);
 
     public static final ModConfigSpec.DoubleValue HAWKGUY_ACQUIRE_CONE = BUILDER
             .comment("Hawk Guy: half-angle (degrees) of the cone around your aim used to pick the intended target on release.",
@@ -1089,8 +1130,9 @@ public final class Config {
             .defineInRange("hawkGuyAcquireConeDegrees", 45.0, 1.0, 90.0);
 
     public static final ModConfigSpec.DoubleValue HAWKGUY_ACQUIRE_RANGE = BUILDER
-            .comment("Hawk Guy: how far (blocks) the acquisition raycast/cone looks for the intended target.")
-            .defineInRange("hawkGuyAcquireRange", 24.0, 4.0, 128.0);
+            .comment("Hawk Guy: how far (blocks) the acquisition raycast/cone looks for the intended target. Generous so",
+                    "distant targets get locked (the far-range homing then curves the shot in).")
+            .defineInRange("hawkGuyAcquireRange", 40.0, 4.0, 128.0);
 
     public static final ModConfigSpec.DoubleValue HAWKGUY_MAX_HOMING_RANGE = BUILDER
             .comment("Hawk Guy: if the projectile ends up further than this (blocks) from its target, it stops homing.")
@@ -1098,8 +1140,16 @@ public final class Config {
 
     // --- Personal Trainer / Studious (blessings) -------------------------------------------------------
     public static final ModConfigSpec.DoubleValue TRAINER_VILLAGER_XP_MULT = BUILDER
-            .comment("Personal Trainer: multiplier on the XP a villager gains from YOUR trades. 3.0 = 3x.")
-            .defineInRange("trainerVillagerXpMultiplier", 3.0, 1.0, 16.0);
+            .comment("Personal Trainer: multiplier on the XP a villager gains from YOUR trades. Cranked high for",
+                    "now so the level-up is blatant/visible (villager XP is otherwise invisible); tune back toward",
+                    "~3x for release balance.")
+            .defineInRange("trainerVillagerXpMultiplier", 25.0, 1.0, 100.0);
+    public static final ModConfigSpec.DoubleValue TRAINER_NEARBY_RADIUS = BUILDER
+            .comment("Personal Trainer: radius (blocks) around a trade in which OTHER villagers also get coached.")
+            .defineInRange("trainerNearbyRadius", 8.0, 0.0, 32.0);
+    public static final ModConfigSpec.IntValue TRAINER_LEVELUP_DELAY_TICKS = BUILDER
+            .comment("Personal Trainer: ticks before a coached villager levels up (vanilla is 40). Small = near-instant.")
+            .defineInRange("trainerLevelUpDelayTicks", 1, 1, 40);
 
     public static final ModConfigSpec.DoubleValue STUDIOUS_XP_MULT = BUILDER
             .comment("Studious: multiplier on all XP you take in. 2.5 = 2.5x.")
@@ -1107,12 +1157,22 @@ public final class Config {
 
     // --- Twist of Fate (blessing) ----------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue TWIST_NEGATE_CHANCE = BUILDER
-            .comment("Twist of Fate: chance (0..1) an incoming damage event is simply negated (when off cooldown). 0.12 = 12%.")
+            .comment("Twist of Fate: BASE chance (0..1) an incoming hit is negated (when off cooldown). 0.12 = 12%.")
             .defineInRange("twistNegateChance", 0.12, 0.0, 1.0);
 
     public static final ModConfigSpec.IntValue TWIST_COOLDOWN_TICKS = BUILDER
-            .comment("Twist of Fate: cooldown after a save before it can trigger again, in ticks. 200 = 10s.")
-            .defineInRange("twistCooldownTicks", 200, 0, 12000);
+            .comment("Twist of Fate: brief cooldown after a dodge before it can trigger again, in ticks. 60 = 3s.")
+            .defineInRange("twistCooldownTicks", 60, 0, 12000);
+    public static final ModConfigSpec.DoubleValue TWIST_PITY_INCREMENT = BUILDER
+            .comment("Twist of Fate: how much the dodge chance climbs per hit that DIDN'T dodge (bad-luck protection);",
+                    "resets to 0 on a successful dodge.")
+            .defineInRange("twistPityIncrement", 0.06, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue TWIST_MAX_CHANCE = BUILDER
+            .comment("Twist of Fate: ceiling the base+pity dodge chance can reach.")
+            .defineInRange("twistMaxChance", 0.75, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue TWIST_INVULN_TICKS = BUILDER
+            .comment("Twist of Fate: brief invulnerability granted right after a dodge, in ticks. 15 = 0.75s.")
+            .defineInRange("twistInvulnTicks", 15, 0, 100);
 
     /** Length of the on-screen revive "totem" flash (Last Stand / Immortality), in ticks. Common constant so
      * both the server-side effects and the client overlay agree without the effects importing client code. */
@@ -1151,9 +1211,20 @@ public final class Config {
             .comment("Main Character: outgoing-knockback multiplier at tier 2. 1.6 = 1.6x.")
             .defineInRange("mainCharKnockbackT2", 1.6, 1.0, 5.0);
 
+    public static final ModConfigSpec.IntValue MAINCHAR_HORDE_THRESHOLD = BUILDER
+            .comment("Main Character: hostiles aggroed onto you to reach the HORDE tier (3) — a swarm this size grants big",
+                    "buffs (Strength, Resistance II, Regeneration). Works with any horde source, not just Popularity.")
+            .defineInRange("mainCharHordeThreshold", 10, 3, 100);
+    public static final ModConfigSpec.DoubleValue MAINCHAR_COOLDOWN_REDUCTION_T3 = BUILDER
+            .comment("Main Character: attack-cooldown reduction at the HORDE tier (0..1). 0.6 = 60% faster attacks.")
+            .defineInRange("mainCharCooldownReductionT3", 0.6, 0.0, 0.9);
+    public static final ModConfigSpec.DoubleValue MAINCHAR_KNOCKBACK_T3 = BUILDER
+            .comment("Main Character: outgoing-knockback multiplier at the HORDE tier. 2.0 = 2x.")
+            .defineInRange("mainCharKnockbackT3", 2.0, 1.0, 6.0);
+
     public static final ModConfigSpec.DoubleValue MAINCHAR_MUSIC_VOLUME = BUILDER
             .comment("Main Character: volume of the battle-theme loop at the protagonist (fades with distance for onlookers).")
-            .defineInRange("mainCharMusicVolume", 1.0, 0.0, 1.0);
+            .defineInRange("mainCharMusicVolume", 0.52, 0.0, 1.0);
 
     public static final ModConfigSpec.DoubleValue MAINCHAR_MUSIC_RANGE = BUILDER
             .comment("Main Character: how far (blocks) nearby players can hear the theme; volume fades to 0 at this range.",
@@ -1162,49 +1233,57 @@ public final class Config {
 
     // --- Farmer's Spirit (blessing) --------------------------------------------------------------------
     public static final ModConfigSpec.IntValue FARMSPIRIT_RADIUS = BUILDER
-            .comment("Farmer's Spirit: radius (blocks) around you that plants grow fast in — a small, tight patch.")
+            .comment("Farmer's Spirit: radius (blocks) of the CIRCLE around you that plants grow fast in.")
             .defineInRange("farmersSpiritRadius", 4, 1, 48);
 
     public static final ModConfigSpec.IntValue FARMSPIRIT_INTERVAL = BUILDER
-            .comment("Farmer's Spirit: ticks between growth passes. 1 = every tick (constant).")
-            .defineInRange("farmersSpiritIntervalTicks", 1, 1, 100);
+            .comment("Farmer's Spirit: ticks between growth passes. Higher = crops climb their stages a touch slower.")
+            .defineInRange("farmersSpiritIntervalTicks", 4, 1, 100);
 
     public static final ModConfigSpec.IntValue FARMSPIRIT_ATTEMPTS = BUILDER
-            .comment("Farmer's Spirit: how many random nearby spots are 'bone-mealed' each pass.")
-            .defineInRange("farmersSpiritAttemptsPerPass", 5, 1, 64);
+            .comment("Farmer's Spirit: how many random nearby spots are 'bone-mealed' each pass (covers the circle).")
+            .defineInRange("farmersSpiritAttemptsPerPass", 20, 1, 64);
+
+    public static final ModConfigSpec.IntValue FARMSPIRIT_PRODUCE_TICKS = BUILDER
+            .comment("Farmer's Spirit: extra random-ticks applied per hit to fruit/stalk PRODUCERS (pumpkin/melon",
+                    "stems, sugar cane, cactus, bamboo) so they crank out blocks fast enough to farm effectively.")
+            .defineInRange("farmersSpiritProduceTicks", 8, 0, 64);
 
     public static final ModConfigSpec.IntValue FARMSPIRIT_GROWTH_PER_HIT = BUILDER
-            .comment("Farmer's Spirit: how many bone-meal applications a crop/sapling gets per hit — high, so",
-                    "they shoot up fast for an over-the-top blessing (grass is exempt, always just one).")
-            .defineInRange("farmersSpiritGrowthPerHit", 5, 1, 20);
+            .comment("Farmer's Spirit: bone-meal applications a crop gets per hit. 1 = climb ONE stage at a time",
+                    "(quick, but you can watch it grow rather than instant).")
+            .defineInRange("farmersSpiritGrowthPerHit", 1, 1, 20);
 
     public static final ModConfigSpec.DoubleValue FARMSPIRIT_GRASS_CHANCE = BUILDER
             .comment("Farmer's Spirit: chance (0..1) a grass BLOCK is bone-mealed when picked — kept low, so grass",
                     "spreads flowers/tall grass only 'to a lesser extent' than crops/saplings shoot up.")
             .defineInRange("farmersSpiritGrassChance", 0.06, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue FARMSPIRIT_BABY_GROWTH_TICKS = BUILDER
+            .comment("Farmer's Spirit: age-ticks shaved off every nearby BABY animal each pass, so young livestock grow up quicker.")
+            .defineInRange("farmersSpiritBabyGrowthTicks", 20, 0, 400);
+    public static final ModConfigSpec.DoubleValue FARMSPIRIT_DRIVE_GROWTH_MULTIPLIER = BUILDER
+            .comment("Farmer's Spirit+Drive synergy: baby-growth speed is multiplied by this while Drive is also active.")
+            .defineInRange("farmersSpiritDriveGrowthMultiplier", 3.0, 1.0, 10.0);
 
     // --- Brute (blessing) ------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue BRUTE_RAMP_TIME = BUILDER
-            .comment("Brute: ticks of consistent sprinting (no jumping/interruptions) to reach top speed. 54 = ~2.7s.")
-            .defineInRange("bruteRampTimeTicks", 54, 5, 400);
+            .comment("Brute: ticks of consistent sprinting (no jumping/interruptions) to reach top speed. 30 = 1.5s.")
+            .defineInRange("bruteRampTimeTicks", 30, 5, 400);
 
     public static final ModConfigSpec.DoubleValue BRUTE_MAX_SPEED_MULT = BUILDER
-            .comment("Brute: movement-speed multiplier at full charge. 2.2 = 2.2x.")
-            .defineInRange("bruteMaxSpeedMultiplier", 2.2, 1.0, 5.0);
+            .comment("Brute: movement-speed multiplier at full charge. 2.6 = 2.6x.")
+            .defineInRange("bruteMaxSpeedMultiplier", 2.6, 1.0, 5.0);
+    public static final ModConfigSpec.IntValue BRUTE_SPRINT_GRACE_TICKS = BUILDER
+            .comment("Brute: how long the charge survives a brief sprint drop (a wall collision cancels vanilla",
+                    "sprint, a jump/turn can too) before it resets. Keeps the build-up fluid.")
+            .defineInRange("bruteSprintGraceTicks", 10, 0, 60);
 
-    public static final ModConfigSpec.IntValue BRUTE_AIRBORNE_GRACE = BUILDER
-            .comment("Brute: how many ticks you may be off the ground (bumps/slopes) before the charge resets — a",
-                    "real jump exceeds this, so jumping interrupts the build-up but little hops over terrain don't.")
-            .defineInRange("bruteAirborneGraceTicks", 5, 0, 40);
 
     public static final ModConfigSpec.IntValue BRUTE_WINDUP_TIME = BUILDER
             .comment("Brute: an initial quiet windup (no particles, no speed) of consistent sprinting before the ramp.",
-                    "30 = 1.5s. Once completed it is BANKED — a jump resets only the ramp, not this windup.")
-            .defineInRange("bruteWindupTicks", 30, 0, 200);
+                    "15 = 0.75s. Once completed it is BANKED — a jump resets only the ramp, not this windup.")
+            .defineInRange("bruteWindupTicks", 15, 0, 200);
 
-    public static final ModConfigSpec.IntValue BRUTE_MAX_BLOCKS_PER_TICK = BUILDER
-            .comment("Brute: max hard blocks smashed per tick (caps the health drained per tick while ramming a wall).")
-            .defineInRange("bruteMaxBlocksPerTick", 3, 1, 20);
 
     public static final ModConfigSpec.IntValue BRUTE_SHAKE_TICKS = BUILDER
             .comment("Brute: how long the little camera jolt lasts when you smash a block, in ticks.")
@@ -1218,10 +1297,10 @@ public final class Config {
             .comment("Brute: volume of the amplified footsteps while you wind up and sprint (vanilla steps are ~0.15).")
             .defineInRange("bruteFootstepVolume", 1.6, 0.0, 5.0);
 
-    public static final ModConfigSpec.IntValue BRUTE_ENTITY_RECOVERY_TICKS = BUILDER
-            .comment("Brute: ticks to re-reach full charge after ploughing into an entity — MUCH quicker than a",
-                    "from-scratch build-up, so you keep barrelling through crowds. ~26 = about 66% faster than a full reset.")
-            .defineInRange("bruteEntityRecoveryTicks", 26, 1, 400);
+    public static final ModConfigSpec.IntValue BRUTE_ENTITY_HIT_COOLDOWN = BUILDER
+            .comment("Brute: per-entity cooldown (ticks) between plough-hits, so you cleave through a crowd hitting",
+                    "each once rather than the same body every tick. You keep full charge (no momentum bleed).")
+            .defineInRange("bruteEntityHitCooldownTicks", 12, 1, 200);
 
     public static final ModConfigSpec.DoubleValue BRUTE_CAP_THRESHOLD = BUILDER
             .comment("Brute: charge fraction (0..1) at which you start launching entities and smashing blocks.")
@@ -1229,19 +1308,29 @@ public final class Config {
 
     public static final ModConfigSpec.DoubleValue BRUTE_LAUNCH_FORCE = BUILDER
             .comment("Brute: how hard entities you plough into are launched, at full charge.")
-            .defineInRange("bruteLaunchForce", 2.0, 0.0, 10.0);
+            .defineInRange("bruteLaunchForce", 3.4, 0.0, 10.0);
+    public static final ModConfigSpec.DoubleValue BRUTE_SMASH_POWER = BUILDER
+            .comment("Brute: explosion power when you ram a wall at full charge — blasts a hole so you run through.",
+                    "Respects blast resistance (obsidian/bedrock stop you) and mobGriefing. 0 = no smashing.")
+            .defineInRange("bruteSmashPower", 3.5, 0.0, 10.0);
+    public static final ModConfigSpec.DoubleValue BRUTE_SMASH_HP_COST = BUILDER
+            .comment("Brute: health spent per wall-smash explosion (won't smash if it would drop you too low).")
+            .defineInRange("bruteSmashHpCost", 2.0, 0.0, 20.0);
 
     public static final ModConfigSpec.DoubleValue BRUTE_LAUNCH_DAMAGE = BUILDER
             .comment("Brute: damage dealt to entities you plough into.")
             .defineInRange("bruteLaunchDamage", 4.0, 0.0, 40.0);
 
-    public static final ModConfigSpec.DoubleValue BRUTE_BLOCK_HARDNESS_MAX = BUILDER
-            .comment("Brute: hardest block (by hardness) you can smash through. 3.0 ~ stone; obsidian (50) stops you.")
-            .defineInRange("bruteBlockHardnessMax", 3.0, 0.0, 100.0);
+    public static final ModConfigSpec.IntValue BRUTE_SPEED_CHARGE_BONUS = BUILDER
+            .comment("Brute+Speed synergy: extra charge ticks banked per tick while a speed blessing is on you (1 = charges twice as fast).")
+            .defineInRange("bruteSpeedChargeBonus", 1, 0, 10);
+    public static final ModConfigSpec.DoubleValue BRUTE_SPEED_KNOCKBACK_MULT = BUILDER
+            .comment("Brute+Speed synergy: entities you plough into are flung this much harder.")
+            .defineInRange("bruteSpeedKnockbackMultiplier", 1.5, 1.0, 4.0);
+    public static final ModConfigSpec.DoubleValue BRUTE_SPEED_BONUS_DAMAGE = BUILDER
+            .comment("Brute+Speed synergy: extra flat damage on a plough hit.")
+            .defineInRange("bruteSpeedBonusDamage", 3.0, 0.0, 20.0);
 
-    public static final ModConfigSpec.DoubleValue BRUTE_HP_COST_PER_BLOCK = BUILDER
-            .comment("Brute: health spent per block smashed. You won't smash if it would drop you too low.")
-            .defineInRange("bruteHpCostPerBlock", 1.0, 0.0, 20.0);
 
     // --- Chat (blessing) -------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue CHAT_INTERVAL_MIN = BUILDER
@@ -1467,20 +1556,21 @@ public final class Config {
 
     // --- Excavation (blessing) -------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue EXCAVATION_RAMP_PER_BLOCK = BUILDER
-            .comment("Excavation: extra mining-speed bonus gained per block broken. 0.2 = +20% speed per block.")
-            .defineInRange("excavationRampPerBlock", 0.2, 0.0, 5.0);
+            .comment("Excavation: extra mining-speed bonus gained per block broken. 0.15 = +15%/block (~40 to cap).")
+            .defineInRange("excavationRampPerBlock", 0.15, 0.0, 5.0);
 
     public static final ModConfigSpec.DoubleValue EXCAVATION_MAX_BONUS = BUILDER
-            .comment("Excavation: cap on the mining-speed bonus. 4.0 = up to 5x mining speed — really fast.")
-            .defineInRange("excavationMaxBonus", 4.0, 0.0, 20.0);
+            .comment("Excavation: cap on the mining-speed bonus. 6.0 = up to 7x mining speed.")
+            .defineInRange("excavationMaxBonus", 6.0, 0.0, 20.0);
 
     public static final ModConfigSpec.IntValue EXCAVATION_DECAY_GRACE = BUILDER
-            .comment("Excavation: ticks after your last block break before the built-up speed starts decaying. 40 = 2s.")
-            .defineInRange("excavationDecayGraceTicks", 40, 0, 400);
+            .comment("Excavation: ticks after your last break before the built-up speed decays (covers mining one",
+                    "slow block). 20 = 1s.")
+            .defineInRange("excavationDecayGraceTicks", 20, 0, 400);
 
     public static final ModConfigSpec.DoubleValue EXCAVATION_DECAY_PER_TICK = BUILDER
-            .comment("Excavation: how much bonus is lost per tick once the grace period lapses.")
-            .defineInRange("excavationDecayPerTick", 0.08, 0.0, 5.0);
+            .comment("Excavation: bonus lost per tick once the grace lapses. 0.06 fades a full 6.0 stack to 0 over ~5s.")
+            .defineInRange("excavationDecayPerTick", 0.06, 0.0, 5.0);
 
     // --- Bouncy (blessing) -----------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue BOUNCY_RESTITUTION = BUILDER
@@ -1512,11 +1602,68 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue BOUNCY_COLLISION_SPEED = BUILDER
             .comment("Bouncy: how fast an entity must be closing on you (blocks/tick) to bounce off when YOU are still.")
             .defineInRange("bouncyCollisionSpeed", 0.12, 0.0, 2.0);
+    public static final ModConfigSpec.DoubleValue BOUNCY_WALL_MIN_SPEED = BUILDER
+            .comment("Bouncy: horizontal speed (blocks/tick) needed to rebound off a wall. Must sit below sprint speed",
+                    "(~0.13) or you can never wall-bounce while running — the old hardcoded 0.15 was above it, so wall bounces never fired.")
+            .defineInRange("bouncyWallMinSpeed", 0.07, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue BOUNCY_LOWGRAV_RESTITUTION_MULT = BUILDER
+            .comment("Bouncy+Low Gravity synergy: floor/wall/ceiling rebounds are this much stronger (and the landing cap is lifted the same).")
+            .defineInRange("bouncyLowGravRestitutionMultiplier", 1.4, 1.0, 3.0);
 
     // --- Hot Stuff (blessing) --------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue HOTSTUFF_SPEED_MULT = BUILDER
-            .comment("Hot Stuff: how many times faster a furnace cooks while you're looking at it. 5.0 = 5x.")
-            .defineInRange("hotStuffSpeedMultiplier", 5.0, 1.0, 20.0);
+            .comment("Hot Stuff: how many times faster a furnace cooks while you're looking at it. 10.0 = 10x.")
+            .defineInRange("hotStuffSpeedMultiplier", 10.0, 1.0, 40.0);
+    public static final ModConfigSpec.DoubleValue HOTSTUFF_SCORCHED_MULT = BUILDER
+            .comment("Hot Stuff+Floor is Lava synergy: the furnace speed multiplier is scaled by this again (2.0 = double).")
+            .defineInRange("hotStuffScorchedMultiplier", 2.0, 1.0, 8.0);
+
+    // --- Batch synergy knobs (cross-effect combos, see Synergies) --------------------------------------
+    public static final ModConfigSpec.DoubleValue PICKPOCKET_UNSEEN_MULT = BUILDER
+            .comment("Pickpocket+Unseen synergy: pickpocket chance multiplier when behind someone while unseen.")
+            .defineInRange("pickpocketUnseenMultiplier", 2.0, 1.0, 10.0);
+    public static final ModConfigSpec.DoubleValue PICKPOCKET_DISGUISE_MULT = BUILDER
+            .comment("Pickpocket+Disguise/Prop Hunt synergy: pickpocket chance multiplier when behind someone while wearing a form.")
+            .defineInRange("pickpocketDisguiseMultiplier", 3.0, 1.0, 10.0);
+    public static final ModConfigSpec.IntValue SILVER_VILLAGER_REFUND_CHANCE = BUILDER
+            .comment("Silver Tongue+Disguise synergy: percent chance a completed villager trade refunds its cost.")
+            .defineInRange("silverVillagerRefundChancePercent", 10, 0, 100);
+    public static final ModConfigSpec.IntValue HOMECOMING_REGEN_SECONDS = BUILDER
+            .comment("Homebody+Safety synergy: seconds of Regeneration granted after a teleport home.")
+            .defineInRange("homecomingRegenSeconds", 3, 0, 60);
+    public static final ModConfigSpec.IntValue HOMECOMING_REGEN_AMPLIFIER = BUILDER
+            .comment("Homebody+Safety synergy: Regeneration amplifier after a teleport (9 = Regeneration 10).")
+            .defineInRange("homecomingRegenAmplifier", 9, 0, 20);
+    public static final ModConfigSpec.DoubleValue LAYERED_HIDE_FLOOR_BONUS = BUILDER
+            .comment("Thick Skinned+Tank synergy: extra damage added to the negation floor (1.0 = threshold +1).")
+            .defineInRange("layeredHideFloorBonus", 1.0, 0.0, 10.0);
+    public static final ModConfigSpec.DoubleValue VIOLENCE_FRENZY_CHANCE_MULT = BUILDER
+            .comment("Violence+Berserker (frenzy) synergy: the impulsive swing chance AND its cap are scaled by this.")
+            .defineInRange("violenceFrenzyChanceMultiplier", 2.5, 1.0, 6.0);
+    public static final ModConfigSpec.DoubleValue DEAD_WEIGHT_PULL_MULT = BUILDER
+            .comment("Dense+Bad Swimmer synergy: the client sink pull is scaled by this — you drop like a stone.")
+            .defineInRange("deadWeightPullMultiplier", 3.0, 1.0, 12.0);
+    public static final ModConfigSpec.DoubleValue DIZZY_HEIGHTS_START_MULT = BUILDER
+            .comment("Wonky+Vertigo synergy: vertigo's onset height is scaled by this (0.8 = 20% lower).")
+            .defineInRange("dizzyHeightsStartMultiplier", 0.8, 0.1, 1.0);
+    public static final ModConfigSpec.DoubleValue DIZZY_HEIGHTS_SWAY_MULT = BUILDER
+            .comment("Wonky+Vertigo synergy: vertigo's camera + movement sway is scaled by this.")
+            .defineInRange("dizzyHeightsSwayMultiplier", 1.5, 1.0, 4.0);
+    public static final ModConfigSpec.DoubleValue SPEED_DEMON_ICE_BONUS = BUILDER
+            .comment("Speed Demon+Ice Skates (greased_mount) synergy: extra stacking mount-speed bonus (0.5 = +50%).")
+            .defineInRange("speedDemonIceBonus", 0.5, 0.0, 4.0);
+    public static final ModConfigSpec.IntValue SIZE_CRISIS_MIN_GAP_TICKS = BUILDER
+            .comment("Giant+Dwarfism (size_crisis) synergy: shortest gap (ticks) before the size flips.")
+            .defineInRange("sizeCrisisMinGapTicks", 60, 10, 2000);
+    public static final ModConfigSpec.IntValue SIZE_CRISIS_MAX_GAP_TICKS = BUILDER
+            .comment("Giant+Dwarfism (size_crisis) synergy: longest gap (ticks) before the size flips.")
+            .defineInRange("sizeCrisisMaxGapTicks", 160, 10, 4000);
+    public static final ModConfigSpec.DoubleValue SIZE_CRISIS_CRUSH_DAMAGE = BUILDER
+            .comment("Giant+Dwarfism (size_crisis) synergy: crush damage dealt to a mount you shrink on top of.")
+            .defineInRange("sizeCrisisCrushDamage", 6.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue SIZE_CRISIS_SMALL_REACH_MULT = BUILDER
+            .comment("Giant+Dwarfism (size_crisis) synergy: while SMALL, the kept giant reach bonus is scaled by this (0.5 = extra reach halved).")
+            .defineInRange("sizeCrisisSmallReachMultiplier", 0.5, 0.0, 1.0);
 
     public static final ModConfigSpec.DoubleValue HOTSTUFF_LOOK_RANGE = BUILDER
             .comment("Hot Stuff: how far (blocks) your gaze reaches to heat up a furnace.")
@@ -1549,11 +1696,17 @@ public final class Config {
     // --- Last Stand (blessing) -------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue LASTSTAND_REVIVE_HEALTH = BUILDER
             .comment("Last Stand: health you're left on after a fatal blow. 1.0 = half a heart.")
-            .defineInRange("lastStandReviveHealth", 1.0, 1.0, 20.0);
+            .defineInRange("lastStandReviveHealth", 6.0, 1.0, 20.0);
+    public static final ModConfigSpec.IntValue LASTSTAND_INVULN_TICKS = BUILDER
+            .comment("Last Stand: complete invulnerability granted right after a revive — a comeback window. 40 = 2s.")
+            .defineInRange("lastStandInvulnTicks", 40, 0, 200);
+    public static final ModConfigSpec.IntValue LASTSTAND_MAX_USES = BUILDER
+            .comment("Last Stand: how many times it can revive you before the blessing is consumed.")
+            .defineInRange("lastStandMaxUses", 3, 1, 20);
+    public static final ModConfigSpec.IntValue LASTSTAND_BASE_COOLDOWN_TICKS = BUILDER
+            .comment("Last Stand: cooldown after the FIRST revive, in ticks (doubles each subsequent revive). 6000 = 5min.")
+            .defineInRange("lastStandBaseCooldownTicks", 6000, 20, 720000);
 
-    public static final ModConfigSpec.IntValue LASTSTAND_BUFF_TICKS = BUILDER
-            .comment("Last Stand: duration of the Strength/Speed/Fire Resistance buffs, in ticks. 300 = 15s.")
-            .defineInRange("lastStandBuffTicks", 300, 20, 6000);
 
     public static final ModConfigSpec.DoubleValue LASTSTAND_KNOCKBACK = BUILDER
             .comment("Last Stand: outward knockback strength applied to nearby entities on the burst (no damage).")
@@ -1671,6 +1824,10 @@ public final class Config {
             .comment("Bodyguard: while ATTACKING, it gives up and returns once the aggressor is this far from the",
                     "anchor (blocks) — it guards a place, it doesn't chase to the ends of the earth.")
             .defineInRange("bodyguardLeashRange", 32.0, 4.0, 128.0);
+    public static final ModConfigSpec.DoubleValue BODYGUARD_THREAT_LEASH_RANGE = BUILDER
+            .comment("Bodyguard: the longer leash used for a genuine ATTACKER (anything that struck you or it), so",
+                    "it actually commits to a real threat instead of standing down the moment they back off.")
+            .defineInRange("bodyguardThreatLeashRange", 48.0, 4.0, 256.0);
 
     public static final ModConfigSpec.DoubleValue BODYGUARD_WARNING_HIT_DAMAGE = BUILDER
             .comment("Bodyguard: damage of a non-committal 'warning hit' during AGGRESSION. Low — it's a shove,",
@@ -1769,6 +1926,9 @@ public final class Config {
             .comment("Reflect: spread on the return shot. 0.0 = dead-precise at the attacker; raise for sloppier",
                     "aim (vanilla arrows use ~1.0).")
             .defineInRange("reflectInaccuracy", 0.0, 0.0, 20.0);
+    public static final ModConfigSpec.DoubleValue REFLECT_GLADIATOR_VELOCITY_MULT = BUILDER
+            .comment("Reflect+Gladiator synergy: extra speed multiplier on a reflected shot, so it flies further before dropping.")
+            .defineInRange("reflectGladiatorVelocityMultiplier", 1.6, 1.0, 5.0);
 
     // --- Peace (blessing) ------------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue PEACE_SPAWN_RATE_MULT = BUILDER
@@ -1869,9 +2029,17 @@ public final class Config {
             .defineInRange("sirenDrownedGainMultiplier", 0.25, 0.0, 1.0);
 
     // --- Basement Dweller ------------------------------------------------------------------------------
-    public static final ModConfigSpec.IntValue BASEMENT_DAMAGE_INTERVAL = BUILDER
-            .comment("Basement Dweller: ticks between burns while stood in the open sun. 12 = 0.6s.")
-            .defineInRange("basementDamageIntervalTicks", 12, 1, 200);
+    public static final ModConfigSpec.IntValue BASEMENT_START_INTERVAL = BUILDER
+            .comment("Basement Dweller: ticks between burns WHEN YOU FIRST step into the sun (the slow start).")
+            .defineInRange("basementStartIntervalTicks", 80, 1, 400);
+    public static final ModConfigSpec.IntValue BASEMENT_END_INTERVAL = BUILDER
+            .comment("Basement Dweller: ticks between burns once the ramp is fully wound up (the fast end).")
+            .defineInRange("basementEndIntervalTicks", 15, 1, 400);
+    public static final ModConfigSpec.IntValue BASEMENT_RAMP_TICKS = BUILDER
+            .comment("Basement Dweller: how long (ticks) continuous sun takes to decay from the start interval",
+                    "to the end interval. 500 = 25s.")
+            .defineInRange("basementRampTicks", 500, 1, 6000);
+
 
     public static final ModConfigSpec.DoubleValue BASEMENT_DAMAGE = BUILDER
             .comment("Basement Dweller: damage per burn in direct daylight, in half-hearts.")
@@ -1884,14 +2052,35 @@ public final class Config {
             .defineInRange("basementHelmetIntervalMultiplier", 2.5, 1.0, 20.0);
 
     // --- Claustrophobia --------------------------------------------------------------------------------
-    public static final ModConfigSpec.IntValue CLAUSTRO_DAMAGE_INTERVAL = BUILDER
-            .comment("Claustrophobia: ticks between the dread biting while shut indoors. 16 = 0.8s.")
-            .defineInRange("claustrophobiaDamageIntervalTicks", 16, 1, 200);
+    public static final ModConfigSpec.IntValue CLAUSTRO_START_INTERVAL = BUILDER
+            .comment("Claustrophobia: ticks between bites WHEN YOU FIRST get boxed in (the slow start).")
+            .defineInRange("claustrophobiaStartIntervalTicks", 70, 1, 400);
+    public static final ModConfigSpec.IntValue CLAUSTRO_END_INTERVAL = BUILDER
+            .comment("Claustrophobia: ticks between bites once the ramp is fully wound up (the fast end).")
+            .defineInRange("claustrophobiaEndIntervalTicks", 25, 1, 400);
+    public static final ModConfigSpec.IntValue CLAUSTRO_RAMP_TICKS = BUILDER
+            .comment("Claustrophobia: how long (ticks) staying boxed-in takes to decay from the start interval",
+                    "to the end interval. 200 = 10s.")
+            .defineInRange("claustrophobiaRampTicks", 200, 1, 6000);
+
 
     public static final ModConfigSpec.DoubleValue CLAUSTRO_DAMAGE = BUILDER
             .comment("Claustrophobia: damage per tick while indoors, in half-hearts. Milder than Basement",
                     "Dweller's sun by design.")
             .defineInRange("claustrophobiaDamage", 0.5, 0.0, 40.0);
+
+    // --- Basement Dweller + Claustrophobia: leeway while BOTH are on you at once ------------------------
+    public static final ModConfigSpec.IntValue ENV_COMBINED_GRACE_TICKS = BUILDER
+            .comment("Basement+Claustrophobia together: extra grace (ticks) after entering a damage condition",
+                    "before ANY damage starts, since suffering both at once is brutal. 70 = 3.5s. Applied only",
+                    "while both curses are active; swaps off the moment one is removed.")
+            .defineInRange("envCombinedGraceTicks", 70, 0, 600);
+    public static final ModConfigSpec.DoubleValue ENV_COMBINED_INTERVAL_MULT = BUILDER
+            .comment("Basement+Claustrophobia together: multiply the gap between hits by this while both are on.")
+            .defineInRange("envCombinedIntervalMultiplier", 1.3, 1.0, 4.0);
+    public static final ModConfigSpec.DoubleValue ENV_COMBINED_DECAY_MULT = BUILDER
+            .comment("Basement+Claustrophobia together: multiply the ramp/decay time by this while both are on.")
+            .defineInRange("envCombinedDecayMultiplier", 1.45, 1.0, 4.0);
 
     // --- Stick Drift -----------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue STICKDRIFT_CAMERA_CHANCE = BUILDER
@@ -2074,20 +2263,12 @@ public final class Config {
             .comment("Clumsy: for an oriented block, percent of slips that land in the wrong spot.")
             .defineInRange("clumsyOrientalLocationPercent", 32, 0, 100);
 
-    public static final ModConfigSpec.IntValue CLUMSY_ORIENTAL_WRONG_BLOCK = BUILDER
-            .comment("Clumsy: for an oriented block, percent of slips that place a DIFFERENT hotbar block.",
-                    "Falls back to wrong-location if you have nothing else placeable to hand.")
-            .defineInRange("clumsyOrientalWrongBlockPercent", 8, 0, 100);
 
     public static final ModConfigSpec.IntValue CLUMSY_PLAIN_LOCATION = BUILDER
             .comment("Clumsy: for a plain block with no orientation, percent of slips that land in the wrong",
                     "spot. This plus the next should total 100.")
             .defineInRange("clumsyPlainLocationPercent", 65, 0, 100);
 
-    public static final ModConfigSpec.IntValue CLUMSY_PLAIN_WRONG_BLOCK = BUILDER
-            .comment("Clumsy: for a plain block, percent of slips that place a DIFFERENT hotbar block. Falls",
-                    "back to wrong-location if nothing else is placeable.")
-            .defineInRange("clumsyPlainWrongBlockPercent", 35, 0, 100);
 
     // --- Taxes -----------------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue TAXES_CHECK_INTERVAL = BUILDER
@@ -2239,6 +2420,12 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue COMIC_THUNDER_MULTIPLIER = BUILDER
             .comment("Comic Relief: all of the above chances are multiplied by this while it's thundering.")
             .defineInRange("comicReliefThunderMultiplier", 2.5, 1.0, 20.0);
+    public static final ModConfigSpec.IntValue COMIC_SMITE_BOLTS = BUILDER
+            .comment("Comic Relief+Thunder synergy: extra visual bolts rained down in a quick barrage when the killing bolt fires (still kills the same way, just funnier).")
+            .defineInRange("comicReliefSmiteBolts", 5, 0, 30);
+    public static final ModConfigSpec.IntValue COMIC_SMITE_SPACING_TICKS = BUILDER
+            .comment("Comic Relief+Thunder synergy: ticks between the barrage's extra bolts.")
+            .defineInRange("comicReliefSmiteSpacingTicks", 2, 1, 20);
 
     // --- Thirst Meter ----------------------------------------------------------------------------------
     public static final ModConfigSpec.IntValue THIRST_MAX = BUILDER
@@ -2546,6 +2733,17 @@ public final class Config {
     public static final ModConfigSpec.IntValue MAGNET_MAX_PROJECTILES = BUILDER
             .comment("Magnet: cap on projectiles steered per tick, so an arrow barrage can't cost the server.")
             .defineInRange("magnetMaxProjectiles", 32, 1, 256);
+    public static final ModConfigSpec.DoubleValue MAGNET_HAZARD_PULL = BUILDER
+            .comment("Magnet: a SUBTLE per-tick velocity nudge (blocks/tick) that drifts nearby HARMFUL things",
+                    "(primed TNT) toward you within magnetRadius. Kept small so it's a creeping menace, not a",
+                    "yank. 0 disables the hazard pull.")
+            .defineInRange("magnetHazardPull", 0.035, 0.0, 0.5);
+    public static final ModConfigSpec.IntValue MAGNET_STORM_INTERVAL = BUILDER
+            .comment("Magnet+Thunder synergy: ticks between rolls for a real lightning strike drawn onto you during a thunderstorm (only under open sky).")
+            .defineInRange("magnetStormIntervalTicks", 60, 5, 1200);
+    public static final ModConfigSpec.IntValue MAGNET_STORM_CHANCE = BUILDER
+            .comment("Magnet+Thunder synergy: percent chance per roll that lightning strikes you while it's thundering.")
+            .defineInRange("magnetStormChancePercent", 25, 0, 100);
 
     // --- Heavy -----------------------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue HEAVY_FALL_SPEED_MULT = BUILDER
@@ -2762,7 +2960,7 @@ public final class Config {
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> EFFECT_COST_OVERRIDES = BUILDER
             .comment("Per-effect essence cost overrides, format \"witchmod:effect_id=cost\". Any effect not",
-                    "listed here keeps its code-defined default cost (section 5.1/5.2).")
+                    "listed here keeps its code-defined default cost.")
             .defineListAllowEmpty("effectCostOverrides", List.of(), () -> "", Config::validateOverrideEntry);
 
     // --- Low Gravity (blessing) ------------------------------------------------------------------------
@@ -2784,12 +2982,18 @@ public final class Config {
             .defineInRange("berserkerReductionPerHit", 0.07, 0.0, 1.0);
 
     public static final ModConfigSpec.DoubleValue BERSERKER_MAX_REDUCTION = BUILDER
-            .comment("Berserker: maximum total attack-cooldown reduction (0.70 = 70% shorter cooldown, i.e. ~3.3x faster).")
-            .defineInRange("berserkerMaxReduction", 0.70, 0.0, 0.95);
+            .comment("Berserker: maximum total attack-cooldown reduction (0.80 = 80% shorter cooldown, i.e. ~5x faster).")
+            .defineInRange("berserkerMaxReduction", 0.80, 0.0, 0.95);
+    public static final ModConfigSpec.IntValue BERSERKER_MAX_STACKS = BUILDER
+            .comment("Berserker: the total consecutive-hit stacks you can build (the reduction still caps at berserkerMaxReduction).")
+            .defineInRange("berserkerMaxStacks", 14, 1, 64);
 
     public static final ModConfigSpec.DoubleValue BERSERKER_RESET_SECONDS = BUILDER
             .comment("Berserker: seconds without landing a hit before the whole stack resets (also resets instantly on a miss).")
             .defineInRange("berserkerResetSeconds", 4.5, 0.5, 60.0);
+    public static final ModConfigSpec.IntValue BERSERKER_GLADIATOR_PARRY_STACKS = BUILDER
+            .comment("Berserker+Gladiator synergy: berserker stacks granted per successful parry.")
+            .defineInRange("berserkerGladiatorParryStacks", 3, 0, 20);
 
     // --- Enchanter (blessing) --------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue ENCHANTER_XP_REDUCTION = BUILDER
@@ -3079,18 +3283,12 @@ public final class Config {
             .defineInRange("snailExplodePower", 6.0, 0.0, 20.0);
 
     // --- The Dweller (curse) ---------------------------------------------------------------------------
-    public static final ModConfigSpec.IntValue DWELLER_CHECK_INTERVAL_TICKS = BUILDER
-            .comment("The Dweller: how often (ticks) its stalking logic runs.")
-            .defineInRange("dwellerCheckIntervalTicks", 4, 1, 40);
     public static final ModConfigSpec.DoubleValue DWELLER_ANGER_MAX = BUILDER
             .comment("The Dweller: the anger ceiling; the closer to it, the closer the chase.")
             .defineInRange("dwellerAngerMax", 100.0, 1.0, 1000.0);
     public static final ModConfigSpec.DoubleValue DWELLER_BASE_ANGER_PER_SECOND = BUILDER
             .comment("The Dweller: anger it gains every second no matter what — the slow, inevitable escalation. VERY low: at max (100) with the dark/alone accelerants a dread session should take ~13-18 min to peak. The big driver is being ALONE + in the DARK.")
             .defineInRange("dwellerBaseAngerPerSecond", 0.06, 0.0, 100.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_LOOK_ANGER_GAIN = BUILDER
-            .comment("The Dweller: anger it gains each time you LOOK AT IT (it flees when spotted, but hates being seen). The objective is not to look.")
-            .defineInRange("dwellerLookAngerGain", 7.0, 0.0, 100.0);
     public static final ModConfigSpec.DoubleValue DWELLER_VIEW_CONE_DOT = BUILDER
             .comment("The Dweller: how centred in your view it must be to count as 'looked at' (dot product; higher = you must look more directly at it).")
             .defineInRange("dwellerViewConeDot", 0.90, 0.0, 1.0);
@@ -3103,31 +3301,20 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue DWELLER_TIER3_THRESHOLD = BUILDER
             .comment("The Dweller: anger at which it enters the Chase tier (fake chases, then the real one).")
             .defineInRange("dwellerTier3Threshold", 88.0, 0.0, 1000.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_THRESHOLD = BUILDER
-            .comment("The Dweller: anger at which the FINAL chase begins — it rushes you through walls, and touching you ends it (a bloody death that consumes the curse).")
-            .defineInRange("dwellerChaseThreshold", 100.0, 0.0, 1000.0);
 
     public static final ModConfigSpec.DoubleValue DWELLER_FAR_DISTANCE = BUILDER
             .comment("The Dweller: distance (blocks) it watches from during Far observation.")
             .defineInRange("dwellerFarDistance", 22.0, 2.0, 64.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CLOSE_DISTANCE = BUILDER
-            .comment("The Dweller: distance (blocks) it watches from during Close observation.")
-            .defineInRange("dwellerCloseDistance", 11.0, 2.0, 64.0);
     public static final ModConfigSpec.DoubleValue DWELLER_INSPECT_DISTANCE = BUILDER
             .comment("The Dweller: distance (blocks) it stands at during Inspection — right in your space.")
             .defineInRange("dwellerInspectDistance", 4.0, 1.0, 32.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_SPEED = BUILDER
-            .comment("The Dweller: chase speed (blocks/second) during the final chase — meant to catch you.")
-            .defineInRange("dwellerChaseSpeed", 8.5, 1.0, 40.0);
     public static final ModConfigSpec.DoubleValue DWELLER_TOUCH_DISTANCE = BUILDER
             .comment("The Dweller: how close (blocks) it must get during the chase to catch and kill you.")
             .defineInRange("dwellerTouchDistance", 1.7, 0.5, 8.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_GHOST_CHASE_SPEED = BUILDER
-            .comment("The Dweller: BASE chase speed (blocks/second) of the Ghost-Girl hunt at the moment a chase can start. Scales UP with dread by dwellerChaseSpeedDreadBonus. Below sprint but relentless.")
-            .defineInRange("dwellerGhostChaseSpeed", 3.4, 0.5, 10.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_SPEED_DREAD_BONUS = BUILDER
-            .comment("The Dweller: fractional chase-speed bonus at MAX dread (e.g. 0.45 = up to +45% faster at full dread than the base speed). Higher dread = faster hunt.")
-            .defineInRange("dwellerChaseSpeedDreadBonus", 0.45, 0.0, 3.0);
+    public static final ModConfigSpec.BooleanValue DWELLER_PASSIVE_COLLISION_KILL = BUILDER
+            .comment("The Dweller: during a chase, colliding with ANY passive entity (an animal, villager, golem)",
+                    "instantly triggers the gory finale too — nowhere is safe once it's hunting you.")
+            .define("dwellerPassiveCollisionKill", true);
     public static final ModConfigSpec.DoubleValue DWELLER_CHASE_STRIDE = BUILDER
             .comment("The Dweller: blocks the dweller must walk between footstep sounds during a chase (its stride length). Larger = fewer, more spaced-out steps. Tuned to match the movement speed.")
             .defineInRange("dwellerChaseStride", 1.15, 0.3, 4.0);
@@ -3152,15 +3339,6 @@ public final class Config {
     public static final ModConfigSpec.IntValue DWELLER_CHASE_RAMP_TICKS = BUILDER
             .comment("The Dweller: how long (ticks) a chase takes to ramp from its slow starting speed up to full pace. The hunt starts a touch slow and builds momentum.")
             .defineInRange("dwellerChaseRampTicks", 120, 1, 1200);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_RAMP_START = BUILDER
-            .comment("The Dweller: chase speed at the START of a hunt as a fraction of the dread-scaled full speed (e.g. 0.7 = starts at 70% pace, then builds).")
-            .defineInRange("dwellerChaseRampStart", 0.7, 0.1, 1.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_RAMP_END = BUILDER
-            .comment("The Dweller: chase speed at the END of the ramp as a fraction of the dread-scaled speed (e.g. 1.15 = the fully wound-up hunt is 15% faster than the base dread-scaled speed).")
-            .defineInRange("dwellerChaseRampEnd", 1.15, 0.5, 3.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_CLIMB_RATE = BUILDER
-            .comment("The Dweller: how many blocks per tick the chaser can climb vertically while pursuing (lets it scale blocks/stairs to follow you up). Higher = snappier climbs.")
-            .defineInRange("dwellerChaseClimbRate", 0.55, 0.1, 2.0);
     public static final ModConfigSpec.DoubleValue DWELLER_BRIDGE_CHASE_MIN_CHANCE = BUILDER
             .comment("The Dweller: chance (0-1) that a watch/sizeup/lunge BRIDGES straight into a chase at the chase floor (low dread). The hunt can erupt from where the creature stands rather than always resetting.")
             .defineInRange("dwellerBridgeChaseMinChance", 0.05, 0.0, 1.0);
@@ -3241,9 +3419,6 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue DWELLER_EXPLODE_ENTITY_POWER = BUILDER
             .comment("The Dweller: explosion power when it detonates a nearby animal/villager as a warning (0 = kill it silently).")
             .defineInRange("dwellerExplodeEntityPower", 2.0, 0.0, 10.0);
-    public static final ModConfigSpec.IntValue DWELLER_FAKE_CHASE_TICKS = BUILDER
-            .comment("The Dweller: how long (ticks) a FAKE chase lunges at you before it stops and vanishes.")
-            .defineInRange("dwellerFakeChaseTicks", 26, 4, 100);
 
     public static final ModConfigSpec.IntValue DWELLER_DORMANT_MIN_TICKS = BUILDER
             .comment("The Dweller: minimum absence (ticks) between appearances at tier 0. Early FAR glimpses are meant to be fairly frequent (just distant); the absence shrinks smoothly as dread climbs.")
@@ -3287,12 +3462,6 @@ public final class Config {
     public static final ModConfigSpec.IntValue DWELLER_STARE_VANISH_TICKS = BUILDER
             .comment("The Dweller: staring straight at ANY watch for this long (ticks) makes it vanish — the double-take. Default 3s (60t). At high dread the vanish is instead a lunge/chase bridge, but the trigger time is the same.")
             .defineInRange("dwellerStareVanishTicks", 60, 5, 600);
-    public static final ModConfigSpec.DoubleValue DWELLER_CREEP_SPEED = BUILDER
-            .comment("The Dweller: how fast (blocks/second) it creeps toward you while you are NOT looking at it (weeping-angel style — it freezes when watched). Scaled up by tier.")
-            .defineInRange("dwellerCreepSpeed", 1.7, 0.0, 20.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CLOSE_ENCOUNTER_DISTANCE = BUILDER
-            .comment("The Dweller: how close (blocks) its unobserved creep must get to trigger a close encounter (a scare at low tiers; the chase at the top tier).")
-            .defineInRange("dwellerCloseEncounterDistance", 2.3, 0.5, 8.0);
     public static final ModConfigSpec.DoubleValue DWELLER_WATCH_ANGER_PER_SECOND = BUILDER
             .comment("The Dweller: extra anger per second while you are actively looking at it — it hates being seen, so watching it hastens the end.")
             .defineInRange("dwellerWatchAngerPerSecond", 1.2, 0.0, 100.0);
@@ -3303,21 +3472,6 @@ public final class Config {
             .comment("The Dweller: maximum gap (ticks) between ambient dread cues.")
             .defineInRange("dwellerAmbientMaxTicks", 520, 10, 12000);
 
-    public static final ModConfigSpec.DoubleValue DWELLER_WATCH_RADIUS = BUILDER
-            .comment("The Dweller (Watch event): radius (blocks) to gather passive mobs that all freeze and stare at you.")
-            .defineInRange("dwellerWatchRadius", 16.0, 4.0, 48.0);
-    public static final ModConfigSpec.IntValue DWELLER_WATCH_MIN_MOBS = BUILDER
-            .comment("The Dweller (Watch event): how many passive mobs must be nearby for the mass-stare to be possible.")
-            .defineInRange("dwellerWatchMinMobs", 3, 1, 50);
-    public static final ModConfigSpec.DoubleValue DWELLER_WATCH_CHANCE = BUILDER
-            .comment("The Dweller (Watch event): chance the stare fires when enough passive mobs are around.")
-            .defineInRange("dwellerWatchChance", 0.75, 0.0, 1.0);
-    public static final ModConfigSpec.IntValue DWELLER_WATCH_MIN_TICKS = BUILDER
-            .comment("The Dweller (Watch event): minimum time (ticks) the mobs hold their frozen stare.")
-            .defineInRange("dwellerWatchMinTicks", 60, 10, 2400);
-    public static final ModConfigSpec.IntValue DWELLER_WATCH_MAX_TICKS = BUILDER
-            .comment("The Dweller (Watch event): maximum time (ticks) the mobs hold their frozen stare.")
-            .defineInRange("dwellerWatchMaxTicks", 200, 10, 4800);
 
     public static final ModConfigSpec.IntValue DWELLER_EYES_MIN = BUILDER
             .comment("The Dweller (Watchers event): minimum number of glowing-eye pairs that appear in the dark.")
@@ -3401,19 +3555,7 @@ public final class Config {
     public static final ModConfigSpec.IntValue DWELLER_DARK_LEVEL = BUILDER
             .comment("The Dweller: light level at/below which you count as 'in the dark' (dread rises, it grows bold).")
             .defineInRange("dwellerDarkLevel", 5, 0, 15);
-    public static final ModConfigSpec.DoubleValue DWELLER_DREAD_FLOOR_PER_SECOND = BUILDER
-            .comment("The Dweller: the inevitable rising FLOOR — dread can be held down by playing safe, but never below this slowly-climbing floor, so it always eventually progresses. Per second.")
-            .defineInRange("dwellerDreadFloorPerSecond", 0.09, 0.0, 100.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_DREAD_FLOOR_CAP_PERCENT = BUILDER
-            .comment("The Dweller: how high (percent of max) the inevitable floor can climb. Above this, only active dread from the dark/being alone/etc pushes you to the chase — so perfect play caps you just short of the hunt.")
-            .defineInRange("dwellerDreadFloorCapPercent", 60.0, 0.0, 100.0);
 
-    public static final ModConfigSpec.DoubleValue DWELLER_LIGHT_REPEL_PER_SECOND = BUILDER
-            .comment("The Dweller (COUNTERPLAY): while it's manifest and you STARE it down FROM THE LIGHT, this 'banish' builds per second; at 1.0 it's driven off and loses dread. In the dark, staring only freezes it.")
-            .defineInRange("dwellerLightRepelPerSecond", 0.5, 0.0, 10.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_REPEL_DREAD_DROP = BUILDER
-            .comment("The Dweller (COUNTERPLAY): dread dropped when you banish a manifestation by staring it down in the light.")
-            .defineInRange("dwellerRepelDreadDrop", 10.0, 0.0, 100.0);
     public static final ModConfigSpec.DoubleValue DWELLER_LIGHT_LURK_DISTANCE = BUILDER
             .comment("The Dweller (COUNTERPLAY): while you're in bright light, it will not creep closer than this (blocks) — it lurks at the edge of the light.")
             .defineInRange("dwellerLightLurkDistance", 6.0, 0.0, 32.0);
@@ -3421,106 +3563,23 @@ public final class Config {
     public static final ModConfigSpec.IntValue DWELLER_CHASE_MAX_TICKS = BUILDER
             .comment("The Dweller: maximum length (ticks) of a chase — each hunt rolls a duration in [chaseMinTicks, chaseMaxTicks] and breaks off at that if it can't catch you. Default 35s.")
             .defineInRange("dwellerChaseMaxTicks", 700, 40, 2400);
-    public static final ModConfigSpec.IntValue DWELLER_CHASE_ESCAPE_LIGHT_TICKS = BUILDER
-            .comment("The Dweller (COUNTERPLAY): reach bright light (or other players) and hold it this many ticks mid-hunt and it breaks off — the light is your refuge.")
-            .defineInRange("dwellerChaseEscapeLightTicks", 40, 5, 600);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_SURVIVE_DREAD_DROP = BUILDER
-            .comment("The Dweller: dread dropped when you SURVIVE a hunt — a hard-won reprieve before it builds again.")
-            .defineInRange("dwellerChaseSurviveDreadDrop", 45.0, 0.0, 100.0);
     public static final ModConfigSpec.IntValue DWELLER_CHASE_COOLDOWN_TICKS = BUILDER
             .comment("The Dweller: the LONGEST chase cooldown (ticks) — used at the moment dread first enters the chase range. Scales DOWN toward dwellerChaseMinCooldownTicks as dread climbs to max. Default 20s.")
             .defineInRange("dwellerChaseCooldownTicks", 400, 0, 24000);
-    public static final ModConfigSpec.DoubleValue DWELLER_GRAB_FORCE = BUILDER
-            .comment("The Dweller (Grab event): how hard it yanks you toward it.")
-            .defineInRange("dwellerGrabForce", 1.1, 0.0, 5.0);
 
     // --- The Dweller: Possession event -----------------------------------------------------------------
-    public static final ModConfigSpec.DoubleValue DWELLER_POSSESS_RADIUS = BUILDER
-            .comment("The Dweller (Possession event): radius (blocks) to find a mob to possess.")
-            .defineInRange("dwellerPossessRadius", 20.0, 4.0, 64.0);
-    public static final ModConfigSpec.IntValue DWELLER_POSSESS_TWITCH_MIN_TICKS = BUILDER
-            .comment("The Dweller (Possession, passive branch): minimum build-up (ticks) a passive mob twitches before it turns on you.")
-            .defineInRange("dwellerPossessTwitchMinTicks", 40, 5, 600);
-    public static final ModConfigSpec.IntValue DWELLER_POSSESS_TWITCH_MAX_TICKS = BUILDER
-            .comment("The Dweller (Possession, passive branch): maximum build-up (ticks) before it attacks.")
-            .defineInRange("dwellerPossessTwitchMaxTicks", 100, 5, 1200);
-    public static final ModConfigSpec.IntValue DWELLER_POSSESS_ATTACK_TICKS = BUILDER
-            .comment("The Dweller (Possession, passive branch): how long (ticks) the possessed passive mob rampages before the spirit leaves it.")
-            .defineInRange("dwellerPossessAttackTicks", 300, 20, 4800);
-    public static final ModConfigSpec.DoubleValue DWELLER_POSSESS_DAMAGE = BUILDER
-            .comment("The Dweller (Possession, passive branch): melee damage the possessed passive mob deals (attributed to it, so death messages name the mob).")
-            .defineInRange("dwellerPossessDamage", 4.0, 0.0, 40.0);
-    public static final ModConfigSpec.IntValue DWELLER_POSSESS_STRENGTH_LEVEL = BUILDER
-            .comment("The Dweller (Possession): Strength amplifier granted to a possessed mob (0 = Strength I).")
-            .defineInRange("dwellerPossessStrengthLevel", 2, 0, 9);
-    public static final ModConfigSpec.IntValue DWELLER_POSSESS_SPEED_LEVEL = BUILDER
-            .comment("The Dweller (Possession): Speed amplifier granted to a possessed mob (0 = Speed I).")
-            .defineInRange("dwellerPossessSpeedLevel", 1, 0, 9);
-    public static final ModConfigSpec.IntValue DWELLER_POSSESS_EFFECT_TICKS = BUILDER
-            .comment("The Dweller (Possession, aggressive branch): how long (ticks) the Strength/Speed buffs last on an instantly-enraged hostile/neutral mob.")
-            .defineInRange("dwellerPossessEffectTicks", 400, 20, 4800);
 
     // --- The Dweller: Isolation, Mimic, Phantom-attackers, Contagion, Finale ---------------------------
-    public static final ModConfigSpec.IntValue DWELLER_ISOLATION_EVENT_TICKS = BUILDER
-            .comment("The Dweller (Isolation event): how long (ticks) other players/villagers go UNRENDERED beyond 5 blocks — the world empties out to push you away from company.")
-            .defineInRange("dwellerIsolationEventTicks", 1200, 100, 24000);
     public static final ModConfigSpec.IntValue DWELLER_MIMIC_BURST_TICKS = BUILDER
             .comment("The Dweller (Mimic event): how long (ticks) it refreshes the Delusions fake-player system for a fresh wave of impostors.")
             .defineInRange("dwellerMimicBurstTicks", 1200, 100, 24000);
-    public static final ModConfigSpec.IntValue DWELLER_PHANTOM_MIN = BUILDER
-            .comment("The Dweller (Phantom Attack event): minimum number of victim-only fake attackers that rush you.")
-            .defineInRange("dwellerPhantomMin", 2, 1, 20);
-    public static final ModConfigSpec.IntValue DWELLER_PHANTOM_MAX = BUILDER
-            .comment("The Dweller (Phantom Attack event): maximum number of fake attackers.")
-            .defineInRange("dwellerPhantomMax", 4, 1, 30);
-    public static final ModConfigSpec.DoubleValue DWELLER_PHANTOM_SPEED = BUILDER
-            .comment("The Dweller (Phantom Attack event): rush speed (blocks/second) of the fake attackers.")
-            .defineInRange("dwellerPhantomSpeed", 6.5, 1.0, 30.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_PHANTOM_CONTACT = BUILDER
-            .comment("The Dweller (Phantom Attack event): distance (blocks) at which a fake attacker 'hits' you.")
-            .defineInRange("dwellerPhantomContact", 1.7, 0.5, 6.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_PHANTOM_TIER_POINTS = BUILDER
-            .comment("The Dweller (Phantom Attack event): dread added each time you strike a fake attacker or one reaches you.")
-            .defineInRange("dwellerPhantomTierPoints", 6.0, 0.0, 100.0);
-    public static final ModConfigSpec.IntValue DWELLER_PHANTOM_BLIND_TICKS = BUILDER
-            .comment("The Dweller (Phantom Attack event): brief Blindness (ticks) when a fake attacker vanishes.")
-            .defineInRange("dwellerPhantomBlindTicks", 30, 0, 400);
-    public static final ModConfigSpec.IntValue DWELLER_PHANTOM_LIFETIME_TICKS = BUILDER
-            .comment("The Dweller (Phantom Attack event): how long (ticks) a fake attacker persists if it never reaches you.")
-            .defineInRange("dwellerPhantomLifetimeTicks", 200, 20, 2400);
 
-    public static final ModConfigSpec.DoubleValue DWELLER_CONTAGION_RADIUS = BUILDER
-            .comment("The Dweller (Contagion — being NEAR the afflicted is dangerous): radius (blocks) within which OTHER players catch the edge of the madness.")
-            .defineInRange("dwellerContagionRadius", 4.0, 1.0, 24.0);
-    public static final ModConfigSpec.IntValue DWELLER_CONTAGION_INTERVAL_TICKS = BUILDER
-            .comment("The Dweller (Contagion): how often (ticks) nearby others are checked.")
-            .defineInRange("dwellerContagionIntervalTicks", 60, 5, 1200);
-    public static final ModConfigSpec.DoubleValue DWELLER_CONTAGION_CHANCE = BUILDER
-            .comment("The Dweller (Contagion): chance per check a nearby other player catches a jolt of the dread.")
-            .defineInRange("dwellerContagionChance", 0.5, 0.0, 1.0);
-    public static final ModConfigSpec.IntValue DWELLER_CONTAGION_DARKNESS_TICKS = BUILDER
-            .comment("The Dweller (Contagion): Darkness (ticks) inflicted on a nearby other player.")
-            .defineInRange("dwellerContagionDarknessTicks", 70, 0, 600);
     public static final ModConfigSpec.DoubleValue DWELLER_FINALE_EXPLOSION_POWER = BUILDER
-            .comment("The Dweller (finale — the afflicted's death is a danger to those around them): explosion power at the death spot (hurts nearby others; no terrain damage).")
+            .comment("The Dweller (finale): explosion power at the death spot so the catch goes off like the explosion event",
+                    "(gory burst + a real blast that hurts nearby others). 0 = gore only. NO terrain damage.")
             .defineInRange("dwellerFinaleExplosionPower", 3.0, 0.0, 12.0);
 
     // --- The Dweller: escalating chases ----------------------------------------------------------------
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_SPEED_FIRST = BUILDER
-            .comment("The Dweller: chase speed (blocks/second) on the FIRST hunt — deliberately slow, a telegraphed hazard you can outrun while it warns you it's coming.")
-            .defineInRange("dwellerChaseSpeedFirst", 4.0, 0.5, 30.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_CHASE_SPEED_PER_CHASE = BUILDER
-            .comment("The Dweller: how much faster (blocks/second) each subsequent hunt is, up to the dwellerChaseSpeed cap.")
-            .defineInRange("dwellerChaseSpeedPerChase", 1.3, 0.0, 20.0);
-    public static final ModConfigSpec.IntValue DWELLER_CHASE_TELEPORT_FIRST_TICKS = BUILDER
-            .comment("The Dweller: teleport 'switch-up' interval (ticks) on the FIRST hunt — long enough that it usually never blinks. Shrinks each hunt.")
-            .defineInRange("dwellerChaseTeleportFirstTicks", 500, 20, 6000);
-    public static final ModConfigSpec.IntValue DWELLER_CHASE_TELEPORT_PER_CHASE = BUILDER
-            .comment("The Dweller: how much the teleport interval shrinks (ticks) per hunt — later hunts blink far more often.")
-            .defineInRange("dwellerChaseTeleportPerChase", 90, 0, 2000);
-    public static final ModConfigSpec.IntValue DWELLER_CHASE_TELEPORT_MIN_TICKS = BUILDER
-            .comment("The Dweller: the floor (ticks) on the teleport interval, however many hunts you've endured.")
-            .defineInRange("dwellerChaseTeleportMinTicks", 55, 5, 2000);
     public static final ModConfigSpec.DoubleValue DWELLER_CHASE_TELEPORT_DISTANCE = BUILDER
             .comment("The Dweller: how far (blocks) it blinks away to when it teleports mid-hunt.")
             .defineInRange("dwellerChaseTeleportDistance", 11.0, 3.0, 40.0);
@@ -3532,12 +3591,6 @@ public final class Config {
     public static final ModConfigSpec.IntValue DWELLER_HEARTBEAT_MAX_TICKS = BUILDER
             .comment("The Dweller: SLOWEST gap (ticks) between heartbeats — the languid pulse of low dread.")
             .defineInRange("dwellerHeartbeatMaxTicks", 72, 5, 1200);
-    public static final ModConfigSpec.DoubleValue DWELLER_HEARTBEAT_START_FRAC = BUILDER
-            .comment("The Dweller: dread fraction (0..1) below which the heartbeat stays silent while it's absent — so calm, safe play is actually quiet.")
-            .defineInRange("dwellerHeartbeatStartFrac", 0.22, 0.0, 1.0);
-    public static final ModConfigSpec.DoubleValue DWELLER_RANDOM_FLICKER_CHANCE = BUILDER
-            .comment("The Dweller: chance per ~1.5s (tier 2+) that the lights FLICKER on their own — a stray jolt of wrongness, no event attached.")
-            .defineInRange("dwellerRandomFlickerChance", 0.12, 0.0, 1.0);
 
     // --- Bedrock Moment (curse) — a parody of Bedrock-edition bugs -------------------------------------
     public static final ModConfigSpec.IntValue BEDROCK_EVENT_MIN_TICKS = BUILDER
@@ -3928,6 +3981,9 @@ public final class Config {
             .comment("Heavy Hitter: multiplier on your melee knockback (multiplies the final strength, so it",
                     "stacks multiplicatively with Knockback enchantments).")
             .defineInRange("heavyHitterKnockbackMultiplier", 2.0, 1.0, 10.0);
+    public static final ModConfigSpec.DoubleValue HEAVY_HITTER_FLAT_DAMAGE = BUILDER
+            .comment("Heavy Hitter: flat extra damage added to every melee hit you land (on top of the weapon's own).")
+            .defineInRange("heavyHitterFlatDamage", 2.0, 0.0, 20.0);
 
     // --- Speed Demon blessing -------------------------------------------------------------------------
     public static final ModConfigSpec.DoubleValue SPEED_DEMON_MOUNT_MULTIPLIER = BUILDER
@@ -3999,6 +4055,26 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue FLIGHT_REGEN_PER_TICK = BUILDER
             .comment("Flight: fraction of the energy bar refilled per tick when on the ground / not rising.")
             .defineInRange("flightRegenPerTick", 0.006, 0.0, 0.5);
+    public static final ModConfigSpec.DoubleValue FLIGHT_GLIDE_REGEN_PER_TICK = BUILDER
+            .comment("Flight + Elytra: fraction of the energy bar refilled per tick while gliding on an elytra with",
+                    "NO active push-up — this makes Flight a refuelling enhancer for elytra travel.")
+            .defineInRange("flightGlideRegenPerTick", 0.004, 0.0, 0.5);
+    public static final ModConfigSpec.DoubleValue FLIGHT_ELYTRA_LIFT_MULT = BUILDER
+            .comment("Flight + Elytra: how much of the rise speed becomes extra LIFT (added on top of the glide) when",
+                    "you hold jump while gliding — deliberately small, just enough to stop you constantly losing height.")
+            .defineInRange("flightElytraLiftMult", 0.2, 0.0, 3.0);
+    public static final ModConfigSpec.DoubleValue FLIGHT_ELYTRA_SPRINT_SPEED = BUILDER
+            .comment("Flight + Elytra: extra forward speed per tick added along your look while HOLDING SPRINT and",
+                    "gliding on an elytra (accumulates against vanilla drag toward a decent glide speed).")
+            .defineInRange("flightElytraSprintSpeed", 0.08, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue FLIGHT_ELYTRA_DRAIN_MULT = BUILDER
+            .comment("Flight + Elytra: the energy drain while actively pushing (lift/sprint) on an elytra is multiplied",
+                    "by this — flying an elytra with the blessing burns the bar faster.")
+            .defineInRange("flightElytraDrainMult", 2.0, 0.0, 10.0);
+    public static final ModConfigSpec.DoubleValue FLIGHT_ELYTRA_FOV = BUILDER
+            .comment("Flight + Elytra: FOV multiplier applied while sprint-gliding on an elytra (a slight zoom-out for",
+                    "the sense of speed). 1.0 = no change.")
+            .defineInRange("flightElytraFov", 1.12, 1.0, 1.5);
     public static final ModConfigSpec.DoubleValue FLIGHT_DAMAGE_COST = BUILDER
             .comment("Flight: fraction of the energy bar drained when you take damage (0.2 = 20%).")
             .defineInRange("flightDamageCost", 0.2, 0.0, 1.0);
@@ -4061,6 +4137,9 @@ public final class Config {
     public static final ModConfigSpec.IntValue DISGUISE_RETURN_TICKS = BUILDER
             .comment("Disguise: ticks you must go un-hit after a break before the costume returns. 240 = 12s.")
             .defineInRange("disguiseReturnTicks", 240, 20, 2000);
+    public static final ModConfigSpec.IntValue CONCEAL_FLASH_TICKS = BUILDER
+            .comment("Concealment synergy (Prop Hunt + Disguise): ticks you're briefly unrendered (armour and all) after a form change, so a switch reads as a puff-of-smoke vanish.")
+            .defineInRange("concealFlashTicks", 10, 1, 60);
 
     // --- Blessing of Confusion ---
     public static final ModConfigSpec.IntValue CONFUSION_INTERVAL_TICKS = BUILDER
@@ -4083,6 +4162,10 @@ public final class Config {
             .comment("Voodoo Doll: max durability, applied when a doll is bound. Deliberately LOW — voodoo is",
                     "pretty much free damage, so a doll only lasts a few interactions.")
             .defineInRange("voodooDollDurability", 12, 1, 2000);
+    public static final ModConfigSpec.DoubleValue VOODOO_TRACK_RADIUS = BUILDER
+            .comment("Voodoo Doll (tracker): while you hold a bound doll and the target is ONLINE, in the same",
+                    "dimension and within this many blocks, a subtle particle points toward them.")
+            .defineInRange("voodooTrackRadius", 180.0, 0.0, 2048.0);
     public static final ModConfigSpec.DoubleValue VOODOO_UNPROTECTED_FRACTION = BUILDER
             .comment("Voodoo damage: the fraction of the hit that IGNORES armour. 0.5 = half the damage is always",
                     "unprotected, so armour helps but only half as much as against a normal hit.")
@@ -4147,6 +4230,474 @@ public final class Config {
                     "slot (the doll is returned, not consumed).")
             .defineInRange("voodooTableDollCost", 1, 0, 100);
 
+    // --- New prototype batch (2026-09-02) ---------------------------------------------------------------
+
+    // Lightweight
+    public static final ModConfigSpec.DoubleValue LIGHTWEIGHT_KNOCKBACK_MULT = BUILDER
+            .comment("Lightweight: multiplier on knockback dealt TO you. Stacks on top of the attacker's own",
+                    "Knockback enchants/enhancements.")
+            .defineInRange("lightweightKnockbackMultiplier", 2.0, 1.0, 8.0);
+
+    // Munchies
+    public static final ModConfigSpec.IntValue MUNCHIES_SATURATION_PERCENT = BUILDER
+            .comment("Munchies: percent of the SATURATION a food would give that you actually keep (lower = you",
+                    "have to eat far more often).")
+            .defineInRange("munchiesSaturationPercent", 25, 0, 100);
+    public static final ModConfigSpec.IntValue MUNCHIES_EAT_SPEED_PERCENT = BUILDER
+            .comment("Munchies: percent faster you eat. Stacks with Gluttony's own eat-speed boost.")
+            .defineInRange("munchiesEatSpeedPercent", 40, 0, 90);
+
+    // Spotlight
+    public static final ModConfigSpec.DoubleValue SPOTLIGHT_BEAM_HEIGHT = BUILDER
+            .comment("Spotlight: how tall (blocks) the beam of light raining down onto you is (measured from the",
+                    "beam's start above your head, see spotlightBeamGap).")
+            .defineInRange("spotlightBeamHeight", 8.0, 1.0, 32.0);
+    public static final ModConfigSpec.DoubleValue SPOTLIGHT_BEAM_GAP = BUILDER
+            .comment("Spotlight: how far above your head the beam STARTS, so it isn't in your face / blocking",
+                    "your view.")
+            .defineInRange("spotlightBeamGap", 3.0, 0.0, 16.0);
+    public static final ModConfigSpec.DoubleValue SPOTLIGHT_DETECTION_RADIUS = BUILDER
+            .comment("Spotlight: radius within which hostile mobs get a follow-range boost so they spot you more",
+                    "easily (stacks with other curses' detection boosts). 0 to disable.")
+            .defineInRange("spotlightDetectionRadius", 32.0, 0.0, 128.0);
+    public static final ModConfigSpec.DoubleValue SPOTLIGHT_DETECTION_BONUS = BUILDER
+            .comment("Spotlight: extra follow-range (blocks) granted to nearby hostiles so they see you easier.")
+            .defineInRange("spotlightDetectionBonus", 12.0, 0.0, 64.0);
+
+    // Hiccups
+    public static final ModConfigSpec.IntValue HICCUPS_MIN_GAP_TICKS = BUILDER
+            .comment("Hiccups: minimum ticks between hiccups (outside a fit).")
+            .defineInRange("hiccupsMinGapTicks", 120, 5, 2000);
+    public static final ModConfigSpec.IntValue HICCUPS_MAX_GAP_TICKS = BUILDER
+            .comment("Hiccups: maximum ticks between hiccups (outside a fit).")
+            .defineInRange("hiccupsMaxGapTicks", 360, 10, 4000);
+    public static final ModConfigSpec.DoubleValue HICCUPS_HOP_POWER = BUILDER
+            .comment("Hiccups: upward velocity of the involuntary hop (0.42 ~= a vanilla jump).")
+            .defineInRange("hiccupsHopPower", 0.42, 0.0, 1.5);
+    public static final ModConfigSpec.IntValue HICCUPS_FIT_CHANCE_PERCENT = BUILDER
+            .comment("Hiccups: chance a hiccup spirals into a whole FIT of several in a row.")
+            .defineInRange("hiccupsFitChancePercent", 7, 0, 100);
+    public static final ModConfigSpec.IntValue HICCUPS_FIT_MIN = BUILDER
+            .comment("Hiccups: fewest EXTRA hiccups in a fit.")
+            .defineInRange("hiccupsFitMin", 2, 1, 20);
+    public static final ModConfigSpec.IntValue HICCUPS_FIT_MAX = BUILDER
+            .comment("Hiccups: most EXTRA hiccups in a fit.")
+            .defineInRange("hiccupsFitMax", 5, 1, 40);
+    public static final ModConfigSpec.IntValue HICCUPS_FIT_SPACING_TICKS = BUILDER
+            .comment("Hiccups: ticks between hiccups WITHIN a fit.")
+            .defineInRange("hiccupsFitSpacingTicks", 12, 2, 100);
+    public static final ModConfigSpec.IntValue HICCUPS_FREEZE_TICKS = BUILDER
+            .comment("Hiccups: how many ticks each hiccup briefly freezes your movement for.")
+            .defineInRange("hiccupsFreezeTicks", 6, 1, 40);
+
+    // Body Swapping
+    public static final ModConfigSpec.IntValue BODYSWAP_MIN_GAP_TICKS = BUILDER
+            .comment("Body Swapping: minimum ticks between swaps.")
+            .defineInRange("bodySwapMinGapTicks", 600, 20, 20000);
+    public static final ModConfigSpec.IntValue BODYSWAP_MAX_GAP_TICKS = BUILDER
+            .comment("Body Swapping: maximum ticks between swaps.")
+            .defineInRange("bodySwapMaxGapTicks", 2400, 40, 40000);
+    public static final ModConfigSpec.DoubleValue BODYSWAP_RADIUS = BUILDER
+            .comment("Body Swapping: farthest a swap partner can be.")
+            .defineInRange("bodySwapRadius", 48.0, 4.0, 256.0);
+    public static final ModConfigSpec.DoubleValue BODYSWAP_MIN_DISTANCE = BUILDER
+            .comment("Body Swapping: nearest a swap partner can be — keeps it from swapping with someone right",
+                    "next to you (so it's a real relocation).")
+            .defineInRange("bodySwapMinDistance", 8.0, 0.0, 64.0);
+    public static final ModConfigSpec.IntValue BODYSWAP_CLONE_CHANCE_PERCENT = BUILDER
+            .comment("Body Swapping: chance a swap targets a nearby Confusion clone instead of a player (so it can",
+                    "swap you with your own decoys — deliberately lower than swapping with a real player). 0 disables it.")
+            .defineInRange("bodySwapCloneChancePercent", 25, 0, 100);
+
+    // --- attachment synergies (extra behaviour while one player holds both effects; see the synergy package) ---
+    public static final ModConfigSpec.IntValue BACKSEAT_SPEED_DEMON_BONUS_LEVEL = BUILDER
+            .comment("Synergy (Backseat Driver + Speed Demon): extra Speed levels given to a hijacked mount while",
+                    "both are active. Added on top of backseatSpeedBoostLevel.")
+            .defineInRange("backseatSpeedDemonBonusLevel", 2, 0, 10);
+    public static final ModConfigSpec.DoubleValue PESTS_POPULARITY_MULTIPLIER = BUILDER
+            .comment("Synergy (Pests + Popularity): the per-block silverfish chance is multiplied by this while both",
+                    "are active, so mining during a Popularity horde is crawling with them.")
+            .defineInRange("pestsPopularityMultiplier", 2.5, 1.0, 20.0);
+    public static final ModConfigSpec.DoubleValue STENCH_PUSH_RADIUS = BUILDER
+            .comment("Synergy (Gassy + Unhygienic): radius of the extra stink cloud a fart kicks up — players inside",
+                    "are shoved away and non-undead mobs are sped up to flee.")
+            .defineInRange("stenchPushRadius", 6.0, 1.0, 32.0);
+    public static final ModConfigSpec.DoubleValue STENCH_PLAYER_PUSH = BUILDER
+            .comment("Synergy (Gassy + Unhygienic): how hard the stink cloud shoves nearby players away (a big fart",
+                    "shoves harder).")
+            .defineInRange("stenchPlayerPush", 0.6, 0.0, 4.0);
+    public static final ModConfigSpec.IntValue HICCUPS_FART_CHANCE_PERCENT = BUILDER
+            .comment("Synergy (Hiccups + Gassy): chance each hiccup DURING A FIT also lets out a fart while both",
+                    "are active.")
+            .defineInRange("hiccupsFartChancePercent", 40, 0, 100);
+    public static final ModConfigSpec.DoubleValue WINDFALL_HIGH_TIER_CHANCE = BUILDER
+            .comment("Synergy (Windfall + Luck): chance a windfall floats a SPECIAL high-tier item (diamonds, golden",
+                    "apples, ...) instead of the ordinary good pool while both are active. Junk is skipped entirely.")
+            .defineInRange("windfallHighTierChance", 0.3, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue COMPANIONSHIP_BANTER_MIN_TICKS = BUILDER
+            .comment("Companionship banter: shortest gap (ticks) between banter lines when a player carries a mix of",
+                    "Bodyguard / Solicitor / Guardian Angel. 400 = 20s.")
+            .defineInRange("companionshipBanterMinTicks", 400, 40, 24000);
+    public static final ModConfigSpec.IntValue COMPANIONSHIP_BANTER_MAX_TICKS = BUILDER
+            .comment("Companionship banter: longest gap (ticks) between banter lines. 900 = 45s.")
+            .defineInRange("companionshipBanterMaxTicks", 900, 40, 48000);
+    public static final ModConfigSpec.IntValue COMPANIONSHIP_ARGUE_DELAY_TICKS = BUILDER
+            .comment("Companionship banter: delay (ticks) before the reply lands in an 'argue' exchange. 40 = 2s.")
+            .defineInRange("companionshipArgueDelayTicks", 40, 5, 200);
+    public static final ModConfigSpec.IntValue COMPANIONSHIP_DEATH_REACT_CHANCE_PERCENT = BUILDER
+            .comment("Companionship banter: chance the surviving companion remarks when the bodyguard, solicitor or",
+                    "guardian angel is killed. Kept low so it stays an occasional touch.")
+            .defineInRange("companionshipDeathReactChancePercent", 40, 0, 100);
+
+    // Left Handed
+    public static final ModConfigSpec.DoubleValue LEFT_HANDED_DRIFT_DEGREES = BUILDER
+            .comment("Left Handed: amplitude (degrees) of the PATTERNED aim sway that bites while aiming/using ANY",
+                    "item (bow, trident, spyglass, ...). 0 = no sway, just the flipped hand + scrambled chat.")
+            .defineInRange("leftHandedDriftDegrees", 2.5, 0.0, 15.0);
+    public static final ModConfigSpec.DoubleValue LEFT_HANDED_PROJECTILE_BLOOM = BUILDER
+            .comment("Left Handed: slight extra spread added to anything you throw/shoot (steers the aim only, the",
+                    "speed is preserved). 0 disables it.")
+            .defineInRange("leftHandedProjectileBloom", 0.06, 0.0, 1.0);
+
+    // Ice Skates
+    public static final ModConfigSpec.DoubleValue ICE_SKATES_SLIP = BUILDER
+            .comment("Ice Skates: how much horizontal momentum is retained each tick when you let go of the",
+                    "controls (higher = a longer, more prominent glide; 1.0 would never stop).")
+            .defineInRange("iceSkatesSlip", 0.965, 0.5, 0.999);
+    public static final ModConfigSpec.DoubleValue ICE_SKATES_SPRINT_SLIP = BUILDER
+            .comment("Ice Skates: the retained-momentum factor used when you were SPRINTING as you let go — a",
+                    "longer skid off the back of a sprint. Should be >= iceSkatesSlip.")
+            .defineInRange("iceSkatesSprintSlip", 0.985, 0.5, 0.999);
+    public static final ModConfigSpec.DoubleValue ICE_SKATES_CAP = BUILDER
+            .comment("Ice Skates: horizontal speed cap while sliding (walking release).")
+            .defineInRange("iceSkatesCap", 0.55, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue ICE_SKATES_SPRINT_CAP = BUILDER
+            .comment("Ice Skates: horizontal speed cap while sliding off a sprint (a faster skid).")
+            .defineInRange("iceSkatesSprintCap", 0.75, 0.1, 3.0);
+
+    // Vertigo — height-scaled: a CAMERA sway from cameraStartY up, and (higher) a MOVEMENT sway from
+    // movementStartY up; both ramp to full strength at maxY.
+    public static final ModConfigSpec.IntValue VERTIGO_CAMERA_START_Y = BUILDER
+            .comment("Vertigo: Y at which the CAMERA sway begins (a slight sway, growing with height).")
+            .defineInRange("vertigoCameraStartY", 90, -64, 320);
+    public static final ModConfigSpec.IntValue VERTIGO_MOVEMENT_START_Y = BUILDER
+            .comment("Vertigo: Y at which a MOVEMENT sway ALSO kicks in (your feet start to wander), growing",
+                    "with height on top of the camera sway.")
+            .defineInRange("vertigoMovementStartY", 120, -64, 320);
+    public static final ModConfigSpec.IntValue VERTIGO_MAX_Y = BUILDER
+            .comment("Vertigo: Y at which both sways reach full strength (the height limit).")
+            .defineInRange("vertigoMaxY", 320, -64, 384);
+    public static final ModConfigSpec.DoubleValue VERTIGO_CAMERA_STRENGTH = BUILDER
+            .comment("Vertigo: peak camera wobble in degrees at maxY.")
+            .defineInRange("vertigoCameraStrength", 2.6, 0.0, 15.0);
+    public static final ModConfigSpec.DoubleValue VERTIGO_MOVEMENT_STRENGTH = BUILDER
+            .comment("Vertigo: peak movement sway at maxY, as a fraction of full strafe (like Wonky's drift).")
+            .defineInRange("vertigoMovementStrength", 0.24, 0.0, 1.0);
+
+    // Narrator
+    public static final ModConfigSpec.DoubleValue NARRATOR_HEAR_RADIUS = BUILDER
+            .comment("Narrator: how close another player must be to also have their client speak the line (each",
+                    "hears it flat/non-positional — TTS isn't a world sound).")
+            .defineInRange("narratorHearRadius", 16.0, 0.0, 64.0);
+    public static final ModConfigSpec.IntValue NARRATOR_EVENT_CHANCE = BUILDER
+            .comment("Narrator: percent chance an eligible event actually gets narrated (so it doesn't comment on",
+                    "literally everything).")
+            .defineInRange("narratorEventChancePercent", 65, 0, 100);
+    public static final ModConfigSpec.IntValue NARRATOR_AMBIENT_MIN_TICKS = BUILDER
+            .comment("Narrator: minimum ticks between ambient (idle) narration lines.")
+            .defineInRange("narratorAmbientMinTicks", 400, 40, 12000);
+    public static final ModConfigSpec.IntValue NARRATOR_AMBIENT_MAX_TICKS = BUILDER
+            .comment("Narrator: maximum ticks between ambient (idle) narration lines.")
+            .defineInRange("narratorAmbientMaxTicks", 1200, 80, 24000);
+    public static final ModConfigSpec.IntValue NARRATOR_REPEAT_GAP_TICKS = BUILDER
+            .comment("Narrator anti-spam: for a SUSTAINED activity (same category over and over, e.g. swimming),",
+                    "each repeat adds this many ticks to the required gap, so it slows down the longer it drags on.",
+                    "Resets the moment a different reaction fires.")
+            .defineInRange("narratorRepeatGapTicks", 60, 0, 2000);
+    public static final ModConfigSpec.IntValue NARRATOR_REPEAT_GAP_MAX_TICKS = BUILDER
+            .comment("Narrator anti-spam: the ceiling the escalating same-category gap grows to.")
+            .defineInRange("narratorRepeatGapMaxTicks", 500, 20, 6000);
+    public static final ModConfigSpec.IntValue NARRATOR_VARIANT_CAP = BUILDER
+            .comment("Narrator anti-spam: how many times ONE specific line may be spoken during a single",
+                    "same-category run before it's retired; once every variant is used up the category goes",
+                    "silent until a different reaction happens.")
+            .defineInRange("narratorVariantCap", 3, 1, 20);
+    public static final ModConfigSpec.DoubleValue NARRATOR_SUBTITLE_TICKS_PER_CHAR = BUILDER
+            .comment("Narrator: how long the on-screen subtitle for the spoken line lingers, in ticks per",
+                    "character (it's removed as soon as the line is done). Makes it accessible for non-Windows.")
+            .defineInRange("narratorSubtitleTicksPerChar", 1.6, 0.2, 10.0);
+    public static final ModConfigSpec.IntValue NARRATOR_CALLOUT_CHANCE = BUILDER
+            .comment("Narrator: percent chance a spoken line's subtitle is replaced (on non-Windows clients only)",
+                    "by an OS jab from linux_mac_callout instead of the readable line.")
+            .defineInRange("narratorCalloutChancePercent", 20, 0, 100);
+    public static final ModConfigSpec.IntValue NARRATOR_TAB_SPAM_SECONDS = BUILDER
+            .comment("Narrator: once tabbed out longer than this many seconds, it starts narrating CONSTANTLY",
+                    "(ignoring the anti-spam escalation) until you come back — being deliberately annoying.")
+            .defineInRange("narratorTabSpamSeconds", 30, 5, 600);
+    public static final ModConfigSpec.IntValue NARRATOR_TAB_SPAM_INTERVAL_TICKS = BUILDER
+            .comment("Narrator: how often (ticks) the constant tabbed-out spam fires once past the threshold.")
+            .defineInRange("narratorTabSpamIntervalTicks", 60, 20, 400);
+    public static final ModConfigSpec.IntValue NARRATOR_POST_LINE_GAP_MAX_TICKS = BUILDER
+            .comment("Narrator: the gap between lines is a random 0..this many ticks AFTER the previous line is",
+                    "estimated to finish speaking (20 = 1s, so the default 40 = up to 2s). Lines flow one after",
+                    "another rather than on a fixed floor.")
+            .defineInRange("narratorPostLineGapMaxTicks", 40, 0, 200);
+    public static final ModConfigSpec.IntValue NARRATOR_ENV_CHANCE = BUILDER
+            .comment("Narrator: percent chance, on an idle/ambient tick with a surrounding condition present (rain,",
+                    "night, nearby mobs, deep underground, ...), to comment on the SURROUNDINGS instead of the",
+                    "player — kept low so it sprinkles in and never starves the idle/ambient lines.")
+            .defineInRange("narratorEnvChancePercent", 30, 0, 100);
+    public static final ModConfigSpec.IntValue NARRATOR_DARK_LIGHT_LEVEL = BUILDER
+            .comment("Narrator: the 'dark' surroundings line only fires when the EFFECTIVE light level (block + any",
+                    "propagated daylight) at the victim is at or below this — so standing in daylight never triggers",
+                    "a 'place a torch' jab.")
+            .defineInRange("narratorDarkLightLevel", 6, 0, 15);
+
+    // --- New blessing batch (2026-09-02) ---------------------------------------------------------------
+
+    // Leader
+    public static final ModConfigSpec.DoubleValue LEADER_RADIUS = BUILDER
+            .comment("Leader: radius within which OTHER players (not you) get Regeneration + Resistance.")
+            .defineInRange("leaderRadius", 16.0, 2.0, 64.0);
+    public static final ModConfigSpec.IntValue LEADER_REGEN_AMP = BUILDER
+            .comment("Leader: Regeneration amplifier granted to nearby allies (0 = Regen I).")
+            .defineInRange("leaderRegenAmplifier", 0, 0, 4);
+    public static final ModConfigSpec.IntValue LEADER_RESISTANCE_AMP = BUILDER
+            .comment("Leader: Resistance amplifier granted to nearby allies (0 = Resistance I).")
+            .defineInRange("leaderResistanceAmplifier", 0, 0, 4);
+
+    // Underdog
+    public static final ModConfigSpec.IntValue UNDERDOG_HALF_PERCENT = BUILDER
+            .comment("Underdog: health percent at/below which the FIRST tier of buffs kicks in.")
+            .defineInRange("underdogHalfPercent", 50, 1, 100);
+    public static final ModConfigSpec.IntValue UNDERDOG_QUARTER_PERCENT = BUILDER
+            .comment("Underdog: health percent at/below which the STRONGER tier kicks in.")
+            .defineInRange("underdogQuarterPercent", 25, 1, 100);
+
+    // Bloodhound
+    public static final ModConfigSpec.DoubleValue BLOODHOUND_RADIUS = BUILDER
+            .comment("Bloodhound: how far you can 'scent' entities (their-eyes-only particles, even on invisible",
+                    "ones).")
+            .defineInRange("bloodhoundRadius", 24.0, 4.0, 96.0);
+    public static final ModConfigSpec.DoubleValue BLOODHOUND_FOOTSTEP_MIN_MOVE = BUILDER
+            .comment("Bloodhound: how far (blocks) an entity must move before it drops a footstep breadcrumb.")
+            .defineInRange("bloodhoundFootstepMinMove", 0.4, 0.05, 4.0);
+    public static final ModConfigSpec.IntValue BLOODHOUND_LINGER_TICKS = BUILDER
+            .comment("Bloodhound: how long (ticks) each footstep stays lit — the trail is re-sent so it lingers. 100 = 5s.")
+            .defineInRange("bloodhoundLingerTicks", 100, 20, 600);
+
+    // Guardian Angel
+    public static final ModConfigSpec.IntValue GUARDIAN_RESPAWN_TICKS = BUILDER
+            .comment("Guardian Angel: ticks before a killed allay returns (6000 = 5 minutes).")
+            .defineInRange("guardianRespawnTicks", 6000, 20, 72000);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_SPEED = BUILDER
+            .comment("Guardian Angel: the allay's movement speed cap (blocks/tick). High = fast + hard to hit.")
+            .defineInRange("guardianSpeed", 0.75, 0.1, 3.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_EVENT_MIN_TICKS = BUILDER
+            .comment("Guardian Angel: minimum ticks between scheduled (passive) events — buffs / item-fetch.")
+            .defineInRange("guardianEventMinTicks", 400, 40, 24000);
+    public static final ModConfigSpec.IntValue GUARDIAN_EVENT_MAX_TICKS = BUILDER
+            .comment("Guardian Angel: maximum ticks between scheduled (passive) events.")
+            .defineInRange("guardianEventMaxTicks", 1100, 80, 48000);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_DETECT_RADIUS = BUILDER
+            .comment("Guardian Angel: radius it watches for attackers, items and lit TNT.")
+            .defineInRange("guardianDetectRadius", 20.0, 4.0, 64.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_FISHING_HURRY = BUILDER
+            .comment("Guardian Angel (Fishing): extra ticks shaved off the bite timer per tick while it hovers your bobber (stacks with Angler).")
+            .defineInRange("guardianFishingHurry", 4, 1, 40);
+    public static final ModConfigSpec.IntValue GUARDIAN_HASTE_SECONDS = BUILDER
+            .comment("Guardian Angel (Mining): seconds of Haste II granted when you break a hard block or a run of blocks.")
+            .defineInRange("guardianHasteSeconds", 8, 1, 60);
+    public static final ModConfigSpec.IntValue GUARDIAN_DURABILITY_PERCENT = BUILDER
+            .comment("Guardian Angel (Durability): % of max durability restored to every worn/held/stored tool when it tends your gear.")
+            .defineInRange("guardianDurabilityPercent", 25, 1, 100);
+    public static final ModConfigSpec.IntValue GUARDIAN_CURSE_PURGE_CHANCE = BUILDER
+            .comment("Guardian Angel (Curse purge): % chance, each opportunity (~every 30s while you carry a curse), to lift one random curse.")
+            .defineInRange("guardianCursePurgeChance", 30, 0, 100);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_PHANTOM_RADIUS = BUILDER
+            .comment("Guardian Angel (Phantom purge): radius within which it flies up and vaporises phantoms.")
+            .defineInRange("guardianPhantomRadius", 16.0, 4.0, 48.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_BUFF_MIN_SECONDS = BUILDER
+            .comment("Guardian Angel (Buffs): minimum seconds for each of the 1-3 random buffs it bestows.")
+            .defineInRange("guardianBuffMinSeconds", 15, 1, 600);
+    public static final ModConfigSpec.IntValue GUARDIAN_BUFF_MAX_SECONDS = BUILDER
+            .comment("Guardian Angel (Buffs): maximum seconds for each random buff.")
+            .defineInRange("guardianBuffMaxSeconds", 120, 1, 1200);
+    public static final ModConfigSpec.IntValue GUARDIAN_KIDNAP_DROP_HEIGHT = BUILDER
+            .comment("Guardian Angel (Kidnap): how high it hauls an attacker before dropping them (only below 40% health).")
+            .defineInRange("guardianKidnapDropHeight", 28, 4, 160);
+    public static final ModConfigSpec.IntValue GUARDIAN_KIDNAP_HAZARD_HEIGHT = BUILDER
+            .comment("Guardian Angel (Kidnap): how high above a hazard (lava/fire) it releases you, so there's room for counterplay.")
+            .defineInRange("guardianKidnapHazardHeight", 7, 1, 40);
+    public static final ModConfigSpec.IntValue GUARDIAN_KIDNAP_COOLDOWN = BUILDER
+            .comment("Guardian Angel (Kidnap): ticks between kidnaps (otherwise a hit just makes it panic).")
+            .defineInRange("guardianKidnapCooldown", 300, 20, 24000);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_KIDNAP_LAVA_RADIUS = BUILDER
+            .comment("Guardian Angel (Kidnap): if lava is within this radius of the attacker, they get dropped INTO it instead.")
+            .defineInRange("guardianKidnapLavaRadius", 10.0, 0.0, 32.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_RARE_GIFT_CHANCE = BUILDER
+            .comment("Guardian Angel (Blessing gift): % chance per ambient opportunity to bestow ONE random blessing (once per blessing, biased to low power).")
+            .defineInRange("guardianRareGiftChance", 5, 0, 100);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_HEAL_RATE = BUILDER
+            .comment("Guardian Angel (Heal): health per second knit up while it flies the healing star around you (below half health; a hit cancels it).")
+            .defineInRange("guardianHealRate", 2.0, 0.1, 20.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_SURROUND_COUNT = BUILDER
+            .comment("Guardian Angel (Knockback): how many nearby entities count as 'surrounded', triggering the pinball knockback.")
+            .defineInRange("guardianSurroundCount", 5, 2, 30);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_KNOCKBACK_FORCE = BUILDER
+            .comment("Guardian Angel (Knockback): how hard it flings entities away when it pinballs to give you space.")
+            .defineInRange("guardianKnockbackForce", 1.3, 0.2, 5.0);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_ANTIGRIEF_RADIUS = BUILDER
+            .comment("Guardian Angel (Anti-grief): radius within which it grabs and flings away a lit creeper / primed TNT.")
+            .defineInRange("guardianAntigriefRadius", 6.0, 2.0, 24.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_ABSORPTION_HEARTS = BUILDER
+            .comment("Guardian Angel (Grace aura): extra Absorption hearts kept topped up while you're out of combat (0 = off).")
+            .defineInRange("guardianAbsorptionHearts", 4, 0, 20);
+    public static final ModConfigSpec.IntValue GUARDIAN_AURA_INTERVAL = BUILDER
+            .comment("Guardian Angel (Grace aura): ticks between aura top-ups (absorption + out-of-combat regen).")
+            .defineInRange("guardianAuraIntervalTicks", 60, 20, 1200);
+    public static final ModConfigSpec.BooleanValue GUARDIAN_SACRIFICE = BUILDER
+            .comment("Guardian Angel (Sacrifice): a killing blow is negated and the guardian dies in your place (returns after the respawn cooldown).")
+            .define("guardianSacrifice", true);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_ZAP_DAMAGE = BUILDER
+            .comment("Guardian Angel (Zap): damage to the FIRST target of a chain bolt (chained foes take less).")
+            .defineInRange("guardianZapDamage", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_ZAP_COOLDOWN = BUILDER
+            .comment("Guardian Angel (Zap): ticks between zaps (only fires while in combat; it chains, so it's less frequent).")
+            .defineInRange("guardianZapCooldown", 55, 5, 400);
+    public static final ModConfigSpec.IntValue GUARDIAN_ZAP_CHAIN_MAX = BUILDER
+            .comment("Guardian Angel (Zap): how many extra foes each bolt arcs through (whittles a group instead of one target).")
+            .defineInRange("guardianZapChainMax", 4, 0, 20);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_ZAP_CHAIN_RANGE = BUILDER
+            .comment("Guardian Angel (Zap): max distance the bolt can arc from one foe to the next.")
+            .defineInRange("guardianZapChainRange", 5.0, 1.0, 16.0);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_ZAP_CHAIN_FALLOFF = BUILDER
+            .comment("Guardian Angel (Zap): damage retained per chain jump (0.7 = each foe takes 70% of the last).")
+            .defineInRange("guardianZapChainFalloff", 0.75, 0.1, 1.0);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_ALLAY_HEALTH = BUILDER
+            .comment("Guardian Angel: the allay's max health in HP (10 = 5 hearts).")
+            .defineInRange("guardianAllayHealth", 10.0, 2.0, 200.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_ALLAY_REGEN_DELAY = BUILDER
+            .comment("Guardian Angel: ticks the allay must go un-hit before it regenerates fast (60 = 3s).")
+            .defineInRange("guardianAllayRegenDelay", 60, 10, 600);
+    public static final ModConfigSpec.DoubleValue GUARDIAN_GUIDING_BONUS = BUILDER
+            .comment("Guardian Angel (Guiding light): bonus damage you deal to the highlighted highest-health foe (3 = 1.5 hearts).")
+            .defineInRange("guardianGuidingBonus", 3.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue GUARDIAN_GUIDING_MIN_ENEMIES = BUILDER
+            .comment("Guardian Angel (Guiding light): how many nearby foes count as a 'group' before it highlights one.")
+            .defineInRange("guardianGuidingMinEnemies", 2, 1, 20);
+    public static final ModConfigSpec.IntValue GUARDIAN_BLINDING_COOLDOWN = BUILDER
+            .comment("Guardian Angel (Blinding light): ticks between the charge-and-launch strike (only near enemies).")
+            .defineInRange("guardianBlindingCooldown", 300, 40, 6000);
+    public static final ModConfigSpec.IntValue GUARDIAN_ESCORT_HEALTH_PERCENT = BUILDER
+            .comment("Guardian Angel (Escort): at/below this % health (with danger near) it lifts you and flies you to safety.")
+            .defineInRange("guardianEscortHealthPercent", 20, 0, 100);
+    public static final ModConfigSpec.IntValue GUARDIAN_TORCH_INTERVAL = BUILDER
+            .comment("Guardian Angel (Light-keeper): ticks between torch-placing passes while it's dark/night (lower = more torches).")
+            .defineInRange("guardianTorchIntervalTicks", 30, 5, 600);
+    public static final ModConfigSpec.IntValue GUARDIAN_TORCH_SPACING = BUILDER
+            .comment("Guardian Angel (Light-keeper): minimum block spacing between placed torches.")
+            .defineInRange("guardianTorchSpacing", 4, 1, 12);
+
+    // --- Ritual Table -----------------------------------------------------------------------------------
+    public static final ModConfigSpec.IntValue RITUAL_MIN_DURATION_TICKS = BUILDER
+            .comment("Ritual Table: minimum rolled effect duration in ticks (42000 = 35 min).")
+            .defineInRange("ritualMinDurationTicks", 42000, 1200, 1728000);
+    public static final ModConfigSpec.IntValue RITUAL_MAX_DURATION_TICKS = BUILDER
+            .comment("Ritual Table: maximum rolled effect duration in ticks (72000 = 60 min).")
+            .defineInRange("ritualMaxDurationTicks", 72000, 1200, 1728000);
+    public static final ModConfigSpec.IntValue RITUAL_INFECTIOUS_DURATION_TICKS = BUILDER
+            .comment("Ritual Table: fixed duration for a spread Infectious modifier in ticks (72000 = 60 min).")
+            .defineInRange("ritualInfectiousDurationTicks", 72000, 1200, 1728000);
+
+    // --- Amethyst Bell ----------------------------------------------------------------------------------
+    public static final ModConfigSpec.DoubleValue BELL_AOE_RADIUS = BUILDER
+            .comment("Amethyst Bell: how far the ring's gamble reaches players.")
+            .defineInRange("bellAoeRadius", 8.0, 1.0, 64.0);
+    public static final ModConfigSpec.IntValue BELL_INACTIVE_TICKS = BUILDER
+            .comment("Amethyst Bell: dimension-wide recharge after a ring, in ticks (36000 = 30 min).")
+            .defineInRange("bellInactiveTicks", 36000, 20, 1728000);
+    public static final ModConfigSpec.IntValue BELL_APPLY_RAMP_TICKS = BUILDER
+            .comment("Amethyst Bell: 'consume' ramp before effects land, in ticks (60 = 3s).")
+            .defineInRange("bellApplyRampTicks", 60, 5, 600);
+    public static final ModConfigSpec.IntValue BELL_FIZZLE_RAMP_TICKS = BUILDER
+            .comment("Amethyst Bell: lighter ramp before a pre-decided fizzle, in ticks (30 = 1.5s).")
+            .defineInRange("bellFizzleRampTicks", 30, 5, 600);
+    public static final ModConfigSpec.IntValue BELL_SHAKE_TICKS = BUILDER
+            .comment("Amethyst Bell: camera-shake window for nearby players on ring, in ticks.")
+            .defineInRange("bellShakeTicks", 7, 0, 100);
+    public static final ModConfigSpec.DoubleValue BELL_SHAKE_STRENGTH = BUILDER
+            .comment("Amethyst Bell: camera-shake strength on ring.")
+            .defineInRange("bellShakeStrength", 0.5, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue BELL_SHAKE_RADIUS = BUILDER
+            .comment("Amethyst Bell: how far the ring's camera shake reaches.")
+            .defineInRange("bellShakeRadius", 12.0, 0.0, 64.0);
+    public static final ModConfigSpec.IntValue BELL_ADD_CHANCE_PERCENT = BUILDER
+            .comment("Amethyst Bell: chance an unaffected player is GIFTED a batch (rest fizzle).")
+            .defineInRange("bellAddChancePercent", 30, 0, 100);
+    public static final ModConfigSpec.IntValue BELL_ADD_ONE_WEIGHT = BUILDER
+            .comment("Amethyst Bell (gift count weight): weight for 1 effect.")
+            .defineInRange("bellAddOneWeight", 50, 0, 1000);
+    public static final ModConfigSpec.IntValue BELL_ADD_TWO_WEIGHT = BUILDER
+            .comment("Amethyst Bell (gift count weight): weight for 2 effects (remainder = 3).")
+            .defineInRange("bellAddTwoWeight", 35, 0, 1000);
+    public static final ModConfigSpec.IntValue BELL_POWER_LOW_WEIGHT = BUILDER
+            .comment("Amethyst Bell (gift power band): weight for a low roll (0-40).")
+            .defineInRange("bellPowerLowWeight", 40, 0, 1000);
+    public static final ModConfigSpec.IntValue BELL_POWER_MID_WEIGHT = BUILDER
+            .comment("Amethyst Bell (gift power band): weight for a mid roll (41-70; remainder = high 71-85).")
+            .defineInRange("bellPowerMidWeight", 45, 0, 1000);
+    public static final ModConfigSpec.IntValue BELL_SWAP_HIGH_CHANCE_PERCENT = BUILDER
+            .comment("Amethyst Bell (re-roll): chance a swap bumps power UP toward the max.")
+            .defineInRange("bellSwapHighChancePercent", 15, 0, 100);
+    public static final ModConfigSpec.IntValue BELL_SWAP_LOW_CHANCE_PERCENT = BUILDER
+            .comment("Amethyst Bell (re-roll): chance a swap crashes power down (even to 0).")
+            .defineInRange("bellSwapLowChancePercent", 15, 0, 100);
+    public static final ModConfigSpec.IntValue BELL_SWAP_SIMILAR_JITTER = BUILDER
+            .comment("Amethyst Bell (re-roll): power +/- jitter on an ordinary similar-power swap.")
+            .defineInRange("bellSwapSimilarJitter", 8, 0, 100);
+    public static final ModConfigSpec.IntValue BELL_SWAP_MAX_POWER = BUILDER
+            .comment("Amethyst Bell (re-roll): the highest power a swap can reach.")
+            .defineInRange("bellSwapMaxPower", 90, 0, 100);
+
+    // --- named jar drops (jars of effects from loot chests / mob kills) ---
+    public static final ModConfigSpec.BooleanValue JAR_DROPS_ENABLED = BUILDER
+            .comment("Master switch for named-jar drops (jars of effects) from loot chests and mob kills.")
+            .define("jarDropsEnabled", true);
+    public static final ModConfigSpec.DoubleValue JAR_RARITY_WEIGHT_BASE = BUILDER
+            .comment("How much a jar's rarity (1-10) nudges its odds when a drop rolls. Pick weight = base^(5.5 - rarity),",
+                    "CENTRED on mid-rarity, so 1.0 = every jar equally likely and higher values only gently lean commons",
+                    "up / rares down. Kept small (1.12 ≈ ±65% across the whole range) since the pool is large.")
+            .defineInRange("jarRarityWeightBase", 1.12, 1.0, 4.0);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> JAR_RARITY_OVERRIDES = BUILDER
+            .comment("Per-jar rarity overrides as \"jarId=rarity\" (1-10), e.g. \"mining=6\". Anything not listed keeps",
+                    "its built-in rarity. Only the pick weight changes; the drop rates are the rates below.")
+            .defineListAllowEmpty("jarRarityOverrides", List.of(), () -> "", Config::validateOverrideEntry);
+
+    public static final ModConfigSpec.IntValue JAR_WITCH_ONE_IN = BUILDER
+            .comment("A slain witch drops a named jar with a 1-in-N chance (requires a recent player hit). 0 disables.")
+            .defineInRange("jarWitchDropOneIn", 200, 0, Integer.MAX_VALUE);
+    public static final ModConfigSpec.IntValue JAR_UNDEAD_ONE_IN = BUILDER
+            .comment("Any other slain undead mob drops a named jar with a 1-in-N chance (requires a recent player hit).",
+                    "0 disables.")
+            .defineInRange("jarUndeadDropOneIn", 2000, 0, Integer.MAX_VALUE);
+
+    public static final ModConfigSpec.IntValue JAR_CHEST_ANCIENT_CITY_ONE_IN = BUILDER
+            .comment("Ancient city chests: 1-in-N chance to also contain a named jar (the likeliest chest source). 0 disables.")
+            .defineInRange("jarChestAncientCityOneIn", 30, 0, Integer.MAX_VALUE);
+    public static final ModConfigSpec.IntValue JAR_CHEST_SHIPWRECK_ONE_IN = BUILDER
+            .comment("Shipwreck treasure chests: 1-in-N chance to also contain a named jar. 0 disables.")
+            .defineInRange("jarChestShipwreckOneIn", 70, 0, Integer.MAX_VALUE);
+    public static final ModConfigSpec.IntValue JAR_CHEST_DUNGEON_ONE_IN = BUILDER
+            .comment("Dungeon (monster room) chests: 1-in-N chance to also contain a named jar. 0 disables.")
+            .defineInRange("jarChestDungeonOneIn", 90, 0, Integer.MAX_VALUE);
+    public static final ModConfigSpec.IntValue JAR_CHEST_TEMPLE_ONE_IN = BUILDER
+            .comment("Temple (desert pyramid / jungle temple) chests: 1-in-N chance to also contain a named jar. 0 disables.")
+            .defineInRange("jarChestTempleOneIn", 90, 0, Integer.MAX_VALUE);
+    public static final ModConfigSpec.IntValue JAR_CHEST_IGLOO_ONE_IN = BUILDER
+            .comment("Igloo basement chests: 1-in-N chance to also contain a named jar. 0 disables.")
+            .defineInRange("jarChestIglooOneIn", 120, 0, Integer.MAX_VALUE);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateOverrideEntry(Object obj) {
@@ -4177,6 +4728,35 @@ public final class Config {
                 parsed.put(entry.substring(0, split), Integer.parseInt(entry.substring(split + 1)));
             } catch (NumberFormatException ignored) {
                 // Already validated on load; defensive only.
+            }
+        }
+        return parsed;
+    }
+
+    /** the "one in N" chest chance for a chest key (matching the loot_modifiers jsons); 0 = disabled/unknown. */
+    public static int jarChestOneIn(String chestKey) {
+        return switch (chestKey) {
+            case "ancient_city" -> JAR_CHEST_ANCIENT_CITY_ONE_IN.get();
+            case "shipwreck" -> JAR_CHEST_SHIPWRECK_ONE_IN.get();
+            case "dungeon" -> JAR_CHEST_DUNGEON_ONE_IN.get();
+            case "temple" -> JAR_CHEST_TEMPLE_ONE_IN.get();
+            case "igloo" -> JAR_CHEST_IGLOO_ONE_IN.get();
+            default -> 0;
+        };
+    }
+
+    /** parses {@link #JAR_RARITY_OVERRIDES} into a jarId-&gt;rarity lookup; not cached since config can reload. */
+    public static Map<String, Integer> parsedJarRarityOverrides() {
+        Map<String, Integer> parsed = new HashMap<>();
+        for (String entry : JAR_RARITY_OVERRIDES.get()) {
+            int split = entry.indexOf('=');
+            if (split < 0) {
+                continue;
+            }
+            try {
+                parsed.put(entry.substring(0, split), Integer.parseInt(entry.substring(split + 1)));
+            } catch (NumberFormatException ignored) {
+                // already validated on load; defensive only.
             }
         }
         return parsed;

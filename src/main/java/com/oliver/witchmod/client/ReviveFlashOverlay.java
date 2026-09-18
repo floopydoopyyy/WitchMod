@@ -14,15 +14,15 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The on-screen "totem" pop played when Last Stand or Immortality saves you — but using the BLESSED effect
+ * the on-screen "totem" pop played when Last Stand or Immortality saves you — but using the BLESSED effect
  * icon instead of a totem item, washed gold→white. Driven off the synced {@link WitchModAttachments#REVIVE_FLASH_END}
  * tick: the icon bursts up large and fades over the window, mimicking the vanilla totem-of-undying activation.
  */
 public final class ReviveFlashOverlay implements LayeredDraw.Layer {
-    /** The Blessed status-effect icon (16x16). */
+    /** the Blessed status-effect icon (16x16). */
     private static final ResourceLocation ICON =
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/mob_effect/blessed.png");
-    /** Total length of the animation, in ticks — matched to the flash window the server sets. */
+    /** total length of the animation, in ticks — matched to the flash window the server sets. */
     public static final int DURATION_TICKS = com.oliver.witchmod.Config.REVIVE_FLASH_TICKS;
 
     @Override
@@ -42,13 +42,13 @@ public final class ReviveFlashOverlay implements LayeredDraw.Layer {
         }
         float progress = Mth.clamp(1.0F - remaining / DURATION_TICKS, 0.0F, 1.0F); // 0 -> 1 over the window
 
-        // Scale: bursts up fast, then eases larger. Alpha: full for the first half, then fades out.
+        // scale: bursts up fast, then eases larger. Alpha: full for the first half, then fades out.
         float scale = 3.0F + 9.0F * easeOut(Math.min(1.0F, progress * 2.0F));
         float alpha = progress < 0.5F ? 1.0F : 1.0F - (progress - 0.5F) / 0.5F;
         if (alpha <= 0.0F) {
             return;
         }
-        // Colour drifts gold -> white as it completes.
+        // colour drifts gold -> white as it completes.
         float r = 1.0F;
         float g = Mth.lerp(progress, 0.82F, 1.0F);
         float b = Mth.lerp(progress, 0.25F, 0.95F);

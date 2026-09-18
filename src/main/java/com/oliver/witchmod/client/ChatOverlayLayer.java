@@ -22,7 +22,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The Chat blessing's personal Twitch-chat overlay — a scrolling purple panel down the left side. Everything
+ * the Chat blessing's personal Twitch-chat overlay — a scrolling purple panel down the left side. Everything
  * is <b>server-driven</b> ({@code ChatLinePayload}): the server reacts to your gameplay, tracks an
  * entertainment score, sub count and hype level, and picks each line/username/kind. This layer buffers what it
  * receives and renders it Twitch-style — a LIVE header with a live viewer count + hype-train bar, chatter
@@ -33,7 +33,7 @@ public final class ChatOverlayLayer implements LayeredDraw.Layer {
     private static final int MAX_WRAPPED_LINES = 18;
     private static final int PANEL_WIDTH = 158;
 
-    // Message kinds pushed by the server.
+    // message kinds pushed by the server.
     private static final int KIND_SUB = 1, KIND_DONATION = 2, KIND_RAID = 3, KIND_HYPE = 4;
 
     private static final int EMOTE_SIZE = 14, GIF_SIZE = 20; // on-screen px
@@ -46,7 +46,7 @@ public final class ChatOverlayLayer implements LayeredDraw.Layer {
     private static final Deque<Line> MESSAGES = new ArrayDeque<>();
     private static double displayedViewers = -1; // eased toward the live target for a natural wiggle
 
-    // Emote textures (static 128x128) and gif sheets (vertical, square frames): name -> {frameSize, frameCount, sheetHeight}.
+    // emote textures (static 128x128) and gif sheets (vertical, square frames): name -> {frameSize, frameCount, sheetHeight}.
     private static final Map<String, ResourceLocation> EMOTE_TEX = new HashMap<>();
     private static final Map<String, ResourceLocation> GIF_TEX = new HashMap<>();
     private static final Map<String, int[]> GIF_META = new HashMap<>();
@@ -64,7 +64,7 @@ public final class ChatOverlayLayer implements LayeredDraw.Layer {
         GIF_META.put(name, new int[]{frameSize, frameCount, sheetHeight});
     }
 
-    /** Called from the network handler when the server pushes a chat line. */
+    /** called from the network handler when the server pushes a chat line. */
     public static void receive(String username, String message, int color, int kind) {
         MESSAGES.addLast(new Line(username, message, color, kind));
         while (MESSAGES.size() > MAX_MESSAGES) {
@@ -126,7 +126,7 @@ public final class ChatOverlayLayer implements LayeredDraw.Layer {
                 blocks.add(new RenderBlock(line.kind(), wrapped.size() * lineHeight, wrapped, (char) 0, line));
             }
         }
-        // Trim from the top until the total body height fits.
+        // trim from the top until the total body height fits.
         int maxBody = MAX_WRAPPED_LINES * lineHeight;
         int bodyHeight = blocks.stream().mapToInt(RenderBlock::height).sum();
         while (bodyHeight > maxBody && !blocks.isEmpty()) {
@@ -222,7 +222,7 @@ public final class ChatOverlayLayer implements LayeredDraw.Layer {
             case KIND_DONATION -> "[BITS]";
             case KIND_RAID -> "[RAID]";
             default -> {
-                // Give some ordinary chatters flair, stable by name.
+                // give some ordinary chatters flair, stable by name.
                 int h = Math.floorMod(line.username().hashCode(), 12);
                 yield switch (h) {
                     case 0, 1 -> "[MOD]";

@@ -137,7 +137,7 @@ public final class VoodooDollHazards {
         }
     }
 
-    // AreaEffectCloud.potionContents is private with no getter, so read it reflectively (cached).
+    // areaEffectCloud.potionContents is private with no getter, so read it reflectively (cached).
     private static java.lang.reflect.Field cloudPotionField;
 
     private static Iterable<net.minecraft.world.effect.MobEffectInstance> cloudEffects(

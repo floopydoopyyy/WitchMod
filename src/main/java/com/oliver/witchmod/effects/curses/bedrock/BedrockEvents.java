@@ -8,7 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.State;
 
 /**
- * Bedrock Moment's ACTIVE bugs, each as its own {@link BedrockEvent}, plus the registry the weighted pool and
+ * bedrock Moment's ACTIVE bugs, each as its own {@link BedrockEvent}, plus the registry the weighted pool and
  * {@code /bewitch debug force} both route through. Delegates to the (isolated + package-visible) trigger
  * methods on {@link CurseBedrockMoment}.
  */
@@ -32,7 +32,7 @@ public final class BedrockEvents {
     public static final BedrockEvent MARKETPLACE = of("marketplace", (c, t, s, l) -> { c.marketplace(t, l); return true; });
     public static final BedrockEvent PERSPECTIVE = of("perspective", (c, t, s, l) -> { c.perspectiveFlip(t, l); return true; });
     public static final BedrockEvent DROWNING = of("drowning", (c, t, s, l) -> c.drownEvent(t, s));
-    // Newer bugs.
+    // newer bugs.
     public static final BedrockEvent GHOST_ITEM = of("ghostitem", (c, t, s, l) -> { c.ghostItem(t, l); return true; });
     public static final BedrockEvent INPUT_LAG = of("inputlag", (c, t, s, l) -> { c.inputLag(t, l); return true; });
     public static final BedrockEvent VIBRANT = of("vibrant", (c, t, s, l) -> { c.vibrant(t, l); return true; });
@@ -48,7 +48,7 @@ public final class BedrockEvents {
     public static final BedrockEvent AIR_SWIM = of("airswim", (c, t, s, l) -> { c.airSwim(t, l); return true; });
     /** BENEFICIAL: quarters your weapon swing cooldown for 8-28s, mimicking Bedrock's no-cooldown swinging. */
     public static final BedrockEvent COOLDOWNS = of("cooldowns", (c, t, s, l) -> c.cooldownsEvent(t, s));
-    /** Sticky TNT (debug/force): spawns a lit TNT already stuck to you (the passive version needs live TNT nearby). */
+    /** sticky TNT (debug/force): spawns a lit TNT already stuck to you (the passive version needs live TNT nearby). */
     public static final BedrockEvent STICKY_TNT = of("stickytnt", (c, t, s, l) -> c.stickyTntEvent(t, l));
 
     public static final List<BedrockEvent> ALL = List.of(

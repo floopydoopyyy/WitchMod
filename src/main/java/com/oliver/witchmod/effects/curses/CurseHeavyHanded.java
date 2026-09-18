@@ -17,9 +17,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * You're rough with your gear (master-spec Heavy Handed — renamed from "Uncareful" per Oliver; the registry
- * id changed too, {@code uncareful} → {@code heavy_handed}, since display names derive from the id path via
- * {@code DiscoveryManager.titleCase}, so the id IS the visible name. Sacrificial item stays FLINT). Tools and
+ * you're rough with your gear. Tools and
  * armour lose durability far faster than they should — {@code DURABILITY_MULT} (4x) as fast.
  *
  * <p><b>There's no event to modify a durability hit's amount</b>, so this watches instead: each tick it
@@ -47,7 +45,7 @@ public final class CurseHeavyHanded extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.FLINT);
     }
 
-    /** You find out the first time your gear wears down faster than it should (Rule 2). */
+    /** you find out the first time your gear wears down faster than it should (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -75,7 +73,7 @@ public final class CurseHeavyHanded extends Effect {
             Tracked previous = slots.get(slot);
             int damage = stack.getDamageValue();
 
-            // Same item as last tick, and it took some wear? Match that wear again (times the extra factor).
+            // same item as last tick, and it took some wear? Match that wear again (times the extra factor).
             if (previous != null && previous.item() == stack.getItem() && damage > previous.damage()) {
                 int extra = (int) Math.round((damage - previous.damage()) * extraFactor);
                 if (extra > 0) {
@@ -83,7 +81,7 @@ public final class CurseHeavyHanded extends Effect {
                     markDiscoveredByVictim(target);
                 }
             }
-            // Record AFTER the top-up, so our own extra isn't mistaken for fresh damage next tick.
+            // record AFTER the top-up, so our own extra isn't mistaken for fresh damage next tick.
             slots.put(slot, new Tracked(stack.getItem(),
                     stack.isEmpty() ? 0 : stack.getDamageValue()));
         }

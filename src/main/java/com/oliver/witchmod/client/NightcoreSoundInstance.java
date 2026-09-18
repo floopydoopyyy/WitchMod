@@ -10,7 +10,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
 /**
- * Bedrock Moment (Nightcore bug): a thin wrapper around any {@link SoundInstance} that just plays it back at a
+ * bedrock Moment (Nightcore bug): a thin wrapper around any {@link SoundInstance} that just plays it back at a
  * higher pitch. Everything else delegates straight through.
  */
 @OnlyIn(Dist.CLIENT)

@@ -27,7 +27,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * The wind keeps blowing good fortune your way (master-spec Windfall, sacrificial item WIND CHARGE). As you
+ * the wind keeps blowing good fortune your way. As you
  * walk, every now and then a nice item comes drifting THROUGH your view — spawned off to one side, out in open
  * air, and pushed on a steady breeze so it slides ACROSS in front of you. The point is the "ooo, what's that"
  * moment: you notice it passing and decide whether to break stride and grab it.
@@ -47,10 +47,10 @@ public final class BlessingWindfall extends Effect {
     /** A live windfall item plus the tick it was spawned, so its age can be measured. */
     private record Drifting(ItemEntity entity, int spawnedAt) {}
 
-    /** Below this horizontal speed the player counts as "standing still" and the timer is paused. */
+    /** below this horizontal speed the player counts as "standing still" and the timer is paused. */
     private static final double MOVING_SPEED_SQR = 0.0025 * 0.0025; // ~0.0025 blocks/tick
 
-    /** Mostly-useful things (chosen {@code windfallBeneficialChance} of the time). */
+    /** mostly-useful things (chosen {@code windfallBeneficialChance} of the time). */
     private static final Item[] BENEFICIAL = {
             Items.BREAD, Items.COOKED_BEEF, Items.APPLE, Items.GOLDEN_CARROT, Items.CARROT, Items.WHEAT,
             Items.IRON_INGOT, Items.GOLD_INGOT, Items.EMERALD, Items.COAL, Items.REDSTONE, Items.LAPIS_LAZULI,
@@ -59,17 +59,24 @@ public final class BlessingWindfall extends Effect {
             Items.FLINT, Items.GUNPOWDER, Items.HONEYCOMB, Items.AMETHYST_SHARD, Items.COPPER_INGOT
     };
 
-    /** The occasional dud, so it isn't a pure freebie faucet. */
+    /** the occasional dud, so it isn't a pure freebie faucet. */
     private static final Item[] JUNK = {
             Items.STICK, Items.ROTTEN_FLESH, Items.DIRT, Items.GRAVEL, Items.POISONOUS_POTATO,
             Items.WHEAT_SEEDS, Items.DEAD_BUSH, Items.CACTUS, Items.COBBLESTONE, Items.WOODEN_HOE
+    };
+
+    /** the special high-tier pool the Luck synergy unlocks (and the {@code high} debug arg forces). */
+    private static final Item[] HIGH_TIER = {
+            Items.DIAMOND, Items.EMERALD, Items.GOLD_BLOCK, Items.IRON_BLOCK, Items.NETHERITE_SCRAP,
+            Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.EXPERIENCE_BOTTLE, Items.ENDER_PEARL,
+            Items.ENDER_EYE, Items.NAME_TAG, Items.SADDLE, Items.TOTEM_OF_UNDYING, Items.DIAMOND
     };
 
     public BlessingWindfall() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.WIND_CHARGE);
     }
 
-    /** You find out the first time you actually spot something drift by (Rule 2), not when it's cast. */
+    /** you find out the first time you actually spot something drift by (Rule 2), not when it's cast. */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         int next = NEXT.getOrDefault(target.getUUID(), 0);
@@ -83,7 +90,13 @@ public final class BlessingWindfall extends Effect {
 
     @Override
     public String debugForce(ServerPlayer target, String arg) {
-        return drift(target) ? "a windfall drifted in" : "no clear air to float a windfall through right now";
+        Item[] forced = arg != null && arg.equalsIgnoreCase("high") ? HIGH_TIER : null;
+        return drift(target, forced) ? "a windfall drifted in" : "no clear air to float a windfall through right now";
+    }
+
+    @Override
+    public java.util.List<String> debugArgs() {
+        return java.util.List.of("high");
     }
 
     @Override
@@ -102,7 +115,7 @@ public final class BlessingWindfall extends Effect {
     public void onTick(ServerPlayer target, int ticksRemaining) {
         cull(target); // walk-away / expiry sweep every tick, so removal feels instant
 
-        // Windfalls happen anywhere, but come HALF as often while you're standing still — the timer advances
+        // windfalls happen anywhere, but come HALF as often while you're standing still — the timer advances
         // every tick when moving, only every OTHER tick when stationary.
         boolean moving = target.getDeltaMovement().horizontalDistanceSqr() >= MOVING_SPEED_SQR;
         if (!moving && (ticksRemaining & 1) == 0) {
@@ -114,8 +127,8 @@ public final class BlessingWindfall extends Effect {
             NEXT.put(target.getUUID(), countdown - 1);
             return;
         }
-        // Only reset the timer if a drift actually happened (no open sky to the side? try again next tick).
-        if (drift(target)) {
+        // only reset the timer if a drift actually happened (no open sky to the side? try again next tick).
+        if (drift(target, null)) {
             NEXT.put(target.getUUID(), rollInterval(target.getRandom()));
             Blessings.WINDFALL.get().markDiscoveredByVictim(target); // discovered on the first drift you see
         }
@@ -127,7 +140,7 @@ public final class BlessingWindfall extends Effect {
         return min + random.nextInt(max - min + 1);
     }
 
-    /** Instantly remove any drifting item the player has walked away from or that has run out its life. */
+    /** instantly remove any drifting item the player has walked away from or that has run out its life. */
     private static void cull(ServerPlayer target) {
         List<Drifting> items = ACTIVE.get(target.getUUID());
         if (items == null || items.isEmpty()) {
@@ -167,14 +180,14 @@ public final class BlessingWindfall extends Effect {
     }
 
     /**
-     * Send one item sliding across the player's view. Returns false (so the timer doesn't reset) if there
+     * send one item sliding across the player's view. Returns false (so the timer doesn't reset) if there
      * wasn't a clear stretch of open air to spawn and drift it through.
      */
-    private static boolean drift(ServerPlayer target) {
+    private static boolean drift(ServerPlayer target, @Nullable Item[] forcedPool) {
         ServerLevel level = target.serverLevel();
         RandomSource random = target.getRandom();
 
-        // Forward (where you're looking/walking), flattened.
+        // forward (where you're looking/walking), flattened.
         Vec3 look = target.getLookAngle();
         Vec3 forward = new Vec3(look.x, 0.0, look.z);
         if (forward.lengthSqr() < 1.0e-4) {
@@ -183,12 +196,12 @@ public final class BlessingWindfall extends Effect {
         forward = forward.normalize();
         Vec3 right = new Vec3(-forward.z, 0.0, forward.x); // 90° to the right
 
-        // The gust crosses your path: it blows left<->right (with a little forward/back lean) so the item
+        // the gust crosses your path: it blows left<->right (with a little forward/back lean) so the item
         // slides ACROSS in front of you rather than at or away from you.
         int side = random.nextBoolean() ? 1 : -1;
         Vec3 wind = right.scale(side).add(forward.scale((random.nextDouble() - 0.5) * 0.5)).normalize();
 
-        // Aim the crossing a few blocks ahead of you, and loose the item from the upwind side of that point,
+        // aim the crossing a few blocks ahead of you, and loose the item from the upwind side of that point,
         // at about eye height, so it drifts through your forward view.
         Vec3 eye = target.getEyePosition();
         double ahead = 3.0 + random.nextDouble() * 3.0;   // 3..6 blocks in front
@@ -196,16 +209,16 @@ public final class BlessingWindfall extends Effect {
         Vec3 crossPoint = eye.add(forward.scale(ahead)).add(0.0, -0.5 + random.nextDouble(), 0.0);
         Vec3 spawn = crossPoint.subtract(wind.scale(upwind));
 
-        // Needs clear air where it spawns AND along the first stretch of drift, or it looks like it's phasing
+        // needs clear air where it spawns AND along the first stretch of drift, or it looks like it's phasing
         // through a wall / a platform. This is what stops the "weird interaction over a covered pool".
         if (!isOpenAir(level, spawn) || !isOpenAir(level, spawn.add(wind.scale(1.5)))
                 || !isOpenAir(level, spawn.add(wind.scale(3.0)))) {
             return false;
         }
 
-        boolean beneficial = random.nextDouble() < Config.WINDFALL_BENEFICIAL_CHANCE.get();
-        Item[] pool = beneficial ? BENEFICIAL : JUNK;
-        ItemStack stack = new ItemStack(pool[random.nextInt(pool.length)], 1 + random.nextInt(4));
+        Item[] pool = choosePool(target, random, forcedPool);
+        int maxCount = pool == HIGH_TIER ? 2 : 4; // keep the good stuff modest in quantity
+        ItemStack stack = new ItemStack(pool[random.nextInt(pool.length)], 1 + random.nextInt(maxCount));
 
         ItemEntity item = new ItemEntity(level, spawn.x, spawn.y, spawn.z, stack);
         item.setDeltaMovement(wind.x * 0.14, 0.0, wind.z * 0.14); // steady horizontal drift
@@ -221,7 +234,20 @@ public final class BlessingWindfall extends Effect {
         return true;
     }
 
-    /** True if this point is in passable, fluid-free space — somewhere an item can visibly float, not inside a block. */
+    /** which pool this windfall draws from: a forced one (debug), else the luck synergy's high-tier / no-junk bias. */
+    private static Item[] choosePool(ServerPlayer target, RandomSource random, @Nullable Item[] forced) {
+        if (forced != null) {
+            return forced;
+        }
+        boolean luck = com.oliver.witchmod.synergy.Synergies.FORTUNATE_WINDS.activeFor(target);
+        if (luck && random.nextDouble() < Config.WINDFALL_HIGH_TIER_CHANCE.get()) {
+            return HIGH_TIER;
+        }
+        // luck also drops the junk entirely; otherwise the ordinary beneficial-vs-junk roll.
+        return luck || random.nextDouble() < Config.WINDFALL_BENEFICIAL_CHANCE.get() ? BENEFICIAL : JUNK;
+    }
+
+    /** true if this point is in passable, fluid-free space — somewhere an item can visibly float, not inside a block. */
     private static boolean isOpenAir(ServerLevel level, Vec3 point) {
         BlockPos pos = BlockPos.containing(point);
         return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()

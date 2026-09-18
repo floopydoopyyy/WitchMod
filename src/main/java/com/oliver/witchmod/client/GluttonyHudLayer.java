@@ -14,7 +14,7 @@ import net.minecraft.world.entity.LivingEntity;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Draws Gluttony's hunger display — <b>both rows</b>, not just the extra one. While the curse is active,
+ * draws Gluttony's hunger display — <b>both rows</b>, not just the extra one. While the curse is active,
  * vanilla's own food bar is cancelled (see {@code ClientCurseHandler}) and this layer renders the whole
  * 40-point bar from the combined total.
  *
@@ -39,7 +39,7 @@ public final class GluttonyHudLayer implements LayeredDraw.Layer {
     private static final ResourceLocation FOOD_FULL_HUNGER = ResourceLocation.withDefaultNamespace("hud/food_full_hunger");
 
     /**
-     * Whether we're taking over the hunger display this frame. Mirrors vanilla's own visibility rules so
+     * whether we're taking over the hunger display this frame. Mirrors vanilla's own visibility rules so
      * cancelling its layer never leaves a gap: hidden GUI, creative/spectator, or riding a living mount
      * (vanilla hides food there to make room for the mount's health).
      */
@@ -63,7 +63,7 @@ public final class GluttonyHudLayer implements LayeredDraw.Layer {
         int extra = Math.max(0, player.getData(WitchModAttachments.GLUTTONY_HUNGER));
         int combined = player.getFoodData().getFoodLevel() + extra;
 
-        // Split the true total across the rows: the lower row fills first, the upper row is the overflow.
+        // split the true total across the rows: the lower row fills first, the upper row is the overflow.
         int lower = Math.min(ROW_MAX, combined);
         int upper = Math.max(0, combined - ROW_MAX);
 
@@ -77,7 +77,7 @@ public final class GluttonyHudLayer implements LayeredDraw.Layer {
         RenderSystem.disableBlend();
     }
 
-    /** One 10-drumstick row, matching Gui#renderFood's sprite swap and jitter. */
+    /** one 10-drumstick row, matching Gui#renderFood's sprite swap and jitter. */
     private static void drawRow(GuiGraphics guiGraphics, LocalPlayer player, int right, int top, int value) {
         boolean hungerEffect = player.hasEffect(MobEffects.HUNGER);
         ResourceLocation empty = hungerEffect ? FOOD_EMPTY_HUNGER : FOOD_EMPTY;

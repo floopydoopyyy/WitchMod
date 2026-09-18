@@ -27,7 +27,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Blessing of Thunder (TRIDENT): a static charge builds while you're NOT swinging, through four tiers. Your
+ * blessing of Thunder (TRIDENT): a static charge builds while you're NOT swinging, through four tiers. Your
  * next melee hit discharges it — burning the target and arcing chain-lightning to nearby foes (30% of the hit
  * damage per arc, capped flat). The deeper the charge, the more arcs and the nastier the payoff:
  * <ul>
@@ -79,7 +79,7 @@ public final class BlessingThunder extends Effect {
 
         int last = LAST_TIER.getOrDefault(target.getUUID(), 0);
         if (tier == 4 && last < 4) {
-            // Fully charged — a single glint + a "charge ready" cue, nothing obtrusive.
+            // fully charged — a single glint + a "charge ready" cue, nothing obtrusive.
             ServerLevel level = target.serverLevel();
             level.playSound(null, target.blockPosition(), SoundEvents.TRIDENT_THUNDER.value(),
                     SoundSource.PLAYERS, 0.7F, 1.6F);
@@ -108,7 +108,7 @@ public final class BlessingThunder extends Effect {
         return 0;
     }
 
-    /** Called from {@code BlessingEventHandler} when a Thunder-blessed player lands a MELEE hit. */
+    /** called from {@code BlessingEventHandler} when a Thunder-blessed player lands a MELEE hit. */
     public static void discharge(ServerPlayer player, LivingEntity primary, float baseDamage) {
         int tier = currentTier(player);
         LAST_DISCHARGE.put(player.getUUID(), player.level().getGameTime()); // spend the charge
@@ -221,7 +221,7 @@ public final class BlessingThunder extends Effect {
     @Override
     @Nullable
     public String debugForce(ServerPlayer target, @Nullable String arg) {
-        // Force a full charge so the next hit is a tier-4 discharge (or set a tier via a number).
+        // force a full charge so the next hit is a tier-4 discharge (or set a tier via a number).
         int tier = 4;
         if (arg != null) {
             try {

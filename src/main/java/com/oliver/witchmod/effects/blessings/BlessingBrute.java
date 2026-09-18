@@ -5,19 +5,17 @@ import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BushBlock;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.VineBlock;
@@ -31,9 +29,10 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.synergy.Synergies;
 
 /**
- * Build up a head of steam and nothing stands in your way (master-spec Brute, sacrificial item IRON HELMET).
+ * build up a head of steam and nothing stands in your way.
  * Charge is built by CONSISTENT sprinting (any direction) — jumping or dropping out of sprint interrupts it:
  * <ul>
  *   <li>An initial quiet <b>windup</b> ({@code bruteWindupTicks}, ~1.5s) with no particles and no speed. Once
@@ -50,16 +49,22 @@ public final class BlessingBrute extends Effect {
     private static final ResourceLocation SPEED_ID = EffectUtil.modifierId("brute_charge_speed");
 
     private static final Map<UUID, Integer> CHARGE = new HashMap<>();
-    private static final Map<UUID, Integer> AIRBORNE = new HashMap<>();
+    private static final Map<UUID, Long> LAST_SPRINT = new HashMap<>();
     private static final Map<UUID, Float> LAST_STEP = new HashMap<>();
-    /** How far you travel between amplified footfalls, in blocks. */
+    /** last non-trivial horizontal heading — from real position movement, so it survives a wall stop. */
+    private static final Map<UUID, Vec3> LAST_HEADING = new HashMap<>();
+    /** last tick position, to derive the heading from ACTUAL movement (server deltaMovement is unreliable for players). */
+    private static final Map<UUID, Vec3> LAST_POS = new HashMap<>();
+    /** per-player: entity id -> last game-tick it was plough-hit (per-entity cleave cooldown). */
+    private static final Map<UUID, Map<Integer, Long>> ENTITY_HITS = new HashMap<>();
+    /** how far you travel between amplified footfalls, in blocks. */
     private static final float STEP_DISTANCE = 1.6F;
 
     public BlessingBrute() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.IRON_HELMET);
     }
 
-    /** You find out when you first build up a real head of steam (Rule 2). */
+    /** you find out when you first build up a real head of steam (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -69,7 +74,20 @@ public final class BlessingBrute extends Effect {
     public void onRemove(ServerPlayer target) {
         EffectUtil.removeModifier(target, Attributes.MOVEMENT_SPEED, SPEED_ID);
         CHARGE.remove(target.getUUID());
-        AIRBORNE.remove(target.getUUID());
+        LAST_SPRINT.remove(target.getUUID());
+        LAST_HEADING.remove(target.getUUID());
+        LAST_POS.remove(target.getUUID());
+        ENTITY_HITS.remove(target.getUUID());
+    }
+
+    /** at/above the launch+smash threshold — used for the knockback immunity while barrelling. */
+    public static boolean isCharged(ServerPlayer target) {
+        int windup = Config.BRUTE_WINDUP_TIME.get();
+        int rampTime = Config.BRUTE_RAMP_TIME.get();
+        int charge = CHARGE.getOrDefault(target.getUUID(), 0);
+        float progress = rampTime <= 0 ? (charge >= windup ? 1.0F : 0.0F)
+                : Math.max(0.0F, Math.min(1.0F, (charge - windup) / (float) rampTime));
+        return progress >= Config.BRUTE_CAP_THRESHOLD.get();
     }
 
     @Override
@@ -78,27 +96,41 @@ public final class BlessingBrute extends Effect {
         int windup = Config.BRUTE_WINDUP_TIME.get();
         int rampTime = Config.BRUTE_RAMP_TIME.get();
         int full = windup + rampTime;
+        long now = target.serverLevel().getGameTime();
 
-        int airborne = target.onGround() ? 0 : AIRBORNE.getOrDefault(id, 0) + 1;
-        AIRBORNE.put(id, airborne);
+        // heading from ACTUAL position movement (server deltaMovement is unreliable for players); it persists
+        // through a wall stop, which is the whole reason detection kept failing.
+        Vec3 pos = target.position();
+        Vec3 prevPos = LAST_POS.put(id, pos);
+        if (prevPos != null) {
+            Vec3 disp = new Vec3(pos.x - prevPos.x, 0.0, pos.z - prevPos.z);
+            if (disp.lengthSqr() > 0.0025 * 0.0025) {
+                LAST_HEADING.put(id, disp.normalize());
+            }
+        }
+
+        // speed synergy: a speed blessing makes the whole charge come up quicker and land harder.
+        boolean speedSynergy = Synergies.SPRINTING.activeFor(target);
         boolean sprinting = target.isSprinting();
-
         int charge = CHARGE.getOrDefault(id, 0);
-        if (sprinting && airborne <= Config.BRUTE_AIRBORNE_GRACE.get()) {
-            charge = Math.min(charge + 1, full);
-        } else if (!sprinting) {
-            charge = 0;                                   // stopped sprinting — full reset
+        // build while sprinting; a brief drop (jump/turn) is forgiven by the grace, a sustained stop resets it.
+        // hitting a wall does NOT keep it charged — the smash resets the charge below, so you must re-build (no tunnelling).
+        if (sprinting) {
+            LAST_SPRINT.put(id, now);
+            charge = Math.min(charge + 1 + (speedSynergy ? Config.BRUTE_SPEED_CHARGE_BONUS.get() : 0), full);
+        } else if (now - LAST_SPRINT.getOrDefault(id, Long.MIN_VALUE / 2) <= Config.BRUTE_SPRINT_GRACE_TICKS.get()) {
+            charge = Math.min(charge, full); // hold through the brief drop
         } else {
-            charge = charge >= windup ? windup : 0;       // jumped — bank the windup if it was completed
+            charge = 0;
         }
         CHARGE.put(id, charge);
 
-        // Tear through light nature the whole time you're moving under charge — no slowdown, no cost.
+        // tear through light nature the whole time you're moving under charge — no slowdown, no cost.
         boolean moving = target.getDeltaMovement().horizontalDistanceSqr() > 0.03 * 0.03;
         if (charge > 0 && moving) {
             tearLightBlocks(target);
         }
-        // Heavy, amplified footfalls the whole time you're building up — audible "something's coming".
+        // heavy, amplified footfalls the whole time you're building up — audible "something's coming".
         if (charge > 0) {
             stomp(target);
         }
@@ -117,24 +149,25 @@ public final class BlessingBrute extends Effect {
 
         if (progress >= Config.BRUTE_CAP_THRESHOLD.get()) {
             markDiscoveredByVictim(target);
-            if (launchEntities(target) > 0) {
-                // Ploughing into something bleeds your momentum — you slow down and must build back up (which
-                // also stops you multi-hitting the same target every tick). But recovery is MUCH faster than a
-                // full reset, so you keep barrelling through crowds rather than stalling on the first body.
+            // cleave through a crowd: each body hit at most once per cooldown, no momentum bleed (you keep barrelling).
+            if (launchEntities(target, now, speedSynergy) > 0) {
                 impactFeedback(target);
-                int capCharge = windup + (int) Math.ceil(Config.BRUTE_CAP_THRESHOLD.get() * rampTime);
-                int recovered = Math.max(0, capCharge - Config.BRUTE_ENTITY_RECOVERY_TICKS.get());
-                CHARGE.put(id, recovered);
-                float newProgress = rampTime <= 0 ? 0.0F
-                        : Math.max(0.0F, Math.min(1.0F, (recovered - windup) / (float) rampTime));
-                applySpeed(target, newProgress);
-                return; // and no wall-smashing on the same tick you bounced off a body
             }
-            smashBlocks(target);
+            // ran into a block: explode it, then RESET the charge — your momentum is spent, you must re-build
+            // before the next smash. This is what stops continuous tunnelling. Only while GROUNDED, so JUMPING
+            // up onto / landing on a block doesn't smash it — only running into one on the ground does.
+            BlockPos wall = target.onGround() ? blockAhead(target) : null;
+            if (wall != null) {
+                smashWall(target, wall);
+                CHARGE.put(id, 0);
+                applySpeed(target, 0.0F);
+                target.setDeltaMovement(target.getDeltaMovement().multiply(0.2, 1.0, 0.2)); // kill forward momentum
+                target.hurtMarked = true;
+            }
         }
     }
 
-    /** Sound, camera jolt and particles when you plough into an entity. */
+    /** sound, camera jolt and particles when you plough into an entity. */
     private static void impactFeedback(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         target.setData(WitchModAttachments.BRUTE_SHAKE_END, level.getGameTime() + Config.BRUTE_SHAKE_TICKS.get());
@@ -142,7 +175,7 @@ public final class BlessingBrute extends Effect {
                 4, 0.4, 0.3, 0.4, 0.0);
         level.sendParticles(ParticleTypes.EXPLOSION, target.getX(), target.getY() + 1.0, target.getZ(),
                 5, 0.3, 0.3, 0.3, 0.0);
-        // The supplied heavy-impact crunch on the hit.
+        // the supplied heavy-impact crunch on the hit.
         level.playSound(null, target.blockPosition(), com.oliver.witchmod.data.WitchModSounds.BRUTE_IMPACT.get(),
                 SoundSource.PLAYERS, 1.1F, 1.0F);
     }
@@ -156,7 +189,7 @@ public final class BlessingBrute extends Effect {
         }
     }
 
-    /** Brush leaves/snow/grass/plants/vines out of the space you're moving through, free and without slowing. */
+    /** brush leaves/snow/grass/plants/vines out of the space you're moving through, free and without slowing. */
     private static void tearLightBlocks(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         Vec3 forward = horizontalHeading(target);
@@ -182,17 +215,24 @@ public final class BlessingBrute extends Effect {
                 || state.getBlock() instanceof VineBlock;
     }
 
-    /** Anything you plough into at full charge is flung away and hurt. @return how many were launched. */
-    private static int launchEntities(ServerPlayer target) {
+    /** plough into bodies in your path — each hit at most once per cooldown, so you cleave a crowd cleanly. */
+    private static int launchEntities(ServerPlayer target, long now, boolean speedSynergy) {
         ServerLevel level = target.serverLevel();
         Vec3 forward = horizontalHeading(target);
-        double force = Config.BRUTE_LAUNCH_FORCE.get();
-        float damage = (float) (double) Config.BRUTE_LAUNCH_DAMAGE.get();
+        double force = Config.BRUTE_LAUNCH_FORCE.get() * (speedSynergy ? Config.BRUTE_SPEED_KNOCKBACK_MULT.get() : 1.0);
+        float damage = (float) (double) (Config.BRUTE_LAUNCH_DAMAGE.get()
+                + (speedSynergy ? Config.BRUTE_SPEED_BONUS_DAMAGE.get() : 0.0));
+        int cooldown = Config.BRUTE_ENTITY_HIT_COOLDOWN.get();
+        Map<Integer, Long> hits = ENTITY_HITS.computeIfAbsent(target.getUUID(), k -> new HashMap<>());
+        hits.values().removeIf(t -> now - t > cooldown * 4L); // keep the map small
         int launched = 0;
-        // Reach a bit ahead in your direction of travel so fast passes still catch bodies in your path.
         AABB hitBox = target.getBoundingBox().inflate(0.4).expandTowards(forward.x, 0.0, forward.z);
         for (LivingEntity victim : level.getEntitiesOfClass(LivingEntity.class,
                 hitBox, e -> e != target && e.isAlive())) {
+            if (now - hits.getOrDefault(victim.getId(), Long.MIN_VALUE / 2) < cooldown) {
+                continue; // hit this one recently — skip so you cleave rather than pin it
+            }
+            hits.put(victim.getId(), now);
             Vec3 push = forward.scale(force).add(0.0, 0.55, 0.0);
             victim.setDeltaMovement(victim.getDeltaMovement().add(push));
             victim.hurtMarked = true;
@@ -202,59 +242,50 @@ public final class BlessingBrute extends Effect {
         return launched;
     }
 
-    /** Smash a hole through the wall ahead at full charge, hardness-gated, for health each (capped per tick). */
-    private static void smashBlocks(ServerPlayer target) {
+    /**
+     * the nearest solid, non-nature block the player has run into — scans the player's own bounding box extended
+     * FORWARD in their heading, so it catches any block in the way (leg-height to head, and slightly to the
+     * side) rather than a fragile single ray. Null if the path is clear.
+     */
+    private static BlockPos blockAhead(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
-        if (!level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
-            return; // respects mobGriefing
-        }
-        Vec3 forward = horizontalHeading(target);
-        Vec3 right = new Vec3(-forward.z, 0.0, forward.x);
-        Vec3 base = target.position().add(forward.scale(0.7));
-        double hpCost = Config.BRUTE_HP_COST_PER_BLOCK.get();
-        double maxHardness = Config.BRUTE_BLOCK_HARDNESS_MAX.get();
-        int maxBlocks = Config.BRUTE_MAX_BLOCKS_PER_TICK.get();
-
-        int broken = 0;
-        BlockState anyBroken = null;
-        // A 3-tall column ahead, then widen sideways — a proper hole rather than a single gap.
-        outer:
-        for (double dy : new double[] {0.2, 1.0, 1.8}) {
-            for (double lateral : new double[] {0.0, 1.0, -1.0}) {
-                if (broken >= maxBlocks || target.getHealth() <= hpCost + 1.0) {
-                    break outer;
-                }
-                Vec3 p = base.add(right.scale(lateral)).add(0.0, dy, 0.0);
-                BlockPos pos = BlockPos.containing(p.x, p.y, p.z);
-                BlockState state = level.getBlockState(pos);
-                float hardness = state.getDestroySpeed(level, pos);
-                // hardness < 0 = unbreakable (bedrock); > max = too hard (obsidian). Both stop you.
-                if (state.isAir() || hardness < 0.0F || hardness > maxHardness || !state.getFluidState().isEmpty()) {
-                    continue;
-                }
-                level.destroyBlock(pos, true, target);
-                target.setHealth((float) Math.max(1.0, target.getHealth() - hpCost));
-                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
-                        pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 18, 0.3, 0.3, 0.3, 0.15);
-                broken++;
-                anyBroken = state;
+        Vec3 h = horizontalHeading(target);
+        AABB probe = target.getBoundingBox().inflate(0.15, 0.0, 0.15).expandTowards(h.x * 0.7, 0.0, h.z * 0.7);
+        Vec3 c = target.position();
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (BlockPos bp : BlockPos.betweenClosed(
+                (int) Math.floor(probe.minX), (int) Math.floor(probe.minY), (int) Math.floor(probe.minZ),
+                (int) Math.floor(probe.maxX), (int) Math.floor(probe.maxY), (int) Math.floor(probe.maxZ))) {
+            BlockState state = level.getBlockState(bp);
+            if (!state.blocksMotion() || isLightNature(state)) {
+                continue;
+            }
+            double d = c.distanceToSqr(bp.getX() + 0.5, c.y, bp.getZ() + 0.5);
+            if (d < bestDist) {
+                bestDist = d;
+                best = bp.immutable();
             }
         }
-
-        if (broken > 0) {
-            level.sendParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + 1.0, target.getZ(),
-                    8, 0.4, 0.4, 0.4, 0.02);
-            level.playSound(null, target.blockPosition(), SoundEvents.ZOMBIE_BREAK_WOODEN_DOOR,
-                    SoundSource.PLAYERS, 0.8F, 0.9F);
-            level.playSound(null, target.blockPosition(), com.oliver.witchmod.data.WitchModSounds.BRUTE_IMPACT.get(),
-                    SoundSource.PLAYERS, 0.9F, 1.1F);
-            // A slight camera jolt on the smash.
-            target.setData(WitchModAttachments.BRUTE_SHAKE_END,
-                    level.getGameTime() + Config.BRUTE_SHAKE_TICKS.get());
-        }
+        return best;
     }
 
-    /** Amplified footfalls while charging, so the wind-up is audible — the block's own step sound, but big. */
+    /** blast the blocking block in a real explosion. You take only the small HP cost; others take the blast. */
+    private static void smashWall(ServerPlayer target, BlockPos wall) {
+        ServerLevel level = target.serverLevel();
+        double hpCost = Config.BRUTE_SMASH_HP_COST.get();
+        if (target.getHealth() > hpCost + 1.0) {
+            target.setHealth((float) (target.getHealth() - hpCost));
+        }
+        // source=target EXCLUDES the brute from the blast; block-breaking follows blast resistance + mobGriefing.
+        level.explode(target, wall.getX() + 0.5, wall.getY() + 0.5, wall.getZ() + 0.5,
+                (float) (double) Config.BRUTE_SMASH_POWER.get(), Level.ExplosionInteraction.MOB);
+        target.setData(WitchModAttachments.BRUTE_SHAKE_END, level.getGameTime() + Config.BRUTE_SHAKE_TICKS.get());
+        level.playSound(null, target.blockPosition(), com.oliver.witchmod.data.WitchModSounds.BRUTE_IMPACT.get(),
+                SoundSource.PLAYERS, 1.2F, 0.9F);
+    }
+
+    /** amplified footfalls while charging, so the wind-up is audible — the block's own step sound, but big. */
     private static void stomp(ServerPlayer target) {
         UUID id = target.getUUID();
         float now = target.walkDist;
@@ -278,14 +309,20 @@ public final class BlessingBrute extends Effect {
                 Config.BRUTE_FOOTSTEP_VOLUME.get().floatValue(), st.getPitch() * 0.8F);
     }
 
-    /** The player's horizontal movement heading (falls back to look direction when nearly still). */
+    /** horizontal heading: current movement, else the last one recorded while moving (survives a collision
+     *  stop), else look direction. */
     private static Vec3 horizontalHeading(ServerPlayer target) {
         Vec3 move = target.getDeltaMovement();
         Vec3 flat = new Vec3(move.x, 0.0, move.z);
-        if (flat.lengthSqr() < 1.0E-4) {
-            Vec3 look = target.getLookAngle();
-            flat = new Vec3(look.x, 0.0, look.z);
+        if (flat.lengthSqr() > 1.0E-4) {
+            return flat.normalize();
         }
-        return flat.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : flat.normalize();
+        Vec3 last = LAST_HEADING.get(target.getUUID());
+        if (last != null) {
+            return last;
+        }
+        Vec3 look = target.getLookAngle();
+        Vec3 lookFlat = new Vec3(look.x, 0.0, look.z);
+        return lookFlat.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : lookFlat.normalize();
     }
 }

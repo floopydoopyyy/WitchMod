@@ -21,7 +21,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The Dweller MIMIC — its own event, NOT the Delusions curse. Where Delusions is a wandering hallucination
+ * the Dweller MIMIC — its own event, NOT the Delusions curse. Where Delusions is a wandering hallucination
  * (fake players going about their business, "am I seeing things?"), the mimic is ONE impostor wearing a real
  * player's face that just stands and STARES at you, unnaturally still, and then drops the mask: it dissolves
  * into shadow with the Dweller's scream, implying the thing stalking you was wearing that face all along.
@@ -70,14 +70,14 @@ public final class DwellerMimicManager {
         boolean watched = isWatched(victim, impostor);
         stareTicks = watched ? stareTicks + 1 : 0;
 
-        // The reveal is EARNED by catching it staring back for a beat, or simply comes once the window is up.
+        // the reveal is EARNED by catching it staring back for a beat, or simply comes once the window is up.
         int window = Config.DWELLER_MIMIC_BURST_TICKS.get();
         if (stareTicks >= 12 || ticks >= window) {
             reveal(level, victim);
         }
     }
 
-    /** Drops the mask: the familiar face dissolves into shadow where it stood, with the Dweller's scream. */
+    /** drops the mask: the familiar face dissolves into shadow where it stood, with the Dweller's scream. */
     private static void reveal(ClientLevel level, LocalPlayer victim) {
         revealed = true;
         if (impostor == null) {
@@ -94,7 +94,7 @@ public final class DwellerMimicManager {
             level.addParticle(ParticleTypes.SMOKE, p.x, p.y + 1.0, p.z,
                     (level.random.nextDouble() - 0.5) * 0.3, level.random.nextDouble() * 0.3, (level.random.nextDouble() - 0.5) * 0.3);
         }
-        // The mask drops with the glitchy ENRAGED scream — the impostor was the Dweller all along.
+        // the mask drops with the glitchy ENRAGED scream — the impostor was the Dweller all along.
         level.playLocalSound(p.x, p.y, p.z, com.oliver.witchmod.data.WitchModSounds.DWELLER_ENRAGED.get(), SoundSource.HOSTILE, 1.1F, 1.0F, false);
         // A dread-scaling chance that the reveal is a full JUMPSCARE — a bright flash into darkness.
         float dread = victim.getData(WitchModAttachments.DWELLER_DREAD);
@@ -143,7 +143,7 @@ public final class DwellerMimicManager {
         revealed = false;
     }
 
-    /** In the view cone, in line of sight, at a believable distance — you've clocked it looking back. */
+    /** in the view cone, in line of sight, at a believable distance — you've clocked it looking back. */
     private static boolean isWatched(LocalPlayer victim, DelusionPlayer imp) {
         Vec3 eye = victim.getEyePosition();
         Vec3 theirEye = imp.getEyePosition();

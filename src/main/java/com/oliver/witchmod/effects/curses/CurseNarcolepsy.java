@@ -15,7 +15,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Narcolepsy (White Bed): every {@code narcolepsyMinInterval}..{@code narcolepsyMaxInterval} (35s–5.5min,
+ * narcolepsy (White Bed): every {@code narcolepsyMinInterval}..{@code narcolepsyMaxInterval} (35s–5.5min,
  * biased toward the longer half) you drop asleep right where you stand — the sleeping pose, all input blocked,
  * a dark shader, and a mash bar you have to overcome to wake early (see {@code client/NarcolepsyClient}). A
  * sleep lasts {@code narcolepsyMinSleep}..{@code narcolepsyMaxSleep} (4–12s) if you don't fight out of it.
@@ -71,19 +71,19 @@ public final class CurseNarcolepsy extends Effect {
             } else {
                 // NO server-side sleep: the player stays a fully normal entity (gravity, fall damage, collision
                 // all vanilla) — the lying-down ANIMATION is faked purely client-side on other viewers (see
-                // NarcolepsyClient), which is also what stopped the local camera juddering. Only the effects
+                // narcolepsyClient), which is also what stopped the local camera juddering. Only the effects
                 // that don't touch physics live here.
-                // Fast healing while you rest — 30% slower than before (every 7 ticks, not 5).
+                // fast healing while you rest — 30% slower than before (every 7 ticks, not 5).
                 if (target.tickCount % 7 == 0 && target.getHealth() < target.getMaxHealth()) {
                     target.heal(1.0F);
                 }
-                // Intermittent snores at varied pitch.
+                // intermittent snores at varied pitch.
                 if (target.tickCount % 45 == 0) {
                     target.level().playSound(null, target.blockPosition(),
                             com.oliver.witchmod.data.WitchModSounds.NARCOLEPSY_SNORE.get(),
                             net.minecraft.sounds.SoundSource.PLAYERS, 0.9F, 0.7F + target.getRandom().nextFloat() * 0.6F);
                 }
-                // Sleep Zs drifting up off the head, seen by every viewer.
+                // sleep Zs drifting up off the head, seen by every viewer.
                 if (target.tickCount % 11 == 0) {
                     target.serverLevel().sendParticles(com.oliver.witchmod.data.WitchModParticles.SLEEP_Z.get(),
                             target.getX(), target.getEyeY() + 0.25, target.getZ(),
@@ -93,7 +93,7 @@ public final class CurseNarcolepsy extends Effect {
             return;
         }
 
-        // Awake: idling makes a narcoleptic nod off sooner — after a few still seconds the countdown to the
+        // awake: idling makes a narcoleptic nod off sooner — after a few still seconds the countdown to the
         // next sleep runs at DOUBLE speed.
         tickIdleAccel(target, now);
 
@@ -105,7 +105,7 @@ public final class CurseNarcolepsy extends Effect {
         }
     }
 
-    /** While awake and standing still past the grace period, pull the next-sleep tick one closer each tick (2x). */
+    /** while awake and standing still past the grace period, pull the next-sleep tick one closer each tick (2x). */
     private void tickIdleAccel(ServerPlayer target, long now) {
         UUID id = target.getUUID();
         net.minecraft.world.phys.Vec3 pos = target.position();
@@ -126,12 +126,12 @@ public final class CurseNarcolepsy extends Effect {
         startSleep(target, rollDepth(target), false);
     }
 
-    /** Begin a sleep of the given depth (0 normal / 1 deep / 2 very deep); {@code thirdPerson} = debug watch mode. */
+    /** begin a sleep of the given depth (0 normal / 1 deep / 2 very deep); {@code thirdPerson} = debug watch mode. */
     private void startSleep(ServerPlayer target, int depth, boolean thirdPerson) {
         int min = Config.NARCOLEPSY_MIN_SLEEP_TICKS.get();
         int max = Config.NARCOLEPSY_MAX_SLEEP_TICKS.get();
         int duration = min + target.getRandom().nextInt(Math.max(1, max - min + 1));
-        // Deeper sleeps last longer (and need more mashing — enforced client-side off the depth attachment).
+        // deeper sleeps last longer (and need more mashing — enforced client-side off the depth attachment).
         double lengthMult = switch (depth) { case 2 -> 1.8; case 1 -> 1.4; default -> 1.0; };
         duration = (int) Math.round(duration * lengthMult);
         target.setData(WitchModAttachments.NARCOLEPSY_SLEEP_END, target.level().getGameTime() + duration);
@@ -139,7 +139,7 @@ public final class CurseNarcolepsy extends Effect {
         markDiscoveredByVictim(target);
     }
 
-    /** Roll a sleep depth: mostly normal, sometimes deep, rarely very deep (deep roll must pass first). */
+    /** roll a sleep depth: mostly normal, sometimes deep, rarely very deep (deep roll must pass first). */
     private int rollDepth(ServerPlayer target) {
         var r = target.getRandom();
         if (r.nextInt(100) < Config.NARCOLEPSY_DEEP_CHANCE_PERCENT.get()) {
@@ -148,7 +148,7 @@ public final class CurseNarcolepsy extends Effect {
         return 0;
     }
 
-    /** Called by the mash payload — you fought your way awake early. */
+    /** called by the mash payload — you fought your way awake early. */
     public static void wakeEarly(ServerPlayer target) {
         if (isSleeping(target)) {
             new CurseNarcolepsy().wake(target);

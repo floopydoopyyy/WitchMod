@@ -17,7 +17,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Shadow-quick (statement blessing, sacrificial item BLACK DYE — Ink Sac is taken by Unseen): you move faster,
+ * shadow-quick (statement blessing, sacrificial item BLACK DYE — Ink Sac is taken by Unseen): you move faster,
  * swing far quicker, and can flip a second jump out of thin air. Every swing snaps out with a sharp woosh,
  * and the double jump kicks up a puff of ninja smoke.
  *

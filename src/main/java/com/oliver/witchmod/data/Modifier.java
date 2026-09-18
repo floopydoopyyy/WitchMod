@@ -3,16 +3,15 @@ package com.oliver.witchmod.data;
 import java.util.OptionalInt;
 
 /**
- * The 18 Table modifiers (CLAUDE.md section 4.6/5.6). Pure data — no item coupling here; the Table
- * (Phase 4) is responsible for mapping a physical item in its Modifier slot to one of these constants.
- * All percentages are deltas applied on top of the Section 5.7 base curves; see {@link ModifierCalculator}
- * for how they combine.
+ * the table modifiers — pure data; {@link ModifierItems} maps a slot item to one of these. percentages are
+ * deltas on top of the base cost/success/backfire curves ({@link ModifierCalculator} combines them).
  */
 public enum Modifier {
     CLOCK(15, 0, 0, 0) {
+        // guarantees exactly 45 minutes, overriding the random 35–60 base roll (like Compass's fixed 40).
         @Override
-        public int flatDurationBonusTicks(net.minecraft.util.RandomSource rng) {
-            return CLOCK_MIN_BONUS_TICKS + rng.nextInt(CLOCK_MAX_BONUS_TICKS - CLOCK_MIN_BONUS_TICKS + 1);
+        public OptionalInt fixedDurationTicks() {
+            return OptionalInt.of(CLOCK_FIXED_TICKS);
         }
     },
     BELL(0, 0, 0, 0) {
@@ -119,20 +118,25 @@ public enum Modifier {
             return true;
         }
     },
-    // Gunpowder, Redstone Dust, and Milk Bucket were removed as modifiers per master-spec Section 9 — they
+    // gunpowder, redstone dust, and milk bucket are no longer modifiers — they
     // are now sacrificial items / table mechanics instead (Gunpowder → Explosive curse, Milk Bucket →
-    // Butterfingers curse, Redstone Dust → the random-attachment table mechanic in BewitchingTableRitual).
+    // butterfingers curse, Redstone Dust → the random-attachment table mechanic in BewitchingTableRitual).
     RECOVERY_COMPASS(15, 0, 0, 0) {
         @Override
         public boolean reappliesShortenedEffectOnCure() {
             return true;
         }
+    },
+    EYE_OF_ENDER(10, 0, 0, 0) {
+        @Override
+        public boolean reportsBlocks() {
+            return true;
+        }
     };
 
-    // Clock adds a flat 5–15 minutes of total time; Bell adds a flat 15. (Compile-time constants, so they're
+    // clock forces a fixed 45 minutes; Bell adds a flat 15. (Compile-time constants, so they're
     // safely usable from the enum constant bodies above.)
-    private static final int CLOCK_MIN_BONUS_TICKS = 5 * 60 * 20;
-    private static final int CLOCK_MAX_BONUS_TICKS = 15 * 60 * 20;
+    private static final int CLOCK_FIXED_TICKS = 45 * 60 * 20;
     private static final int BELL_BONUS_TICKS = 15 * 60 * 20;
 
     private final int costDeltaPercent;
@@ -163,72 +167,72 @@ public enum Modifier {
         return backfireDeltaPercent;
     }
 
-    /** Compass only: overrides duration to a fixed 40 minutes instead of applying a % delta. */
+    /** compass (fixed 40 min) / Clock (fixed 45 min): overrides the rolled duration outright. */
     public OptionalInt fixedDurationTicks() {
         return OptionalInt.empty();
     }
 
-    /** Netherstar only: raises the normal 95% success cap (section 5.7) to this value instead. */
+    /** netherstar only: raises the normal 95% success cap to this value instead. */
     public OptionalInt successCapPercent() {
         return OptionalInt.empty();
     }
 
-    /** Quartz only: usable exclusively on effects the caster has already discovered. */
+    /** quartz only: usable exclusively on effects the caster has already discovered. */
     public boolean discoveredEffectsOnly() {
         return false;
     }
 
-    /** Dragon's Breath only: also splashes a shortened dose onto players near the target. */
+    /** dragon's Breath only: also splashes a shortened dose onto players near the target. */
     public boolean splashToNearby() {
         return false;
     }
 
-    /** Netherite Ingot only: ignores Ward/Jar counterplay (Totem still applies). */
+    /** netherite Ingot only: ignores Ward/Jar counterplay (Totem still applies). */
     public boolean bypassesWardAndJar() {
         return false;
     }
 
-    /** Ink Sac only: the target gets no "something happened" tell at all when this lands. */
+    /** ink Sac only: the target gets no "something happened" tell at all when this lands. */
     public boolean hidesStartTell() {
         return false;
     }
 
-    /** Glow Ink Sac only: the target is told exactly which effect landed, not just that one did. */
+    /** glow Ink Sac only: the target is told exactly which effect landed, not just that one did. */
     public boolean revealsEffectToTarget() {
         return false;
     }
 
-    /** Echo Shard only: delays the target's tell notification, not the effect's actual onset. */
+    /** echo Shard only: delays the target's tell notification, not the effect's actual onset. */
     public boolean delaysTell() {
         return false;
     }
 
-    /** Goat Horn only: the tell is loud/obvious instead of the normal subtle one. */
+    /** goat Horn only: the tell is loud/obvious instead of the normal subtle one. */
     public boolean loudTriggerTell() {
         return false;
     }
 
-    /** Honeycomb only: backfire chance is forced to 0% regardless of the base curve. */
+    /** honeycomb only: backfire chance is forced to 0% regardless of the base curve. */
     public boolean forcesBackfireZero() {
         return false;
     }
 
-    /** Recovery Compass only: on cure, reapplies the effect once more at a shortened duration. */
+    /** recovery Compass only: on cure, reapplies the effect once more at a shortened duration. */
     public boolean reappliesShortenedEffectOnCure() {
         return false;
     }
 
-    /** Paper only: this cast's Ledger entries are scribbled out and unreadable. */
+    /** paper only: this cast's Ledger entries are scribbled out and unreadable. */
     public boolean scribblesLedger() {
         return false;
     }
 
-    /** Clock/Bell: a flat number of bonus ticks ADDED to the rolled duration (Clock 5–15 min, Bell 15 min). */
+    /** clock/Bell: a flat number of bonus ticks ADDED to the rolled duration (Clock 5–15 min, Bell 15 min). */
     public int flatDurationBonusTicks(net.minecraft.util.RandomSource rng) {
         return 0;
     }
 
-    /** Bell only: on a successful cast, announce to server chat who inflicted what on whom. */
+    /** bell only: on a successful cast, announce to server chat who inflicted what on whom. */
     public boolean announcesCast() {
         return false;
     }
@@ -241,17 +245,22 @@ public enum Modifier {
         return 0;
     }
 
-    /** Amethyst Shard: if the target already carries an effect of the SAME category, this cast is cheaper. */
+    /** amethyst Shard: if the target already carries an effect of the SAME category, this cast is cheaper. */
     public boolean discountsSameCategory() {
         return false;
     }
 
-    /** Wither Rose: the effect reads as the OPPOSITE category (a fake blessing/curse) until it's discovered. */
+    /** wither Rose: the effect reads as the OPPOSITE category (a fake blessing/curse) until it's discovered. */
     public boolean disguisesCategory() {
         return false;
     }
 
-    /** Stable lowercase id (e.g. {@code dragons_breath}) for lang keys, discovery, and the Compendium. */
+    /** eye of Ender ("Test the Waters"): when a cast is blocked, report every protection the target has. */
+    public boolean reportsBlocks() {
+        return false;
+    }
+
+    /** stable lowercase id (e.g. {@code dragons_breath}) for lang keys, discovery, and the Compendium. */
     public String id() {
         return name().toLowerCase(java.util.Locale.ROOT);
     }

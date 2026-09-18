@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Blessing of Safety (RESPAWN ANCHOR): crouch, stand still and look DOWN to begin a 10s channel; hold it and
+ * blessing of Safety (RESPAWN ANCHOR): crouch, stand still and look DOWN to begin a 10s channel; hold it and
  * you're whisked home to your spawn point — and the blessing is spent. An action-bar countdown, gold sparkles
  * and a rising hum make it clear what's happening and where. Taking a hit or moving cancels it and imposes a
  * short cooldown before you can try again.
@@ -71,7 +71,7 @@ public final class BlessingSafety extends Effect {
             if (now < cd) {
                 return; // still on cooldown
             }
-            // Cooldown just ended — a little gold flourish + chime so you know it's ready again.
+            // cooldown just ended — a little gold flourish + chime so you know it's ready again.
             COOLDOWN.remove(id);
             ServerLevel level = target.serverLevel();
             level.sendParticles(GOLD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.6, 0.35, 0.02);
@@ -95,14 +95,14 @@ public final class BlessingSafety extends Effect {
         boolean channelling = CHANNEL.getOrDefault(id, 0) > 0;
 
         if (!channelling) {
-            // Activation needs the full posture: crouched, still, and looking DOWN.
+            // activation needs the full posture: crouched, still, and looking DOWN.
             if (crouch && !moving && !hurt && target.getXRot() > 55.0F) {
                 CHANNEL.put(id, 1);
             }
             return;
         }
 
-        // Once channelling you can look ANYWHERE — only leaving the crouch, real movement, or a hit cancels it.
+        // once channelling you can look ANYWHERE — only leaving the crouch, real movement, or a hit cancels it.
         if (!crouch || hurt || mg > MOVE_LEEWAY_TICKS) {
             CHANNEL.remove(id);
             MOVE_GRACE.remove(id);
@@ -118,9 +118,9 @@ public final class BlessingSafety extends Effect {
         int total = Config.SAFETY_CHANNEL_TICKS.get();
         int remSec = Math.max(0, (total - c + 19) / 20);
         target.displayClientMessage(Component.translatable("witchmod.safety.channelling", remSec)
-                .withStyle(s -> s.withColor(0xFFD24A)), true);
+.withStyle(s -> s.withColor(0xFFD24A)), true);
 
-        // Yellow sparkle column + a rising hum, so both the player and onlookers can see/hear it happening.
+        // yellow sparkle column + a rising hum, so both the player and onlookers can see/hear it happening.
         ServerLevel level = target.serverLevel();
         double prog = (double) c / total;
         level.sendParticles(ParticleTypes.END_ROD, target.getX(), target.getY() + 0.1 + prog * 1.4, target.getZ(),
@@ -170,8 +170,15 @@ public final class BlessingSafety extends Effect {
         dest.playSound(null, spawn, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.9F, 1.4F);
         target.displayClientMessage(Component.translatable("witchmod.safety.home").withStyle(s -> s.withColor(0xFFD24A)), true);
 
+        // homecoming synergy (with Homebody): arrive home to a brief burst of strong Regeneration.
+        if (com.oliver.witchmod.synergy.Synergies.HOMECOMING.activeFor(target)) {
+            com.oliver.witchmod.data.EffectUtil.addTimedEffect(target,
+                    net.minecraft.world.effect.MobEffects.REGENERATION,
+                    Config.HOMECOMING_REGEN_SECONDS.get() * 20, Config.HOMECOMING_REGEN_AMPLIFIER.get());
+        }
+
         markDiscoveredByVictim(target);
-        // Not consumed — you keep the blessing, but it's on a long cooldown before another trip home.
+        // not consumed — you keep the blessing, but it's on a long cooldown before another trip home.
         COOLDOWN.put(target.getUUID(), target.level().getGameTime() + Config.SAFETY_USE_COOLDOWN_TICKS.get());
         MOVE_GRACE.remove(target.getUUID());
     }

@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.WitchModRegistries;
 
-/** Revives the player from a would-be death, inflicting a random curse, then consumes itself (CLAUDE.md section 3). */
+/** revives the player from a would-be death, inflicts a random curse, then consumes itself. */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class ExecutionersCoinEventHandler {
     private ExecutionersCoinEventHandler() {}

@@ -13,16 +13,12 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.WitchModDataComponents;
 import com.oliver.witchmod.data.WitchModRegistries;
 
-/**
- * The stored-effect logic shared by every jar. A jar is a DYNAMIC item: its variant (Cursed / Blessed /
- * Mixed) is derived from what it holds, so adding a blessing to a Cursed Jar turns the stack into a Mixed
- * Jar. Holds up to {@link #MAX} attachments.
- */
+/** the stored-effect logic shared by every jar — the variant is derived from contents; holds up to {@link #MAX}. */
 public final class JarContents {
-    /** Max attachments any jar holds. */
+    /** max attachments any jar holds. */
     public static final int MAX = 3;
 
-    /** Splash-colour kind. */
+    /** splash-colour kind. */
     public static final int CURSED = 0, BLESSED = 1, MIXED = 2;
 
     private JarContents() {}
@@ -49,7 +45,7 @@ public final class JarContents {
         return stackFor(list, jar.getCount());
     }
 
-    /** The registered item that matches these contents (empty → the plain Jar). */
+    /** the registered item that matches these contents (empty → the plain Jar). */
     public static Item itemFor(List<CapturedEffect> list) {
         boolean curse = false;
         boolean bless = false;
@@ -73,7 +69,7 @@ public final class JarContents {
         return WitchModItems.JAR.get();
     }
 
-    /** Colour kind for splash/lash particles, from the contents. */
+    /** colour kind for splash/lash particles, from the contents. */
     public static int kind(List<CapturedEffect> list) {
         boolean curse = false;
         boolean bless = false;
