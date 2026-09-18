@@ -8,6 +8,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 import com.oliver.witchmod.WitchMod;
 
+/** common server hooks: ticks effects each player tick, records grace-period first-join, re-syncs wrappers on respawn. */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class WitchModEventHandler {
     private WitchModEventHandler() {}
@@ -26,12 +27,8 @@ public final class WitchModEventHandler {
         }
     }
 
-    /**
-     * Curses/blessings persist through death (master-spec Rule 4). Their {@code ACTIVE_EFFECTS} data is
-     * {@code copyOnDeath} and their transient state self-heals in each effect's {@code onTick}, but DEATH
-     * clears the vanilla Cursed/Blessed/Afflicted wrapper effects — so re-sync them on respawn, or the
-     * victim loses their status icon (and any wrapper-driven feedback) even though the effects are still on.
-     */
+    // effects persist through death (copy-on-death), but death clears the vanilla wrapper effects — re-sync
+    // them on respawn or the victim loses the status icon while still cursed
     @SubscribeEvent
     static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {

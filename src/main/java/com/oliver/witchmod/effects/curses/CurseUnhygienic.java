@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.goals.UnhygienicFleeGoal;
 
 /**
- * You reek (master-spec, formerly "Green Aura" — renamed to Unhygienic on Oliver's call). The victim leaks a
+ * you reek. The victim leaks a
  * green stink cloud with a few flies orbiting them, and:
  * <ul>
  *   <li><b>Non-undead mobs flee.</b> Anything inside the stink radius gets an {@link UnhygienicFleeGoal} and
@@ -38,19 +38,19 @@ public final class CurseUnhygienic extends Effect {
     /** A sickly green haze. DUST hangs in the air; the potion-bubble particle read as brewing, not stink. */
     private static final DustParticleOptions GAS =
             new DustParticleOptions(new Vector3f(0.35F, 0.75F, 0.15F), 1.6F);
-    /** Tiny dark specks for the flies — small enough to read as insects rather than motes of dust. */
+    /** tiny dark specks for the flies — small enough to read as insects rather than motes of dust. */
     private static final SimpleParticleType FLY = ParticleTypes.MYCELIUM;
     private static final int FLY_COUNT = 4;
     private static final int PLAYER_PUSH_INTERVAL = 5;
 
-    /** When the next ambient buzz is due, per player. Transient — re-rolled by the self-heal below. */
+    /** when the next ambient buzz is due, per player. Transient — re-rolled by the self-heal below. */
     private static final Map<UUID, Long> NEXT_BUZZ = new HashMap<>();
 
     public CurseUnhygienic() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.ROTTEN_FLESH);
     }
 
-    /** You work it out when things start backing away from you (Rule 2). */
+    /** you work it out when things start backing away from you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -74,7 +74,7 @@ public final class CurseUnhygienic extends Effect {
         }
     }
 
-    /** The green haze, plus a few flies buzzing erratically around the victim's head. */
+    /** the green haze, plus a few flies buzzing erratically around the victim's head. */
     private static void emitParticles(ServerPlayer target, ServerLevel level, long now) {
         if (now % Config.UNHYGIENIC_PARTICLE_INTERVAL.get() == 0) {
             // A soft green DUST haze. ENTITY_EFFECT was the obvious pick but renders as potion bubbles,
@@ -83,10 +83,10 @@ public final class CurseUnhygienic extends Effect {
                     5, 0.35, 0.55, 0.35, 0.0);
         }
 
-        // Flies. Each one follows a smooth-but-uneven path — wobbling radius, uneven angular speed and its
+        // flies. Each one follows a smooth-but-uneven path — wobbling radius, uneven angular speed and its
         // own bobbing height, from sines at differing frequencies — so it never reads as a clean orbit.
         //
-        // Crucially the specks are spawned STATIONARY and only every few ticks. Giving them a darting
+        // crucially the specks are spawned STATIONARY and only every few ticks. Giving them a darting
         // velocity and spawning every tick meant ~80 moving particles a second, which looked like flung dust
         // rather than insects (and was pure waste). Dropped along a continuous path instead, consecutive
         // specks land close together and the eye interpolates them into one moving fly.
@@ -106,7 +106,7 @@ public final class CurseUnhygienic extends Effect {
         }
     }
 
-    /** An occasional buzz at the victim, on a randomised gap. */
+    /** an occasional buzz at the victim, on a randomised gap. */
     private static void buzz(ServerPlayer target, ServerLevel level, long now) {
         UUID id = target.getUUID();
         Long due = NEXT_BUZZ.get(id);
@@ -130,7 +130,7 @@ public final class CurseUnhygienic extends Effect {
         NEXT_BUZZ.put(target.getUUID(), now + min + target.getRandom().nextInt(max - min + 1));
     }
 
-    /** Every non-undead mob in range gets the flee goal (added once, bound to this player). */
+    /** every non-undead mob in range gets the flee goal (added once, bound to this player). */
     private void repelMobs(ServerPlayer target, ServerLevel level) {
         double radius = Config.UNHYGIENIC_MOB_FLEE_RADIUS.get();
         for (PathfinderMob mob : level.getEntitiesOfClass(PathfinderMob.class,
@@ -143,13 +143,13 @@ public final class CurseUnhygienic extends Effect {
             if (existing != null) {
                 mob.goalSelector.removeGoal(existing); // stale player reference (respawn/relog) — replace it
             }
-            // Above wandering but below panic/float, so being hurt still takes priority.
+            // above wandering but below panic/float, so being hurt still takes priority.
             mob.goalSelector.addGoal(2, new UnhygienicFleeGoal(mob, target));
             markDiscoveredByVictim(target);
         }
     }
 
-    /** Nearby players slide gently away — a shove they can fight, not a knockback. */
+    /** nearby players slide gently away — a shove they can fight, not a knockback. */
     private void repelPlayers(ServerPlayer target, ServerLevel level) {
         double radius = Config.UNHYGIENIC_PLAYER_DRIFT_RADIUS.get();
         double force = Config.UNHYGIENIC_PLAYER_DRIFT_FORCE.get();
@@ -169,10 +169,10 @@ public final class CurseUnhygienic extends Effect {
 
     private static UnhygienicFleeGoal findFleeGoal(PathfinderMob mob) {
         return mob.goalSelector.getAvailableGoals().stream()
-                .map(w -> w.getGoal())
-                .filter(UnhygienicFleeGoal.class::isInstance)
-                .map(UnhygienicFleeGoal.class::cast)
-                .findFirst()
-                .orElse(null);
+.map(w -> w.getGoal())
+.filter(UnhygienicFleeGoal.class::isInstance)
+.map(UnhygienicFleeGoal.class::cast)
+.findFirst()
+.orElse(null);
     }
 }

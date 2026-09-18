@@ -13,7 +13,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.SpaghettiManEntity;
 
 /**
- * Emissive eyes for the Spaghetti Man — the same trick vanilla uses for the Enderman/Spider. The eye texture
+ * emissive eyes for the Spaghetti Man — the same trick vanilla uses for the Enderman/Spider. The eye texture
  * ({@code spaghetti_man_eyes.png}) is transparent everywhere but the glowing pixels, rendered with
  * {@link RenderType#eyes} so it burns at full brightness through the dark.
  */
@@ -30,7 +30,7 @@ public final class SpaghettiManEyesLayer extends RenderLayer<SpaghettiManEntity,
     public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, SpaghettiManEntity entity,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
-        // The glow FLICKERS — but stays lit the great majority of the time, with the odd brief blink-off, like a
+        // the glow FLICKERS — but stays lit the great majority of the time, with the odd brief blink-off, like a
         // failing bulb. Deterministic per-entity so it doesn't strobe randomly every frame.
         if (eyesOff(entity, ageInTicks)) {
             return;
@@ -38,7 +38,7 @@ public final class SpaghettiManEyesLayer extends RenderLayer<SpaghettiManEntity,
         this.getParentModel().renderToBuffer(poseStack, buffer.getBuffer(EYES), 15728640, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, -1);
     }
 
-    /** True for the rare, brief moments the eyes are dark (a flicker). Otherwise they glow. */
+    /** true for the rare, brief moments the eyes are dark (a flicker). Otherwise they glow. */
     private static boolean eyesOff(SpaghettiManEntity entity, float ageInTicks) {
         int seg = (int) (ageInTicks / 3.0F);                 // a fresh roll every ~3 ticks
         float pick = hash(entity.getId() * 2654435761L + seg);

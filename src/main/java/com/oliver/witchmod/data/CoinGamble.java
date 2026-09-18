@@ -13,33 +13,23 @@ import net.minecraft.world.item.Item;
 import com.oliver.witchmod.items.WitchModItems;
 
 /**
- * Rolls the multi-effect gamble behind the three coins — used both when a coin is USED as an item (gambles on
- * the user) and when it's placed as a Sacrificial Item at the Bewitching Table (gambles on the target).
- *
- * <ul>
- *   <li><b>Blessed Coin</b> — 1–3 blessings, biased toward FEWER and LOWER-power ones.</li>
- *   <li><b>Cursed Coin</b> — 1–3 curses, biased toward fewer + lower-power. A {@link #BAD_DAY_PERCENT}% "bad
- *       day" instead lands 3 curses of {@link #BAD_DAY_MIN_POWER}+ power.</li>
- *   <li><b>Executioner's Coin</b> — 1–3 curses OR blessings, no bias, fully random.</li>
- * </ul>
- *
- * <p>Power bias reads {@link Effect#powerLevel()}, which is a placeholder 50 for every effect until the
- * strength-balancing pass — so the bias is structurally correct but currently behaves as uniform, and a "bad
- * day" (no 80+ effects yet) falls back to 3 random curses.
+ * rolls the multi-effect gamble behind the three coins — on the user when used as an item, on the target
+ * when cast at the table. blessed = 1–3 blessings (biased fewer/lower), cursed = 1–3 curses (a rare "bad
+ * day" lands 3 strong ones), executioner's = 1–3 of either, fully random. power bias reads powerLevel().
  */
 public final class CoinGamble {
     private CoinGamble() {}
 
     public enum Type { CURSED, BLESSED, EXECUTIONER }
 
-    /** Essence base cost the ritual uses for a coin (they land multiple effects, so it's pricey). */
+    /** essence base cost the ritual uses for a coin (they land multiple effects, so it's pricey). */
     public static final int BASE_COST = 55;
     public static final int BAD_DAY_PERCENT = 5;
     public static final int BAD_DAY_MIN_POWER = 80;
     private static final int[] FEWER_WEIGHTS = {60, 30, 10};   // 1 / 2 / 3 effects — biased to fewer
     private static final int[] UNIFORM_WEIGHTS = {1, 1, 1};
 
-    /** Which coin (if any) this item is, for the ritual + slot validity + item-use. */
+    /** which coin (if any) this item is, for the ritual + slot validity + item-use. */
     @Nullable
     public static Type typeOf(Item item) {
         if (item == WitchModItems.CURSED_COIN.get()) {
@@ -54,7 +44,7 @@ public final class CoinGamble {
         return null;
     }
 
-    /** Rolls (but does not apply) the coin's effects. */
+    /** rolls (but does not apply) the coin's effects. */
     public static List<Holder.Reference<Effect>> roll(Type type, RandomSource rng) {
         boolean badDay = type == Type.CURSED && rng.nextInt(100) < BAD_DAY_PERCENT;
         List<Holder.Reference<Effect>> pool = poolFor(type, badDay);
@@ -65,7 +55,7 @@ public final class CoinGamble {
         return pickDistinct(pool, count, type, badDay, rng);
     }
 
-    /** Rolls AND applies the coin's effects to {@code target}; returns what landed (for feedback). */
+    /** rolls AND applies the coin's effects to {@code target}; returns what landed (for feedback). */
     public static List<Holder.Reference<Effect>> gamble(ServerPlayer target, Type type, int durationTicks,
                                                         @Nullable ServerPlayer caster, RandomSource rng) {
         List<Holder.Reference<Effect>> chosen = roll(type, rng);
@@ -75,7 +65,7 @@ public final class CoinGamble {
         return chosen;
     }
 
-    /** Whether a given roll is a "bad day" — call {@link #roll} which handles it; exposed for messaging only. */
+    /** whether a given roll is a "bad day" — call {@link #roll} which handles it; exposed for messaging only. */
     public static boolean isBadDay(List<Holder.Reference<Effect>> rolled) {
         return rolled.size() == 3 && rolled.stream().allMatch(h -> h.value().category() == EffectCategory.CURSE
                 && h.value().powerLevel() >= BAD_DAY_MIN_POWER);
@@ -104,7 +94,7 @@ public final class CoinGamble {
             if (!strong.isEmpty()) {
                 return new ArrayList<>(strong);
             }
-            // No 80+ curses yet (powers are placeholders) — a bad day is still 3 random curses.
+            // no 80+ curses yet (powers are placeholders) — a bad day is still 3 random curses.
         }
         return pool;
     }

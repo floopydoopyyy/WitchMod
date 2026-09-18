@@ -63,6 +63,7 @@ import com.oliver.witchmod.effects.curses.CurseExplosive;
 import com.oliver.witchmod.effects.curses.CurseGassy;
 import com.oliver.witchmod.effects.curses.CurseGiant;
 import com.oliver.witchmod.effects.curses.CurseGlassCannon;
+import com.oliver.witchmod.effects.curses.CurseNarrator;
 import com.oliver.witchmod.effects.curses.CurseInsomniac;
 import com.oliver.witchmod.effects.curses.CurseSocialOutcast;
 import com.oliver.witchmod.effects.curses.CurseSticky;
@@ -74,16 +75,16 @@ import com.oliver.witchmod.effects.curses.CurseLoadingScreen;
 import com.oliver.witchmod.effects.curses.CurseSuperExplosive;
 import com.oliver.witchmod.effects.curses.CurseThirstMeter;
 
-/** Curse hooks that need a game event rather than onApply/onTick (mirrors {@link BlessingEventHandler}). */
+/** curse hooks that need a game event rather than onApply/onTick (mirrors {@link BlessingEventHandler}). */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseEventHandler {
-    /** Allergic: food level + saturation captured when an allergic player STARTS eating, so the Finish hook
+    /** allergic: food level + saturation captured when an allergic player STARTS eating, so the Finish hook
      *  can take back exactly the right share of the real gain. Transient; UUID-keyed. */
     private static final Map<UUID, float[]> PRE_EAT_FOOD = new ConcurrentHashMap<>();
 
     private CurseEventHandler() {}
 
-    /** Flat Footed: you can't help but be LOUD — even your chat comes out in capitals. */
+    /** flat Footed: you can't help but be LOUD — even your chat comes out in capitals. */
     @SubscribeEvent
     static void onFlatFootedShout(net.neoforged.neoforge.event.ServerChatEvent event) {
         if (EffectManager.isActive(event.getPlayer(), com.oliver.witchmod.effects.Curses.FLAT_FOOTED)) {
@@ -132,6 +133,7 @@ public final class CurseEventHandler {
         ServerPlayer victim = solicitorVictim(event.getEntity());
         if (victim != null) {
             com.oliver.witchmod.effects.curses.CurseSolicitor.onKilled(victim);
+            com.oliver.witchmod.effects.CompanionshipBanter.reactToDeath(victim, "solicitor");
         }
     }
 
@@ -144,7 +146,7 @@ public final class CurseEventHandler {
         }
     }
 
-    /** The still-cursed, online owner of a solicitor trader, or null if {@code e} isn't one / owner is gone. */
+    /** the still-cursed, online owner of a solicitor trader, or null if {@code e} isn't one / owner is gone. */
     @Nullable
     private static ServerPlayer solicitorVictim(net.minecraft.world.entity.Entity e) {
         if (!com.oliver.witchmod.effects.curses.CurseSolicitor.isSolicitor(e)
@@ -182,7 +184,7 @@ public final class CurseEventHandler {
      * player) — it has to catch both the victim taking a hit AND a cursed attacker landing a melee blow on
      * something else. It scales the amount; the rest of the mod's per-player logic runs afterwards.
      */
-    /** Splitscreen: taking damage while a shared sign is open force-closes it for both players. */
+    /** splitscreen: taking damage while a shared sign is open force-closes it for both players. */
     @SubscribeEvent
     static void onSplitscreenDamage(LivingIncomingDamageEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
@@ -192,26 +194,141 @@ public final class CurseEventHandler {
 
     @SubscribeEvent
     static void onBedrockPausedHit(LivingIncomingDamageEvent event) {
-        // Bedrock Moment (Pause): hitting a paused entity force-ends its pause (→ the catch-up burst).
+        // bedrock Moment (Pause): hitting a paused entity force-ends its pause (→ the catch-up burst).
         com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onEntityHurt(event.getEntity());
     }
 
     @SubscribeEvent
     static void onCutawayHit(LivingIncomingDamageEvent event) {
-        // Being hit mid-cutaway has a high chance to snap you back (the gag's effects still stick).
+        // being hit mid-cutaway has a high chance to snap you back (the gag's effects still stick).
         if (event.getEntity() instanceof ServerPlayer player) {
             com.oliver.witchmod.effects.curses.CurseCutawayGag.onWatcherHit(player);
         }
     }
 
+    // --- Narrator: fire an event category (rolled by CurseNarrator.maybe) as the victim does things. ------
+    @SubscribeEvent
+    static void onNarratorBreak(BlockEvent.BreakEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            boolean ore = event.getState().is(net.neoforged.neoforge.common.Tags.Blocks.ORES);
+            CurseNarrator.maybe(p, ore ? "mine_ore" : "break");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorPlace(BlockEvent.EntityPlaceEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, "place");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorAttack(AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, "attack");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorPickup(net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent.Post event) {
+        if (event.getPlayer() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, "pickup");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, p.getHealth() <= 6.0F ? "low_health" : "hurt");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorChat(net.neoforged.neoforge.event.ServerChatEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, "chat");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorCraft(net.neoforged.neoforge.event.entity.player.PlayerEvent.ItemCraftedEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, "crafting");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorMount(net.neoforged.neoforge.event.entity.EntityMountEvent event) {
+        if (event.isMounting() && event.getEntityMounting() instanceof ServerPlayer p
+                && EffectManager.isActive(p, Curses.NARRATOR)) {
+            CurseNarrator.maybe(p, "mounting");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorSleep(CanPlayerSleepEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            // the sleeplessness synergy: with Insomniac you never actually sleep — the narrator makes a point of it.
+            CurseNarrator.maybe(p, com.oliver.witchmod.synergy.Synergies.NARRATED_SLEEPLESSNESS.activeFor(p)
+                    ? "insomnia" : "sleeping");
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorGrief(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            net.minecraft.world.item.Item it = event.getItemStack().getItem();
+            if (it == net.minecraft.world.item.Items.FLINT_AND_STEEL || it == net.minecraft.world.item.Items.FIRE_CHARGE) {
+                CurseNarrator.maybe(p, "griefing");
+            }
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorDimension(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && EffectManager.isActive(p, Curses.NARRATOR)) {
+            if (event.getTo() == net.minecraft.world.level.Level.NETHER) {
+                CurseNarrator.narrate(p, "nether");
+            } else if (event.getTo() == net.minecraft.world.level.Level.END) {
+                CurseNarrator.narrate(p, "end");
+            }
+        }
+    }
+
+    @SubscribeEvent
+    static void onNarratorDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer victim && EffectManager.isActive(victim, Curses.NARRATOR)) {
+            CurseNarrator.narrate(victim, "death"); // death always gets the last word
+        }
+        if (event.getSource().getEntity() instanceof ServerPlayer killer && EffectManager.isActive(killer, Curses.NARRATOR)) {
+            CurseNarrator.maybe(killer, "kill");
+        }
+    }
+
+    @SubscribeEvent
+    static void onLightweightKnockback(net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent event) {
+        // fires for the entity being knocked back — so it keys off the VICTIM. Multiplies AFTER vanilla +
+        // enchants set the base strength, so it amplifies whatever would have launched you.
+        if (event.getEntity() instanceof ServerPlayer victim && EffectManager.isActive(victim, Curses.LIGHTWEIGHT)) {
+            event.setStrength(event.getStrength() * Config.LIGHTWEIGHT_KNOCKBACK_MULT.get().floatValue());
+            Curses.LIGHTWEIGHT.value().markDiscoveredByVictim(victim);
+        }
+    }
+
     @SubscribeEvent
     static void onGlassCannon(LivingIncomingDamageEvent event) {
-        // Taking a hit: every source counts, at 200%.
+        // taking a hit: every source counts, at 200%.
         if (event.getEntity() instanceof ServerPlayer victim
                 && EffectManager.isActive(victim, Curses.GLASS_CANNON)) {
-            event.setAmount(CurseGlassCannon.onDamageTaken(victim, event.getAmount()));
+            // tempered-glass synergy: if thick skinned would negate this hit (small enough), skip the doubling
+            // and let its own handler nullify it — nullification wins over amplification, whatever the order.
+            boolean nullifies = com.oliver.witchmod.synergy.Synergies.TEMPERED_GLASS.activeFor(victim)
+                    && event.getAmount() <= Config.THICKSKIN_DAMAGE_FLOOR.get();
+            if (!nullifies) {
+                event.setAmount(CurseGlassCannon.onDamageTaken(victim, event.getAmount()));
+            }
         }
-        // Dealing a hit: melee only (the direct entity of the blow is the attacker, not a projectile), 150%.
+        // dealing a hit: melee only (the direct entity of the blow is the attacker, not a projectile), 150%.
         if (event.getSource().getEntity() instanceof ServerPlayer attacker
                 && CurseGlassCannon.isMelee(event.getSource().getDirectEntity(), attacker)
                 && EffectManager.isActive(attacker, Curses.GLASS_CANNON)) {
@@ -222,12 +339,13 @@ public final class CurseEventHandler {
     @SubscribeEvent
     static void onGiantAttack(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer giant
-                && EffectManager.isActive(giant, Curses.GIANT)) {
+                && EffectManager.isActive(giant, Curses.GIANT)
+                && !com.oliver.witchmod.effects.curses.SizeCrisis.isSmall(giant)) {
             CurseGiant.onMeleeHit(giant, event.getTarget());
         }
     }
 
-    /** Very Infectious: a hit copies your OTHER attachments onto the victim for this many ticks (~10s). */
+    /** very Infectious: a hit copies your OTHER attachments onto the victim for this many ticks (~10s). */
     private static final int VERY_INFECTIOUS_SPREAD_TICKS = 200;
 
     /**
@@ -277,15 +395,17 @@ public final class CurseEventHandler {
 
     @SubscribeEvent
     static void onGiantDamage(LivingIncomingDamageEvent event) {
-        // Take 75% less from ANY source.
+        // take 75% less from ANY source (only while actually big — a size-crisis dwarf takes it normally).
         if (event.getEntity() instanceof ServerPlayer victim
-                && EffectManager.isActive(victim, Curses.GIANT)) {
+                && EffectManager.isActive(victim, Curses.GIANT)
+                && !com.oliver.witchmod.effects.curses.SizeCrisis.isSmall(victim)) {
             event.setAmount(CurseGiant.onDamageTaken(event.getAmount()));
         }
-        // Deal 80% more with MELEE (direct hits only, so a stomp/melee counts but a thrown item doesn't).
+        // deal 80% more with MELEE (direct hits only), only while big.
         if (event.getSource().getEntity() instanceof ServerPlayer attacker
                 && CurseGiant.isMelee(event.getSource().getDirectEntity(), attacker)
-                && EffectManager.isActive(attacker, Curses.GIANT)) {
+                && EffectManager.isActive(attacker, Curses.GIANT)
+                && !com.oliver.witchmod.effects.curses.SizeCrisis.isSmall(attacker)) {
             event.setAmount(CurseGiant.onMeleeDealt(event.getAmount()));
         }
     }
@@ -295,36 +415,36 @@ public final class CurseEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        // Bedrock Moment: Bluetooth (withhold + store all damage) / Delay (late fall damage). If it swallowed
+        // bedrock Moment: Bluetooth (withhold + store all damage) / Delay (late fall damage). If it swallowed
         // the hit, nothing else reacts to it this tick.
         if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)
                 && com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onIncomingDamage(player, event)) {
             return;
         }
-        // Super Explosive: a small, constant chance to detonate when taking damage. Guard against explosion
+        // super Explosive: a small, constant chance to detonate when taking damage. Guard against explosion
         // damage so your own blast — which does hurt you — can't recursively set you off again.
         if (!event.getSource().is(DamageTypeTags.IS_EXPLOSION)
                 && EffectManager.isActive(player, Curses.SUPER_EXPLOSIVE)
                 && player.getRandom().nextInt(100) < Config.SUPER_EXPLOSIVE_CHANCE_PERCENT.get()) {
             CurseSuperExplosive.detonate(player);
         }
-        // Butterfingers: a hit is much likelier to knock something out of your hands than idle clumsiness.
+        // butterfingers: a hit is much likelier to knock something out of your hands than idle clumsiness.
         if (EffectManager.isActive(player, Curses.BUTTERFINGERS)) {
             CurseButterfingers.onDamaged(player);
         }
-        // Gassy: a hit frightens one out of you. Explosion damage uses the much higher explosion chance —
+        // gassy: a hit frightens one out of you. Explosion damage uses the much higher explosion chance —
         // and note the nearby-blast hook below fires regardless of whether the blast actually hurt you.
         if (EffectManager.isActive(player, Curses.GASSY)) {
             CurseGassy.onExternalTrigger(player, event.getSource().is(DamageTypeTags.IS_EXPLOSION)
                     ? Config.GASSY_ON_EXPLOSION_CHANCE.get()
                     : Config.GASSY_ON_DAMAGE_CHANCE.get());
         }
-        // Social Outcast: whoever just hit you becomes visible for a while. Uses the DIRECT entity so an
+        // social Outcast: whoever just hit you becomes visible for a while. Uses the DIRECT entity so an
         // arrow reveals the archer rather than the arrow.
         if (EffectManager.isActive(player, Curses.SOCIAL_OUTCAST) && event.getSource().getEntity() != null) {
             CurseSocialOutcast.onDamagedBy(player, event.getSource().getEntity());
         }
-        // Yap: a reaction line for taking a hit — and, if the source is a yap-cursed player, for dealing one.
+        // yap: a reaction line for taking a hit — and, if the source is a yap-cursed player, for dealing one.
         if (EffectManager.isActive(player, Curses.YAP)) {
             CurseYap.triggerEvent(player, "hurt");
         }
@@ -358,7 +478,7 @@ public final class CurseEventHandler {
         CurseSticky.squelch(player);
     }
 
-    /** Sticky: armour goes straight back on. See {@link CurseSticky} for why it restores rather than locks. */
+    /** sticky: armour goes straight back on. See {@link CurseSticky} for why it restores rather than locks. */
     @SubscribeEvent
     static void onEquipmentChange(LivingEquipmentChangeEvent event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -383,7 +503,7 @@ public final class CurseEventHandler {
         }
     }
 
-    /** Clumsy: a block you just placed has a ramping chance of going down wrong. */
+    /** clumsy: a block you just placed has a ramping chance of going down wrong. */
     @SubscribeEvent
     static void onBlockPlaced(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof ServerPlayer player
@@ -391,13 +511,13 @@ public final class CurseEventHandler {
                 && EffectManager.isActive(player, Curses.CLUMSY)) {
             CurseClumsy.onBlockPlaced(player, level, event.getPos(), event.getPlacedBlock());
         }
-        // Bedrock Moment (Ghost Blocks): a block you place may briefly appear then reject itself.
+        // bedrock Moment (Ghost Blocks): a block you place may briefly appear then reject itself.
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
             com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onBlockPlaced(player, event.getPos());
         }
     }
 
-    /** Pests: something lives in every block you break. Thirst: mining is thirsty work. */
+    /** pests: something lives in every block you break. Thirst: mining is thirsty work. */
     @SubscribeEvent
     static void onBlockBreak(BlockEvent.BreakEvent event) {
         if (!(event.getPlayer() instanceof ServerPlayer player)) {
@@ -409,7 +529,7 @@ public final class CurseEventHandler {
         if (EffectManager.isActive(player, Curses.THIRST_METER)) {
             CurseThirstMeter.onStrenuousAction(player);
         }
-        // Bedrock Moment (Ghost Block Phase): during the spell, a broken block just... comes back.
+        // bedrock Moment (Ghost Block Phase): during the spell, a broken block just... comes back.
         if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)
                 && com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onBlockBroken(player)) {
             event.setCanceled(true);
@@ -453,14 +573,14 @@ public final class CurseEventHandler {
         }
         ItemStack stack = player.getItemInHand(hand);
 
-        // Eating at full hunger, purely for the hydration.
+        // eating at full hunger, purely for the hydration.
         FoodProperties food = stack.get(DataComponents.FOOD);
         if (food != null && !player.canEat(false) && CurseThirstMeter.wantsToDrink(player)) {
             player.startUsingItem(hand);
             return true;
         }
 
-        // Drinking from the world — only with a free hand, so it never eats a real item use.
+        // drinking from the world — only with a free hand, so it never eats a real item use.
         if (!stack.isEmpty()) {
             return false;
         }
@@ -485,11 +605,46 @@ public final class CurseEventHandler {
             level.playSound(null, pos, SoundEvents.WET_SPONGE_DRIES, SoundSource.BLOCKS, 1.0F, 1.0F);
             return true;
         }
-        // Open water.
+        // holy water: a clean drink (no raw-water risk) that also washes 5 minutes off every attachment.
+        if (com.oliver.witchmod.blocks.HolyWater.isProtectingFluidAt(level, pos)
+                && CurseThirstMeter.drinkHoly(player, hand)) {
+            EffectManager.reduceAllDurations(player, Config.HOLY_WATER_DRINK_DRAIN_TICKS.get());
+            player.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                    player.getX(), player.getEyeY() - 0.2, player.getZ(), 8, 0.18, 0.18, 0.18, 0.01);
+            return true;
+        }
+        // open water.
         if (level.getFluidState(pos).is(FluidTags.WATER)) {
             return CurseThirstMeter.drinkFromWorld(player, hand);
         }
         return false;
+    }
+
+    /**
+     * Left Handed: a slight bloom (extra spread) on anything you loose, on top of the client aim sway — your
+     * off-hand throws are that bit less accurate. The velocity is jittered but rescaled to its original speed,
+     * so it only bends the aim, never the power.
+     */
+    @SubscribeEvent
+    static void onLeftHandedProjectile(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide()
+                || !(event.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile proj)
+                || proj instanceof net.minecraft.world.entity.projectile.FishingHook
+                || !(proj.getOwner() instanceof ServerPlayer owner)
+                || !EffectManager.isActive(owner, Curses.LEFT_HANDED)) {
+            return;
+        }
+        double bloom = Config.LEFT_HANDED_PROJECTILE_BLOOM.get();
+        net.minecraft.world.phys.Vec3 v = proj.getDeltaMovement();
+        double speed = v.length();
+        if (bloom <= 0.0 || speed < 1.0e-4) {
+            return;
+        }
+        var rng = owner.getRandom();
+        net.minecraft.world.phys.Vec3 jitter = new net.minecraft.world.phys.Vec3(
+                (rng.nextDouble() - 0.5), (rng.nextDouble() - 0.5), (rng.nextDouble() - 0.5)).scale(bloom);
+        proj.setDeltaMovement(v.add(jitter).normalize().scale(speed)); // steer only — keep the original speed
+        proj.hasImpulse = true;
     }
 
     /**
@@ -543,11 +698,11 @@ public final class CurseEventHandler {
         }
     }
 
-    /** Explosive: going down sets you off. Queued rather than immediate — see {@link CurseExplosive}. */
+    /** explosive: going down sets you off. Queued rather than immediate — see {@link CurseExplosive}. */
     @SubscribeEvent
     static void onLivingDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            // Recovery Compass modifier: effects it tagged do NOT survive death — strip them before the respawn
+            // recovery Compass modifier: effects it tagged do NOT survive death — strip them before the respawn
             // copy runs (ACTIVE_EFFECTS is copyOnDeath, so removing here keeps them off the clone).
             java.util.Set<net.minecraft.resources.ResourceLocation> nonPersist =
                     player.getData(com.oliver.witchmod.data.WitchModAttachments.NON_PERSISTENT_EFFECTS);
@@ -564,24 +719,24 @@ public final class CurseEventHandler {
             if (EffectManager.isActive(player, Curses.YAP)) {
                 CurseYap.triggerEvent(player, "death"); // last words
             }
-            // Comic Relief: a small chance of one more bolt on the spot, moments later, to burn the drops.
+            // comic Relief: a small chance of one more bolt on the spot, moments later, to burn the drops.
             if (EffectManager.isActive(player, Curses.COMIC_RELIEF)) {
                 CurseComicRelief.onDeath(player);
             }
-            // The Dweller: death doesn't end the curse — it just knocks the dread down a tier (two mid-hunt).
+            // the Dweller: death doesn't end the curse — it just knocks the dread down a tier (two mid-hunt).
             if (EffectManager.isActive(player, Curses.THE_DWELLER)) {
                 com.oliver.witchmod.effects.curses.dweller.CurseTheDweller.onVictimDeath(player);
             }
-            // Bedrock Moment: a death clears the fake drowning so it doesn't carry to respawn.
+            // bedrock Moment: a death clears the fake drowning so it doesn't carry to respawn.
             if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
                 com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onDeath(player);
             }
-            // Cutaway Gag: dying mid-cutaway strobes against the respawn screen — snap out of it cleanly.
+            // cutaway Gag: dying mid-cutaway strobes against the respawn screen — snap out of it cleanly.
             com.oliver.witchmod.effects.curses.CurseCutawayGag.onWatcherDeath(player);
         }
     }
 
-    /** Butterfingers: swinging a tool at a block (mining) can send it flying instead. */
+    /** butterfingers: swinging a tool at a block (mining) can send it flying instead. */
     @SubscribeEvent
     static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         if (event.getEntity() instanceof ServerPlayer player && isToolSwing(player)
@@ -590,17 +745,17 @@ public final class CurseEventHandler {
         }
     }
 
-    /** Butterfingers: same again for swinging at an entity. */
+    /** butterfingers: same again for swinging at an entity. */
     @SubscribeEvent
     static void onAttackEntity(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            // The Dweller: it's unhittable — swinging at the stalker swallows the swing (no bad interact packet).
+            // the Dweller: it's unhittable — swinging at the stalker swallows the swing (no bad interact packet).
             if (EffectManager.isActive(player, Curses.THE_DWELLER)
                     && com.oliver.witchmod.effects.curses.dweller.CurseTheDweller.onDwellerAttacked(player, event.getTarget())) {
                 event.setCanceled(true);
                 return;
             }
-            // Bedrock Moment (Hit Reg): a small chance the hit just doesn't register — whiffs to empty air.
+            // bedrock Moment (Hit Reg): a small chance the hit just doesn't register — whiffs to empty air.
             if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)
                     && com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onAttack(player)) {
                 event.setCanceled(true);
@@ -624,16 +779,23 @@ public final class CurseEventHandler {
         }
         boolean allergic = EffectManager.isActive(player, Curses.ALLERGIC);
         boolean gluttony = EffectManager.isActive(player, Curses.GLUTTONY);
-        // Snapshot hunger/saturation before the food lands, so Finish can measure the ACTUAL gain (vanilla
-        // clamps it when you're nearly full) — used by Allergic's clawback and Gluttony's overflow/saturation.
-        if (allergic || gluttony) {
+        boolean munchies = EffectManager.isActive(player, Curses.MUNCHIES);
+        // snapshot hunger/saturation before the food lands, so Finish can measure the ACTUAL gain (vanilla
+        // clamps it when you're nearly full) — used by Allergic's clawback and Gluttony/Munchies' saturation.
+        if (allergic || gluttony || munchies) {
             PRE_EAT_FOOD.put(player.getUUID(),
                     new float[]{player.getFoodData().getFoodLevel(), player.getFoodData().getSaturationLevel()});
         }
-        // Gluttony: wolf food down faster — the curse's one mercy, given how much of it you have to eat.
+        // gluttony: wolf food down faster — the curse's one mercy, given how much of it you have to eat.
         if (gluttony) {
             int faster = Math.max(1, Math.round(event.getDuration()
                     * (1.0F - Config.GLUTTONY_EAT_SPEED_PERCENT.get() / 100.0F)));
+            event.setDuration(faster);
+        }
+        // munchies: also eat faster — applied on top of Gluttony's, so the two stack.
+        if (munchies) {
+            int faster = Math.max(1, Math.round(event.getDuration()
+                    * (1.0F - Config.MUNCHIES_EAT_SPEED_PERCENT.get() / 100.0F)));
             event.setDuration(faster);
         }
     }
@@ -644,17 +806,17 @@ public final class CurseEventHandler {
             return;
         }
         ItemStack stack = event.getItem();
-        // Thirst Meter: anything drunk or eaten hydrates by some amount — water bottles most, then other
+        // thirst Meter: anything drunk or eaten hydrates by some amount — water bottles most, then other
         // potions, then natural food, then raw, then dry processed food. No-op if the curse isn't active.
         CurseThirstMeter.onConsumed(player, stack);
-        // Bedrock Moment (Food Reg): a chance the food you just ate provides no hunger at all.
+        // bedrock Moment (Food Reg): a chance the food you just ate provides no hunger at all.
         if (EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
             com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onFoodEaten(player, stack);
         }
         float[] beforeEating = PRE_EAT_FOOD.remove(player.getUUID());
         FoodProperties food = stack.get(DataComponents.FOOD);
 
-        // Gluttony: the two rows are ONE bar, so nutrition vanilla couldn't fit (because the lower half was
+        // gluttony: the two rows are ONE bar, so nutrition vanilla couldn't fit (because the lower half was
         // already full) spills UP into the extra row instead of being wasted. Saturation is then docked, so
         // meals never stick and you have to keep grazing.
         if (food != null && beforeEating != null && EffectManager.isActive(player, Curses.GLUTTONY)) {
@@ -668,7 +830,18 @@ public final class CurseEventHandler {
             }
         }
 
-        // Allergic: react badly to anything the rolled diet forbids. This event fires AFTER vanilla applied
+        // munchies: dock most of the saturation the meal gave, so nothing sticks and you keep grazing. Measured
+        // from the real gain (post-clamp); compounds after Gluttony's dock if both are active.
+        if (food != null && beforeEating != null && EffectManager.isActive(player, Curses.MUNCHIES)) {
+            float satGained = player.getFoodData().getSaturationLevel() - beforeEating[1];
+            if (satGained > 0.0F) {
+                float keep = satGained * (Config.MUNCHIES_SATURATION_PERCENT.get() / 100.0F);
+                player.getFoodData().setSaturation(Math.max(0.0F, beforeEating[1] + keep));
+            }
+            Curses.MUNCHIES.value().markDiscoveredByVictim(player); // discover on the first meal
+        }
+
+        // allergic: react badly to anything the rolled diet forbids. This event fires AFTER vanilla applied
         // the food/potion, so we punish, strip any beneficial potion effects, and claw back the nutrition.
         if (EffectManager.isActive(player, Curses.ALLERGIC)) {
             CurseAllergic.Diet diet = CurseAllergic.dietOf(player);
@@ -678,7 +851,7 @@ public final class CurseEventHandler {
                 if (beforeEating != null) {
                     CurseAllergic.reduceGain(player, (int) beforeEating[0], beforeEating[1]);
                 }
-                // Rule 2: the victim discovers Allergic on their first bad reaction, not when it landed.
+                // rule 2: the victim discovers Allergic on their first bad reaction, not when it landed.
                 Curses.ALLERGIC.get().markDiscoveredByVictim(player);
             }
         }
@@ -686,16 +859,20 @@ public final class CurseEventHandler {
 
     @SubscribeEvent
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        // Loading Screen: EVERY door/trapdoor/fence gate, no chance roll and no cooldown. The curse is
+        // loading Screen: EVERY door/trapdoor/fence gate, no chance roll and no cooldown. The curse is
         // completely avoidable — you choose when to touch a door — so certainty is what gives it teeth.
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
         BlockState state = event.getLevel().getBlockState(event.getPos());
 
-        // Yap: opening a chest (incl. trapped/ender) is one of its rare reaction triggers.
+        // yap: opening a chest (incl. trapped/ender) is one of its rare reaction triggers.
         if (state.getBlock() instanceof AbstractChestBlock && EffectManager.isActive(player, Curses.YAP)) {
             CurseYap.triggerEvent(player, "chest");
+        }
+        // narrator: opening a chest is also a narration cue.
+        if (state.getBlock() instanceof AbstractChestBlock && EffectManager.isActive(player, Curses.NARRATOR)) {
+            CurseNarrator.maybe(player, "chest");
         }
 
         if (!state.is(BlockTags.DOORS) && !state.is(BlockTags.TRAPDOORS) && !state.is(BlockTags.FENCE_GATES)) {
@@ -710,7 +887,7 @@ public final class CurseEventHandler {
 
     @SubscribeEvent
     static void onPacingHit(LivingIncomingDamageEvent event) {
-        // Pacing: the cursed player landing a hit rolls the ramped chance (see PacingManager). Listens on
+        // pacing: the cursed player landing a hit rolls the ramped chance (see PacingManager). Listens on
         // the same event as Super Explosive but keys off the attacker, not the victim.
         if (event.getSource().getEntity() instanceof ServerPlayer attacker && EffectManager.isActive(attacker, Curses.PACING)) {
             PacingManager.onHit(attacker);
@@ -719,14 +896,14 @@ public final class CurseEventHandler {
 
     @SubscribeEvent
     static void onServerTick(ServerTickEvent.Post event) {
-        // Set off any Explosive death that has waited its tick — by now the victim's drops are real
+        // set off any Explosive death that has waited its tick — by now the victim's drops are real
         // entities, so the blast destroys them instead of going off before they exist.
         CurseExplosive.tickPending();
 
-        // Comic Relief: land any parting bolt owed to someone who has already died.
+        // comic Relief: land any parting bolt owed to someone who has already died.
         CurseComicRelief.tickPending();
 
-        // Restore entities whose Pacing time-stop has expired, and let the ramp auto-fire (non-combat) for
+        // restore entities whose Pacing time-stop has expired, and let the ramp auto-fire (non-combat) for
         // any cursed player whose charge has maxed out without a hit.
         PacingManager.tickFreeze(event.getServer());
         long now = event.getServer().overworld().getGameTime();
@@ -734,12 +911,12 @@ public final class CurseEventHandler {
             if (EffectManager.isActive(player, Curses.PACING)) {
                 PacingManager.tickCharge(player);
             }
-            // Drive any in-flight cutaway regardless of whether the curse is applied — so a debug-forced
+            // drive any in-flight cutaway regardless of whether the curse is applied — so a debug-forced
             // cutaway fires its gag and ends, and a cutaway whose curse was removed still cleans up.
             if (player.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
                 CurseCutawayGag.driveActiveCutaway(player, now);
             } else {
-                // Anti-teleport guard: if they're NOT spectating but still hold a persisted return position
+                // anti-teleport guard: if they're NOT spectating but still hold a persisted return position
                 // (relog / server restart / abnormal end), send them home so they can't be left at the vantage.
                 CurseCutawayGag.recoverIfStranded(player);
             }

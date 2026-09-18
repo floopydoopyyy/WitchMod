@@ -16,12 +16,9 @@ import net.minecraft.world.level.saveddata.SavedData;
 import com.oliver.witchmod.Config;
 
 /**
- * Everything the Tax Man has ever confiscated, held for the whole world (master-spec Taxes).
- *
- * <p>Stored as {@link SavedData} on the overworld's dimension storage, so it's genuinely one shared pot for
- * the entire server and survives restarts. It has to persist: the
- * <b>Tax Man blessing</b> is what eventually hands this back out, and that may happen days later, to a
- * completely different player.
+ * everything the tax man has confiscated, one shared server-wide pot. persisted {@link SavedData} on the
+ * overworld — the payday blessing hands it back out, possibly days later to a different player. must never
+ * void items (it stops taking when full rather than dropping any).
  */
 public final class TaxBank extends SavedData {
     private static final String NAME = "witchmod_tax_bank";
@@ -95,17 +92,17 @@ public final class TaxBank extends SavedData {
         return held.size() / (float) Config.TAXES_BANK_CAPACITY.get();
     }
 
-    /** True once it's worth telling an operator that the bank needs emptying. */
+    /** true once it's worth telling an operator that the bank needs emptying. */
     public boolean shouldWarn() {
         return fullness() * 100.0F >= Config.TAXES_BANK_WARN_AT.get();
     }
 
-    /** Everything currently held, for the Tax Man blessing to pay back out. */
+    /** everything currently held, for the Tax Man blessing to pay back out. */
     public List<ItemStack> contents() {
         return List.copyOf(held);
     }
 
-    /** Empties the pot and hands back what was in it. */
+    /** empties the pot and hands back what was in it. */
     public List<ItemStack> withdrawAll() {
         List<ItemStack> payout = List.copyOf(held);
         held.clear();

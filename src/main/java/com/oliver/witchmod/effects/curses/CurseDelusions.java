@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * There's someone out there. There isn't (master-spec Delusions). Fake players wearing the skins and
+ * there's someone out there. There isn't. Fake players wearing the skins and
  * nametags of real people on the server wander around at the edge of your vision, going about ordinary
  * player business — until one notices you looking.
  *
@@ -37,14 +37,14 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * authoritative.
  */
 public final class CurseDelusions extends Effect {
-    /** Next game tick a delusion should be signalled for, per victim. Transient — see the self-heal below. */
+    /** next game tick a delusion should be signalled for, per victim. Transient — see the self-heal below. */
     private static final Map<UUID, Long> NEXT_SPAWN = new HashMap<>();
 
     public CurseDelusions() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.ENDER_PEARL);
     }
 
-    /** You find out the first time one of them shows up. */
+    /** you find out the first time one of them shows up. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -76,7 +76,7 @@ public final class CurseDelusions extends Effect {
         long now = target.level().getGameTime();
         Long due = NEXT_SPAWN.get(target.getUUID());
         if (due == null) {
-            // Self-heal: the schedule is transient, so a curse that PERSISTED across a relog or world reload
+            // self-heal: the schedule is transient, so a curse that PERSISTED across a relog or world reload
             // (onApply never runs again) would otherwise go quiet forever. Same trap Yap and Gluttony hit.
             schedule(target);
             return;
@@ -96,7 +96,7 @@ public final class CurseDelusions extends Effect {
         NEXT_SPAWN.put(target.getUUID(), target.level().getGameTime() + delay);
     }
 
-    /** Any non-zero value; the client watches for the CHANGE, and seeds that delusion's randomness from it. */
+    /** any non-zero value; the client watches for the CHANGE, and seeds that delusion's randomness from it. */
     private static long freshSignal(ServerPlayer target) {
         long value = target.getRandom().nextLong();
         return value == 0L ? 1L : value;

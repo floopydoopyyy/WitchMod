@@ -77,7 +77,7 @@ import com.oliver.witchmod.entities.WatcherEyesEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * The Dweller (sacrificial item BOAT): a self-contained, progressive mini horror. A lanky humanoid — the
+ * the Dweller (sacrificial item BOAT): a self-contained, progressive mini horror. A lanky humanoid — the
  * "Spaghetti Man" — that ONLY the victim can see, hear or interact with (a private client-side illusion, like
  * Delusions and Social Outcast) stalks them, and the whole experience escalates with a fluid, environment-
  * driven DREAD meter.
@@ -101,7 +101,7 @@ import com.oliver.witchmod.entities.WitchModEntities;
 public final class CurseTheDweller extends Effect {
     private static final Map<UUID, State> STATES = new HashMap<>();
 
-    // The encounter cycle: a scene with a real arc, not a steady drip of random scares.
+    // the encounter cycle: a scene with a real arc, not a steady drip of random scares.
     //   FOREPLAY — the opening phase: NO dread, NO fog/desaturation, music still plays, near-silence, only the
     //              odd VERY distant watch. Lasts 40s–3min, then the real haunt (and dread) begins.
     //   LULL     — genuine quiet (you relax). One faint far-off wrongness at most.
@@ -126,7 +126,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Shared mutable state for one victim. Package-visible so extracted {@link DwellerEvent} classes can read it. */
+    /** shared mutable state for one victim. Package-visible so extracted {@link DwellerEvent} classes can read it. */
     static final class State {
         double anger;                 // the dread value, 0..DWELLER_ANGER_MAX (drives encounter frequency + severity)
         long age;                     // ticks the curse has been active (drives the inevitable floor)
@@ -204,7 +204,7 @@ public final class CurseTheDweller extends Effect {
         target.setData(WitchModAttachments.DWELLER_ACTIVE, 0);
         target.setData(WitchModAttachments.DWELLER_DREAD, 0.0F);
         target.setData(WitchModAttachments.DWELLER_ANGER, 0.0); // fresh cast — no dread yet (persisted)
-        // Player (visual) hallucinations reuse the Delusions curse wholesale. KEEP_LONGER means if you already
+        // player (visual) hallucinations reuse the Delusions curse wholesale. KEEP_LONGER means if you already
         // have Delusions this just coexists (they stack).
         EffectManager.apply(target, Curses.DELUSIONS, durationTicks, null);
     }
@@ -226,8 +226,8 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Debug: {@code arg} = a number sets the DREAD stat (clamped to the curse's own 0..max), otherwise names a
-     * sub-event to force. With no arg, forces a manifestation. See CLAUDE.md §16.2b.
+     * debug: {@code arg} = a number sets the DREAD stat (clamped to the curse's own 0..max), otherwise names a
+     * sub-event to force. with no arg, forces a manifestation.
      */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
@@ -257,7 +257,7 @@ public final class CurseTheDweller extends Effect {
             // fall through to named sub-event
         }
         int tier = tier(s.anger);
-        // Core state-machine sub-events that aren't in the DwellerEvents pool.
+        // core state-machine sub-events that aren't in the DwellerEvents pool.
         switch (arg.toLowerCase(Locale.ROOT)) {
             case "tier0", "t0" -> { return setTierDebug(target, s, 0); }
             case "tier1", "t1" -> { return setTierDebug(target, s, 1); }
@@ -270,7 +270,7 @@ public final class CurseTheDweller extends Effect {
             case "hallucinate", "sound" -> { hallucinateSound(target, s, tier); return "auditory hallucination"; }
             default -> { /* fall through to the registry */ }
         }
-        // Any pool event, by its id (spawn a body first so the in-view scares have something to place).
+        // any pool event, by its id (spawn a body first so the in-view scares have something to place).
         DwellerEvent event = DwellerEvents.byId(arg);
         if (event != null) {
             ensureEntity(target, s);
@@ -281,7 +281,7 @@ public final class CurseTheDweller extends Effect {
                 + DwellerEvents.ALL.stream().map(DwellerEvent::id).reduce((a, b) -> a + ", " + b).orElse("");
     }
 
-    /** Tab-completion for {@code /bewitch debug force witchmod:haunted}: the beats + every forcible event. */
+    /** tab-completion for {@code /bewitch debug force witchmod:haunted}: the beats + every forcible event. */
     @Override
     public List<String> debugArgs() {
         List<String> args = new ArrayList<>(List.of("tier0", "tier1", "tier2", "tier3",
@@ -298,7 +298,7 @@ public final class CurseTheDweller extends Effect {
             State fresh = new State();
             beginForeplay(target, fresh);
             fresh.ambientCd = ambientGap(target);
-            // Restore PERSISTED dread across a relog / world-reload / normal death, so it doesn't reset to 0.
+            // restore PERSISTED dread across a relog / world-reload / normal death, so it doesn't reset to 0.
             double saved = target.getData(WitchModAttachments.DWELLER_ANGER);
             if (saved > 0.5) {
                 fresh.anger = Math.min(saved, Config.DWELLER_ANGER_MAX.get());
@@ -335,12 +335,12 @@ public final class CurseTheDweller extends Effect {
             return;
         }
 
-        // Dread now climbs slowly and CAN recede with counterplay (see dreadDelta) — but only DYING TO THE
+        // dread now climbs slowly and CAN recede with counterplay (see dreadDelta) — but only DYING TO THE
         // CHASE fully resets it (onVictimDeath, phase == CHASE → 0).
         double max = Config.DWELLER_ANGER_MAX.get();
         state.anger = Mth.clamp(state.anger + dreadDelta(target, state), 0.0, max);
         int tier = tier(state.anger);
-        // Boredom bookkeeping: how long since an encounter, and how long stuck at tier 0.
+        // boredom bookkeeping: how long since an encounter, and how long stuck at tier 0.
         state.sinceStalk++;
         state.tier0Ticks = tier == 0 ? state.tier0Ticks + 1 : 0;
         target.setData(WitchModAttachments.DWELLER_ACTIVE, state.phase == Phase.CHASE ? 3 : tier);
@@ -373,7 +373,7 @@ public final class CurseTheDweller extends Effect {
 
     void tickForeplay(ServerPlayer target, State state) {
         ServerLevel level = target.serverLevel();
-        // The whole phase winds down; when it's spent, the real haunt begins.
+        // the whole phase winds down; when it's spent, the real haunt begins.
         if (--state.foreplayTimer <= 0) {
             despawn(state);
             state.phase = Phase.LULL;
@@ -381,7 +381,7 @@ public final class CurseTheDweller extends Effect {
             return;
         }
         if (state.entity == null) {
-            // Waiting quietly. Very occasionally, drop ONE faint, far mood sting (near-silence otherwise).
+            // waiting quietly. Very occasionally, drop ONE faint, far mood sting (near-silence otherwise).
             if (state.foreplayTimer % 200 == 0 && target.getRandom().nextInt(4) == 0) {
                 playToVictim(target, WitchModSounds.DWELLER_MOOD.get(), 0.28F, 0.9F);
             }
@@ -399,7 +399,7 @@ public final class CurseTheDweller extends Effect {
             }
         } else {
             faceVictimHead(state.entity, target);
-            // Same hard rule as the real watches: approach it and it's gone.
+            // same hard rule as the real watches: approach it and it's gone.
             boolean gone = state.entity.distanceTo(target) <= Config.DWELLER_WATCH_VANISH_DISTANCE.get();
             if (gone || --state.timer <= 0) {
                 despawn(state);
@@ -415,7 +415,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Per-tick dread change — a SLOW inexorable climb that quickens in the dark, alone, at night, and sealed
+     * per-tick dread change — a SLOW inexorable climb that quickens in the dark, alone, at night, and sealed
      * underground (it likes you vulnerable), but which you can now push DOWN with real counterplay: stay in the
      * light, near people, in daylight, and above all IGNORE it (don't look at it while it's manifest). Net dread
      * can fall (clamped at 0), so a careful player holds it back — but the accelerants mean it still creeps up
@@ -454,7 +454,7 @@ public final class CurseTheDweller extends Effect {
         if (bright) calm += Config.DWELLER_LIGHT_CALM.get() * (light / 15.0);
         if (company > 0) calm += Config.DWELLER_COMPANY_CALM.get() * Math.min(company, 3);
         if (day && sky) calm += Config.DWELLER_DAYLIGHT_CALM.get();
-        // The big one: while it's HERE and you're NOT looking at it, ignoring it genuinely calms the haunt.
+        // the big one: while it's HERE and you're NOT looking at it, ignoring it genuinely calms the haunt.
         if (state.entity != null && state.entity.isAlive() && !isObserving(target, state.entity, level)) {
             calm += Config.DWELLER_IGNORE_CALM.get();
         }
@@ -469,13 +469,13 @@ public final class CurseTheDweller extends Effect {
             despawn(state);
         }
         state.heat = Math.max(0.0, state.heat - 0.05);
-        // Asleep at tier 1+: the bedside vigil comes for you now, rather than waiting for the next scheduled beat
+        // asleep at tier 1+: the bedside vigil comes for you now, rather than waiting for the next scheduled beat
         // (sleep is too brief to line up otherwise — which is why the bed event felt like it never happened).
         if (target.isSleeping() && tier >= 1) {
             enterStalk(target, state, tier);
             return;
         }
-        // The world still stirs between encounters — a door, a knock, a light going out, footsteps. Atmosphere
+        // the world still stirs between encounters — a door, a knock, a light going out, footsteps. Atmosphere
         // (and the odd dread nudge) so the lull isn't dead air.
         tickAmbientEvents(target, state, tier);
         if (--state.timer <= 0) {
@@ -484,7 +484,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Between encounters the creature meddles with the world nearby: mostly ATMOSPHERIC (a door creaks, a knock,
+     * between encounters the creature meddles with the world nearby: mostly ATMOSPHERIC (a door creaks, a knock,
      * distant footsteps, cold breath) and occasionally INTERACTIVE with a dread cost (it snuffs a light, throws
      * your dropped items, breaks something). Paced on a dread-scaled timer so the lull feels haunted, not busy.
      */
@@ -547,7 +547,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Footsteps in the dark — circling you, RUNNING straight at you, or SNEAKING up slowly from behind. */
+    /** footsteps in the dark — circling you, RUNNING straight at you, or SNEAKING up slowly from behind. */
     void ambientFootsteps(ServerPlayer target, State state, RandomSource r) {
         int variant = r.nextInt(3);
         if (variant == 0) {
@@ -586,10 +586,10 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Shatters a small SHAPE (cross / line / ring) out of a wall nearby but out of your view — with drops. */
+    /** shatters a small SHAPE (cross / line / ring) out of a wall nearby but out of your view — with drops. */
     boolean breakShapeEvent(ServerPlayer target, ServerLevel level) {
         RandomSource r = target.getRandom();
-        // Find a solid block out of your line of sight to anchor the shape on.
+        // find a solid block out of your line of sight to anchor the shape on.
         BlockPos origin = target.blockPosition();
         BlockPos anchor = null;
         for (int i = 0; i < 40; i++) {
@@ -603,7 +603,7 @@ public final class CurseTheDweller extends Effect {
         if (anchor == null) {
             return false;
         }
-        // Pick a shape in the vertical plane facing the anchor's most open side.
+        // pick a shape in the vertical plane facing the anchor's most open side.
         boolean alongX = Math.abs(target.getX() - anchor.getX()) <= Math.abs(target.getZ() - anchor.getZ());
         List<BlockPos> shape = carveShape(anchor, alongX, r);
         boolean any = false;
@@ -651,7 +651,7 @@ public final class CurseTheDweller extends Effect {
         return out;
     }
 
-    /** Ordinary building blocks it's allowed to carve — never bedrock/containers/ores/valuables. */
+    /** ordinary building blocks it's allowed to carve — never bedrock/containers/ores/valuables. */
     static boolean isCarvable(BlockState st) {
         if (st.isAir() || !st.getFluidState().isEmpty()) {
             return false;
@@ -664,7 +664,7 @@ public final class CurseTheDweller extends Effect {
                 || st.is(BlockTags.PLANKS) || st.is(BlockTags.LOGS);
     }
 
-    /** The place SETTLES — a nearby solid block gives a faint creak/knock, as if the building shifted. */
+    /** the place SETTLES — a nearby solid block gives a faint creak/knock, as if the building shifted. */
     private void ambientSettle(ServerPlayer target, ServerLevel level, RandomSource r) {
         BlockPos origin = target.blockPosition();
         for (int i = 0; i < 24; i++) {
@@ -693,7 +693,7 @@ public final class CurseTheDweller extends Effect {
         }
         Animal m = mobs.get(r.nextInt(mobs.size()));
         if (r.nextFloat() < 0.30F) {
-            // Contagious panic radiating from the chosen animal — passive AND hostile alike.
+            // contagious panic radiating from the chosen animal — passive AND hostile alike.
             double radius = 8.0;
             List<Mob> around = level.getEntitiesOfClass(Mob.class, m.getBoundingBox().inflate(radius),
                     e -> e.isAlive() && !(e instanceof SpaghettiManEntity) && !(e instanceof WatcherEyesEntity));
@@ -705,7 +705,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Makes a single mob flinch and bolt AWAY from a point, with a puff of smoke — the panic gesture. */
+    /** makes a single mob flinch and bolt AWAY from a point, with a puff of smoke — the panic gesture. */
     void spookMob(Mob m, Vec3 from, ServerLevel level) {
         Vec3 away = m.position().subtract(from);
         away = away.horizontalDistanceSqr() < 1.0E-4 ? new Vec3(1, 0, 0) : away.normalize();
@@ -714,7 +714,7 @@ public final class CurseTheDweller extends Effect {
         level.sendParticles(ParticleTypes.SMOKE, m.getX(), m.getEyeY(), m.getZ(), 3, 0.2, 0.2, 0.2, 0.01);
     }
 
-    /** Snuffs a SINGLE nearby light (with drop) — the atmospheric cousin of the full snuff_light set-piece. */
+    /** snuffs a SINGLE nearby light (with drop) — the atmospheric cousin of the full snuff_light set-piece. */
     boolean snuffOneLight(ServerPlayer target, ServerLevel level) {
         BlockPos origin = target.blockPosition();
         RandomSource r = target.getRandom();
@@ -736,7 +736,7 @@ public final class CurseTheDweller extends Effect {
         state.phase = Phase.TELL;
         int min = Config.DWELLER_TELL_MIN_TICKS.get();
         int max = Math.max(min + 1, Config.DWELLER_TELL_MAX_TICKS.get());
-        // The warning shrinks the more dread has built — at the top it barely gives you time.
+        // the warning shrinks the more dread has built — at the top it barely gives you time.
         state.beatTotal = Math.max(20, (int) ((min + target.getRandom().nextInt(max - min)) * (1.0 - 0.30 * tier / 3.0)));
         state.timer = state.beatTotal;
         state.signGiven = false;
@@ -747,7 +747,7 @@ public final class CurseTheDweller extends Effect {
     void tickTell(ServerPlayer target, State state, int tier) {
         double p = 1.0 - state.timer / (double) Math.max(1, state.beatTotal);
         state.heat = 0.25 + 0.5 * p; // heartbeat quickens across the beat
-        // One mid-beat sign — AUDIO only now (no snowflake dust, no screen flicker): a low mood swell from
+        // one mid-beat sign — AUDIO only now (no snowflake dust, no screen flicker): a low mood swell from
         // somewhere behind you that something is about to happen.
         if (!state.signGiven && p >= 0.5) {
             state.signGiven = true;
@@ -775,7 +775,7 @@ public final class CurseTheDweller extends Effect {
                 && enterSizeUp(target, state, tier)) {
             return;
         }
-        // Every stalk is now a passive WATCH in one of three distance bands (FAR/MEDIUM/CLOSE), chosen by dread
+        // every stalk is now a passive WATCH in one of three distance bands (FAR/MEDIUM/CLOSE), chosen by dread
         // — FAR when calm, CLOSE near max. It stands and watches; it never creeps. All the aggression comes from
         // the bridges below (stare/proximity → vanish; high dread → lunge; max dread → chase).
         state.windowWatch = false;
@@ -849,7 +849,7 @@ public final class CurseTheDweller extends Effect {
             return;
         }
 
-        // Bedside vigil: asleep, it looms over you and watches — with a chance to wrench the bed apart. When it
+        // bedside vigil: asleep, it looms over you and watches — with a chance to wrench the bed apart. When it
         // DOES break the bed (or the beat runs out) the encounter ENDS cleanly (the figure withdraws). This is the
         // fix for the "bed just insta-kills me": the vigil no longer lingers at ~1.4 blocks after you're thrown
         // out of bed, where the within-4 proximity rule was bridging straight into a touch-kill.
@@ -893,7 +893,7 @@ public final class CurseTheDweller extends Effect {
         }
 
         // HARD RULE: get within the vanish distance of ANY watch and it blinks away — you can never close on it.
-        // Approaching it is INTERACTING, not ignoring, so it costs you a chunk of dread. At higher dread crowding
+        // approaching it is INTERACTING, not ignoring, so it costs you a chunk of dread. At higher dread crowding
         // it can BRIDGE the watch straight into a hunt from where it stands instead of blinking away.
         // EXEMPTION: a WINDOW watch is meant to be close (pressed against the glass), so the within-N rule doesn't
         // apply to it — it only leaves once you get a clear line of sight (handled just below).
@@ -922,7 +922,7 @@ public final class CurseTheDweller extends Effect {
                 beginChase(target, state);
                 return;
             }
-            // Your gaze still stokes the haunt a little.
+            // your gaze still stokes the haunt a little.
             state.anger = Math.min(Config.DWELLER_ANGER_MAX.get(),
                     state.anger + Config.DWELLER_WATCH_ANGER_PER_SECOND.get() / 20.0);
             // HARD RULE: stare at ANY watch for > 3s and it MUST go. Depending on dread this departure can BRIDGE
@@ -955,7 +955,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Bonus dread for INTERACTING with an effect (swinging at it / crowding it) — ignoring is the counterplay. */
+    /** bonus dread for INTERACTING with an effect (swinging at it / crowding it) — ignoring is the counterplay. */
     void addInteractDread(State state) {
         state.anger = Math.min(Config.DWELLER_ANGER_MAX.get(), state.anger + Config.DWELLER_INTERACT_DREAD.get());
     }
@@ -967,7 +967,7 @@ public final class CurseTheDweller extends Effect {
      */
     void vanishWatch(ServerPlayer target, State state, int tier) {
         SpaghettiManEntity e = state.entity;
-        // It much prefers to RUN and hide (footsteps trailing off) over blinking out on the spot.
+        // it much prefers to RUN and hide (footsteps trailing off) over blinking out on the spot.
         double runChance = switch (state.watchTier) {
             case WATCH_CLOSE -> 0.75;
             case WATCH_MEDIUM -> 0.90;
@@ -989,8 +989,8 @@ public final class CurseTheDweller extends Effect {
         resolveSpike(target, state, tier, false);
     }
 
-    /** Bedside vigil — it looms over the sleeper; on a roll it rips the bed apart and throws you out. */
-    /** The bedside vigil. Returns true the tick it wrenches the bed apart, so the caller ends the encounter. */
+    /** bedside vigil — it looms over the sleeper; on a roll it rips the bed apart and throws you out. */
+    /** the bedside vigil. Returns true the tick it wrenches the bed apart, so the caller ends the encounter. */
     private boolean bedVigil(ServerPlayer target, State state, int tier, ServerLevel level) {
         state.heat = 0.85;
         if (target.tickCount % 18 == 0) {
@@ -1005,7 +1005,7 @@ public final class CurseTheDweller extends Effect {
         return false;
     }
 
-    /** Weeping-angel creep. Won't close past the light-lurk distance while you stand in bright light. */
+    /** weeping-angel creep. Won't close past the light-lurk distance while you stand in bright light. */
 
 
     // --- SPIKE: exactly ONE payoff, then RELEASE ------------------------------------------------------
@@ -1013,14 +1013,14 @@ public final class CurseTheDweller extends Effect {
     void resolveSpike(ServerPlayer target, State state, int tier, boolean reachedYou) {
         RandomSource rng = target.getRandom();
         if (reachedYou) {
-            // It reached you. At the top this can tip into the hunt; otherwise a single close-encounter hit.
+            // it reached you. At the top this can tip into the hunt; otherwise a single close-encounter hit.
             if (tier >= 3 && state.chaseCooldown <= 0 && rng.nextFloat() < 0.6F) {
                 beginChase(target, state);
                 return;
             }
             spikeCloseEncounter(target, state, tier);
         } else {
-            // You held your ground. Usually it just isn't there any more (the double-take); once in a while it
+            // you held your ground. Usually it just isn't there any more (the double-take); once in a while it
             // goes out with a single set-piece instead of quietly.
             if (tier >= 1 && rng.nextFloat() < 0.30F) {
                 oneSetPiece(target, state, tier);
@@ -1101,12 +1101,12 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Adds a weighted pool candidate that runs a {@link DwellerEvent}. */
+    /** adds a weighted pool candidate that runs a {@link DwellerEvent}. */
     private void add(List<Cand> pool, int weight, DwellerEvent event, ServerPlayer target, State state, ServerLevel level) {
         pool.add(new Cand(weight, () -> event.run(this, target, state, level)));
     }
 
-    /** Picks by weight and runs; on failure drops that candidate and retries until one fires or none remain. */
+    /** picks by weight and runs; on failure drops that candidate and retries until one fires or none remain. */
     static boolean runWeighted(List<Cand> pool, RandomSource random) {
         while (!pool.isEmpty()) {
             int total = 0;
@@ -1157,7 +1157,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * It rushes in FROM WHERE IT STANDS (the watch spot) and stops dead in your face, screaming, then it's gone.
+     * it rushes in FROM WHERE IT STANDS (the watch spot) and stops dead in your face, screaming, then it's gone.
      * Deliberately a touch slower than a blink — you see it coming across the room, which is worse. Triggered by
      * staring too long during a watch at high dread.
      */
@@ -1173,7 +1173,7 @@ public final class CurseTheDweller extends Effect {
         return true;
     }
 
-    /** One tick of an in-progress lunge: advance the charge; on arrival (or timeout) scare, then resolve/bridge. */
+    /** one tick of an in-progress lunge: advance the charge; on arrival (or timeout) scare, then resolve/bridge. */
     void tickLunge(ServerPlayer target, State state, int tier) {
         state.heat = 1.0;
         state.lungeTicks--;
@@ -1188,7 +1188,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Moves the lunging dweller toward you at a steady, followable pace; fires the scare the instant it arrives. */
+    /** moves the lunging dweller toward you at a steady, followable pace; fires the scare the instant it arrives. */
     boolean driveLunge(ServerPlayer target, State state) {
         SpaghettiManEntity e = state.entity;
         if (e == null) {
@@ -1209,7 +1209,7 @@ public final class CurseTheDweller extends Effect {
         return false;
     }
 
-    /** The payoff at the end of a lunge: a breath in your face + (nearly always) the full flash jumpscare. */
+    /** the payoff at the end of a lunge: a breath in your face + (nearly always) the full flash jumpscare. */
     void lungeArriveScare(ServerPlayer target, State state) {
         playToVictim(target, WitchModSounds.DWELLER_BREATH.get(), 1.3F, 0.8F);
         if (target.getRandom().nextFloat() < 0.90F) {
@@ -1254,7 +1254,7 @@ public final class CurseTheDweller extends Effect {
         return true;
     }
 
-    /** The passive front-stare, escalating to aggression on approach or a held stare. */
+    /** the passive front-stare, escalating to aggression on approach or a held stare. */
     void tickSizeUp(ServerPlayer target, State state, int tier) {
         ServerLevel level = target.serverLevel();
         SpaghettiManEntity d = state.entity;
@@ -1300,7 +1300,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** The sizeup boils over: a chase bridge (dread-based) or, failing that, a lunge in your face. */
+    /** the sizeup boils over: a chase bridge (dread-based) or, failing that, a lunge in your face. */
     void sizeUpAggress(ServerPlayer target, State state, int tier) {
         if (maybeBridgeChase(target, state)) {
             return;
@@ -1365,7 +1365,7 @@ public final class CurseTheDweller extends Effect {
         return any;
     }
 
-    /** Doors/trapdoors/gates (togglable) and openable containers (chest/trapped/ender/barrel). */
+    /** doors/trapdoors/gates (togglable) and openable containers (chest/trapped/ender/barrel). */
     static boolean isInteractable(BlockState st) {
         if ((st.is(BlockTags.DOORS) || st.is(BlockTags.TRAPDOORS) || st.is(BlockTags.FENCE_GATES))
                 && st.hasProperty(BlockStateProperties.OPEN)) {
@@ -1399,7 +1399,7 @@ public final class CurseTheDweller extends Effect {
             playToVictimAt(target, s, x, y, z, 1.0F, 0.85F);
             return true;
         }
-        // Containers: the real lid animation (barrel via its OPEN state, chests via a block event), open then
+        // containers: the real lid animation (barrel via its OPEN state, chests via a block event), open then
         // close a beat later.
         RandomSource r = target.getRandom();
         if (b instanceof BarrelBlock && st.hasProperty(BlockStateProperties.OPEN)) {
@@ -1430,7 +1430,7 @@ public final class CurseTheDweller extends Effect {
         return false;
     }
 
-    /** Your dropped items leap into the air and clatter around — a poltergeist rifling through your stuff. */
+    /** your dropped items leap into the air and clatter around — a poltergeist rifling through your stuff. */
     boolean itemPoltergeist(ServerPlayer target, ServerLevel level) {
         List<ItemEntity> items = level.getEntitiesOfClass(ItemEntity.class, target.getBoundingBox().inflate(8.0), ItemEntity::isAlive);
         if (items.isEmpty()) {
@@ -1452,7 +1452,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Suddenly GIBS a nearby UNTAMED mob — a jumpscare and a genuine danger signal: the bloody burst (bang +
+     * suddenly GIBS a nearby UNTAMED mob — a jumpscare and a genuine danger signal: the bloody burst (bang +
      * splatter, the SAME gore as the Dweller's death) PLUS the actual explosion sound at the mob, and a real
      * damaging shockwave to anything too close. Tamed pets are spared. (The DEATH itself never plays the boom.)
      */
@@ -1473,7 +1473,7 @@ public final class CurseTheDweller extends Effect {
         bloodyBurst(level, x, y, z);                        // blood + bang + splatter
         level.playSound(null, x, y, z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 1.0F, 1.0F); // the boom, at the mob
         shakeNearbyPlayers(target, level);                  // a shared flinch from the sudden violence
-        // Everything nearby feels it and BOLTS — the sudden violence panics the whole area.
+        // everything nearby feels it and BOLTS — the sudden violence panics the whole area.
         for (Mob e : level.getEntitiesOfClass(Mob.class, target.getBoundingBox().inflate(18.0),
                 e -> e.isAlive() && e != poor && !(e instanceof SpaghettiManEntity) && !(e instanceof WatcherEyesEntity))) {
             spookMob(e, new Vec3(x, y, z), level);
@@ -1504,10 +1504,10 @@ public final class CurseTheDweller extends Effect {
 
     // --- POSSESSION + BEHIND (tier 2+ additions) --------------------------------------------------------
 
-    /** Tag on any mob currently being puppeteered, so a stuck one (relog/logic slip) can always be found + freed. */
+    /** tag on any mob currently being puppeteered, so a stuck one (relog/logic slip) can always be found + freed. */
     static final String POSSESSED_TAG = "witchmod_possessed";
 
-    /** Free any mob left tagged as possessed (setNoAi back on), so a possession can never permanently brick a mob's AI. */
+    /** free any mob left tagged as possessed (setNoAi back on), so a possession can never permanently brick a mob's AI. */
     static void freeStuckPossessed(ServerLevel level, net.minecraft.world.phys.AABB box) {
         for (net.minecraft.world.entity.Mob m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, box,
                 e -> e.getTags().contains(POSSESSED_TAG))) {
@@ -1516,9 +1516,9 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Puppeteer a nearby passive, untamed mob: it twitches in place, then marches at you and resolves. */
+    /** puppeteer a nearby passive, untamed mob: it twitches in place, then marches at you and resolves. */
     boolean possessionEvent(ServerPlayer target, State state, ServerLevel level) {
-        // Self-heal FIRST: free any mob left stuck-possessed from a previous slip, so nothing stays bricked.
+        // self-heal FIRST: free any mob left stuck-possessed from a previous slip, so nothing stays bricked.
         freeStuckPossessed(level, target.getBoundingBox().inflate(64.0));
         state.possessedId = -1;
         List<net.minecraft.world.entity.animal.Animal> mobs = level.getEntitiesOfClass(
@@ -1541,7 +1541,7 @@ public final class CurseTheDweller extends Effect {
         return true;
     }
 
-    /** Release the possessed mob cleanly (restore AI + drop the tag) and clear the state. */
+    /** release the possessed mob cleanly (restore AI + drop the tag) and clear the state. */
     private static void releasePossessed(State state, ServerLevel level) {
         if (state.possessedId >= 0 && level.getEntity(state.possessedId) instanceof net.minecraft.world.entity.Mob mob) {
             mob.setNoAi(false);
@@ -1560,7 +1560,7 @@ public final class CurseTheDweller extends Effect {
             return;
         }
         if (state.possessPhase == 0) {
-            // Twitching, still — VIOLENTLY snapping its head/body around every tick (no particles).
+            // twitching, still — VIOLENTLY snapping its head/body around every tick (no particles).
             // ⚠ A noAi mob's rotation only reaches the client if we forward-interpolate it and mark the entity
             // dirty each tick — the exact trick the Helicopter event needed. Setting the *O (previous) fields to
             // the CURRENT rotation and then jumping the live rotation makes the client wind forward to the snap;
@@ -1586,7 +1586,7 @@ public final class CurseTheDweller extends Effect {
             }
             return;
         }
-        // Marching straight at you.
+        // marching straight at you.
         double reach = 2.2;
         if (mob.distanceToSqr(target) <= reach * reach) {
             Vec3 spot = mob.position();
@@ -1600,7 +1600,7 @@ public final class CurseTheDweller extends Effect {
             state.possessedId = -1;
             return;
         }
-        // Drive it at you with real navigation AND a direct velocity backup, so it always visibly closes the gap
+        // drive it at you with real navigation AND a direct velocity backup, so it always visibly closes the gap
         // even if pathfinding stalls (odd terrain, the just-cleared noAi brain still spinning up).
         mob.getNavigation().moveTo(target.getX(), target.getY(), target.getZ(), 1.35);
         mob.getLookControl().setLookAt(target);
@@ -1634,7 +1634,7 @@ public final class CurseTheDweller extends Effect {
         state.pending.add(new Pending((t, l) -> temp.discard(), 8)); // gone in ~0.4s
     }
 
-    /** The possessed mob bursts like the explode event. */
+    /** the possessed mob bursts like the explode event. */
     void explodePossessed(ServerPlayer target, State state, ServerLevel level, net.minecraft.world.entity.Mob mob) {
         double x = mob.getX(), y = mob.getY() + 0.3, z = mob.getZ();
         mob.discard();
@@ -1663,7 +1663,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** The turn-around glimpse: a fast look means a chance to briefly catch him watching, then he's gone. */
+    /** the turn-around glimpse: a fast look means a chance to briefly catch him watching, then he's gone. */
     void tickBehind(ServerPlayer target, State state, int tier) {
         float yaw = target.getYRot();
         if (!Float.isNaN(state.prevYaw) && tier >= 2 && state.behindCd <= 0
@@ -1698,7 +1698,7 @@ public final class CurseTheDweller extends Effect {
         return true;
     }
 
-    /** The shared gib effect: a lot of blood, plus the death BANG (at half volume) + SPLATTER — and no boom. */
+    /** the shared gib effect: a lot of blood, plus the death BANG (at half volume) + SPLATTER — and no boom. */
     void bloodyBurst(ServerLevel level, double x, double y, double z) {
         RandomSource rr = level.random;
         DustParticleOptions blood = new DustParticleOptions(new Vector3f(0.6F, 0.0F, 0.0F), 2.5F);
@@ -1733,7 +1733,7 @@ public final class CurseTheDweller extends Effect {
                 || st.getBlock() == Blocks.GLASS || st.is(BlockTags.IMPERMEABLE);
     }
 
-    /** Suddenly breaks EVERY light source in a radius at once (dropping them), plunging the area into dark. */
+    /** suddenly breaks EVERY light source in a radius at once (dropping them), plunging the area into dark. */
     boolean snuffNearbyLight(ServerPlayer target, ServerLevel level) {
         BlockPos origin = target.blockPosition();
         int r = 7;
@@ -1782,7 +1782,7 @@ public final class CurseTheDweller extends Effect {
         processPending(target, state);      // delayed acts scheduled by set-pieces (knock→shatter etc.)
         tickEyes(target, state);            // maintain the watching-eyes if any are up (no-op otherwise)
         tickWatch(target, state);           // maintain a mob-stare if one is running (no-op otherwise)
-        // The ONE readable cue.
+        // the ONE readable cue.
         if (state.phase != Phase.CHASE) {
             tickHeartbeat(target, state);
         }
@@ -1817,12 +1817,12 @@ public final class CurseTheDweller extends Effect {
     // --- Custom-sound ambience ------------------------------------------------------------------------
 
     /**
-     * The non-diegetic MOOD ambience + a couple of diegetic red herrings, on a dread-scaled timer with a hard
+     * the non-diegetic MOOD ambience + a couple of diegetic red herrings, on a dread-scaled timer with a hard
      * floor so it can NEVER be spammed. Mostly a mood sting centred on the victim (in-their-head), sometimes at
      * a nearby block (as if something's there); occasionally a wind red herring, a scream red herring, or a loud
      * pop right behind them.
      */
-    /** During a CHASE, ambient noise/events run 4× as fast — everything goes haywire around you. */
+    /** during a CHASE, ambient noise/events run 4× as fast — everything goes haywire around you. */
     static int chaosStep(State state) {
         return state.phase == Phase.CHASE ? 4 : 1;
     }
@@ -1834,14 +1834,14 @@ public final class CurseTheDweller extends Effect {
         }
         RandomSource r = target.getRandom();
         double frac = dreadFrac(state);
-        // Gap: mood stings stay a rare, unsettling cue rather than a drone (×2.2 vs the original), dread-scaled +
+        // gap: mood stings stay a rare, unsettling cue rather than a drone (×2.2 vs the original), dread-scaled +
         // jittered, floored so they never nag.
         int base = (int) (Mth.lerp((float) frac, 600.0F, 280.0F) * 2.2F);
         state.moodCd = Math.max(460, base / 2 + r.nextInt(base));
         float vol = 0.45F + 0.45F * (float) frac;
         int roll = r.nextInt(100);
         if (roll < 8) {
-            // Loud POP close behind you — non-diegetic jolt + a camera flinch.
+            // loud POP close behind you — non-diegetic jolt + a camera flinch.
             Vec3 b = target.position().add(directionBehind(target).scale(1.6 + r.nextDouble()));
             playToVictimAt(target, WitchModSounds.DWELLER_POP.get(), b.x, b.y + 1.0, b.z, 0.9F, 0.95F + r.nextFloat() * 0.1F);
             dwellerShake(target);
@@ -1866,7 +1866,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Plays a mood cue — but with a 28% chance it's a low WIND gust instead (volume 0.6, pitch 0.4-0.75), for a
+     * plays a mood cue — but with a 28% chance it's a low WIND gust instead (volume 0.6, pitch 0.4-0.75), for a
      * slower, more ominous "the air just moved" flavour mixed into the ambience.
      */
     void playMoodSound(ServerPlayer target, double x, double y, double z, boolean positional, float vol) {
@@ -1911,7 +1911,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** The ordered dread boundaries that trigger a laugh: the midpoint then the threshold for each tier. */
+    /** the ordered dread boundaries that trigger a laugh: the midpoint then the threshold for each tier. */
     private static double[] laughBoundaries() {
         double t1 = Config.DWELLER_TIER1_THRESHOLD.get();
         double t2 = Config.DWELLER_TIER2_THRESHOLD.get();
@@ -1919,7 +1919,7 @@ public final class CurseTheDweller extends Effect {
         return new double[] {t1 / 2.0, t1, (t1 + t2) / 2.0, t2, (t2 + t3) / 2.0, t3};
     }
 
-    /** Is the dweller BEHIND the victim (out of the way they're facing)? */
+    /** is the dweller BEHIND the victim (out of the way they're facing)? */
     static boolean isBehind(ServerPlayer target, SpaghettiManEntity dweller) {
         Vec3 to = dweller.position().subtract(target.position());
         if (to.horizontalDistanceSqr() < 1.0E-4) {
@@ -1928,7 +1928,7 @@ public final class CurseTheDweller extends Effect {
         return target.getViewVector(1.0F).dot(to.normalize()) < -0.1;
     }
 
-    /** Requests/clears the client-side breathing loop (a synced flag; the client owns the positional loop). */
+    /** requests/clears the client-side breathing loop (a synced flag; the client owns the positional loop). */
     void setBreathing(ServerPlayer target, State state, boolean on) {
         if (on != state.breathingOn) {
             state.breathingOn = on;
@@ -1937,7 +1937,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * The heartbeat — the single legible signal of where you are in the encounter. Silent in the LULL, a slow
+     * the heartbeat — the single legible signal of where you are in the encounter. Silent in the LULL, a slow
      * pulse that quickens through the TELL, and a pounding tempo tied to how close it looms during the STALK.
      * Driven off {@code state.heat} (0..1) that each beat sets, so what you HEAR always matches the scene.
      */
@@ -1956,7 +1956,7 @@ public final class CurseTheDweller extends Effect {
         playToVictim(target, SoundEvents.WARDEN_HEARTBEAT, 0.35F + 0.55F * (float) heat, 0.5F + 0.65F * (float) heat);
     }
 
-    /** Stray flickers of the lights at high dread, no event attached — just wrongness. */
+    /** stray flickers of the lights at high dread, no event attached — just wrongness. */
 
     void processPending(ServerPlayer target, State state) {
         if (state.pending.isEmpty()) {
@@ -2025,7 +2025,7 @@ public final class CurseTheDweller extends Effect {
         return true;
     }
 
-    /** Blocks the knock can shatter — generous: doors/trapdoors, glass + panes, and ordinary carvable blocks. */
+    /** blocks the knock can shatter — generous: doors/trapdoors, glass + panes, and ordinary carvable blocks. */
     static boolean isKnockable(BlockState st) {
         if (st.isAir() || !st.getFluidState().isEmpty()) {
             return false;
@@ -2034,7 +2034,7 @@ public final class CurseTheDweller extends Effect {
                 || st.is(BlockTags.IMPERMEABLE) || st.is(BlockTags.WOODEN_FENCES) || isCarvable(st);
     }
 
-    /** Sends the camera-shake flinch to EVERY player near a point (the knock shatter is a shared jumpscare). */
+    /** sends the camera-shake flinch to EVERY player near a point (the knock shatter is a shared jumpscare). */
     void shakeNearbyPlayers(ServerPlayer origin, ServerLevel level) {
         long end = level.getGameTime() + Config.DWELLER_SHAKE_TICKS.get();
         for (ServerPlayer p : level.getEntitiesOfClass(ServerPlayer.class, origin.getBoundingBox().inflate(16.0), ServerPlayer::isAlive)) {
@@ -2047,7 +2047,7 @@ public final class CurseTheDweller extends Effect {
     /** A far, in-view spot on the ground — where a distant watch stands. */
     static final int WATCH_FAR = 0, WATCH_MEDIUM = 1, WATCH_CLOSE = 2;
 
-    /** Picks a watch distance band. Scales with dread: FAR dominates when calm, CLOSE takes over near max. */
+    /** picks a watch distance band. Scales with dread: FAR dominates when calm, CLOSE takes over near max. */
     static int pickWatchTier(double frac, boolean foreplay, RandomSource r) {
         if (foreplay) {
             int roll = r.nextInt(100);
@@ -2078,7 +2078,7 @@ public final class CurseTheDweller extends Effect {
             default -> { dMin = 30.0; dMax = 50.0; needLos = true; }
         }
         RandomSource r = target.getRandom();
-        // It no longer appears in your CURRENT view — the spot is chosen OUTSIDE your forward cone, so you have to
+        // it no longer appears in your CURRENT view — the spot is chosen OUTSIDE your forward cone, so you have to
         // TURN and find it there (a clear line of sight once you do, for FAR/MEDIUM). Far less "it just popped up
         // dead ahead", far more "when did that get there".
         for (int i = 0; i < 20; i++) {
@@ -2102,13 +2102,13 @@ public final class CurseTheDweller extends Effect {
         return groundSnap(target, target.position().add(rotateY(flat, rot).scale(dist)));
     }
 
-    /** Debug: force a watch right now, its band scaled by dread. */
+    /** debug: force a watch right now, its band scaled by dread. */
     boolean forceDistantWatch(ServerPlayer target, State state) {
         enterStalk(target, state, tier(state.anger));
         return state.phase == Phase.STALK;
     }
 
-    /** Debug: force a watch in a SPECIFIC distance band (FAR/MEDIUM/CLOSE). */
+    /** debug: force a watch in a SPECIFIC distance band (FAR/MEDIUM/CLOSE). */
     boolean forceWatch(ServerPlayer target, State state, int band) {
         ServerLevel level = target.serverLevel();
         int tier = tier(state.anger);
@@ -2123,7 +2123,7 @@ public final class CurseTheDweller extends Effect {
         return true;
     }
 
-    /** Debug: force a WINDOW watch (peers through a wall/window; vanishes on a clear line of sight). */
+    /** debug: force a WINDOW watch (peers through a wall/window; vanishes on a clear line of sight). */
     boolean forceWindowWatch(ServerPlayer target, State state) {
         ServerLevel level = target.serverLevel();
         int tier = tier(state.anger);
@@ -2153,7 +2153,7 @@ public final class CurseTheDweller extends Effect {
         state.heat = state.watchTier == WATCH_CLOSE ? 0.75 : 0.55;
     }
 
-    /** In the dark, eyes open in the black around you and watch — auto-fired on a paced timer while it's dark. */
+    /** in the dark, eyes open in the black around you and watch — auto-fired on a paced timer while it's dark. */
     void tickDarkEyes(ServerPlayer target, State state) {
         if (state.eyesTimer > 0 || --state.eyesCd > 0) {
             return;
@@ -2245,7 +2245,7 @@ public final class CurseTheDweller extends Effect {
 
     // --- Mob stare: nearby passive mobs go silent and watch you --------------------------------------------
 
-    /** Every nearby passive mob/villager falls silent, freezes, and stares at you for 3–8s, doing nothing else. */
+    /** every nearby passive mob/villager falls silent, freezes, and stares at you for 3–8s, doing nothing else. */
     boolean mobStare(ServerPlayer target, State state) {
         ServerLevel level = target.serverLevel();
         List<Mob> mobs = level.getEntitiesOfClass(Mob.class, target.getBoundingBox().inflate(16.0),
@@ -2300,7 +2300,7 @@ public final class CurseTheDweller extends Effect {
         state.watchTimer = 0;
     }
 
-    /** The flash-and-dark jumpscare: a hard camera flinch + a bright white flash, then darkness for {@code darkTicks}. */
+    /** the flash-and-dark jumpscare: a hard camera flinch + a bright white flash, then darkness for {@code darkTicks}. */
     void dwellerJumpscare(ServerPlayer target, int darkTicks) {
         dwellerShake(target);
         target.setData(WitchModAttachments.DWELLER_FLASH_END, target.level().getGameTime() + 8); // ~0.4s white flash
@@ -2323,7 +2323,7 @@ public final class CurseTheDweller extends Effect {
         target.setData(WitchModAttachments.DWELLER_MIMIC, target.getRandom().nextLong() | 1L); // never 0
         playToVictim(target, SoundEvents.WARDEN_LISTENING, 0.6F, 0.7F);
         state.anger = Math.min(Config.DWELLER_ANGER_MAX.get(), state.anger + 3.0);
-        // End the session a beat after the client's longest possible vignette, so the impostor can't linger.
+        // end the session a beat after the client's longest possible vignette, so the impostor can't linger.
         state.pending.add(new Pending(
                 (t, l) -> t.setData(WitchModAttachments.DWELLER_MIMIC, 0L),
                 Config.DWELLER_MIMIC_BURST_TICKS.get() + 40));
@@ -2339,7 +2339,7 @@ public final class CurseTheDweller extends Effect {
     // --- Static hooks from the event handler ------------------------------------------------------------
 
     /**
-     * Called from AttackEntityEvent: the stalker is unhittable (swallow the swing so no bad packet is sent), and
+     * called from AttackEntityEvent: the stalker is unhittable (swallow the swing so no bad packet is sent), and
      * — the hard rule — swinging at a WATCH makes it vanish on the spot (it's never there to be hit). During a
      * CHASE the swing is simply eaten with no effect.
      */
@@ -2361,7 +2361,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Called from LivingDeathEvent. Dying TO THE CHASE (it caught you) is the ONE thing that wipes the dread —
+     * called from LivingDeathEvent. Dying TO THE CHASE (it caught you) is the ONE thing that wipes the dread —
      * the reset valve, and the only escape. Any OTHER death leaves the dread exactly where it was: the haunt
      * doesn't care how you died, only that IT got you.
      */
@@ -2397,7 +2397,7 @@ public final class CurseTheDweller extends Effect {
         };
     }
 
-    /** Debug: jump dread straight to the start of a tier and re-sync the client. */
+    /** debug: jump dread straight to the start of a tier and re-sync the client. */
     private String setTierDebug(ServerPlayer target, State state, int tier) {
         if (state.phase == Phase.FOREPLAY) {
             state.phase = Phase.LULL;
@@ -2420,7 +2420,7 @@ public final class CurseTheDweller extends Effect {
         double y = target.getY() + (random.nextDouble() - 0.4) * 3.0;
         int roll = random.nextInt(100);
         if (roll < 14) {
-            // Someone's footsteps closing in from out there.
+            // someone's footsteps closing in from out there.
             int steps = 3 + random.nextInt(3);
             for (int i = 0; i < steps; i++) {
                 double f = 1.0 - i / (double) steps;
@@ -2430,7 +2430,7 @@ public final class CurseTheDweller extends Effect {
                         playToVictimAt(tgt, WitchModSounds.DWELLER_STEP.get(), sx, tgt.getY(), sz, 0.7F, 1.0F), i * 5 + 1));
             }
         } else if (roll < 24) {
-            // Mining below you — a run of hits then a break.
+            // mining below you — a run of hits then a break.
             int hits = 3 + random.nextInt(4);
             for (int i = 0; i < hits; i++) {
                 state.pending.add(new Pending((tgt, lvl) ->
@@ -2445,7 +2445,7 @@ public final class CurseTheDweller extends Effect {
         } else if (roll < 37) {
             playToVictimAt(target, random.nextBoolean() ? SoundEvents.WOODEN_DOOR_OPEN : SoundEvents.WOODEN_DOOR_CLOSE, x, y, z, 0.9F, 1.0F);
         } else if (roll < 43) {
-            // Someone fighting a zombie nearby — swings alternating with grunts, sometimes a death.
+            // someone fighting a zombie nearby — swings alternating with grunts, sometimes a death.
             int rounds = 2 + random.nextInt(3);
             for (int i = 0; i < rounds; i++) {
                 state.pending.add(new Pending((tgt, lvl) ->
@@ -2462,7 +2462,7 @@ public final class CurseTheDweller extends Effect {
             state.pending.add(new Pending((tgt, lvl) ->
                     playToVictimAt(tgt, SoundEvents.PLAYER_BURP, x, y, z, 0.7F, 1.0F), 20 + random.nextInt(15)));
         } else if (roll < 53) {
-            // An animal hurt nearby — the swing lands, THEN it cries out (the order sells it).
+            // an animal hurt nearby — the swing lands, THEN it cries out (the order sells it).
             SoundEvent cry = switch (random.nextInt(4)) {
                 case 0 -> SoundEvents.COW_HURT;
                 case 1 -> SoundEvents.PIG_HURT;
@@ -2483,7 +2483,7 @@ public final class CurseTheDweller extends Effect {
         } else if (roll < 68) {
             playToVictimAt(target, SoundEvents.AMBIENT_CAVE.value(), x, y, z, 1.0F, 1.0F); // the cave that isn't there
         } else if (roll < 72) {
-            // Someone swimming — strokes then a splash.
+            // someone swimming — strokes then a splash.
             for (int i = 0; i < 3; i++) {
                 state.pending.add(new Pending((tgt, lvl) ->
                         playToVictimAt(tgt, SoundEvents.PLAYER_SWIM, x, y, z, 0.8F, 1.0F), i * 6 + 1));
@@ -2511,7 +2511,7 @@ public final class CurseTheDweller extends Effect {
         } else if (roll < 92) {
             playToVictimAt(target, random.nextBoolean() ? SoundEvents.ITEM_PICKUP : SoundEvents.EXPERIENCE_ORB_PICKUP, x, y, z, 0.6F, 1.0F);
         } else if (roll < 95) {
-            // Someone lands nearby, then takes a step — sells it as a person.
+            // someone lands nearby, then takes a step — sells it as a person.
             playToVictimAt(target, SoundEvents.PLAYER_BIG_FALL, x, y, z, 0.8F, 1.0F);
             state.pending.add(new Pending((tgt, lvl) -> playToVictimAt(tgt, WitchModSounds.DWELLER_STEP.get(), x, y, z, 0.6F, 1.0F), 6 + random.nextInt(6)));
         } else {
@@ -2530,7 +2530,7 @@ public final class CurseTheDweller extends Effect {
         state.chaseCount++;
         state.chaseStuck = 0;
         state.heat = 1.0;
-        // This hunt runs a rolled ~20–35s before it breaks off — slightly longer at higher dread (the low end of
+        // this hunt runs a rolled ~20–35s before it breaks off — slightly longer at higher dread (the low end of
         // the roll creeps up toward the middle as dread maxes).
         int cmin = Config.DWELLER_CHASE_MIN_TICKS.get();
         int cmax = Math.max(cmin + 1, Config.DWELLER_CHASE_MAX_TICKS.get());
@@ -2569,18 +2569,18 @@ public final class CurseTheDweller extends Effect {
         state.chaseLungeCd = 0;
         state.chaseLastDist = state.entity != null ? state.entity.distanceTo(target) : 6.0;
         state.chaseStepDist = 0.0;
-        // Switch the entity into REAL PHYSICS mode for the hunt — gravity, collision, step-up, jumping, pathfinding
+        // switch the entity into REAL PHYSICS mode for the hunt — gravity, collision, step-up, jumping, pathfinding
         // all vanilla. It genuinely SPRINTS after you along the ground instead of gliding through the air.
         enterPhysicsMode(state.entity);
         setBreathing(target, state, false); // the chase has its own soundscape
         target.setData(WitchModAttachments.DWELLER_ACTIVE, 3);
-        // The SCREAM that begins the hunt — at the dweller's starting spot, so it comes from where it lunges from.
+        // the SCREAM that begins the hunt — at the dweller's starting spot, so it comes from where it lunges from.
         Vec3 at = state.entity != null ? state.entity.position() : target.position();
         playToVictimAt(target, WitchModSounds.DWELLER_SCREAM.get(), at.x, at.y + 1.0, at.z, 1.2F, 1.0F);
     }
 
     /**
-     * The hunt — it genuinely SPRINTS after you using REAL physics: vanilla ground pathfinding drives it, so it
+     * the hunt — it genuinely SPRINTS after you using REAL physics: vanilla ground pathfinding drives it, so it
      * runs along the floor, jumps up single blocks, climbs stairs, rounds corners, floats across water and obeys
      * gravity + collision. Only when it's TRULY stuck (walled in / you're somewhere it can't route to) for a long
      * stretch does it fall back to a rare teleport. Touch = instant death (the only thing that clears dread).
@@ -2595,6 +2595,13 @@ public final class CurseTheDweller extends Effect {
         double dist = dweller.distanceTo(target);
         if (dist <= Config.DWELLER_TOUCH_DISTANCE.get()) {
             finale(target, state); // it caught you
+            return;
+        }
+        // nowhere is safe while it hunts: bumping into ANY passive entity (an animal, villager, golem) mid-chase
+        // sets off the same gory finale. ONLY the actual chase target is ever caught this way.
+        if (Config.DWELLER_PASSIVE_COLLISION_KILL.get()
+                && target.level() instanceof ServerLevel chaseLevel && collidedWithPassive(target, chaseLevel)) {
+            finale(target, state);
             return;
         }
 
@@ -2614,21 +2621,21 @@ public final class CurseTheDweller extends Effect {
             return;
         }
 
-        // Speed scales with dread AND RAMPS across the hunt (starts a touch slow, winds up faster). This is the
+        // speed scales with dread AND RAMPS across the hunt (starts a touch slow, winds up faster). This is the
         // navigation SPEED MULTIPLIER on the entity's MOVEMENT_SPEED, so vanilla moves it under real physics.
         double f = dreadFrac(state);
         double rampProg = Mth.clamp(state.chaseTicks / (double) Config.DWELLER_CHASE_RAMP_TICKS.get(), 0.0, 1.0);
-        // Starts near a real sprint, builds a little across the hunt, plus a small dread bonus — deliberately not
+        // starts near a real sprint, builds a little across the hunt, plus a small dread bonus — deliberately not
         // beastly. This is the navigation speed multiplier on MOVEMENT_SPEED.
         double rampMult = Mth.lerp((float) rampProg, 0.85F, 1.0F);
         double sprint = Config.DWELLER_CHASE_SPRINT.get() * rampMult * (1.0 + 0.18 * f);
 
-        // Re-path toward you a few times a second (or the moment it finishes/loses its path), and keep it facing
+        // re-path toward you a few times a second (or the moment it finishes/loses its path), and keep it facing
         // you. Vanilla's serverAiStep (running because we cleared noAi) walks the path with gravity/collision.
         if (dweller.tickCount % 5 == 0 || dweller.getNavigation().isDone()) {
             boolean pathed = dweller.getNavigation().moveTo(you.x, you.y, you.z, sprint);
             if (!pathed) {
-                // No path exists to you right now — nudge the move control straight at you as a stopgap.
+                // no path exists to you right now — nudge the move control straight at you as a stopgap.
                 dweller.getMoveControl().setWantedPosition(you.x, you.y, you.z, sprint);
             }
         }
@@ -2658,7 +2665,7 @@ public final class CurseTheDweller extends Effect {
             playToVictimAt(target, WitchModSounds.DWELLER_STEP.get(), fp.x, fp.y + 0.1, fp.z, 0.85F, pitch);
         }
 
-        // Stuck detection: it must keep CLOSING. Only when it truly cannot for a LONG stretch (no path + not
+        // stuck detection: it must keep CLOSING. Only when it truly cannot for a LONG stretch (no path + not
         // getting nearer) does it fall back to a rare teleport — the last resort, not the mover.
         double newDist = dweller.distanceTo(target);
         boolean progressing = newDist < state.chaseLastDist - 0.02;
@@ -2686,7 +2693,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Puts the entity into real-physics mode for a hunt (gravity/collision/pathfinding + a sprint speed). Idempotent. */
+    /** puts the entity into real-physics mode for a hunt (gravity/collision/pathfinding + a sprint speed). Idempotent. */
     static void enterPhysicsMode(SpaghettiManEntity e) {
         if (e == null) {
             return;
@@ -2709,7 +2716,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Kicks off a mid-chase LEAP — a real, dodgeable physics jump at you (a velocity impulse; gravity arcs it):
+     * kicks off a mid-chase LEAP — a real, dodgeable physics jump at you (a velocity impulse; gravity arcs it):
      * <ul>
      *   <li><b>climb</b> — you're camping height above it: a strong UP+toward leap to scale the pillar/tower;</li>
      *   <li><b>distancegain</b> — the general one / close finisher: a flat hurl straight at you.</li>
@@ -2740,7 +2747,7 @@ public final class CurseTheDweller extends Effect {
         playToVictimAt(target, WitchModSounds.DWELLER_WIND.get(), p.x, p.y + 1.0, p.z, 0.9F, 0.8F);
     }
 
-    /** Watches a physics leap: touch = finale; it ends when it lands (back on the ground) or the window elapses. */
+    /** watches a physics leap: touch = finale; it ends when it lands (back on the ground) or the window elapses. */
     void driveChaseLunge(ServerPlayer target, State state) {
         SpaghettiManEntity e = state.entity;
         if (e == null) {
@@ -2762,11 +2769,11 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** The fallback blink: it can't path to you, so it steps to a reachable ground spot noticeably closer. */
+    /** the fallback blink: it can't path to you, so it steps to a reachable ground spot noticeably closer. */
     void chaseTeleport(ServerPlayer target, SpaghettiManEntity dweller) {
         Vec3 from = dweller.position();
         particleToVictim(target, ParticleTypes.PORTAL, from.x, from.y + 1.0, from.z, 18, 0.3, 0.6, 0.3, 0.2);
-        // Aim for a spot behind you at teleport distance, on the ground — closer than it currently is.
+        // aim for a spot behind you at teleport distance, on the ground — closer than it currently is.
         double ang = target.getRandom().nextDouble() * Math.PI * 2;
         double d = Config.DWELLER_CHASE_TELEPORT_DISTANCE.get() * (0.6 + target.getRandom().nextDouble() * 0.5);
         Vec3 spot = groundSnap(target, target.position().add(Math.cos(ang) * d, 0, Math.sin(ang) * d));
@@ -2778,19 +2785,19 @@ public final class CurseTheDweller extends Effect {
         playToVictimAt(target, WitchModSounds.DWELLER_WIND.get(), spot.x, spot.y + 1.0, spot.z, 0.9F, 1.0F);
     }
 
-    /** Lost the trail (anti-softlock). Back to watching — but the dread stays MAXED, so it isn't over. */
+    /** lost the trail (anti-softlock). Back to watching — but the dread stays MAXED, so it isn't over. */
     void loseTrail(ServerPlayer target, State state) {
         despawn(state);
         state.phase = Phase.RELEASE;
         state.heat = 0.4;
         state.timer = Config.DWELLER_RELEASE_MIN_TICKS.get();
-        // The cooldown = the window where a new chase can't be rolled. It SHRINKS with dread: near max it's tiny
+        // the cooldown = the window where a new chase can't be rolled. It SHRINKS with dread: near max it's tiny
         // (~5s), so hunts come back almost at once; lower down it gives real breathing room.
         state.chaseCooldown = chaseCooldownFor(state);
         playToVictim(target, SoundEvents.WARDEN_DEATH, 0.7F, 1.1F);
     }
 
-    /** The chase cooldown, scaled from the long value at the chase-range floor down to the min at max dread. */
+    /** the chase cooldown, scaled from the long value at the chase-range floor down to the min at max dread. */
     static int chaseCooldownFor(State state) {
         double t3 = Config.DWELLER_TIER3_THRESHOLD.get();
         double max = Config.DWELLER_ANGER_MAX.get();
@@ -2798,14 +2805,37 @@ public final class CurseTheDweller extends Effect {
         return (int) Mth.lerp((float) f, Config.DWELLER_CHASE_COOLDOWN_TICKS.get(), Config.DWELLER_CHASE_MIN_COOLDOWN_TICKS.get());
     }
 
+    /**
+     * true if {@code target} is currently overlapping any PASSIVE living entity — an animal, villager, golem,
+     * anything that isn't a player, a hostile ({@link net.minecraft.world.entity.monster.Enemy}), or one of the
+     * mod's own illusion entities (the Dweller itself / its watcher eyes).
+     */
+    private boolean collidedWithPassive(ServerPlayer target, ServerLevel level) {
+        return !level.getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(0.1),
+                e -> e != target && e.isAlive()
+                        && !(e instanceof net.minecraft.world.entity.player.Player)
+                        && !(e instanceof net.minecraft.world.entity.monster.Enemy)
+                        && !(e instanceof SpaghettiManEntity)
+                        && !(e instanceof com.oliver.witchmod.entities.WatcherEyesEntity)).isEmpty();
+    }
+
     void finale(ServerPlayer target, State state) {
         ServerLevel level = target.serverLevel();
         double x = target.getX(), y = target.getY(), z = target.getZ();
         RandomSource rr = target.getRandom();
-        // The gore: a big bloody burst with the bang (half vol) + splatter. NO explosion, NO boom sound.
+        // the gore: a big bloody burst with the bang (half vol) + splatter.
         bloodyBurst(level, x, y + 0.7, z);
+        // ...and a real explosion so it goes off like the explosion event — but NO terrain damage (Oliver's call),
+        // so it's the boom + knockback + collateral to nearby others, never a crater in the world.
+        // ⚠ The source ENTITY must be null: Explosion collects victims via getEntities(source, box) EXCLUDING
+        // the source, so naming the target would leave them out of their own blast. (Same trap as Super
+        // explosive / Heavy.) They're killed by the haunted damage below anyway; this is for the boom + collateral.
+        float power = (float) (double) Config.DWELLER_FINALE_EXPLOSION_POWER.get();
+        if (power > 0.0F) {
+            level.explode(null, x, y + 0.5, z, power, Level.ExplosionInteraction.NONE);
+        }
 
-        // The remains are PLACED on the nearest ground — your own head + a splatter of redstone — rather than
+        // the remains are PLACED on the nearest ground — your own head + a splatter of redstone — rather than
         // dropped as items; they fall back to scattered items only if there's nowhere to place them.
         placeRemains(level, target, rr);
 
@@ -2824,14 +2854,14 @@ public final class CurseTheDweller extends Effect {
         target.setData(WitchModAttachments.DWELLER_ACTIVE, 0);
         target.setData(WitchModAttachments.DWELLER_DREAD, 0.0F);
         target.setData(WitchModAttachments.DWELLER_ANGER, 0.0);
-        // The kill itself — the custom witchmod:haunted source (its own death message). SKIPPED in creative:
+        // the kill itself — the custom witchmod:haunted source (its own death message). SKIPPED in creative:
         // the touch still does its full burst + ends the whole encounter and wipes dread, you just aren't killed.
         if (!target.isCreative()) {
             target.hurt(com.oliver.witchmod.data.WitchModDamageTypes.theDweller(level), Float.MAX_VALUE);
         }
     }
 
-    /** Places the victim's head + a redstone splatter on the nearest ground; drops them as items as a fallback. */
+    /** places the victim's head + a redstone splatter on the nearest ground; drops them as items as a fallback. */
     private void placeRemains(ServerLevel level, ServerPlayer target, RandomSource rr) {
         double x = target.getX(), y = target.getY(), z = target.getZ();
         boolean placedHead = false;
@@ -2846,7 +2876,7 @@ public final class CurseTheDweller extends Effect {
             }
             placedHead = true;
         }
-        // Redstone splatter around the head on any sturdy ground.
+        // redstone splatter around the head on any sturdy ground.
         boolean placedRedstone = false;
         for (int i = 0; i < 5; i++) {
             double ox = x + (rr.nextDouble() - 0.5) * 3.0;
@@ -2869,7 +2899,7 @@ public final class CurseTheDweller extends Effect {
         }
     }
 
-    /** Drops an item flung out with a random pop and facing, so it lands at a random orientation. */
+    /** drops an item flung out with a random pop and facing, so it lands at a random orientation. */
     static void spawnScattered(ServerLevel level, double x, double y, double z, ItemStack stack, RandomSource r) {
         ItemEntity e = new ItemEntity(level, x, y + 0.5, z, stack);
         e.setDeltaMovement((r.nextDouble() - 0.5) * 0.5, 0.25 + r.nextDouble() * 0.35, (r.nextDouble() - 0.5) * 0.5);
@@ -2890,7 +2920,7 @@ public final class CurseTheDweller extends Effect {
         if (inBrightLight(target)) {
             dist = Math.max(dist, Config.DWELLER_LIGHT_LURK_DISTANCE.get() + 3.0);
         }
-        // Low dread: it WANTS to be seen — a distant figure standing in your view with a clear line of sight,
+        // low dread: it WANTS to be seen — a distant figure standing in your view with a clear line of sight,
         // so the far watches actually register. High dread: it stalks out of view (peripheral/behind/windows).
         double inViewChance = Mth.lerp((float) frac, 0.8F, 0.15F);
         if (target.getRandom().nextDouble() < inViewChance) {
@@ -2915,7 +2945,7 @@ public final class CurseTheDweller extends Effect {
         return behindSpot(target, dist);
     }
 
-    /** An in-view spot at distance with a genuinely CLEAR line of sight to you — so you actually catch it. */
+    /** an in-view spot at distance with a genuinely CLEAR line of sight to you — so you actually catch it. */
     @Nullable
     static Vec3 visibleInViewSpot(ServerPlayer target, ServerLevel level, double dist) {
         for (int i = 0; i < 8; i++) {
@@ -2954,7 +2984,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * The FOOT of the bed — a couple of blocks beyond the foot end, facing you — so a sleeper looking down the
+     * the FOOT of the bed — a couple of blocks beyond the foot end, facing you — so a sleeper looking down the
      * bed actually SEES it looming there. Falls back to a random bedside spot if the bed can't be resolved.
      */
     static Vec3 bedFootSpot(ServerPlayer target, ServerLevel level) {
@@ -2997,9 +3027,9 @@ public final class CurseTheDweller extends Effect {
                 continue; // glass basically on top of you — no "far side" to stand on
             }
             dir = dir.normalize();
-            // Stand pressed against the OUTSIDE of the pane, at the window's height, on whatever ground is there.
+            // stand pressed against the OUTSIDE of the pane, at the window's height, on whatever ground is there.
             Vec3 spot = groundSnap(target, new Vec3(gc.x + dir.x * 1.05, g.getY(), gc.z + dir.z * 1.05));
-            // The glass must actually be BETWEEN you and it (a clear line would mean it isn't really a window watch).
+            // the glass must actually be BETWEEN you and it (a clear line would mean it isn't really a window watch).
             if (!clearLineOfSight(level, target.getEyePosition(), spot.add(0, 1.4, 0))) {
                 return spot;
             }
@@ -3007,7 +3037,7 @@ public final class CurseTheDweller extends Effect {
         return null;
     }
 
-    /** Solid glass blocks AND glass panes (but not iron bars) — the "window" materials it lurks behind. */
+    /** solid glass blocks AND glass panes (but not iron bars) — the "window" materials it lurks behind. */
     static boolean isGlass(BlockState st) {
         if (st.is(BlockTags.IMPERMEABLE)) {
             return true; // all solid glass blocks (clear/stained/tinted)
@@ -3142,7 +3172,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * Finds the floor to stand on NEAR the player's own height — NOT the world surface. Scans down from just
+     * finds the floor to stand on NEAR the player's own height — NOT the world surface. Scans down from just
      * above the player's feet for the first block that blocks motion with clear air over it, so it anchors to
      * the cave floor / bridge / ledge you're actually on. Falls back to the player's Y (rather than the sky)
      * if there's nothing solid within range, so it never plants itself on the surface far overhead in a cave.
@@ -3156,7 +3186,7 @@ public final class CurseTheDweller extends Effect {
         for (int y = top; y >= bottom; y--) {
             pos.set(ix, y, iz);
             BlockState st = level.getBlockState(pos);
-            // Stand ON the WATER SURFACE (where water meets open air) — so it can haunt you even lost at sea.
+            // stand ON the WATER SURFACE (where water meets open air) — so it can haunt you even lost at sea.
             if (st.getFluidState().is(FluidTags.WATER)) {
                 BlockState above = level.getBlockState(pos.above());
                 if (!above.getFluidState().is(FluidTags.WATER) && !above.blocksMotion()) {
@@ -3185,7 +3215,7 @@ public final class CurseTheDweller extends Effect {
     }
 
     /**
-     * How far it manifests — a SMOOTH slide from far to close as dread climbs, so it eases in over many
+     * how far it manifests — a SMOOTH slide from far to close as dread climbs, so it eases in over many
      * sightings instead of jumping "barely notice → in your face". Farther early, closer late, with jitter.
      */
     static double manifestDistance(ServerPlayer target, State state) {
@@ -3205,8 +3235,8 @@ public final class CurseTheDweller extends Effect {
         int min = Config.DWELLER_DORMANT_MIN_TICKS.get();   // 50s
         int max = Config.DWELLER_DORMANT_MAX_TICKS.get();   // 180s
         double f = Mth.clamp((float) dreadFrac, 0.0F, 1.0F);
-        // Downtime stays SUBSTANTIAL at all times (50–180s) — encounters are never constant, even at max dread.
-        // Higher dread only biases toward the shorter end of that range, it never collapses it.
+        // downtime stays SUBSTANTIAL at all times (50–180s) — encounters are never constant, even at max dread.
+        // higher dread only biases toward the shorter end of that range, it never collapses it.
         int hi = (int) Mth.lerp(f, max, min + (max - min) * 0.45);
         int lo = min + (int) ((hi - min) * 0.25);
         return lo + target.getRandom().nextInt(Math.max(1, hi - lo));
@@ -3237,7 +3267,7 @@ public final class CurseTheDweller extends Effect {
     static int hallucinationGap(ServerPlayer target, int tier) {
         int min = Config.DWELLER_HALLUCINATION_MIN_TICKS.get();
         int max = Config.DWELLER_HALLUCINATION_MAX_TICKS.get();
-        // Rare and impactful — rarest of all early on, easing up only as dread climbs.
+        // rare and impactful — rarest of all early on, easing up only as dread climbs.
         double mult = switch (tier) {
             case 0 -> 2.2;
             case 1 -> 1.4;

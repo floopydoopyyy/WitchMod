@@ -19,7 +19,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * You run hot (master-spec Hot Stuff, sacrificial item COAL): a furnace, blast furnace or smoker you're
+ * you run hot: a furnace, blast furnace or smoker you're
  * LOOKING at cooks {@code hotStuffSpeedMultiplier} (5x) faster. Each tick your gaze lands on a lit furnace
  * (within {@code hotStuffLookRange}) we run its cook logic a few extra times — so it also burns fuel that
  * bit faster, keeping the fuel-per-item the same, just quicker. The prototype's Fire Resistance stand-in is
@@ -33,7 +33,7 @@ public final class BlessingHotStuff extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 21, () -> Items.COAL);
     }
 
-    /** You find out the first time your stare gets a furnace going (Rule 2). */
+    /** you find out the first time your stare gets a furnace going (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -59,7 +59,12 @@ public final class BlessingHotStuff extends Effect {
             return;
         }
 
-        int extra = (int) Math.round(Config.HOTSTUFF_SPEED_MULT.get()) - 1; // it already ticks once itself
+        double mult = Config.HOTSTUFF_SPEED_MULT.get();
+        // scorched_forge synergy (with Floor is Lava): the whole speed-up is scaled again.
+        if (com.oliver.witchmod.synergy.Synergies.SCORCHED_FORGE.activeFor(target)) {
+            mult *= Config.HOTSTUFF_SCORCHED_MULT.get();
+        }
+        int extra = (int) Math.round(mult) - 1; // it already ticks once itself
         for (int i = 0; i < extra; i++) {
             BlockState now = level.getBlockState(pos);
             if (!(level.getBlockEntity(pos) instanceof AbstractFurnaceBlockEntity f)) {

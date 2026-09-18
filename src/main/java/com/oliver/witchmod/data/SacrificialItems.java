@@ -5,7 +5,7 @@ import java.util.Optional;
 import net.minecraft.core.Holder;
 import net.minecraft.world.item.Item;
 
-/** Reverse lookup from a Sacrificial Item (CLAUDE.md section 6.1/6.2) back to the curse/blessing it selects. */
+/** reverse lookup from a sacrificial item back to the curse/blessing it selects. */
 public final class SacrificialItems {
     private SacrificialItems() {}
 
@@ -17,7 +17,7 @@ public final class SacrificialItems {
         if (exact.isPresent()) {
             return exact;
         }
-        // Rule 9 tag exceptions (music discs -> Hype Man, candles -> Party Time), checked only as a fallback.
+        // tag exceptions (music discs -> hype man, candles -> party time), only as a fallback
         return WitchModRegistries.EFFECT_REGISTRY.holders()
                 .filter(holder -> holder.value().selectable())
                 .filter(holder -> holder.value().sacrificialTag()

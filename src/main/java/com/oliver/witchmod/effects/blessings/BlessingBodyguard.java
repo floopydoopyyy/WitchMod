@@ -20,14 +20,14 @@ import com.oliver.witchmod.entities.BodyguardEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * You've hired protection (master-spec Bodyguard). Casting it summons a {@link BodyguardEntity} bound to you
+ * you've hired protection. Casting it summons a {@link BodyguardEntity} bound to you
  * as its anchor; it trails you and runs off anyone who crowds you. This class owns the entity's LIFECYCLE:
  * summon on cast, keep it around, and clear it when the blessing ends. Its <b>death</b> breaks the blessing
  * instantly — handled in {@code BlessingEventHandler} on the entity's death, which then calls back into
  * {@code EffectManager.remove}, whose {@link #onRemove} discards the (already-dead) entity harmlessly.
  */
 public final class BlessingBodyguard extends Effect {
-    // The anchor -> bodyguard mapping lives in BodyguardEntity.CANONICAL, so the entity itself can self-heal
+    // the anchor -> bodyguard mapping lives in BodyguardEntity.CANONICAL, so the entity itself can self-heal
     // duplicates against it (see BodyguardEntity). This class just claims/reads/releases it.
 
     public BlessingBodyguard() {
@@ -55,20 +55,20 @@ public final class BlessingBodyguard extends Effect {
             }
             return;
         }
-        // Re-summon if the bodyguard has gone missing for a reason OTHER than death (an unexpected unload, or
+        // re-summon if the bodyguard has gone missing for a reason OTHER than death (an unexpected unload, or
         // the anchor changing dimension).
         if (ticksRemaining % 40 == 0 && get(target) == null) {
             summon(target);
         }
     }
 
-    /** Called from the death hook: the bodyguard fell — schedule a replacement instead of losing the blessing. */
+    /** called from the death hook: the bodyguard fell — schedule a replacement instead of losing the blessing. */
     public static void onBodyguardDeath(ServerPlayer anchor) {
         RESPAWN_AT.put(anchor.getUUID(), anchor.level().getGameTime() + Config.BODYGUARD_RESPAWN_TICKS.get());
         announce(anchor, "fell");
     }
 
-    /** Broadcast a Bodyguard line (from the given json key) to players near the anchor, in the entity's voice. */
+    /** broadcast a Bodyguard line (from the given json key) to players near the anchor, in the entity's voice. */
     private static void announce(ServerPlayer anchor, String key) {
         if (!com.oliver.witchmod.data.BodyguardLines.has(key)) {
             return;
@@ -109,7 +109,7 @@ public final class BlessingBodyguard extends Effect {
         RESPAWN_AT.remove(target.getUUID());
     }
 
-    /** The live bodyguard entity for {@code anchor}, or null if none is currently around. */
+    /** the live bodyguard entity for {@code anchor}, or null if none is currently around. */
     @Nullable
     public static BodyguardEntity get(ServerPlayer anchor) {
         UUID id = BodyguardEntity.canonicalFor(anchor.getUUID());
@@ -120,7 +120,7 @@ public final class BlessingBodyguard extends Effect {
                 ? bodyguard : null;
     }
 
-    /** Drop the tracking entry when the entity dies (called from the death hook). */
+    /** drop the tracking entry when the entity dies (called from the death hook). */
     public static void forget(UUID anchorId) {
         BodyguardEntity.release(anchorId);
     }
@@ -140,7 +140,7 @@ public final class BlessingBodyguard extends Effect {
         level.playSound(null, anchor.blockPosition(), SoundEvents.SKELETON_AMBIENT, SoundSource.NEUTRAL, 0.8F, 0.7F);
     }
 
-    /** Remove any bodyguard already bound to this anchor before summoning a fresh one — no duplicates. */
+    /** remove any bodyguard already bound to this anchor before summoning a fresh one — no duplicates. */
     private static void discardExisting(ServerLevel level, ServerPlayer anchor) {
         UUID anchorId = anchor.getUUID();
         for (BodyguardEntity existing : level.getEntitiesOfClass(BodyguardEntity.class,
@@ -155,7 +155,7 @@ public final class BlessingBodyguard extends Effect {
         return anchor.position().add(back.x, 0.0, back.z);
     }
 
-    /** Used by the death hook: which anchor (if any) does this entity belong to? */
+    /** used by the death hook: which anchor (if any) does this entity belong to? */
     @Nullable
     public static UUID anchorOf(Entity entity) {
         return entity instanceof BodyguardEntity bodyguard ? bodyguard.getAnchorId() : null;

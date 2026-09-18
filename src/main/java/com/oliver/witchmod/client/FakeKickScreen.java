@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
 
 /**
- * Bedrock Moment (Fake Kick): a convincing lookalike of vanilla's disconnect screen — the "Connection Lost"
+ * bedrock Moment (Fake Kick): a convincing lookalike of vanilla's disconnect screen — the "Connection Lost"
  * title, a realistic netty/timeout reason, and a "Back to Server List" button. It's entirely fake: nothing
  * touches the connection, and dismissing it (button, Esc, or a ~12s timeout) just drops you back into the
  * still-running game.

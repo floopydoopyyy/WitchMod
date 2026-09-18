@@ -8,24 +8,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Tracks which curses/blessings and neutrals/globals each player has discovered (master-spec Rule 2):
- * "the victim discovers on TRIGGER; the caster discovers the instant they successfully send it."
- *
- * <p>The caster half is centralised in {@link EffectManager#apply}. The victim half defaults to that same
- * place (so every unrefined attachment still gets discovered), but any effect with a meaningful "it
- * actually happened to you" moment overrides {@link Effect#discoversOnTrigger()} and calls
- * {@link Effect#markDiscoveredByVictim} at that moment instead — e.g. Allergic on the first bad reaction,
- * Backseat Driver the first time the AI takes the wheel. Events (neutrals/globals) are covered at their
- * trigger call sites ({@code BewitchCommand}, {@code BewitchingTableRitual}).
- *
- * <p>A NEW discovery alerts the player in chat (Rule 2); their Compendium shows it as discovered from then on.
+ * tracks which effects each player has discovered — caster on a successful cast (centralised in
+ * {@link EffectManager#apply}), victim on trigger. by default the victim discovers at cast too, but effects
+ * with a real "it happened to you" moment override {@link Effect#discoversOnTrigger()} and mark it then. a
+ * new discovery alerts the player in chat and flips their compendium page.
  */
 public final class DiscoveryManager {
     private DiscoveryManager() {}
 
-    /** @return true if this was a NEW discovery (and therefore alerted the player). */
+    /** @return true if this was a new discovery (and so alerted the player). */
     public static boolean markEffectDiscovered(ServerPlayer player, ResourceLocation effectId) {
-        // Ink Sac / Wither Rose: discovery is the moment a hidden/disguised effect reveals its true wrapper.
+        // ink sac / wither rose: discovery reveals the true wrapper for a hidden/disguised effect
         EffectManager.revealDisplay(player, effectId);
         Set<ResourceLocation> discovered = player.getData(WitchModAttachments.DISCOVERED_EFFECTS);
         if (!discovered.add(effectId)) {
@@ -42,7 +35,7 @@ public final class DiscoveryManager {
                 .orElse(false);
     }
 
-    /** Silently add/remove a single effect discovery (for the {@code /bewitch discovery} command). */
+    /** silently add/remove one effect discovery (for the {@code /bewitch discovery} command). */
     public static void setEffectDiscovered(ServerPlayer player, ResourceLocation effectId, boolean discovered) {
         Set<ResourceLocation> set = player.getData(WitchModAttachments.DISCOVERED_EFFECTS);
         boolean changed = discovered ? set.add(effectId) : set.remove(effectId);
@@ -51,7 +44,7 @@ public final class DiscoveryManager {
         }
     }
 
-    /** Silently add/remove a single modifier discovery. */
+    /** silently add/remove one modifier discovery. */
     public static void setModifierDiscovered(ServerPlayer player, Modifier modifier, boolean discovered) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("witchmod", modifier.id());
         Set<ResourceLocation> set = player.getData(WitchModAttachments.DISCOVERED_MODIFIERS);
@@ -61,10 +54,7 @@ public final class DiscoveryManager {
         }
     }
 
-    /**
-     * Marks a Table modifier discovered for {@code player} (call when they cast a ritual using it). Alerts on
-     * the first discovery. Modifiers are keyed {@code witchmod:<modifier.id()>} in their own attachment set.
-     */
+    /** marks a table modifier discovered (call on a cast using it); alerts on first. keyed {@code witchmod:<id>} in its own set. */
     public static boolean markModifierDiscovered(ServerPlayer player, Modifier modifier) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("witchmod", modifier.id());
         Set<ResourceLocation> discovered = player.getData(WitchModAttachments.DISCOVERED_MODIFIERS);

@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Blessing of Photosynthesis (SUNFLOWER): you soak up the sun. In direct daylight you slowly regenerate and
+ * blessing of Photosynthesis (SUNFLOWER): you soak up the sun. In direct daylight you slowly regenerate and
  * gain a little hunger back; standing in WATER while sunlit makes it stronger (a well-watered plant). No
  * effect underground, at night, or in the rain. Discovers the first time the sun feeds you.
  */

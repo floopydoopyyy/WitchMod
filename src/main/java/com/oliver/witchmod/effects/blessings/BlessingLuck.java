@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * Fortune of a subtler kind (master-spec Luck, sacrificial item RABBIT'S FOOT): your vanilla LUCK attribute
+ * fortune of a subtler kind: your vanilla LUCK attribute
  * is greatly amplified, nudging loot-table rolls — fishing, chests, and anything else that reads luck — your
  * way. It probably doesn't do much moment to moment, but over a session it's worth having.
  *
@@ -32,7 +32,7 @@ public final class BlessingLuck extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.RABBIT_FOOT);
     }
 
-    /** Discovered when the luck first has something to roll on (fishing / a loot chest). */
+    /** discovered when the luck first has something to roll on (fishing / a loot chest). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -45,7 +45,7 @@ public final class BlessingLuck extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Self-heal: a reload drops the transient modifier while the blessing itself persists.
+        // self-heal: a reload drops the transient modifier while the blessing itself persists.
         AttributeInstance luck = target.getAttribute(Attributes.LUCK);
         if (luck != null && !luck.hasModifier(LUCK_MODIFIER_ID)) {
             applyLuck(target);

@@ -18,7 +18,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * A hide like an armadillo's (master-spec Thick Skinned, sacrificial item ARMADILLO SCUTE): any single hit at
+ * A hide like an armadillo's: any single hit at
  * or below {@code thickSkinnedDamageFloor} (2.0 = one heart) just bounces off — the damage has to EXCEED the
  * floor to land at all. When a hit is shrugged off you get a little feedback: a burst of scute-coloured
  * "deflection" particles and a subtle screenshake.
@@ -27,20 +27,20 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * event, which calls {@link #neutralise} for the feedback.
  */
 public final class BlessingThickSkinned extends Effect {
-    /** Scute tan, for the "tough hide" particle burst. */
+    /** scute tan, for the "tough hide" particle burst. */
     private static final DustParticleOptions SCUTE = new DustParticleOptions(new Vector3f(0.72F, 0.53F, 0.32F), 1.1F);
 
     public BlessingThickSkinned() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.ARMADILLO_SCUTE);
     }
 
-    /** You find out the first time a hit bounces off (Rule 2). */
+    /** you find out the first time a hit bounces off (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Feedback when a hit is shrugged off: deflection particles, a tiny screenshake, and a dull thud. */
+    /** feedback when a hit is shrugged off: deflection particles, a tiny screenshake, and a dull thud. */
     public static void neutralise(ServerPlayer player) {
         player.setData(WitchModAttachments.THICK_SKINNED_SHAKE_END,
                 player.serverLevel().getGameTime() + Config.THICKSKIN_SHAKE_TICKS.get());

@@ -14,11 +14,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Echoes curse's writable pool of fake chat lines, loaded from {@code data/witchmod/text/echoes_chat.json}
- * and reloadable with {@code /reload}. A plain JSON array of strings — each is put in the mouth of a random
- * player who is genuinely online, and shown only to the victim.
- */
+/** echoes' fake chat lines ({@code data/witchmod/text/echoes_chat.json}, /reload-able) — shown to the victim in a real online player's mouth. */
 public final class EchoesChatMessages extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "echoes_chat");
@@ -46,7 +42,7 @@ public final class EchoesChatMessages extends SimpleJsonResourceReloadListener {
         lines = List.copyOf(loaded);
     }
 
-    /** A random line, or null if none are written (the caller then picks a different hallucination). */
+    /** a random line, or null if none written (caller falls back to another hallucination). */
     public static String pick(RandomSource random) {
         return lines.isEmpty() ? null : lines.get(random.nextInt(lines.size()));
     }

@@ -9,7 +9,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.oliver.witchmod.WitchMod;
 
-/** The mod's custom entities (master-spec Section 0.4). */
+/** registers the mod's custom entities. */
 public final class WitchModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
             DeferredRegister.create(Registries.ENTITY_TYPE, WitchMod.MODID);
@@ -45,7 +45,7 @@ public final class WitchModEntities {
                     .clientTrackingRange(16)
                     .build("bodyguard"));
 
-    /** The immortal Snail. {@code MobCategory.MISC} so it never spawns naturally — only the curse places it. Tiny. */
+    /** the immortal Snail. {@code MobCategory.MISC} so it never spawns naturally — only the curse places it. Tiny. */
     public static final DeferredHolder<EntityType<?>, EntityType<SnailEntity>> SNAIL =
             ENTITY_TYPES.register("snail", () -> EntityType.Builder
                     .of(SnailEntity::new, MobCategory.MISC)
@@ -65,7 +65,7 @@ public final class WitchModEntities {
                     .clientTrackingRange(12)
                     .build("spaghetti_man"));
 
-    /** The Cutaway Gag's "Dream" player-mimic. Player-sized; never spawns naturally — only the gag places it. */
+    /** the Cutaway Gag's "Dream" player-mimic. Player-sized; never spawns naturally — only the gag places it. */
     public static final DeferredHolder<EntityType<?>, EntityType<DreamEntity>> DREAM =
             ENTITY_TYPES.register("dream", () -> EntityType.Builder
                     .of(DreamEntity::new, MobCategory.MISC)
@@ -73,7 +73,7 @@ public final class WitchModEntities {
                     .clientTrackingRange(16)
                     .build("dream"));
 
-    /** Blessing of Confusion's doppelganger — an exact clone of the caster. Never spawns naturally. */
+    /** blessing of Confusion's doppelganger — an exact clone of the caster. Never spawns naturally. */
     public static final DeferredHolder<EntityType<?>, EntityType<CloneEntity>> CLONE =
             ENTITY_TYPES.register("clone", () -> EntityType.Builder
                     .of(CloneEntity::new, MobCategory.MISC)
@@ -81,7 +81,7 @@ public final class WitchModEntities {
                     .clientTrackingRange(16)
                     .build("clone"));
 
-    /** The Dweller's "watchers" — disembodied glowing eyes in the dark. Tiny, never spawns naturally. */
+    /** the Dweller's "watchers" — disembodied glowing eyes in the dark. Tiny, never spawns naturally. */
     public static final DeferredHolder<EntityType<?>, EntityType<WatcherEyesEntity>> WATCHER_EYES =
             ENTITY_TYPES.register("watcher_eyes", () -> EntityType.Builder
                     .of(WatcherEyesEntity::new, MobCategory.MISC)

@@ -19,10 +19,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
- * Tracks which players have their SPAWN POINT set at which bed — persisted server-wide so it works even for
- * OFFLINE players (whose current respawn we can't otherwise query). Updated from {@code PlayerSetSpawnEvent};
- * read when someone bottles a bed's Player Essence. Multiple players can share a bed, so {@link #at} returns
- * all of them.
+ * which players have their spawn set at which bed — persisted server-wide so it works for offline players
+ * too. updated from PlayerSetSpawnEvent; read when bottling a bed's essence. multiple players can share a bed.
  */
 public final class BedSpawnRegistry extends SavedData {
     private static final String NAME = "witchmod_bed_spawns";
@@ -42,20 +40,20 @@ public final class BedSpawnRegistry extends SavedData {
                 NAME);
     }
 
-    /** Record (or move) a player's spawn to {@code pos} in {@code dim}. */
+    /** record (or move) a player's spawn to {@code pos} in {@code dim}. */
     public void record(ResourceKey<Level> dim, BlockPos pos, UUID id, String name) {
         spawns.put(id, new Spawn(dim.location().toString(), pos.asLong(), name));
         setDirty();
     }
 
-    /** Forget a player's spawn (they cleared it / it was destroyed). */
+    /** forget a player's spawn (cleared or destroyed). */
     public void clear(UUID id) {
         if (spawns.remove(id) != null) {
             setDirty();
         }
     }
 
-    /** Every player whose spawn is set on the bed at (dim, pos) — within a block or two, since a bed is 2 wide. */
+    /** every player whose spawn is set on the bed at (dim, pos) — within a block or two (a bed is 2 wide). */
     public List<PlayerEssenceData> at(ResourceKey<Level> dim, BlockPos pos) {
         String d = dim.location().toString();
         List<PlayerEssenceData> out = new ArrayList<>();

@@ -30,7 +30,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.goals.FarmhandBlockGoal;
 
 /**
- * You cannot get a moment's peace (master-spec Farmhand). Every untamed animal nearby drops what it's doing
+ * you cannot get a moment's peace. Every untamed animal nearby drops what it's doing
  * and makes it its life's mission to stand exactly where you're building (or hem you in) — and if there
  * aren't enough animals around, more are conjured (where the game would naturally allow it).
  *
@@ -40,14 +40,14 @@ import com.oliver.witchmod.effects.goals.FarmhandBlockGoal;
  * survive a world reload while the goal didn't, leaving previously-tagged animals permanently un-recruited.
  */
 public final class CurseFarmhand extends Effect {
-    /** Per-player cooldown before the next top-up spawn burst. */
+    /** per-player cooldown before the next top-up spawn burst. */
     private static final Map<UUID, Long> NEXT_SPAWN = new HashMap<>();
 
     public CurseFarmhand() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.WHEAT);
     }
 
-    /** You realise soon enough, when the cows won't leave you alone (Rule 2). */
+    /** you realise soon enough, when the cows won't leave you alone (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -62,7 +62,7 @@ public final class CurseFarmhand extends Effect {
     public void onTick(ServerPlayer target, int ticksRemaining) {
         ServerLevel level = target.serverLevel();
 
-        // Discovery: the moment an animal is actually planted in front of you (idempotent — only alerts once).
+        // discovery: the moment an animal is actually planted in front of you (idempotent — only alerts once).
         if (animalInFront(target, level)) {
             markDiscoveredByVictim(target);
         }
@@ -74,18 +74,7 @@ public final class CurseFarmhand extends Effect {
         List<Animal> nearby = level.getEntitiesOfClass(Animal.class,
                 area(target), CurseFarmhand::isRecruitable);
         for (Animal animal : nearby) {
-            FarmhandBlockGoal existing = findFarmhandGoal(animal);
-            if (existing != null && existing.isTargeting(target)) {
-                continue; // already working for this player
-            }
-            if (existing != null) {
-                // Stale goal bound to a previous ServerPlayer instance (respawn/relog replaces the object),
-                // which would sit dormant forever. Swap it for one bound to the player who's here now.
-                animal.goalSelector.removeGoal(existing);
-            }
-            // PRIORITY 1: getting in the way is this animal's top job, above wandering/grazing/breeding.
-            // (Float/panic also sit at 0-1, so a hit still makes it flinch — it just wanders back.)
-            animal.goalSelector.addGoal(1, new FarmhandBlockGoal(animal, target));
+            recruit(animal, target);
         }
 
         if (nearby.size() < Config.FARMHAND_MIN_ANIMALS.get()) {
@@ -93,7 +82,26 @@ public final class CurseFarmhand extends Effect {
         }
     }
 
-    /** True if a hijacked mob is right in front of the victim — close and within their view cone. */
+    /** bind one animal to this player's farmhand nuisance (swapping any goal left over from a previous instance). */
+    public static void recruit(Animal animal, ServerPlayer target) {
+        if (!isRecruitable(animal)) {
+            return;
+        }
+        FarmhandBlockGoal existing = findFarmhandGoal(animal);
+        if (existing != null && existing.isTargeting(target)) {
+            return; // already working for this player
+        }
+        if (existing != null) {
+            // stale goal bound to a previous ServerPlayer instance (respawn/relog replaces the object),
+            // which would sit dormant forever. Swap it for one bound to the player who's here now.
+            animal.goalSelector.removeGoal(existing);
+        }
+        // PRIORITY 1: getting in the way is this animal's top job, above wandering/grazing/breeding.
+        // (Float/panic also sit at 0-1, so a hit still makes it flinch — it just wanders back.)
+        animal.goalSelector.addGoal(1, new FarmhandBlockGoal(animal, target));
+    }
+
+    /** true if a hijacked mob is right in front of the victim — close and within their view cone. */
     private static boolean animalInFront(ServerPlayer target, ServerLevel level) {
         Vec3 look = target.getLookAngle();
         Vec3 lookFlat = new Vec3(look.x, 0.0, look.z);
@@ -120,22 +128,22 @@ public final class CurseFarmhand extends Effect {
         return target.getBoundingBox().inflate(Config.FARMHAND_RADIUS.get());
     }
 
-    /** Passive and NOT tamed/owned — only animals get conscripted (Oliver's call: passive mobs only). */
+    /** passive and NOT tamed/owned — only animals get conscripted (Oliver's call: passive mobs only). */
     private static boolean isRecruitable(Animal animal) {
         return animal.isAlive() && !(animal instanceof TamableAnimal tam && tam.isTame());
     }
 
     /**
-     * This animal's existing Farmhand goal, or null. Checked instead of a save-persistent scoreboard tag:
+     * this animal's existing Farmhand goal, or null. Checked instead of a save-persistent scoreboard tag:
      * goals are transient, so a tag would survive a world reload while the goal didn't.
      */
     private static FarmhandBlockGoal findFarmhandGoal(Mob mob) {
         return mob.goalSelector.getAvailableGoals().stream()
-                .map(w -> w.getGoal())
-                .filter(FarmhandBlockGoal.class::isInstance)
-                .map(FarmhandBlockGoal.class::cast)
-                .findFirst()
-                .orElse(null);
+.map(w -> w.getGoal())
+.filter(FarmhandBlockGoal.class::isInstance)
+.map(FarmhandBlockGoal.class::cast)
+.findFirst()
+.orElse(null);
     }
 
     // --- Top-up spawning (only where an animal would naturally spawn) ----------------------------------
@@ -159,9 +167,9 @@ public final class CurseFarmhand extends Effect {
         int x = (int) Math.floor(target.getX() + Math.cos(angle) * dist);
         int z = (int) Math.floor(target.getZ() + Math.sin(angle) * dist);
 
-        // Which animals belong in this biome (cows/pigs/sheep in plains, etc.).
+        // which animals belong in this biome (cows/pigs/sheep in plains, etc.).
         var creatures = level.getBiome(new BlockPos(x, target.blockPosition().getY(), z))
-                .value().getMobSettings().getMobs(MobCategory.CREATURE);
+.value().getMobSettings().getMobs(MobCategory.CREATURE);
         if (creatures.isEmpty()) {
             return;
         }
@@ -171,7 +179,7 @@ public final class CurseFarmhand extends Effect {
         }
         EntityType<?> type = pick.get().type;
 
-        // Only where vanilla itself would allow this animal (grass, light, footing) — "correct conditions".
+        // only where vanilla itself would allow this animal (grass, light, footing) — "correct conditions".
         for (int dy = 3; dy >= -6; dy--) {
             BlockPos pos = new BlockPos(x, target.blockPosition().getY() + dy, z);
             if (!SpawnPlacements.getPlacementType(type).isSpawnPositionOk(level, pos, type)) {

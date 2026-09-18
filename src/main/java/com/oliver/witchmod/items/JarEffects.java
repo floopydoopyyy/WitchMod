@@ -30,18 +30,18 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.CapturedEffect;
 import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.WitchModRegistries;
+import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * The behaviour of a jar breaking open — thrown, or destroyed in a hazard. Its stored effects splash over an
- * over-sized area; if no player is caught, a homing LASH surges out to punish whoever tried to throw it away.
- * There is no clean way to just bin these.
+ * a jar breaking open (thrown or destroyed in a hazard): its effects splash over an over-sized area; if no
+ * player is caught, a homing lash surges out — so there's no clean way to just bin one.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class JarEffects {
     private static final DustParticleOptions YELLOW = new DustParticleOptions(new Vector3f(1.0F, 0.95F, 0.4F), 1.3F);
     private static final DustParticleOptions PALE = new DustParticleOptions(new Vector3f(1.0F, 1.0F, 0.85F), 1.1F);
 
-    /** Active lashes, ticked server-side. */
+    /** active lashes, ticked server-side. */
     private static final List<Lash> LASHES = new ArrayList<>();
     private static int hazardScanClock;
 
@@ -66,8 +66,9 @@ public final class JarEffects {
                 applyStored(level, p, effects, ownerName, pos, true); // a DIRECT splash — punches through protection
             }
         } else {
-            // No one in the blast — it lashes out at the nearest player instead.
+            // no one in the blast — it lashes out at the nearest player instead.
             LASHES.add(new Lash(level, pos.add(0, 0.4, 0), new ArrayList<>(effects), kind, Config.LASH_EXPIRY_TICKS.get(), ownerName));
+            level.playSound(null, pos.x, pos.y, pos.z, WitchModSounds.LASH_SPAWN.get(), SoundSource.PLAYERS, 0.9F, 1.0F);
         }
     }
 
@@ -108,7 +109,7 @@ public final class JarEffects {
                 it.remove();
                 continue;
             }
-            // Prioritise the nearest UNPROTECTED player (a lash prefers an easy target). If only protected
+            // prioritise the nearest UNPROTECTED player (a lash prefers an easy target). If only protected
             // players are in reach it still homes on the nearest one, but its hit will be blocked (fizzles).
             ServerPlayer target = null;
             double best = range * range;
@@ -146,7 +147,7 @@ public final class JarEffects {
         }
     }
 
-    /** Jars dropped into a hazard break the same way — you can't quietly bin them. */
+    /** jars dropped into a hazard break the same way — you can't quietly bin them. */
     private static void scanHazards(MinecraftServer server) {
         List<ItemEntity> doomed = new ArrayList<>();
         for (ServerLevel level : server.getAllLevels()) {
@@ -192,7 +193,7 @@ public final class JarEffects {
         }
     }
 
-    /** Cursed = purple witch stars; Blessed = warm yellow/white; Mixed = all of it. */
+    /** cursed = purple witch stars; Blessed = warm yellow/white; Mixed = all of it. */
     private static ParticleOptions[] palette(int kind) {
         return switch (kind) {
             case JarContents.BLESSED -> new ParticleOptions[]{ParticleTypes.END_ROD, YELLOW, PALE};

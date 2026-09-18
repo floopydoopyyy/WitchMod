@@ -14,17 +14,15 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * The Organised blessing's 9 extra inventory slots (Phase D), backed by the serialized
- * {@link WitchModAttachments#ORGANISED_ITEMS} attachment. Opened as a plain vanilla 1-row chest menu — no
- * custom Menu/Screen needed — via a {@link SimpleContainer} that writes itself back to the attachment when
- * the menu closes.
+ * the organised blessing's 9 extra inventory slots, backed by a serialized attachment. opened as a plain
+ * 1-row chest menu (no custom menu/screen) via a container that saves back to the attachment on close.
  */
 public final class OrganisedStash {
     public static final int SIZE = 9;
 
     private OrganisedStash() {}
 
-    /** Opens the 9-slot stash as a 1-row chest menu for the owner (the extra inventory row). */
+    /** opens the 9-slot stash as a 1-row chest menu for the owner. */
     public static void openMenu(ServerPlayer owner) {
         SimpleContainer container = openContainer(owner);
         owner.openMenu(new SimpleMenuProvider(
@@ -32,7 +30,7 @@ public final class OrganisedStash {
                 Component.literal("Stash")));
     }
 
-    /** Builds a container seeded from the player's stored slots that saves back to the attachment on close. */
+    /** container seeded from the stored slots that saves back to the attachment on close. */
     public static SimpleContainer openContainer(ServerPlayer owner) {
         SimpleContainer container = new SimpleContainer(SIZE) {
             @Override
@@ -56,10 +54,7 @@ public final class OrganisedStash {
         owner.setData(WitchModAttachments.ORGANISED_ITEMS, items);
     }
 
-    /**
-     * When the blessing is lost, every item in the extra row first TRIES to go into the player's main
-     * inventory; only what doesn't fit is dropped. Then the stash is cleared.
-     */
+    /** on losing the blessing, spill the extra row into the main inventory, drop the overflow, then clear it. */
     public static void returnOrDrop(ServerPlayer owner) {
         for (ItemStack stored : owner.getData(WitchModAttachments.ORGANISED_ITEMS)) {
             if (stored.isEmpty()) {

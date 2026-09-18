@@ -18,7 +18,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * A gifted enchanter (master-spec-style Enchanter, sacrificial item LAPIS LAZULI): the enchanting table is
+ * A gifted enchanter: the enchanting table is
  * kind to you. Enchanting costs you almost no XP, the options roll a couple of levels higher by default (so
  * better enchants), and you can never pull one of the "bad" enchantments out of a table.
  *
@@ -37,13 +37,13 @@ public final class BlessingEnchanter extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.LAPIS_LAZULI);
     }
 
-    /** Discovered the first time you actually enchant something. */
+    /** discovered the first time you actually enchant something. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** True if this enchantment is one of the spec's "bad" ones (or any curse). */
+    /** true if this enchantment is one of the spec's "bad" ones (or any curse). */
     public static boolean isBad(Holder<Enchantment> e) {
         return e.is(Enchantments.SMITE)
                 || e.is(Enchantments.BANE_OF_ARTHROPODS)
@@ -54,7 +54,7 @@ public final class BlessingEnchanter extends Effect {
                 || e.is(EnchantmentTags.CURSE);
     }
 
-    /** Remove every bad enchantment from a freshly-enchanted item (covers gear and enchanted books). */
+    /** remove every bad enchantment from a freshly-enchanted item (covers gear and enchanted books). */
     public static void stripBadEnchants(ItemStack stack) {
         stripFrom(stack, DataComponents.ENCHANTMENTS);
         stripFrom(stack, DataComponents.STORED_ENCHANTMENTS);

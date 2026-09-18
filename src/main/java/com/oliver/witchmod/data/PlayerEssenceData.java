@@ -9,7 +9,7 @@ import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 
-/** Which player a Player Essence, Voodoo Doll, etc. is bound to (CLAUDE.md section 3). */
+/** which player a player essence / voodoo doll is bound to. */
 public record PlayerEssenceData(UUID playerId, String playerName) {
     public static final Codec<PlayerEssenceData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.CODEC.fieldOf("player_id").forGetter(PlayerEssenceData::playerId),

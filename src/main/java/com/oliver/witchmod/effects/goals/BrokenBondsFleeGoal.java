@@ -9,13 +9,9 @@ import net.minecraft.world.phys.Vec3;
 import com.oliver.witchmod.Config;
 
 /**
- * The Broken Bonds curse's "I'm done with you" AI. When a mob's hate meter maxes out it untames and this
- * takes its legs for a while, walking it a good distance away from where it snapped.
- *
- * <p>Unlike the Unhygienic flee goal this is <b>time-limited</b> and flees a REMEMBERED point rather than a
- * live player: the mob is no longer owned by anyone once it's untamed, so it isn't reacting to the ex-owner
- * so much as storming off from the spot the betrayal happened. Once the timer runs out it goes dormant and
- * the mob is just an ordinary wild animal again.
+ * broken bonds' "i'm done with you" ai — when a mob's hate meter maxes it untames and storms a good distance
+ * from where it snapped. time-limited and flees a remembered point (not a live player, since it's now
+ * ownerless); goes dormant when the timer runs out.
  */
 public final class BrokenBondsFleeGoal extends Goal {
     private static final int REPATH_INTERVAL = 10;

@@ -13,7 +13,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Speed Demon (client half): a ridden BOAT is client-authoritative (the controlling player simulates it and
+ * speed Demon (client half): a ridden BOAT is client-authoritative (the controlling player simulates it and
  * sends its position), so a server-side speed boost wouldn't stick — this scales the boat's horizontal
  * velocity each client tick while the blessing is active, capped so it doesn't get silly. Living mounts
  * (server-driven) and minecarts (server-authoritative) are handled server-side in {@code BlessingSpeedDemon}.

@@ -57,6 +57,7 @@ import com.oliver.witchmod.items.JarContents;
  *
  *   /bewitch give jar make &lt;e1&gt; [e2] [e3]              a filled jar from effect ids
  *   /bewitch give jar copy &lt;player&gt;                    a jar snapshotting a player's active effects
+ *   /bewitch give namedjar &lt;id&gt;                        a predetermined named jar (jar of mining, ...)
  *   /bewitch give essence  &lt;player&gt; | uuid &lt;uuid&gt;      a Player Essence bound to a target (uuid = offline)
  *   /bewitch give voodoo   &lt;player&gt; | uuid &lt;uuid&gt;      a Voodoo Doll bound to a target
  *
@@ -308,6 +309,7 @@ public final class BewitchCommand {
     private static LiteralArgumentBuilder<CommandSourceStack> giveNode(CommandBuildContext context) {
         return Commands.literal("give")
                 .then(giveJarNode(context))
+                .then(giveNamedJarNode())
                 .then(Commands.literal("essence")
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> {
@@ -332,6 +334,27 @@ public final class BewitchCommand {
                                             java.util.UUID uuid = UuidArgument.getUuid(ctx, "uuid");
                                             return giveDoll(ctx, uuid, resolveName(ctx.getSource().getServer(), uuid));
                                         }))));
+    }
+
+    /** give a predetermined named jar by its id (e.g. "mining"), tab-completed from the registry. */
+    private static LiteralArgumentBuilder<CommandSourceStack> giveNamedJarNode() {
+        return Commands.literal("namedjar")
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                com.oliver.witchmod.loot.NamedJars.all().stream().map(j -> j.id().getPath()), builder))
+                        .executes(ctx -> giveNamedJar(ctx, StringArgumentType.getString(ctx, "id"))));
+    }
+
+    private static int giveNamedJar(CommandContext<CommandSourceStack> ctx, String id) throws CommandSyntaxException {
+        com.oliver.witchmod.loot.NamedJar jar = com.oliver.witchmod.loot.NamedJars.byId(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(com.oliver.witchmod.WitchMod.MODID, id));
+        if (jar == null) {
+            ctx.getSource().sendFailure(Component.literal("No named jar '" + id + "'."));
+            return 0;
+        }
+        giveOrDrop(ctx, com.oliver.witchmod.loot.NamedJars.createStack(jar, ctx.getSource().getLevel().getRandom()));
+        ctx.getSource().sendSuccess(() -> Component.literal("Gave a ").append(jar.displayName()).append("."), false);
+        return 1;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> giveJarNode(CommandBuildContext context) {
@@ -458,7 +481,90 @@ public final class BewitchCommand {
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> forceVoodoo(ctx,
                                                 StringArgumentType.getString(ctx, "interaction"),
-                                                EntityArgument.getPlayer(ctx, "player"))))));
+                                                EntityArgument.getPlayer(ctx, "player"))))))
+                .then(Commands.literal("ritualfx")
+                        .then(Commands.argument("kind", StringArgumentType.word())
+                                .suggests((c, b) -> SharedSuggestionProvider.suggest(RITUALFX_KINDS, b))
+                                .executes(ctx -> debugRitualFx(ctx, null))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(ctx -> debugRitualFx(ctx, EntityArgument.getPlayer(ctx, "target"))))))
+                .then(Commands.literal("voodootrack")
+                        .executes(BewitchCommand::debugVoodooTrack));
+    }
+
+    private static final java.util.List<String> RITUALFX_KINDS =
+            java.util.List.of("success_blessing", "success_curse", "fizzle", "backfire", "backfire_mirror");
+
+    /** Fire a ritual outcome FX at the caster's feet, for testing (optionally lashing to a target player). */
+    private static int debugRitualFx(CommandContext<CommandSourceStack> ctx, @org.jetbrains.annotations.Nullable ServerPlayer target)
+            throws CommandSyntaxException {
+        ServerPlayer caster = ctx.getSource().getPlayerOrException();
+        if (!(caster.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            return 0;
+        }
+        String kind = StringArgumentType.getString(ctx, "kind").toLowerCase();
+        int k;
+        boolean blessing = false;
+        boolean purple = false;
+        switch (kind) {
+            case "success_blessing" -> { k = 0; blessing = true; }
+            case "success_curse" -> k = 0;
+            case "fizzle" -> k = 1;
+            case "backfire" -> k = 2;
+            case "backfire_mirror" -> { k = 2; purple = true; }
+            default -> {
+                ctx.getSource().sendFailure(Component.literal("Unknown FX '" + kind + "' (" + String.join("|", RITUALFX_KINDS) + ")."));
+                return 0;
+            }
+        }
+        net.minecraft.world.item.ItemStack fxItem = caster.getMainHandItem().isEmpty()
+                ? new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHER_STAR)
+                : caster.getMainHandItem();
+        // Force a lash for testing: use the given target, else the nearest other living entity (self has no lash).
+        net.minecraft.world.entity.LivingEntity lash = target != null && target != caster ? target : null;
+        if (lash == null) {
+            double bestSq = Double.MAX_VALUE;
+            for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+                    caster.getBoundingBox().inflate(48.0), e -> e != caster && e.isAlive())) {
+                double d = e.distanceToSqr(caster);
+                if (d < bestSq) {
+                    bestSq = d;
+                    lash = e;
+                }
+            }
+        }
+        // Cast the ritual FX a couple of blocks in front of you so a lash always has a clear direction.
+        net.minecraft.world.phys.Vec3 look = caster.getLookAngle();
+        net.minecraft.core.BlockPos origin = net.minecraft.core.BlockPos.containing(
+                caster.getX() + look.x * 2.0, caster.getY(), caster.getZ() + look.z * 2.0);
+        com.oliver.witchmod.network.WitchModNetwork.sendRitualFxToEntity(level, origin, k, blessing, purple, fxItem, lash);
+        net.minecraft.world.entity.LivingEntity shown = lash;
+        ctx.getSource().sendSuccess(() -> Component.literal("Ritual FX: " + kind
+                + (shown != null ? " → " + shown.getName().getString() : " (no lash — no target nearby)")), false);
+        return 1;
+    }
+
+    /** Point the caster's held Voodoo Doll tracker at the nearest NON-player entity for 30s (testing). */
+    private static int debugVoodooTrack(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer caster = ctx.getSource().getPlayerOrException();
+        net.minecraft.world.entity.Entity best = null;
+        double bestSq = Double.MAX_VALUE;
+        for (net.minecraft.world.entity.Entity e : caster.level().getEntities(caster,
+                caster.getBoundingBox().inflate(64.0), e -> e.isAlive() && !(e instanceof net.minecraft.world.entity.player.Player))) {
+            double d = e.distanceToSqr(caster);
+            if (d < bestSq) {
+                bestSq = d;
+                best = e;
+            }
+        }
+        if (best == null) {
+            ctx.getSource().sendFailure(Component.literal("No non-player entity within 64 blocks."));
+            return 0;
+        }
+        com.oliver.witchmod.items.ItemVoodooDoll.setDebugTrack(caster, best, 600);
+        net.minecraft.world.entity.Entity found = best;
+        ctx.getSource().sendSuccess(() -> Component.literal("Voodoo tracker → " + found.getName().getString() + " for 30s (hold a doll)."), false);
+        return 1;
     }
 
     /** Suggests the selected effect's valid debug args (e.g. the Cutaway gag names) as you type. */

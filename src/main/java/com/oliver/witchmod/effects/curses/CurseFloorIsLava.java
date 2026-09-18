@@ -20,7 +20,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * The ground remembers being lava, and it only notices you when you stop (master-spec Floor Is Lava). Stand
+ * the ground remembers being lava, and it only notices you when you stop. Stand
  * still past the grace period and you start burning — and it gets worse the longer you stand there.
  *
  * <p><b>The grace period and the ramp are doing opposite jobs, and both are necessary.</b> The grace period
@@ -49,7 +49,7 @@ public final class CurseFloorIsLava extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 55, () -> Items.MAGMA_BLOCK);
     }
 
-    /** You find out the first time the floor bites (Rule 2). */
+    /** you find out the first time the floor bites (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -87,7 +87,7 @@ public final class CurseFloorIsLava extends Effect {
         if (still <= grace) {
             return;
         }
-        // Warn a moment before the first burn, so it reads as the floor heating up rather than random damage.
+        // warn a moment before the first burn, so it reads as the floor heating up rather than random damage.
         if (still % 5 == 0) {
             smoulder(target, still - grace);
         }
@@ -115,7 +115,7 @@ public final class CurseFloorIsLava extends Effect {
         markDiscoveredByVictim(target);
     }
 
-    /** Flames licking up around the feet, thickening as the ramp climbs — the tell that it's getting worse. */
+    /** flames licking up around the feet, thickening as the ramp climbs — the tell that it's getting worse. */
     private static void smoulder(ServerPlayer target, int ticksBurning) {
         int count = 2 + Math.min(10, ticksBurning / 20);
         target.serverLevel().sendParticles(ParticleTypes.FLAME,

@@ -51,7 +51,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * The client-side curses (Phase D), driven off auto-synced flags on the local player:
+ * the client-side curses, driven off auto-synced flags on the local player:
  * <ul>
  *   <li><b>Moonwalker</b> — reverses forward/back movement input.</li>
  *   <li><b>Screensaver</b> — episodic OS window shrink/bounce/grow; see {@link ScreensaverState}. It drops
@@ -70,23 +70,23 @@ import com.oliver.witchmod.data.WitchModSounds;
  */
 @EventBusSubscriber(modid = WitchMod.MODID, value = Dist.CLIENT)
 public final class ClientCurseHandler {
-    /** Social Outcast: how close a sound must start to a hidden entity to be treated as theirs. */
+    /** social Outcast: how close a sound must start to a hidden entity to be treated as theirs. */
     private static final double OUTCAST_SOUND_MATCH_RADIUS = 2.0;
-    /** Reused rather than allocated per frame — this runs every render tick while a shake is active. */
+    /** reused rather than allocated per frame — this runs every render tick while a shake is active. */
     private static final java.util.Random SHAKE_RNG = new java.util.Random();
 
     private static int nextRenameTick;
 
     private static int tickCounter;
 
-    // Builder: cached reflection into the two private client-side place/break delay counters.
+    // builder: cached reflection into the two private client-side place/break delay counters.
     private static java.lang.reflect.Field rightClickDelayField;
     private static java.lang.reflect.Field destroyDelayField;
     private static boolean builderReflectInit;
 
-    // Gladiator: the hotbar slot held when the parry input-lock began (so switching is reverted).
+    // gladiator: the hotbar slot held when the parry input-lock began (so switching is reverted).
     private static int gladiatorLockSlot = -1;
-    // Gladiator: mirror the server's parry weapon-cooldown onto the CLIENT ticker so the attack indicator shows it.
+    // gladiator: mirror the server's parry weapon-cooldown onto the CLIENT ticker so the attack indicator shows it.
     private static long gladiatorWeaponReadySeen = Long.MIN_VALUE;
     private static java.lang.reflect.Field clientAttackTickerField;
     private static boolean clientAttackTickerResolved;
@@ -110,25 +110,25 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Prop Hunt: lift the disguise block back up by vanilla's sneak render offset (2px) while crouched-anchored. */
+    /** prop Hunt: lift the disguise block back up by vanilla's sneak render offset (2px) while crouched-anchored. */
     private static final double PROPHUNT_CROUCH_LIFT = 0.125;
 
     private static int spiderWallJumpCooldown;
     private static boolean spiderJumpWasDown;
     private static boolean spiderAttached; // must attach (climb/cling) before a wall-jump is allowed
 
-    /** True if there's a wall within reach (adjacency, so clinging works without pushing into it). */
+    /** true if there's a wall within reach (adjacency, so clinging works without pushing into it). */
     private static boolean spiderNearWall(LocalPlayer player) {
         return !player.level().noCollision(player, player.getBoundingBox().inflate(0.12, 0.0, 0.12));
     }
 
-    // Ninja state.
+    // ninja state.
     private static boolean ninjaCanDoubleJump = true;
     private static boolean ninjaJumpWasDown;
     private static boolean ninjaWasSwinging;
     private static boolean ninjaJumpArmed; // must RELEASE jump mid-air before the double jump can fire
 
-    /** Ninja: mid-air double jump, a sharp woosh on every swing, and ninja-smoke FX. Client-authoritative. */
+    /** ninja: mid-air double jump, a sharp woosh on every swing, and ninja-smoke FX. Client-authoritative. */
     private static void tickNinja(Minecraft mc, LocalPlayer player) {
         boolean active = player.getData(WitchModAttachments.NINJA_ACTIVE) >= 0;
         boolean jumpDown = mc.options.keyJump.isDown();
@@ -175,7 +175,7 @@ public final class ClientCurseHandler {
                 WitchModSounds.GLADIATOR_WHIFF.get(), SoundSource.PLAYERS, 0.8F, 0.85F, false);
     }
 
-    /** Prop Hunt: render the disguised player as their chosen block instead of the player model. */
+    /** prop Hunt: render the disguised player as their chosen block instead of the player model. */
     @SubscribeEvent
     static void onPropHuntRender(RenderPlayerEvent.Pre event) {
         int id = event.getEntity().getData(WitchModAttachments.PROPHUNT_BLOCK);
@@ -194,13 +194,13 @@ public final class ClientCurseHandler {
         pose.pushPose();
         long anchor = player.getData(WitchModAttachments.PROPHUNT_ANCHOR);
         if (anchor != Long.MIN_VALUE) {
-            // Anchored (crouched): render at the EXACT world cell the server pinned. Crouching only happens
+            // anchored (crouched): render at the EXACT world cell the server pinned. Crouching only happens
             // here, and vanilla's sneak pose drops the render ~2px AFTER this event fires — add it back so the
             // block sits at true block height instead of sinking into the floor.
             BlockPos bp = BlockPos.of(anchor);
             pose.translate(bp.getX() - px, bp.getY() - py + PROPHUNT_CROUCH_LIFT, bp.getZ() - pz);
         } else {
-            // Moving: the block follows you, centred on your feet.
+            // moving: the block follows you, centred on your feet.
             pose.translate(-0.5, 0.0, -0.5);
         }
         Minecraft.getInstance().getBlockRenderer().renderSingleBlock(state, pose, event.getMultiBufferSource(),
@@ -209,7 +209,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Spider: climb a wall you push into, CLING to it (hang on the edge) while crouching, and WALL-JUMP off
+     * spider: climb a wall you push into, CLING to it (hang on the edge) while crouching, and WALL-JUMP off
      * it — a fresh jump press kicks you up and away, so you can bounce between walls. Client-authoritative.
      */
     private static void tickSpider(Minecraft mc, LocalPlayer player) {
@@ -228,7 +228,7 @@ public final class ClientCurseHandler {
         }
         Vec3 v = player.getDeltaMovement();
 
-        // Wall jump — ONLY once attached (so running into a wall can't fling you), launching where you LOOK.
+        // wall jump — ONLY once attached (so running into a wall can't fling you), launching where you LOOK.
         if (jumpPressed && spiderAttached && spiderWallJumpCooldown <= 0) {
             Vec3 look = player.getLookAngle();
             Vec3 flat = new Vec3(look.x, 0, look.z);
@@ -256,13 +256,13 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Gladiator: true while the hand is committed to a parry (no switch/swing/use). */
+    /** gladiator: true while the hand is committed to a parry (no switch/swing/use). */
     private static boolean gladiatorLocked(LocalPlayer player) {
         Minecraft mc = Minecraft.getInstance();
         return mc.level != null && player.getData(WitchModAttachments.GLADIATOR_LOCK_END) > mc.level.getGameTime();
     }
 
-    /** Blocks attack/use/pick while parrying; the slot revert + swap/drop drain live in the tick handlers. */
+    /** blocks attack/use/pick while parrying; the slot revert + swap/drop drain live in the tick handlers. */
     @SubscribeEvent
     static void onGladiatorInputLock(InputEvent.InteractionKeyMappingTriggered event) {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -271,7 +271,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Drains swap-offhand / drop before the tick processes them, while parrying. */
+    /** drains swap-offhand / drop before the tick processes them, while parrying. */
     @SubscribeEvent
     static void onGladiatorLockPre(ClientTickEvent.Pre event) {
         Minecraft mc = Minecraft.getInstance();
@@ -292,7 +292,7 @@ public final class ClientCurseHandler {
     private static float loadingLockedYaw;   // Loading Screen: the view is frozen here for the duration
     private static float loadingLockedPitch;
 
-    // Pacing camera state. The camera entity is always the VICTIM (a player), so it never becomes a mob and
+    // pacing camera state. The camera entity is always the VICTIM (a player), so it never becomes a mob and
     // never inherits a disorienting spectator shader (spider vision, creeper tint, ...). Shots are precomputed
     // absolute (yaw, pitch) framings the camera cuts between.
     private static boolean pacingCamActive;
@@ -307,7 +307,7 @@ public final class ClientCurseHandler {
     private static int pacingTotalTicks = 1;
     private static SoundInstance pacingTheme;
 
-    // Cutaway Gag camera state: an overhead standstill from the watcher's own eyes (server places us at a good
+    // cutaway Gag camera state: an overhead standstill from the watcher's own eyes (server places us at a good
     // vantage), aimed at the victim. The pinned angles hold the shot steady between ticks.
     private static boolean cutawayCamActive;
     private static CameraType cutawaySavedCamera;
@@ -323,13 +323,13 @@ public final class ClientCurseHandler {
     private ClientCurseHandler() {}
 
     /**
-     * Loading Screen: kill every interaction key (attack, use, pick block) while the fake load is up. Menus
+     * loading Screen: kill every interaction key (attack, use, pick block) while the fake load is up. Menus
      * are deliberately left alone — those aren't routed through this event.
      */
     @SubscribeEvent
     static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
-        // Loading Screen, Pacing and Cutaway Gag all kill every interaction key (attack, use, pick block).
-        // Menus are deliberately left alone — those aren't routed through this event.
+        // loading Screen, Pacing and Cutaway Gag all kill every interaction key (attack, use, pick block).
+        // menus are deliberately left alone — those aren't routed through this event.
         LocalPlayer cutawayCheck = Minecraft.getInstance().player;
         if (LoadingScreenState.isActive() || pacingCamActive
                 || (cutawayCheck != null && cutawayCheck.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0)) {
@@ -337,7 +337,7 @@ public final class ClientCurseHandler {
             return;
         }
 
-        // Delusions: swinging at one pops it. Cancelled so the swing doesn't ALSO carry on into whatever's
+        // delusions: swinging at one pops it. Cancelled so the swing doesn't ALSO carry on into whatever's
         // behind it — the arm still swings, so it reads as a hit that connected with something.
         LocalPlayer player = Minecraft.getInstance().player;
         if (event.isAttack() && player != null && DelusionManager.onAttack(player)) {
@@ -347,34 +347,45 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Social Outcast: other players and villagers simply aren't drawn — no model, no nametag — unless
+     * social Outcast: other players and villagers simply aren't drawn — no model, no nametag — unless
      * they're close enough to touch or have hit you recently.
      *
      * <p>Cancelling {@code RenderLivingEvent.Pre} returns before {@code LivingEntityRenderer.render} reaches
      * its {@code super.render} call, which is what draws the nametag — so one cancel hides both. Nothing
      * about the world changes: they're still there, still solid, still able to kill you.
      */
+    /**
+     * the local player may see a Dweller (Spaghetti Man / watcher eyes) if it's their OWN ({@code victim} matches),
+     * or if they themselves currently carry the Haunted curse (synced {@code DWELLER_ACTIVE >= 0}) — so multiple
+     * cursed players share the nightmare instead of an entity that half-renders. Everyone else sees nothing.
+     */
+    private static boolean canSeeDweller(java.util.UUID victim) {
+        LocalPlayer me = Minecraft.getInstance().player;
+        if (me == null) {
+            return false;
+        }
+        return me.getUUID().equals(victim) || me.getData(WitchModAttachments.DWELLER_ACTIVE) >= 0;
+    }
+
     @SubscribeEvent
     static void onRenderLiving(RenderLivingEvent.Pre<?, ?> event) {
-        // The Dweller: the Spaghetti Man is a private horror — it's only ever drawn for its VICTIM (whose UUID
-        // it carries, synced). Everyone else's client refuses to render it, so it exists solely in the
-        // victim's world.
+        // the Dweller: the Spaghetti Man is a private horror — drawn for its own VICTIM, and (so the nightmare is
+        // shared, not duplicated into invisibility bugs) for ANYONE ELSE who ALSO currently carries the Haunted
+        // curse. Uncursed players' clients refuse to render it, so to them it never existed.
         if (event.getEntity() instanceof com.oliver.witchmod.entities.SpaghettiManEntity dweller) {
-            LocalPlayer me = Minecraft.getInstance().player;
-            if (me == null || dweller.getVictim().map(id -> !id.equals(me.getUUID())).orElse(true)) {
+            if (!canSeeDweller(dweller.getVictim().orElse(null))) {
                 event.setCanceled(true);
                 return;
             }
         }
         if (event.getEntity() instanceof com.oliver.witchmod.entities.WatcherEyesEntity watcher) {
-            LocalPlayer me = Minecraft.getInstance().player;
-            if (me == null || watcher.getVictim().map(id -> !id.equals(me.getUUID())).orElse(true)) {
+            if (!canSeeDweller(watcher.getVictim().orElse(null))) {
                 event.setCanceled(true);
                 return;
             }
         }
 
-        // Immortality: while a player is rebuilding, their MODEL is hidden so the gold→white particle
+        // immortality: while a player is rebuilding, their MODEL is hidden so the gold→white particle
         // silhouette stands in its place until they pop back. Visible to everyone (the recovery flags are
         // synced to trackers), so any onlooker sees the particle-body too.
         if (event.getEntity() instanceof net.minecraft.world.entity.player.Player p && isImmortalityRebuilding(p)) {
@@ -382,7 +393,7 @@ public final class ClientCurseHandler {
             return;
         }
 
-        // Unseen: another player who's cloaked is hidden entirely from you unless you're within the reveal
+        // unseen: another player who's cloaked is hidden entirely from you unless you're within the reveal
         // distance; a cloak/uncloak puff fires as they cross it, so both parties get clear feedback.
         LocalPlayer viewer = Minecraft.getInstance().player;
         if (viewer != null && event.getEntity() instanceof net.minecraft.world.entity.player.Player other
@@ -410,7 +421,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Social Outcast: hidden entities are silenced as well as invisible. Hearing footsteps and villager
+     * social Outcast: hidden entities are silenced as well as invisible. Hearing footsteps and villager
      * mumbling from thin air would give the whole thing away instantly — worse, it would tell you exactly
      * where the person you can't see is standing, which is the opposite of the intended effect.
      *
@@ -428,7 +439,7 @@ public final class ClientCurseHandler {
                 || player.getData(WitchModAttachments.SOCIAL_OUTCAST_ACTIVE) < 0) {
             return;
         }
-        // Only categories entities actually emit — block and ambient sounds are the world, not a person.
+        // only categories entities actually emit — block and ambient sounds are the world, not a person.
         SoundSource source = sound.getSource();
         if (source != SoundSource.PLAYERS && source != SoundSource.NEUTRAL && source != SoundSource.VOICE) {
             return;
@@ -443,7 +454,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Shared by the render and audio hooks, so the two can never disagree about who is hidden. */
+    /** shared by the render and audio hooks, so the two can never disagree about who is hidden. */
     private static boolean isOutcastHidden(LocalPlayer player, LivingEntity entity) {
         if (entity == player) {
             return false; // you can always see and hear yourself
@@ -464,7 +475,7 @@ public final class ClientCurseHandler {
     static void onMovementInput(MovementInputUpdateEvent event) {
         Input input = event.getInput();
 
-        // Loading Screen / Pacing / Cutaway: you are not playing right now. Movement, jumping and sneaking all
+        // loading Screen / Pacing / Cutaway: you are not playing right now. Movement, jumping and sneaking all
         // go dead.
         if (LoadingScreenState.isActive() || pacingCamActive || isImmortalityRebuilding(event.getEntity())
                 || event.getEntity().getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
@@ -479,14 +490,27 @@ public final class ClientCurseHandler {
             return;
         }
 
-        // Backseat Driver: the AI has the wheel. Your own steering is cut dead and replaced with its
+        Minecraft mc = Minecraft.getInstance();
+
+        // hiccups: a brief movement freeze on each hic — an input lock (NOT Slowness), so your FOV never dips.
+        if (mc.player != null && mc.level != null
+                && mc.level.getGameTime() < mc.player.getData(WitchModAttachments.HICCUPS_FREEZE_END)) {
+            input.forwardImpulse = 0.0F;
+            input.leftImpulse = 0.0F;
+            input.up = false;
+            input.down = false;
+            input.left = false;
+            input.right = false;
+            return;
+        }
+
+        // backseat Driver: the AI has the wheel. Your own steering is cut dead and replaced with its
         // heading — a ridden mount faces wherever the RIDER faces and throttles on the rider's forward
         // input, so turning the rider IS the steering, and the animal walks there under its own power.
-        Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && mc.level != null
                 && mc.level.getGameTime() < event.getEntity().getData(WitchModAttachments.BACKSEAT_EPISODE_END)) {
             float wanted = event.getEntity().getData(WitchModAttachments.BACKSEAT_DRIVE_YAW);
-            // Ease onto the heading rather than snapping, so it reads as the mount turning, not a teleport.
+            // ease onto the heading rather than snapping, so it reads as the mount turning, not a teleport.
             float turned = mc.player.getYRot() + Mth.clamp(Mth.degreesDifference(mc.player.getYRot(), wanted), -8.0F, 8.0F);
             mc.player.setYRot(turned);
             mc.player.yHeadRot = turned;
@@ -502,7 +526,7 @@ public final class ClientCurseHandler {
             return;
         }
 
-        // Siren's Call: at full longing the water takes the wheel. Same hijack as Backseat Driver — ease the
+        // siren's Call: at full longing the water takes the wheel. Same hijack as Backseat Driver — ease the
         // heading toward the synced water bearing and force forward, so you march to the sea against your own
         // input. Sitting below Backseat's block so a mounted victim's mount steering still wins.
         if (mc.player != null && event.getEntity().getData(WitchModAttachments.SIREN_PULL_ACTIVE) >= 0) {
@@ -520,37 +544,37 @@ public final class ClientCurseHandler {
             return;
         }
 
-        // Gluttony: no sprinting once the COMBINED bar is at/below the cutoff. This has to be done here,
+        // gluttony: no sprinting once the COMBINED bar is at/below the cutoff. This has to be done here,
         // client-side, and by suppressing the sprint KEY: sprinting is decided in LocalPlayer.aiStep, so a
         // server-side setSprinting(false) is overwritten immediately, and merely clearing the flag here just
         // lets the very next line of aiStep turn it straight back on.
-        // Sticky: suppress the drop key outright, so the stack never leaves its slot in the first place.
-        // This is the PRIMARY mechanism, not a nicety — the server-side ItemTossEvent cancel has to hand the
+        // sticky: suppress the drop key outright, so the stack never leaves its slot in the first place.
+        // this is the PRIMARY mechanism, not a nicety — the server-side ItemTossEvent cancel has to hand the
         // item back by hand (cancelling alone deletes it), and never letting it leave is far cleaner than
         // pulling it out and pushing it back in, which can land it in a different slot.
         if (mc.player != null && mc.player.getData(WitchModAttachments.STICKY_ACTIVE) >= 0) {
             mc.options.keyDrop.setDown(false);
         }
 
-        // Thirst Meter cuts sprinting off the same way, and for the same client-authoritative reason.
+        // thirst Meter cuts sprinting off the same way, and for the same client-authoritative reason.
         if (mc.player != null && (isGluttonySprintBlocked(mc.player) || isThirstSprintBlocked(mc.player))) {
             mc.options.keySprint.setDown(false);
             mc.player.setSprinting(false);
         }
 
-        // Moonwalker: W does nothing. Only FORWARD is blocked — back, left and right all work normally, which
+        // moonwalker: W does nothing. Only FORWARD is blocked — back, left and right all work normally, which
         // is what makes it a shuffling-backwards curse rather than a full input scramble.
         if (event.getEntity().getData(WitchModAttachments.MOONWALKER_ACTIVE) >= 0 && input.forwardImpulse > 0.0F) {
             input.forwardImpulse = 0.0F;
             input.up = false;
         }
 
-        // Wonky: a subtle sideways wander you can't quite hold a line against — but only while you're
+        // wonky: a subtle sideways wander you can't quite hold a line against — but only while you're
         // actually trying to move, and worse when you sprint. A slow sine gives a lazy weave rather than
         // jitter; it's added to the strafe, so it never affects standing still or facing.
         if (mc.player != null && mc.player.getData(WitchModAttachments.WONKY_ACTIVE) >= 0
                 && (Math.abs(input.forwardImpulse) > 0.0F || Math.abs(input.leftImpulse) > 0.0F)) {
-            // Per-tick phase — this event fires once a tick, which is plenty for a lazy weave.
+            // per-tick phase — this event fires once a tick, which is plenty for a lazy weave.
             double phase = mc.level.getGameTime() * (2.0 * Math.PI / Config.WONKY_PERIOD_TICKS.get());
             double strength = Config.WONKY_DRIFT_STRENGTH.get();
             if (mc.player.isSprinting()) {
@@ -559,7 +583,24 @@ public final class ClientCurseHandler {
             input.leftImpulse += (float) (Math.sin(phase) * strength);
         }
 
-        // Stick Drift (MOVEMENT mode): a phantom stick input in the fixed drifted direction, always the same
+        // vertigo (MOVEMENT sway): high up, your feet wander too — a sideways weave (like Wonky) that kicks in
+        // above vertigoMovementStartY and grows with height, on TOP of the camera sway. It ALSO applies when
+        // you're standing still (at ~60%), so even PILLARING up is dangerous — you drift off the block.
+        if (mc.player != null && mc.player.getData(WitchModAttachments.VERTIGO_ACTIVE) >= 0) {
+            // dizzy_heights synergy (with Wonky): lower onset, stronger weave, more sway even standing still.
+            boolean dizzy = mc.player.getData(WitchModAttachments.WONKY_ACTIVE) >= 0;
+            double startY = Config.VERTIGO_MOVEMENT_START_Y.get() * (dizzy ? Config.DIZZY_HEIGHTS_START_MULT.get() : 1.0);
+            double t = vertigoRamp(mc.player.getY(), startY);
+            if (t > 0.0) {
+                boolean moving = Math.abs(input.forwardImpulse) > 0.0F || Math.abs(input.leftImpulse) > 0.0F;
+                double factor = moving ? 1.0 : (dizzy ? 0.9 : 0.6); // still-standing sway — pillaring stays perilous
+                double strength = Config.VERTIGO_MOVEMENT_STRENGTH.get() * (dizzy ? Config.DIZZY_HEIGHTS_SWAY_MULT.get() : 1.0);
+                double phase = System.nanoTime() / 1.0e9 * 1.9;
+                input.leftImpulse += (float) (Math.sin(phase) * strength * t * factor);
+            }
+        }
+
+        // stick Drift (MOVEMENT mode): a phantom stick input in the fixed drifted direction, always the same
         // way, at the current episode's intensity. Unlike Wonky this is constant while it runs — the stick is
         // stuck, not weaving.
         if (mc.player != null && mc.player.getData(WitchModAttachments.STICK_DRIFT_MODE) == 1) {
@@ -573,14 +614,14 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** True while this player is mid-rebuild for the Immortality blessing — movement input is locked. */
+    /** true while this player is mid-rebuild for the Immortality blessing — movement input is locked. */
     private static boolean isImmortalityRebuilding(net.minecraft.world.entity.player.Player player) {
         long end = player.getData(WitchModAttachments.IMMORTALITY_RECOVERY_END);
         return end > 0L && player.level().getGameTime() < end;
     }
 
     /**
-     * Jesus: hold the player on the water surface. Not crouching = you stand on / float up to the top; crouching
+     * jesus: hold the player on the water surface. Not crouching = you stand on / float up to the top; crouching
      * (or flying) skips this, so sneaking drops you under. Water only. Client-side, since player movement is
      * client-authoritative — the resulting position syncs up so others see you on the water.
      */
@@ -595,10 +636,10 @@ public final class ClientCurseHandler {
         }
         net.minecraft.world.phys.Vec3 dm = player.getDeltaMovement();
         if (player.getY() < surface - 0.05) {
-            // Below the surface: buoy up toward it rather than sinking.
+            // below the surface: buoy up toward it rather than sinking.
             player.setDeltaMovement(dm.x, Math.max(dm.y, 0.15), dm.z);
         } else {
-            // At the surface: stand on it.
+            // at the surface: stand on it.
             player.setPos(player.getX(), surface, player.getZ());
             if (dm.y < 0.0) {
                 player.setDeltaMovement(dm.x, 0.0, dm.z);
@@ -617,7 +658,7 @@ public final class ClientCurseHandler {
     private static boolean coyotePrevGround;
 
     /**
-     * Coyote: a late jump for {@code coyoteTicks} after you WALK off a ledge (not after you jump — no double
+     * coyote: a late jump for {@code coyoteTicks} after you WALK off a ledge (not after you jump — no double
      * jumps), plus a gentle forward pull toward a ledge edge ahead you're falling just short of. All
      * client-side, since movement is client-authoritative.
      */
@@ -648,8 +689,117 @@ public final class ClientCurseHandler {
         coyotePrevGround = ground;
     }
 
+    private static final net.minecraft.core.particles.DustParticleOptions LEADER_GOLD =
+            new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.84F, 0.2F), 1.0F);
+
+    /** leader: draw the aura radius as a constant golden ring around the local leader (client-side, no server load). */
+    private static void tickLeader(Minecraft mc, LocalPlayer player) {
+        if (player.getData(WitchModAttachments.LEADER_ACTIVE) < 0 || tickCounter % 4 != 0) {
+            return;
+        }
+        double radius = Config.LEADER_RADIUS.get();
+        int points = (int) Mth.clamp(radius * 5.0, 32, 140);
+        double y = player.getY() + 0.1;
+        for (int i = 0; i < points; i++) {
+            double a = 2.0 * Math.PI * i / points;
+            player.level().addParticle(LEADER_GOLD,
+                    player.getX() + radius * Math.cos(a), y, player.getZ() + radius * Math.sin(a), 0.0, 0.0, 0.0);
+        }
+    }
+
+    private static final net.minecraft.core.particles.DustParticleOptions GUARDIAN_HALO =
+            new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.92F, 0.55F), 0.7F);
+
     /**
-     * Bias the player onto a landable ledge just ahead — but only while DESCENDING, only up to a modest
+     * guardian Angel: render each guardian allay's halo + movement trail on the CLIENT, off the synced
+     * {@code GUARDIAN_RENDER} marker (kind code). Moves the two highest-frequency emitters off the server —
+     * and, using the allay's own interpolated render position, the trail no longer lags the model.
+     */
+    private static void tickGuardianFx(Minecraft mc) {
+        if (mc.level == null) {
+            return;
+        }
+        long now = mc.level.getGameTime();
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (!(e instanceof net.minecraft.world.entity.animal.allay.Allay allay)) {
+                continue;
+            }
+            int kind = allay.getData(WitchModAttachments.GUARDIAN_RENDER);
+            if (kind <= 0) {
+                continue;
+            }
+            double x = allay.getX();
+            double y = allay.getY();
+            double z = allay.getZ();
+            if (kind != 9 && now % 3 == 0) { // halo (all but stealth)
+                double ha = now * 0.25;
+                for (int i = 0; i < 3; i++) {
+                    double a = ha + i * (Math.PI * 2.0 / 3.0);
+                    mc.level.addParticle(GUARDIAN_HALO, x + Math.cos(a) * 0.28, y + 0.72, z + Math.sin(a) * 0.28, 0, 0, 0);
+                }
+            }
+            net.minecraft.core.particles.ParticleOptions trail = switch (kind) {
+                case 2 -> ParticleTypes.ANGRY_VILLAGER;
+                case 3 -> ParticleTypes.HAPPY_VILLAGER;
+                case 4 -> ParticleTypes.SPLASH;
+                case 5 -> ParticleTypes.NOTE;
+                case 6 -> ParticleTypes.HEART;
+                case 7 -> ParticleTypes.FIREWORK;
+                case 1 -> ParticleTypes.END_ROD;
+                default -> null; // 8 (idle-still) / 9 (stealth) leave no trail
+            };
+            int cadence = (kind == 3 || kind == 5 || kind == 6 || kind == 7) ? 4 : 7;
+            if (trail != null && now % cadence == 0) {
+                mc.level.addParticle(trail, x, y + 0.3, z, 0.0, 0.0, 0.0);
+            }
+        }
+    }
+
+    /** farmer's Spirit: client-side radius ring + motes on growable plants, shown only when near valid crops. */
+    private static void tickFarmersSpirit(Minecraft mc, LocalPlayer player) {
+        if (player.getData(WitchModAttachments.FARMERS_SPIRIT_ACTIVE) < 0 || tickCounter % 4 != 0) {
+            return;
+        }
+        var level = player.level();
+        int radius = Config.FARMSPIRIT_RADIUS.get();
+        net.minecraft.core.BlockPos centre = player.blockPosition();
+        boolean anyCrop = false;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                if (dx * dx + dz * dz > radius * radius) {
+                    continue;
+                }
+                for (int dy = -2; dy <= 2; dy++) {
+                    net.minecraft.core.BlockPos p = centre.offset(dx, dy, dz);
+                    net.minecraft.world.level.block.state.BlockState s = level.getBlockState(p);
+                    boolean crop = s.getBlock() instanceof net.minecraft.world.level.block.BonemealableBlock
+                            && !(s.getBlock() instanceof net.minecraft.world.level.block.GrassBlock);
+                    if (crop || s.getBlock() instanceof net.minecraft.world.level.block.FarmBlock) {
+                        anyCrop = true; // ring shows near any crops/farmland
+                    }
+                    // motes only on plants actually being helped (still growable).
+                    if (crop && ((net.minecraft.world.level.block.BonemealableBlock) s.getBlock())
+                            .isValidBonemealTarget(level, p, s) && player.getRandom().nextInt(4) == 0) {
+                        level.addParticle(net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER,
+                                p.getX() + 0.5, p.getY() + 0.6, p.getZ() + 0.5, 0.0, 0.0, 0.0);
+                    }
+                }
+            }
+        }
+        if (!anyCrop) {
+            return;
+        }
+        int points = 56;
+        double y = player.getY() + 0.1;
+        for (int i = 0; i < points; i++) {
+            double a = 2.0 * Math.PI * i / points;
+            level.addParticle(net.minecraft.core.particles.ParticleTypes.COMPOSTER,
+                    player.getX() + radius * Math.cos(a), y, player.getZ() + radius * Math.sin(a), 0.0, 0.0, 0.0);
+        }
+    }
+
+    /**
+     * bias the player onto a landable ledge just ahead — but only while DESCENDING, only up to a modest
      * horizontal speed cap, and only if they're below it. So a short/slow jump gets nudged onto the ledge,
      * while a sprint jump (already at/above the cap) gets nothing — no accelerating "flash", no huge distance.
      */
@@ -667,12 +817,12 @@ public final class ClientCurseHandler {
         if (!landableLedgeAhead(player, dir)) {
             return;
         }
-        // Nudge the horizontal speed up TOWARD the cap (never past it) in the direction you're already going.
+        // nudge the horizontal speed up TOWARD the cap (never past it) in the direction you're already going.
         double target = Math.min(cap, speed + Config.COYOTE_EDGE_MAGNETISM.get());
         player.setDeltaMovement(dir.x * target, cur.y, dir.z * target);
     }
 
-    /** True if there's a landable ledge top a short way ahead in {@code dir}, at or below the player's feet. */
+    /** true if there's a landable ledge top a short way ahead in {@code dir}, at or below the player's feet. */
     private static boolean landableLedgeAhead(LocalPlayer player, net.minecraft.world.phys.Vec3 dir) {
         var level = player.level();
         double feetY = player.getY();
@@ -692,7 +842,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Bouncy: rebound off floors (scaled by the accumulated fall speed, and HOLDING JUMP adds on top so
+     * bouncy: rebound off floors (scaled by the accumulated fall speed, and HOLDING JUMP adds on top so
      * repeated jumps build height), off walls (sprint into one and ping back the opposite way) and off ceilings
      * (bonk and drop). All client-side because player movement is client-authoritative. Every bounce tells the
      * server (via a packet) so it plays the boing + particles for everyone nearby.
@@ -705,10 +855,13 @@ public final class ClientCurseHandler {
         net.minecraft.world.phys.Vec3 prev = bouncyPrevVel;
         net.minecraft.world.phys.Vec3 cur = player.getDeltaMovement();
         boolean ground = player.onGround();
-        double rest = Config.BOUNCY_RESTITUTION.get();
-        double cap = Config.BOUNCY_LANDING_MAX.get();
+        // low-gravity synergy (flag == 2): rebounds are stronger and the cap is lifted the same.
+        double synergyMult = player.getData(WitchModAttachments.BOUNCY_ACTIVE) >= 2
+                ? Config.BOUNCY_LOWGRAV_RESTITUTION_MULT.get() : 1.0;
+        double rest = Config.BOUNCY_RESTITUTION.get() * synergyMult;
+        double cap = Config.BOUNCY_LANDING_MAX.get() * synergyMult;
 
-        // The speed you were falling at ENTERING this tick (last tick's downward velocity).
+        // the speed you were falling at ENTERING this tick (last tick's downward velocity).
         double impactSpeed = prev != null ? -prev.y : 0.0;
         double minBounce = Config.BOUNCY_MIN_FALL_VELOCITY.get();
 
@@ -718,7 +871,7 @@ public final class ClientCurseHandler {
         boolean landedGrounded = ground && !bouncyPrevGround;
         boolean landedJumped = !ground && prev != null && prev.y < -0.1 && cur.y > 0.05;
 
-        // When you're NOT holding jump, only a real fall bounces (so normal jumping/landing doesn't spam little
+        // when you're NOT holding jump, only a real fall bounces (so normal jumping/landing doesn't spam little
         // bounces). Holding jump drops the bar so you can trampoline and build height. Sneak never bounces.
         double threshold = mc.options.keyJump.isDown() ? 0.1 : minBounce;
 
@@ -729,7 +882,8 @@ public final class ClientCurseHandler {
             double up = Math.max(0.0, cur.y) + Math.min(cap, impactSpeed * rest);
             player.setDeltaMovement(cur.x, Math.min(cap + 0.5, up), cur.z);
             bounced = true;
-        } else if (prev != null && player.horizontalCollision && prev.horizontalDistanceSqr() > 0.15 * 0.15) {
+        } else if (prev != null && player.horizontalCollision
+                && prev.horizontalDistanceSqr() > Config.BOUNCY_WALL_MIN_SPEED.get() * Config.BOUNCY_WALL_MIN_SPEED.get()) {
             player.setDeltaMovement(-prev.x * rest, cur.y, -prev.z * rest); // wall: ping back the way you came
             bounced = true;
         } else if (prev != null && player.verticalCollision && !ground && prev.y > 0.15) {
@@ -739,7 +893,7 @@ public final class ClientCurseHandler {
         if (bounced) {
             player.hurtMarked = true;
             player.resetFallDistance();
-            // Tell the server so EVERYONE hears/sees the bounce, not just us.
+            // tell the server so EVERYONE hears/sees the bounce, not just us.
             net.neoforged.neoforge.network.PacketDistributor.sendToServer(
                     new com.oliver.witchmod.network.WitchModNetwork.BouncyBoingPayload(
                             player.getX(), player.getY(), player.getZ()));
@@ -748,7 +902,7 @@ public final class ClientCurseHandler {
         bouncyPrevGround = ground;
     }
 
-    /** Top of the water column at the player's feet (scanning up for the surface), or null if no water here. */
+    /** top of the water column at the player's feet (scanning up for the surface), or null if no water here. */
     private static Double waterSurfaceAt(net.minecraft.world.level.Level level, double px, double py, double pz) {
         int x = net.minecraft.util.Mth.floor(px);
         int z = net.minecraft.util.Mth.floor(pz);
@@ -769,10 +923,10 @@ public final class ClientCurseHandler {
         return top.getY() + (double) level.getFluidState(top).getHeight(level, top);
     }
 
-    /** Per-viewer render state of Unseen players (entity id -> was rendered last frame), for the transition puff. */
+    /** per-viewer render state of Unseen players (entity id -> was rendered last frame), for the transition puff. */
     private static final java.util.Map<Integer, Boolean> UNSEEN_RENDERED = new java.util.HashMap<>();
 
-    /** Client-side subtle black-smoke burst at an Unseen player as they cross the reveal edge (both directions). */
+    /** client-side subtle black-smoke burst at an Unseen player as they cross the reveal edge (both directions). */
     private static void spawnUnseenTransition(net.minecraft.world.entity.player.Player other, boolean uncloak) {
         var level = other.level();
         int count = uncloak ? 10 : 6; // reveal a touch heavier than the faint cloak
@@ -791,12 +945,12 @@ public final class ClientCurseHandler {
     private static net.minecraft.client.CameraType bedrockSavedCamera = null;
     private static long bedrockLastMarketNonce = 0L;
 
-    /** Bedrock Moment per-tick client bugs: hotbar drift, perspective flip, split-screen POV, ad popup, sound delay. */
+    /** bedrock Moment per-tick client bugs: hotbar drift, perspective flip, split-screen POV, ad popup, sound delay. */
     private static void tickBedrockClientBugs(Minecraft mc, LocalPlayer player) {
         boolean active = player.getData(WitchModAttachments.BEDROCK_ACTIVE) >= 0;
         long now = mc.level != null ? mc.level.getGameTime() : 0L;
 
-        // Replay any delayed sounds whose beat has come.
+        // replay any delayed sounds whose beat has come.
         if (!bedrockDelayQueue.isEmpty()) {
             java.util.Iterator<DelayedSound> it = bedrockDelayQueue.iterator();
             while (it.hasNext()) {
@@ -809,7 +963,7 @@ public final class ClientCurseHandler {
             }
         }
 
-        // Hotbar drift — your selected slot wanders on its own.
+        // hotbar drift — your selected slot wanders on its own.
         if (active && player.tickCount % 30 == 0 && Math.random() < Config.BEDROCK_HOTBAR_DRIFT_CHANCE.get()) {
             int slot = (int) (Math.random() * 9);
             player.getInventory().selected = slot;
@@ -818,7 +972,7 @@ public final class ClientCurseHandler {
             }
         }
 
-        // Perspective flip — the camera is yanked to a disorienting front third-person view for a bit.
+        // perspective flip — the camera is yanked to a disorienting front third-person view for a bit.
         long perspEnd = player.getData(WitchModAttachments.BEDROCK_PERSPECTIVE);
         boolean flip = perspEnd != Long.MIN_VALUE && now < perspEnd;
         if (flip && bedrockSavedCamera == null) {
@@ -829,7 +983,7 @@ public final class ClientCurseHandler {
             bedrockSavedCamera = null;
         }
 
-        // Marketplace popup — a changing nonce means a fresh ad wants your attention.
+        // marketplace popup — a changing nonce means a fresh ad wants your attention.
         long nonce = player.getData(WitchModAttachments.BEDROCK_MARKETPLACE);
         if (nonce != 0L && nonce != bedrockLastMarketNonce) {
             bedrockLastMarketNonce = nonce;
@@ -842,7 +996,7 @@ public final class ClientCurseHandler {
     }
 
 
-    /** Bedrock Moment (Chunk Rejection): while the window is up, slam render distance to 2 so chunks unload. */
+    /** bedrock Moment (Chunk Rejection): while the window is up, slam render distance to 2 so chunks unload. */
     private static void tickBedrockChunkReject(Minecraft mc, LocalPlayer player) {
         long end = player.getData(WitchModAttachments.BEDROCK_CHUNK_REJECT);
         boolean reject = end != Long.MIN_VALUE && mc.level != null && mc.level.getGameTime() < end;
@@ -862,7 +1016,7 @@ public final class ClientCurseHandler {
             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(com.oliver.witchmod.WitchMod.MODID, "shaders/post/dweller.json");
 
     /**
-     * The Dweller: a black-and-white post shader that drains the world's colour GRADUALLY as dread rises (via a
+     * the Dweller: a black-and-white post shader that drains the world's colour GRADUALLY as dread rises (via a
      * {@code DreadAmount} uniform set each tick), rather than snapping on — the world looks completely normal
      * early, so the rare first glimpse has nothing to soften it. No vanilla desaturate effect exists, so the mod
      * ships its own ({@code assets/witchmod/shaders/...}); a load failure degrades silently (fog + audio still
@@ -899,14 +1053,14 @@ public final class ClientCurseHandler {
             }
         }
 
-        // Past a certain depth, all in-game music dies — jukeboxes/records, the ambient background, the lot.
+        // past a certain depth, all in-game music dies — jukeboxes/records, the ambient background, the lot.
         if (player.getData(WitchModAttachments.DWELLER_ACTIVE) >= 2) {
             mc.getMusicManager().stopPlaying();
         }
     }
 
     /**
-     * Nightowl full-bright: forces the gamma option's value past its normal 0..1 slider clamp (via the same
+     * nightowl full-bright: forces the gamma option's value past its normal 0..1 slider clamp (via the same
      * reflection approach the project already uses elsewhere), saving the player's real gamma and restoring it
      * when the blessing ends. Nothing is written to options.txt, so it never permanently changes their setting.
      */
@@ -936,7 +1090,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Current Stick Drift episode intensity for this player, or 0 when between episodes. */
+    /** current Stick Drift episode intensity for this player, or 0 when between episodes. */
     private static float stickDriftIntensity(LocalPlayer player, long now) {
         if (now >= player.getData(WitchModAttachments.STICK_DRIFT_END)) {
             return 0.0F;
@@ -945,7 +1099,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Stick Drift (CAMERA mode): rotates your ACTUAL aim a fixed way each tick — unlike a shake this really
+     * stick Drift (CAMERA mode): rotates your ACTUAL aim a fixed way each tick — unlike a shake this really
      * moves where you're pointing, exactly like a drifting right stick, so it has to write the player's real
      * yaw/pitch rather than just the render view.
      */
@@ -963,13 +1117,330 @@ public final class ClientCurseHandler {
         player.setXRot(Mth.clamp(player.getXRot() + (float) (Math.sin(angle) * deg), -90.0F, 90.0F));
     }
 
-    /** True while the thirst bar has run low enough to cut sprinting off. */
+    // --- New prototype batch (2026-09-02) client curses -------------------------------------------------
+
+    private static net.minecraft.world.entity.HumanoidArm leftHandedSavedArm = null;
+    private static float leftHandedSwayYaw;
+    private static float leftHandedSwayPitch;
+
+    /**
+     * left Handed: flip the RENDERED main hand to the wrong side (saving + restoring the player's real setting,
+     * so it never permanently changes their option), plus a PATTERNED aim sway that only bites while you're
+     * aiming a ranged weapon — a smooth sine weave (its per-tick DELTA is applied, and the phase is tracked
+     * even when not aiming, so resuming never jumps). Chat scrambling is separate, in {@link #onLeftHandedChat}.
+     */
+    private static void tickLeftHanded(Minecraft mc, LocalPlayer player) {
+        boolean active = player.getData(WitchModAttachments.LEFT_HANDED_ACTIVE) >= 0;
+        if (active) {
+            if (leftHandedSavedArm == null) {
+                leftHandedSavedArm = mc.options.mainHand().get();
+            }
+            net.minecraft.world.entity.HumanoidArm flipped = leftHandedSavedArm == net.minecraft.world.entity.HumanoidArm.RIGHT
+                    ? net.minecraft.world.entity.HumanoidArm.LEFT : net.minecraft.world.entity.HumanoidArm.RIGHT;
+            if (mc.options.mainHand().get() != flipped) {
+                mc.options.mainHand().set(flipped);
+            }
+            // patterned aim sway — while aiming/using ANYTHING (bow, trident, spyglass, ...) or a loaded crossbow.
+            double amp = Config.LEFT_HANDED_DRIFT_DEGREES.get();
+            double clock = System.nanoTime() / 1.0e9;
+            float curYaw = (float) (Math.sin(clock * 2.2) * amp);
+            float curPitch = (float) (Math.sin(clock * 1.6) * amp * 0.5);
+            if (amp > 0.0 && isAiming(player)) {
+                player.setYRot(player.getYRot() + (curYaw - leftHandedSwayYaw));
+                player.setXRot(Mth.clamp(player.getXRot() + (curPitch - leftHandedSwayPitch), -90.0F, 90.0F));
+            }
+            leftHandedSwayYaw = curYaw;   // keep tracking the phase so it never jumps on resume
+            leftHandedSwayPitch = curPitch;
+        } else if (leftHandedSavedArm != null) {
+            mc.options.mainHand().set(leftHandedSavedArm);
+            leftHandedSavedArm = null;
+        }
+    }
+
+    /** true while the player is actively USING/aiming any item (bow, trident, spyglass, ...), or a loaded crossbow. */
+    private static boolean isAiming(LocalPlayer player) {
+        if (player.isUsingItem()) {
+            return true;
+        }
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack s = player.getItemInHand(hand);
+            if (s.getItem() instanceof net.minecraft.world.item.CrossbowItem) {
+                net.minecraft.world.item.component.ChargedProjectiles charged =
+                        s.get(net.minecraft.core.component.DataComponents.CHARGED_PROJECTILES);
+                if (charged != null && !charged.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** left Handed: what you type comes out as letter spam (commands are left alone so you can still cure it). */
+    @SubscribeEvent
+    static void onLeftHandedChat(net.neoforged.neoforge.client.event.ClientChatEvent event) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null || player.getData(WitchModAttachments.LEFT_HANDED_ACTIVE) < 0) {
+            return;
+        }
+        String msg = event.getMessage();
+        if (msg.startsWith("/")) {
+            return; // let commands through
+        }
+        StringBuilder sb = new StringBuilder(msg.length());
+        for (int i = 0; i < msg.length(); i++) {
+            char c = msg.charAt(i);
+            sb.append(Character.isWhitespace(c) ? c : (char) ('a' + SHAKE_RNG.nextInt(26)));
+        }
+        event.setMessage(sb.toString());
+    }
+
+    private static net.minecraft.world.phys.Vec3 iceSkatesPrev = net.minecraft.world.phys.Vec3.ZERO;
+    private static boolean iceSkatesWasSprinting;
+
+    /**
+     * ice Skates: the ground stops gripping — but ONLY the braking is affected, not your top speed. While
+     * you're actively pressing a movement key you move at normal speed; the moment you LET GO, most of last
+     * tick's momentum is retained ({@code iceSkatesSlip}) so you keep gliding a good way and can't stop dead.
+     * letting go off a SPRINT gives a longer, faster skid ({@code iceSkatesSprintSlip}/{@code Cap}). Sneaking
+     * grips (no glide). Client-authoritative movement.
+     */
+    private static void tickIceSkates(LocalPlayer player) {
+        if (player.getData(WitchModAttachments.ICE_SKATES_ACTIVE) < 0) {
+            iceSkatesPrev = net.minecraft.world.phys.Vec3.ZERO;
+            iceSkatesWasSprinting = false;
+            return;
+        }
+        net.minecraft.world.phys.Vec3 v = player.getDeltaMovement();
+        boolean input = Math.abs(player.zza) > 1.0e-4F || Math.abs(player.xxa) > 1.0e-4F;
+        if (input) {
+            // remember whether you were sprinting AS you moved, so the skid off the back of it is enhanced.
+            iceSkatesWasSprinting = player.isSprinting();
+        } else if (player.onGround() && !player.isShiftKeyDown() && !player.getAbilities().flying) {
+            // no input = you're trying to stop, but you can't: keep most of last tick's horizontal momentum.
+            double slip = iceSkatesWasSprinting ? Config.ICE_SKATES_SPRINT_SLIP.get() : Config.ICE_SKATES_SLIP.get();
+            double cap = iceSkatesWasSprinting ? Config.ICE_SKATES_SPRINT_CAP.get() : Config.ICE_SKATES_CAP.get();
+            double nx = iceSkatesPrev.x * slip;
+            double nz = iceSkatesPrev.z * slip;
+            double sp = Math.sqrt(nx * nx + nz * nz);
+            if (sp > cap) {
+                nx = nx / sp * cap;
+                nz = nz / sp * cap;
+            }
+            player.setDeltaMovement(nx, v.y, nz);
+        }
+        iceSkatesPrev = player.getDeltaMovement();
+    }
+
+    /**
+     * vertigo: a smooth, continuous camera wobble that grows with altitude between {@code vertigoMinAltitude}
+     * and {@code vertigoMaxAltitude}. Applied to the camera ANGLES only (never the real rotation), so it never
+     * changes where you're aiming — it just makes heights feel sickening. Driven off a real-time clock so it's
+     * smooth per-frame rather than stepping at 20 Hz.
+     */
+    private static void applyVertigo(Minecraft mc, ViewportEvent.ComputeCameraAngles event) {
+        if (mc.player == null || mc.player.getData(WitchModAttachments.VERTIGO_ACTIVE) < 0) {
+            return;
+        }
+        // dizzy_heights synergy (with Wonky): vertigo bites lower and sways harder.
+        boolean dizzy = mc.player.getData(WitchModAttachments.WONKY_ACTIVE) >= 0;
+        double startY = Config.VERTIGO_CAMERA_START_Y.get() * (dizzy ? Config.DIZZY_HEIGHTS_START_MULT.get() : 1.0);
+        double t = vertigoRamp(mc.player.getY(), startY);
+        if (t <= 0.0) {
+            return;
+        }
+        double strength = Config.VERTIGO_CAMERA_STRENGTH.get() * t * (dizzy ? Config.DIZZY_HEIGHTS_SWAY_MULT.get() : 1.0);
+        double clock = System.nanoTime() / 1.0e9;
+        event.setRoll((float) (event.getRoll() + Math.sin(clock * 1.7) * strength));
+        event.setPitch((float) (event.getPitch() + Math.sin(clock * 1.3) * strength * 0.5));
+        event.setYaw((float) (event.getYaw() + Math.cos(clock * 1.1) * strength * 0.5));
+    }
+
+    /** vertigo intensity 0..1 for altitude {@code y}, ramping from {@code startY} up to the configured maxY. */
+    private static double vertigoRamp(double y, double startY) {
+        double maxY = Math.max(startY + 1, Config.VERTIGO_MAX_Y.get());
+        return Mth.clamp((y - startY) / (maxY - startY), 0.0, 1.0);
+    }
+
+    private static boolean narratorPrevFocused = true;
+    private static boolean narratorPrevPaused;
+    private static int narratorUnfocusedTicks;
+    /** saved 'pause on lost focus' option, stashed while the Narrator overrides it so it can be restored. */
+    private static Boolean narratorSavedPauseOnLostFocus;
+
+    /**
+     * narrator: report the CLIENT-only events the server can't see — tabbing out (window loses focus), coming
+     * back, and pausing (Esc menu while still focused). Edge-triggered where it should fire once; but once
+     * you've been tabbed out longer than {@code narratorTabSpamSeconds} it starts reporting {@code
+     * tabbed_out_long} on a steady interval so the narrator harasses you CONSTANTLY until you return. Detecting
+     * window focus via GLFW is a normal query, not anything malware-like.
+     *
+     * <p>While active it also suppresses vanilla's {@code pauseOnLostFocus} (single-player pauses the sim the
+     * instant the window loses focus, which would freeze the whole tab-out gag) — the player's original setting
+     * is stashed and restored the moment the curse ends.
+     */
+    private static void tickNarratorClient(Minecraft mc, LocalPlayer player) {
+        boolean focused = GLFW.glfwGetWindowAttrib(mc.getWindow().getWindow(), GLFW.GLFW_FOCUSED) == GLFW.GLFW_TRUE;
+        boolean paused = mc.isPaused();
+        boolean narratorActive = player.getData(WitchModAttachments.NARRATOR_ACTIVE) >= 0;
+        // override pause-on-lost-focus while cursed (so tabbing out doesn't pause the sim and kill the gag).
+        if (narratorActive) {
+            if (narratorSavedPauseOnLostFocus == null) {
+                narratorSavedPauseOnLostFocus = mc.options.pauseOnLostFocus;
+                mc.options.pauseOnLostFocus = false;
+            }
+        } else if (narratorSavedPauseOnLostFocus != null) {
+            mc.options.pauseOnLostFocus = narratorSavedPauseOnLostFocus;
+            narratorSavedPauseOnLostFocus = null;
+        }
+        if (narratorActive) {
+            if (narratorPrevFocused && !focused) {
+                sendNarratorEvent("tabbed_out"); // just left
+                narratorUnfocusedTicks = 0;
+            } else if (!narratorPrevFocused && focused) {
+                sendNarratorEvent("returned"); // just came back
+                narratorUnfocusedTicks = 0;
+            } else if (!focused) {
+                narratorUnfocusedTicks++;
+                int threshold = Config.NARRATOR_TAB_SPAM_SECONDS.get() * 20;
+                int interval = Math.max(1, Config.NARRATOR_TAB_SPAM_INTERVAL_TICKS.get());
+                if (narratorUnfocusedTicks >= threshold && narratorUnfocusedTicks % interval == 0) {
+                    sendNarratorEvent("tabbed_out_long"); // stayed gone too long — constant harassment
+                }
+            } else if (!narratorPrevPaused && paused) {
+                sendNarratorEvent("paused"); // an Esc-pause while still focused (not a tab-out)
+            }
+        } else {
+            narratorUnfocusedTicks = 0;
+        }
+        narratorPrevFocused = focused;
+        narratorPrevPaused = paused;
+    }
+
+    private static void sendNarratorEvent(String category) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                new com.oliver.witchmod.network.WitchModNetwork.NarratorClientEventPayload(category));
+    }
+
+    /**
+     * narrator: swinging at NOTHING — a left-click that hits no block and no entity fires this client-only event
+     * ({@code LeftClickEmpty} is only raised on the client), reported so the narrator can mock the whiff.
+     */
+    @SubscribeEvent
+    static void onNarratorWhiff(PlayerInteractEvent.LeftClickEmpty event) {
+        if (event.getEntity() instanceof LocalPlayer player
+                && player.getData(WitchModAttachments.NARRATOR_ACTIVE) >= 0) {
+            sendNarratorEvent("whiff");
+        }
+    }
+
+    /** organised: a small stash button on the inventory screen (no keybind) when you carry the blessing. */
+    @SubscribeEvent
+    static void onInventoryScreenInit(net.neoforged.neoforge.client.event.ScreenEvent.Init.Post event) {
+        if (!(event.getScreen() instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen screen)) {
+            return;
+        }
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null || player.getData(WitchModAttachments.ORGANISED_ACTIVE) < 0) {
+            return;
+        }
+        // below the hotbar row (bottom of the panel), centred — clear of the effect display on the side.
+        int x = screen.getGuiLeft() + 88 - 8;
+        int y = screen.getGuiTop() + 166 + 4;
+        OrganisedButton button = new OrganisedButton(x, y,
+                b -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                        new com.oliver.witchmod.network.WitchModNetwork.OpenOrganisedPayload()));
+        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                net.minecraft.network.chat.Component.literal("Organised stash")));
+        event.addListener(button);
+    }
+
+    /** organised: a "back to inventory" button on the stash screen (the GENERIC_9x1 chest titled "Stash"). */
+    @SubscribeEvent
+    static void onStashScreenInit(net.neoforged.neoforge.client.event.ScreenEvent.Init.Post event) {
+        if (!(event.getScreen() instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen screen)
+                || !(screen.getMenu() instanceof net.minecraft.world.inventory.ChestMenu chest)
+                || chest.getRowCount() != 1
+                || !screen.getTitle().getString().equals("Stash")) {
+            return;
+        }
+        net.minecraft.client.gui.components.Button back = net.minecraft.client.gui.components.Button.builder(
+                net.minecraft.network.chat.Component.literal("◀ Inventory"),
+                b -> {
+                    Minecraft mc = Minecraft.getInstance();
+                    if (mc.player != null) {
+                        mc.player.connection.send(new net.minecraft.network.protocol.game.ServerboundContainerClosePacket(
+                                mc.player.containerMenu.containerId));
+                        mc.player.containerMenu = mc.player.inventoryMenu;
+                        mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                    }
+                })
+                .bounds(screen.getGuiLeft(), screen.getGuiTop() - 22, 90, 20)
+                .build();
+        event.addListener(back);
+    }
+
+    /**
+     * spotlight: draw the rotating white double-helix pillar over every spotlit player LOCALLY (off the synced
+     * {@code SPOTLIGHT_ACTIVE} flag), so the constant particle stream is a client concern and never floods the
+     * server with particle packets. Starts above the head so it never blocks the victim's view.
+     */
+    private static void tickSpotlight(Minecraft mc) {
+        if (mc.level == null || tickCounter % 2 != 0) {
+            return;
+        }
+        double gap = Config.SPOTLIGHT_BEAM_GAP.get();
+        double top = gap + Config.SPOTLIGHT_BEAM_HEIGHT.get();
+        double spin = tickCounter * 0.16;
+        double radius = 0.38;
+        for (Player p : mc.level.players()) {
+            if (p.getData(WitchModAttachments.SPOTLIGHT_ACTIVE) < 0) {
+                continue;
+            }
+            for (double y = gap; y <= top; y += 0.5) {
+                double angle = y * 1.15 + spin;
+                for (int strand = 0; strand < 2; strand++) {
+                    double a = angle + strand * Math.PI;
+                    mc.level.addParticle(ParticleTypes.END_ROD,
+                            p.getX() + Math.cos(a) * radius, p.getY() + y, p.getZ() + Math.sin(a) * radius, 0, 0, 0);
+                }
+            }
+            if (mc.level.random.nextInt(3) == 0) {
+                mc.level.addParticle(ParticleTypes.FIREWORK,
+                        p.getX(), p.getY() + gap + mc.level.random.nextDouble() * (top - gap), p.getZ(), 0, 0.03, 0);
+            }
+        }
+    }
+
+    /**
+     * amethyst Bell: render the "consume" purple-dust ramp on any caught player, CLIENT-side, off the synced
+     * {@code AMETHYST_CONSUME_*} attachments — so the server sends no consume particles however many players a
+     * ring catches. Progress is derived from the synced end-tick and the known ramp length.
+     */
+    private static void tickBellConsume(Minecraft mc) {
+        if (mc.level == null) {
+            return;
+        }
+        long now = mc.level.getGameTime();
+        for (Player p : mc.level.players()) {
+            long end = p.getData(WitchModAttachments.AMETHYST_CONSUME_END);
+            if (end <= now) {
+                continue;
+            }
+            boolean fizzle = p.getData(WitchModAttachments.AMETHYST_CONSUME_FIZZLE) == 1;
+            int duration = fizzle ? com.oliver.witchmod.blocks.AmethystBellEffects.fizzleRampTicks()
+                    : com.oliver.witchmod.blocks.AmethystBellEffects.applyRampTicks();
+            float progress = net.minecraft.util.Mth.clamp((duration - (end - now)) / (float) duration, 0F, 1F);
+            com.oliver.witchmod.blocks.AmethystBellEffects.emitConsume(mc.level, p, progress, fizzle);
+        }
+    }
+
+    /** true while the thirst bar has run low enough to cut sprinting off. */
     private static boolean isThirstSprintBlocked(LocalPlayer player) {
         int thirst = player.getData(WitchModAttachments.THIRST);
         return thirst >= 0 && thirst <= Config.THIRST_SPRINT_CUTOFF.get();
     }
 
-    /** True while Gluttony's combined bar has run low enough to cut sprinting off. */
+    /** true while Gluttony's combined bar has run low enough to cut sprinting off. */
     private static boolean isGluttonySprintBlocked(LocalPlayer player) {
         int extra = player.getData(WitchModAttachments.GLUTTONY_HUNGER);
         if (extra < 0) {
@@ -979,14 +1450,14 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Gluttony draws BOTH hunger rows itself, so vanilla's own food bar is suppressed while it's active.
-     * Otherwise the lower row shows the real vanilla value, which is deliberately held one point short of
+     * gluttony draws BOTH hunger rows itself, so vanilla's own food bar is suppressed while it's active.
+     * otherwise the lower row shows the real vanilla value, which is deliberately held one point short of
      * full to keep eating possible — so the bar permanently looked like it was missing its first point.
      * {@link GluttonyHudLayer} redraws that row from the true combined total instead.
      */
     @SubscribeEvent
     static void onRenderGuiLayer(RenderGuiLayerEvent.Pre event) {
-        // Cutaway Gag: hide the gameplay HUD for a clean cinematic — but NOT via hideGui, which also hid chat
+        // cutaway Gag: hide the gameplay HUD for a clean cinematic — but NOT via hideGui, which also hid chat
         // (where gag flavour text lives). Cancel the individual layers and leave CHAT + our overlay alone.
         if (cutawayCamActive && CUTAWAY_HIDDEN_LAYERS.contains(event.getName())) {
             event.setCanceled(true);
@@ -998,7 +1469,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** The vanilla HUD layers suppressed during a cutaway (chat + our cinematic overlay stay). */
+    /** the vanilla HUD layers suppressed during a cutaway (chat + our cinematic overlay stay). */
     private static final java.util.Set<net.minecraft.resources.ResourceLocation> CUTAWAY_HIDDEN_LAYERS = java.util.Set.of(
             VanillaGuiLayers.DEBUG_OVERLAY, VanillaGuiLayers.CROSSHAIR, VanillaGuiLayers.HOTBAR,
             VanillaGuiLayers.PLAYER_HEALTH, VanillaGuiLayers.FOOD_LEVEL, VanillaGuiLayers.EXPERIENCE_BAR,
@@ -1008,7 +1479,7 @@ public final class ClientCurseHandler {
     private static float dwellerChaseRed; // eased red-overlay intensity during a Dweller chase
 
     /**
-     * The Dweller: a subtle RED wash during a chase that fades in and scales with how close it is — a flat tint
+     * the Dweller: a subtle RED wash during a chase that fades in and scales with how close it is — a flat tint
      * plus a stronger top/bottom vignette that pulses as it bears down. Eased so it swells and recedes smoothly.
      */
     @SubscribeEvent
@@ -1046,7 +1517,7 @@ public final class ClientCurseHandler {
         g.fillGradient(0, h - band, w, h, red, (edgeA << 24) | red);      // bottom: transparent → red
     }
 
-    /** Client-local jumpscare flash window (mimic reveal sets this directly, since it runs on the client). */
+    /** client-local jumpscare flash window (mimic reveal sets this directly, since it runs on the client). */
     private static long dwellerFlashLocalEnd;
 
     public static void triggerDwellerFlash(int ticks) {
@@ -1057,7 +1528,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * The Dweller jumpscare FLASH: a bright white burst that snaps to full and fades over ~8 ticks (the "bright
+     * the Dweller jumpscare FLASH: a bright white burst that snaps to full and fades over ~8 ticks (the "bright
      * lights"). The "then darkness" is a Darkness effect applied server-side (vanilla renders it). Driven by the
      * synced DWELLER_FLASH_END (server events like lunge) or the client-local window (the mimic reveal). The
      * flash window is a fixed ~8 ticks, so ticks-left maps straight to brightness.
@@ -1079,7 +1550,7 @@ public final class ClientCurseHandler {
         g.fill(0, 0, g.guiWidth(), g.guiHeight(), ((int) (a * 255) << 24) | 0x00FFFFFF);
     }
 
-    /** Cutaway Gag: the letterbox bars + "Meanwhile…" title card overlay (drawn over the spectate view). */
+    /** cutaway Gag: the letterbox bars + "Meanwhile…" title card overlay (drawn over the spectate view). */
     @SubscribeEvent
     static void onCutawayCinematic(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
         if (!cutawayCamActive) {
@@ -1095,7 +1566,7 @@ public final class ClientCurseHandler {
         int bar = Math.max(14, h / 9); // small cinematic bars, top and bottom
         g.fill(0, 0, w, bar, 0xFF000000);
         g.fill(0, h - bar, w, h, 0xFF000000);
-        // Family-Guy title card, held for the opening ~3s.
+        // family-Guy title card, held for the opening ~3s.
         if (mc.level.getGameTime() - cutawayStartTick < 60 && !cutawayTitle.isEmpty()) {
             int ty = h - bar - 34;
             g.drawCenteredString(mc.font, cutawayTitle, w / 2, ty, 0xFFFFFFFF);
@@ -1105,7 +1576,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Cutaway Gag: no first-person hand/held item while spectating — just a clean hover over the victim. */
+    /** cutaway Gag: no first-person hand/held item while spectating — just a clean hover over the victim. */
     @SubscribeEvent
     static void onCutawayRenderHand(RenderHandEvent event) {
         if (cutawayCamActive) {
@@ -1113,14 +1584,14 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Nightowl: strip fog everywhere (distance, water, lava) by pushing the fog planes out of view. */
+    /** nightowl: strip fog everywhere (distance, water, lava) by pushing the fog planes out of view. */
     @SubscribeEvent
     static void onRenderFog(ViewportEvent.RenderFog event) {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) {
             return;
         }
-        // The Dweller: a hard FLICKER — the lights go out for a beat (Shadow-Pass / Lights-Out) — slams the fog
+        // the Dweller: a hard FLICKER — the lights go out for a beat (Shadow-Pass / Lights-Out) — slams the fog
         // right in, then it snaps back.
         long flicker = player.getData(WitchModAttachments.DWELLER_FLICKER);
         if (flicker != Long.MIN_VALUE && player.level().getGameTime() < flicker) {
@@ -1129,7 +1600,7 @@ public final class ClientCurseHandler {
             event.setCanceled(true);
             return;
         }
-        // The Dweller: a murk that closes in GRADUALLY as the curse's dread rises — so you can never see far
+        // the Dweller: a murk that closes in GRADUALLY as the curse's dread rises — so you can never see far
         // enough to keep track of where it is. It's barely there early (the world looks fine, which makes a rare
         // glimpse far worse) and suffocates to ~8 blocks by the end. Only ever pulls the fog IN, never pushes it
         // out past vanilla.
@@ -1138,7 +1609,7 @@ public final class ClientCurseHandler {
             float t = net.minecraft.util.Mth.clamp((dread - 0.05F) / 0.95F, 0.0F, 1.0F);
             t = t * t * t; // cubic ease-in — fog stays far for most of the climb, only closing in near max dread
             float far = net.minecraft.util.Mth.lerp(t, 110.0F, 8.0F);
-            // During a CHASE, ease the murk back a bit so you can actually see it coming and route around it.
+            // during a CHASE, ease the murk back a bit so you can actually see it coming and route around it.
             if (player.getData(WitchModAttachments.DWELLER_ACTIVE) == 3) {
                 far = Math.max(far, 18.0F);
             }
@@ -1153,11 +1624,18 @@ public final class ClientCurseHandler {
             event.setNearPlaneDistance(-8.0F);
             event.setFarPlaneDistance(1_000_000.0F);
             event.setCanceled(true);
+            return;
+        }
+        // holy water is clear, blessed water — see much further through it than murky ordinary water.
+        if (player.getEyeInFluidType() == com.oliver.witchmod.blocks.WitchModFluids.PURIFYING_WATER_TYPE.get()) {
+            event.setNearPlaneDistance(-4.0F);
+            event.setFarPlaneDistance(48.0F);
+            event.setCanceled(true);
         }
     }
 
     /**
-     * The Dweller (deep tier): kills all music — jukebox records, the ambient background score, everything on
+     * the Dweller (deep tier): kills all music — jukebox records, the ambient background score, everything on
      * the MUSIC/RECORDS channels — so the only thing you ever hear is it. (The title screen can't be gated by a
      * per-player curse, so that's left alone.)
      */
@@ -1173,7 +1651,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Bedrock Moment (Nightcore bug): while the window is up, every sound plays back higher-pitched. */
+    /** bedrock Moment (Nightcore bug): while the window is up, every sound plays back higher-pitched. */
     @SubscribeEvent
     static void onBedrockNightcore(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -1191,7 +1669,7 @@ public final class ClientCurseHandler {
         event.setSound(new com.oliver.witchmod.client.NightcoreSoundInstance(sound, Config.BEDROCK_NIGHTCORE_PITCH.get().floatValue()));
     }
 
-    /** DelayedSound queue for the Bedrock "Sound Delay" bug — sounds we held back and will replay later. */
+    /** delayedSound queue for the Bedrock "Sound Delay" bug — sounds we held back and will replay later. */
     private static final class DelayedSound {
         final net.minecraft.client.resources.sounds.SoundInstance sound;
         int ticks;
@@ -1204,7 +1682,7 @@ public final class ClientCurseHandler {
     private static final java.util.Set<net.minecraft.client.resources.sounds.SoundInstance> bedrockDelayPass =
             java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
-    /** Bedrock Moment: SILENT CREEPER (always on while cursed) + SOUND DELAY (windowed). */
+    /** bedrock Moment: SILENT CREEPER (always on while cursed) + SOUND DELAY (windowed). */
     @SubscribeEvent
     static void onBedrockSoundBugs(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -1215,12 +1693,12 @@ public final class ClientCurseHandler {
         if (sound == null) {
             return;
         }
-        // Silent creeper — swallow every creeper noise (the classic terror).
+        // silent creeper — swallow every creeper noise (the classic terror).
         if (player.getData(WitchModAttachments.BEDROCK_ACTIVE) >= 0 && sound.getLocation().getPath().contains("creeper")) {
             event.setSound(null);
             return;
         }
-        // Sound delay — hold one-shot sounds back and replay them a beat late.
+        // sound delay — hold one-shot sounds back and replay them a beat late.
         if (bedrockDelayPass.remove(sound)) {
             return; // this IS a replayed one — let it through
         }
@@ -1231,7 +1709,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Bedrock Moment: PHANTOM DURABILITY — jittering durability bars over your hotbar. */
+    /** bedrock Moment: PHANTOM DURABILITY — jittering durability bars over your hotbar. */
     @SubscribeEvent
     static void onBedrockPhantomDurability(RenderGuiLayerEvent.Post event) {
         if (!VanillaGuiLayers.HOTBAR.equals(event.getName())) {
@@ -1267,7 +1745,7 @@ public final class ClientCurseHandler {
     static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         Minecraft mc = Minecraft.getInstance();
 
-        // Loading Screen: hold the view perfectly still. The tick handler also pins the real rotation, but
+        // loading Screen: hold the view perfectly still. The tick handler also pins the real rotation, but
         // mouse-look is applied per FRAME, so without this the camera would visibly jitter between ticks.
         if (LoadingScreenState.isActive()) {
             event.setYaw(loadingLockedYaw);
@@ -1275,7 +1753,7 @@ public final class ClientCurseHandler {
             return;
         }
 
-        // Cutaway Gag: hold the overhead shot's aim rock-steady between ticks (look is applied per frame).
+        // cutaway Gag: hold the overhead shot's aim rock-steady between ticks (look is applied per frame).
         if (cutawayCamActive) {
             event.setYaw(cutawayLockedYaw);
             event.setPitch(cutawayLockedPitch);
@@ -1284,9 +1762,10 @@ public final class ClientCurseHandler {
 
         if (!pacingCamActive || currentShot < 0 || currentShot >= shotYaw.length) {
             applyHeavyweightShake(mc, event);
+            applyVertigo(mc, event);
             return;
         }
-        // Orbit shots pin an absolute yaw/pitch so the mouse can't nudge them; face shots leave yaw/pitch to
+        // orbit shots pin an absolute yaw/pitch so the mouse can't nudge them; face shots leave yaw/pitch to
         // vanilla (which frames the ridden entity's face straight-on). Both get a dutch-angle roll for drama.
         if (!Float.isNaN(shotYaw[currentShot])) {
             event.setYaw(shotYaw[currentShot]);
@@ -1296,7 +1775,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Heavyweight: rattles the view when the floor gives way. Vanilla has no screen shake at all, so this is
+     * heavyweight: rattles the view when the floor gives way. Vanilla has no screen shake at all, so this is
      * hand-rolled — a random jolt on all three axes, decaying to nothing across the window so it lands as one
      * impact rather than a wobble that outstays its welcome.
      *
@@ -1308,7 +1787,7 @@ public final class ClientCurseHandler {
             return;
         }
         long now = mc.level.getGameTime();
-        // Heavyweight's own collapse jolt...
+        // heavyweight's own collapse jolt...
         applyShake(event, now, mc.player.getData(WitchModAttachments.HEAVYWEIGHT_SHAKE_END),
                 Config.HEAVYWEIGHT_SHAKE_TICKS.get(), Config.HEAVYWEIGHT_SHAKE_STRENGTH.get());
         // ...and Flat Footed's footstep shudder from a loud player nearby. Both stack additively.
@@ -1331,10 +1810,10 @@ public final class ClientCurseHandler {
                 Config.VOODOO_SHAKE_TICKS.get(), Config.VOODOO_SHAKE_STRENGTH.get());
         // ...and the Amethyst Bell's subtle toll jolt for anyone nearby.
         applyShake(event, now, mc.player.getData(WitchModAttachments.AMETHYST_BELL_SHAKE_END),
-                com.oliver.witchmod.blocks.AmethystBellBlock.SHAKE_TICKS, com.oliver.witchmod.blocks.AmethystBellBlock.SHAKE_STRENGTH);
+                Config.BELL_SHAKE_TICKS.get(), Config.BELL_SHAKE_STRENGTH.get());
     }
 
-    /** One decaying random jolt on the camera ANGLES (never the real rotation), shared by both shake sources. */
+    /** one decaying random jolt on the camera ANGLES (never the real rotation), shared by both shake sources. */
     private static void applyShake(ViewportEvent.ComputeCameraAngles event, long now, long end,
                                    int windowTicks, double peakStrength) {
         if (now >= end) {
@@ -1358,7 +1837,7 @@ public final class ClientCurseHandler {
         tickCounter++;
         Window window = mc.getWindow();
 
-        // Gladiator: while committed to a parry, pin the hotbar slot (revert any switch attempt).
+        // gladiator: while committed to a parry, pin the hotbar slot (revert any switch attempt).
         if (gladiatorLocked(player)) {
             if (gladiatorLockSlot < 0) {
                 gladiatorLockSlot = player.getInventory().selected;
@@ -1368,7 +1847,7 @@ public final class ClientCurseHandler {
             gladiatorLockSlot = -1;
         }
 
-        // Gladiator: when a parry imposed a weapon cooldown, set the CLIENT ticker so the indicator recharges.
+        // gladiator: when a parry imposed a weapon cooldown, set the CLIENT ticker so the indicator recharges.
         long weaponReady = player.getData(WitchModAttachments.GLADIATOR_WEAPON_READY);
         if (weaponReady != gladiatorWeaponReadySeen) {
             gladiatorWeaponReadySeen = weaponReady;
@@ -1378,60 +1857,65 @@ public final class ClientCurseHandler {
             }
         }
 
-        // Organised: pressing the keybind asks the server to open the extra-inventory-row stash (menus can
-        // only be opened server-side, so it goes through a tiny C2S packet; the server checks the blessing).
-        while (com.oliver.witchmod.WitchModClient.ORGANISED_KEY.consumeClick()) {
-            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
-                    new com.oliver.witchmod.network.WitchModNetwork.OpenOrganisedPayload());
-        }
-
-        // Nightowl: force full-bright gamma while active, restoring the player's own gamma when it ends.
+        // nightowl: force full-bright gamma while active, restoring the player's own gamma when it ends.
         tickNightowlBrightness(mc, player);
 
-        // The Dweller: drain the world of colour while the curse is on you.
+        // the Dweller: drain the world of colour while the curse is on you.
         tickDwellerShader(mc, player);
 
-        // Bedrock Moment (Chunk Rejection bug): force render distance right down so nearby chunks vanish.
+        // bedrock Moment (Chunk Rejection bug): force render distance right down so nearby chunks vanish.
         tickBedrockChunkReject(mc, player);
 
-        // Bedrock Moment: hotbar drift, perspective flip, split-screen POV steal, the ad popup, delayed audio.
+        // bedrock Moment: hotbar drift, perspective flip, split-screen POV steal, the ad popup, delayed audio.
         tickBedrockClientBugs(mc, player);
 
-        // Jesus: walk on the water surface (unless crouching, which drops you under).
+        // jesus: walk on the water surface (unless crouching, which drops you under).
         tickJesus(player);
 
-        // Bouncy: rubbery rebounds off floors/walls/ceilings (client-authoritative movement).
+        // bouncy: rubbery rebounds off floors/walls/ceilings (client-authoritative movement).
         tickBouncy(mc, player);
 
-        // Coyote: coyote-time late jump + edge magnetism to make parkour forgiving.
+        // coyote: coyote-time late jump + edge magnetism to make parkour forgiving.
         tickCoyote(mc, player);
 
-        // Builder: zero the place/break delays so you can build and tear down at click speed.
+        // farmer's Spirit: draw the radius ring + motes on growable plants when near crops.
+        tickFarmersSpirit(mc, player);
+
+        // leader: draw the aura radius ring constantly.
+        tickLeader(mc, player);
+
+        // guardian Angel: render the allay's halo + movement trail CLIENT-side (off the synced marker).
+        tickGuardianFx(mc);
+
+        // amethyst Bell: render the "consume" purple-dust ramp CLIENT-side (off the synced consume attachment).
+        tickBellConsume(mc);
+
+        // builder: zero the place/break delays so you can build and tear down at click speed.
         tickBuilder(mc, player);
 
-        // Spider: climb walls when pushing into them (or cling while sneaking).
+        // spider: climb walls when pushing into them (or cling while sneaking).
         tickSpider(mc, player);
 
-        // Ninja: double jump + swing woosh + smoke.
+        // ninja: double jump + swing woosh + smoke.
         tickNinja(mc, player);
 
-        // Ocean's Blessing: fast forward swim while in water (enhanced by Dolphin's Grace).
+        // ocean's Blessing: fast forward swim while in water (enhanced by Dolphin's Grace).
         tickOceansSwim(player);
 
-        // Delusions: spawn/retire the fake players and run the "am I being watched" timer.
+        // delusions: spawn/retire the fake players and run the "am I being watched" timer.
         DelusionManager.clientTick(mc);
 
-        // The Dweller's MIMIC: the single impostor wearing a real face that stares, then drops the mask.
+        // the Dweller's MIMIC: the single impostor wearing a real face that stares, then drops the mask.
         DwellerMimicManager.clientTick(mc);
 
-        // The Dweller's BREATHING loop — start it when requested; the instance stops itself when the flag clears.
+        // the Dweller's BREATHING loop — start it when requested; the instance stops itself when the flag clears.
         if (mc.player.getData(WitchModAttachments.DWELLER_BREATHING) == 1
                 && (dwellerBreathing == null || dwellerBreathing.isStopped())) {
             dwellerBreathing = new DwellerBreathingSound();
             mc.getSoundManager().play(dwellerBreathing);
         }
 
-        // Ugly: re-assert the swapped skin on every cursed player in view (and put faces back when cured).
+        // ugly: re-assert the swapped skin on every cursed player in view (and put faces back when cured).
         UglySkinManager.clientTick(mc);
 
         boolean minorActive = player.getData(WitchModAttachments.MINOR_INCONVENIENCE_ACTIVE) >= 0;
@@ -1439,8 +1923,8 @@ public final class ClientCurseHandler {
 
         tickMinorInconvenience(mc, window, player, minorActive);
 
-        // Screensaver — episodic: shrink out of fullscreen, bounce for a while, grow back. See
-        // ScreensaverState for the duty cycle and why it isn't continuous.
+        // screensaver — episodic: shrink out of fullscreen, bounce for a while, grow back. See
+        // screensaverState for the duty cycle and why it isn't continuous.
         if (screensaverActive) {
             ScreensaverState.tick(mc, player.getRandom());
             screensaverSeen = true;
@@ -1452,6 +1936,11 @@ public final class ClientCurseHandler {
         tickLoadingScreen(player);
         tickBadSwimmer(player);
         tickHeavyAnchor(player);
+        tickLeftHanded(mc, player);
+        tickIceSkates(player);
+        tickSpotlight(mc);
+        tickNarratorClient(mc, player);
+        NarratorClient.tickSubtitle(mc);
         tickStickDriftCamera(player);
         tickPacingCamera(mc, player);
         tickCutaway(mc, player);
@@ -1459,7 +1948,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Cutaway Gag: the looped SFX — Helicopter rotors (0) / abduction tractor beam (1) / annoying music (2) —
+     * cutaway Gag: the looped SFX — Helicopter rotors (0) / abduction tractor beam (1) / annoying music (2) —
      * driven off the synced {@code CUTAWAY_LOOP} id. Uses a POSITIONAL instance that follows the victim
      * ({@link CutawayLoopSound}) so the sound comes from the event, not from the spectating watcher.
      */
@@ -1485,7 +1974,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Cutaway Gag: while the synced {@code CUTAWAY_TARGET} points at a victim, hold a steady OVERHEAD shot of
+     * cutaway Gag: while the synced {@code CUTAWAY_TARGET} points at a victim, hold a steady OVERHEAD shot of
      * them. The server has placed the (invisible) watcher body at a good vantage, so we keep the camera on
      * ourselves in first person and just pin the view to look at the victim — far more stable than a
      * third-person attach, which was the buggy "can't see the event" version. If the victim isn't loaded yet
@@ -1497,7 +1986,7 @@ public final class ClientCurseHandler {
         if (spectating) {
             Entity victim = mc.level.getEntity(id);
             if (!cutawayCamActive) {
-                // Engage the cinematic AS SOON as the target is set — even before the victim's chunks finish
+                // engage the cinematic AS SOON as the target is set — even before the victim's chunks finish
                 // loading — so there's always an immediate cue (bars + title card) rather than a frozen "nothing".
                 cutawaySavedCamera = mc.options.getCameraType();
                 cutawayCamActive = true;
@@ -1544,7 +2033,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Builder: zero the two client-side cooldowns vanilla imposes between actions — {@code rightClickDelay}
+     * builder: zero the two client-side cooldowns vanilla imposes between actions — {@code rightClickDelay}
      * (place/use) and {@code MultiPlayerGameMode.destroyDelay} (the pause after breaking a block) — so both
      * happen at click speed. Both fields are private with no setter, so this reflects into them (cached),
      * degrading gracefully if the fields ever can't be resolved.
@@ -1581,7 +2070,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Ocean's Blessing: a strong forward push while swimming, so water travel is fast. Client-authoritative
+     * ocean's Blessing: a strong forward push while swimming, so water travel is fast. Client-authoritative
      * movement, so it's applied here off the synced flag; Dolphin's Grace multiplies it, and the boost is
      * capped so you can't accelerate without limit.
      */
@@ -1601,7 +2090,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Berserker: an air-swing (nothing in reach) is a MISS, and misses reset the frenzy. Whether a swing
+     * berserker: an air-swing (nothing in reach) is a MISS, and misses reset the frenzy. Whether a swing
      * connected is client-authoritative, so the client reports the miss and the server resets the stacks.
      */
     @SubscribeEvent
@@ -1614,9 +2103,9 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Forgiveness: a melee swing that MISSED (nothing in vanilla's pick) still connects if a mob's ~40%-bigger
+     * forgiveness: a melee swing that MISSED (nothing in vanilla's pick) still connects if a mob's ~40%-bigger
      * hitbox was on your aim line — enlarged hitboxes, but only FOR YOU. Especially forgiving on tiny/baby mobs.
-     * Runs on the miss (LeftClickEmpty), does an inflated raycast, and attacks the best candidate itself.
+     * runs on the miss (LeftClickEmpty), does an inflated raycast, and attacks the best candidate itself.
      */
     @SubscribeEvent
     static void onForgivenessAssist(PlayerInteractEvent.LeftClickEmpty event) {
@@ -1634,7 +2123,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Blessing of Speed: keep only a SLIGHT sprint-FOV zoom rather than the big one the boosted movement speed
+     * blessing of Speed: keep only a SLIGHT sprint-FOV zoom rather than the big one the boosted movement speed
      * would produce — so sprinting still reads as fast without the nauseating full zoom for that speed.
      */
     @SubscribeEvent
@@ -1644,6 +2133,15 @@ public final class ClientCurseHandler {
             if (natural > 1.0F) { // only while sprinting (the zoom-out)
                 event.setNewFovModifier(1.0F + (natural - 1.0F) * 0.3F); // keep ~30% of the sprint zoom
             }
+        }
+    }
+
+    /** flight + elytra: a slight FOV zoom-out while sprint-gliding, for the sense of speed the push gives. */
+    @SubscribeEvent
+    static void onFlightFov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
+        if (event.getPlayer().getData(WitchModAttachments.FLIGHT_ACTIVE) >= 1
+                && event.getPlayer().isFallFlying() && event.getPlayer().isSprinting()) {
+            event.setNewFovModifier(event.getNewFovModifier() * Config.FLIGHT_ELYTRA_FOV.get().floatValue());
         }
     }
 
@@ -1672,7 +2170,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Drives the fake load and pins the player's actual rotation, so mouse movement during it is discarded
+     * drives the fake load and pins the player's actual rotation, so mouse movement during it is discarded
      * rather than banked up and applied the moment the screen clears.
      */
     private static void tickLoadingScreen(LocalPlayer player) {
@@ -1692,7 +2190,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Bad Swimmer's constant pull. The curse's other half is a gravity attribute, but vanilla skips fluid
+     * bad Swimmer's constant pull. The curse's other half is a gravity attribute, but vanilla skips fluid
      * gravity ENTIRELY while sprinting — so a sprint-swim used to switch the curse clean off, leaving no
      * middle ground between "can't stay up at all" and "swimming works fine". This pull is applied here, to
      * the delta directly, so it bites in BOTH states and swimming becomes a battle rather than an exemption.
@@ -1706,14 +2204,18 @@ public final class ClientCurseHandler {
 
         if (inLiquid && !player.getAbilities().flying) {
             double pull = Config.BAD_SWIMMER_CONSTANT_PULL.get();
+            // dead_weight synergy: Dense (heavy anchor) + Bad Swimmer drops you like a stone.
+            if (player.getData(WitchModAttachments.HEAVY_ACTIVE) >= 0) {
+                pull *= Config.DEAD_WEIGHT_PULL_MULT.get();
+            }
             if (!wasInLiquid) {
                 pull += Config.BAD_SWIMMER_ENTRY_PLUNGE.get(); // the yank as you break the surface
             }
             player.setDeltaMovement(player.getDeltaMovement().subtract(0.0, pull, 0.0));
 
-            // You never learned the stroke: the SWIMMING pose is off the table entirely, which is what
+            // you never learned the stroke: the SWIMMING pose is off the table entirely, which is what
             // separates this from Heavy (that one just makes you sink; this one makes you unable to swim).
-            // Vanilla only enters the pose when isSprinting() is true in water, so killing the sprint at
+            // vanilla only enters the pose when isSprinting() is true in water, so killing the sprint at
             // the KEY is the real lever — a bare setSwimming(false) would be recomputed straight back next
             // tick. Same client-authoritative lesson as Gluttony's sprint cutoff.
             mc().options.keySprint.setDown(false);
@@ -1728,7 +2230,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Minor Inconvenience: you cannot go fullscreen, and your window is named something stupid every so
+     * minor Inconvenience: you cannot go fullscreen, and your window is named something stupid every so
      * often.
      *
      * <p><b>Fullscreen is refused, then the window is MAXIMISED.</b> Both halves matter: the renamed title
@@ -1752,11 +2254,23 @@ public final class ClientCurseHandler {
             WindowTitles.reload();   // pick up edits to the list without a restart
             minorSeen = true;
             nextRenameTick = 0;      // rename immediately on activation
-            forceWindowedMaximised(mc, window);
-        } else if (window.isFullscreen()) {
-            // They tried. Setting the OPTION runs vanilla's own change callback, which does the toggle —
-            // calling toggleFullScreen() as well double-toggles straight back.
-            forceWindowedMaximised(mc, window);
+        }
+
+        // refuse fullscreen, and keep the window MAXIMISED so it still fills the whole monitor (the renamed
+        // title bar is invisible in fullscreen, and a small windowed size would be a real handicap). Setting
+        // the OPTION runs vanilla's own change callback, which does the toggle — calling toggleFullScreen() as
+        // well double-toggles straight back.
+        if (window.isFullscreen()) {
+            mc.options.fullscreen().set(false);
+        } else {
+            // exiting fullscreen makes vanilla RESTORE the previous (small) windowed size, one frame AFTER we
+            // asked — so a one-shot maximise gets overwritten and you end up seeing the desktop. Re-assert the
+            // maximise each tick until it actually sticks (checking the GLFW attribute so it isn't spammed).
+            // skipped while Screensaver is bouncing the window, so the two curses don't fight.
+            boolean screensaverBouncing = player.getData(WitchModAttachments.SCREENSAVER_ACTIVE) >= 0;
+            if (!screensaverBouncing && !isMaximised(window)) {
+                GLFW.glfwMaximizeWindow(window.getWindow());
+            }
         }
 
         if (tickCounter >= nextRenameTick) {
@@ -1767,15 +2281,12 @@ public final class ClientCurseHandler {
         }
     }
 
-    private static void forceWindowedMaximised(Minecraft mc, Window window) {
-        if (window.isFullscreen()) {
-            mc.options.fullscreen().set(false);
-        }
-        GLFW.glfwMaximizeWindow(window.getWindow());
+    private static boolean isMaximised(Window window) {
+        return GLFW.glfwGetWindowAttrib(window.getWindow(), GLFW.GLFW_MAXIMIZED) == GLFW.GLFW_TRUE;
     }
 
     /**
-     * Heavy: you sink like an anchor. Client-side for the same reason Bad Swimmer's pull is — player movement
+     * heavy: you sink like an anchor. Client-side for the same reason Bad Swimmer's pull is — player movement
      * is client-authoritative — and needed at all because vanilla divides gravity by 16 in fluid, so the
      * GRAVITY attribute on its own only gives a slightly brisker version of the usual gentle bob.
      */
@@ -1799,7 +2310,7 @@ public final class ClientCurseHandler {
         }
 
         if (active && pacingCamActive) {
-            // Cut to a new shot every PACING_SHOT_TICKS, looping through the framings if the moment is long.
+            // cut to a new shot every PACING_SHOT_TICKS, looping through the framings if the moment is long.
             int elapsed = (int) (now - (end - pacingTotalTicks));
             int shot = shotEntity.length == 0 ? -1
                     : (elapsed / Config.PACING_SHOT_TICKS.get()) % shotEntity.length;
@@ -1812,7 +2323,7 @@ public final class ClientCurseHandler {
         }
     }
 
-    /** Sets up the cinematic: resolves the victim, builds the shot list, starts the theme. */
+    /** sets up the cinematic: resolves the victim, builds the shot list, starts the theme. */
     private static void startPacing(Minecraft mc, LocalPlayer player) {
         int focusId = player.getData(WitchModAttachments.PACING_FOCUS_ID);
         pacingFocus = focusId >= 0 ? mc.level.getEntity(focusId) : player;
@@ -1829,7 +2340,7 @@ public final class ClientCurseHandler {
         startTheme();
     }
 
-    /** Restores the player's own camera and perspective, and cuts the theme dead. */
+    /** restores the player's own camera and perspective, and cuts the theme dead. */
     private static void endPacing(Minecraft mc, LocalPlayer player) {
         pacingCamActive = false;
         currentShot = -1;
@@ -1842,7 +2353,7 @@ public final class ClientCurseHandler {
         stopTheme();
     }
 
-    /** Points the camera for one cut, kills any inherited mob shader, and clicks. */
+    /** points the camera for one cut, kills any inherited mob shader, and clicks. */
     private static void applyShot(Minecraft mc, LocalPlayer player, int shot) {
         Entity entity = shotEntity[shot];
         if (entity == null || !entity.isAlive()) {
@@ -1850,7 +2361,7 @@ public final class ClientCurseHandler {
         }
         mc.setCameraEntity(entity);
         mc.options.setCameraType(shotFront[shot] ? CameraType.THIRD_PERSON_FRONT : CameraType.THIRD_PERSON_BACK);
-        // Riding a mob loads its vision shader (spider/creeper/enderman); kill it immediately. checkEntityPostEffect
+        // riding a mob loads its vision shader (spider/creeper/enderman); kill it immediately. checkEntityPostEffect
         // only re-runs on the next setCameraEntity, so this stays off for the whole shot.
         if (!(entity instanceof Player)) {
             mc.gameRenderer.shutdownEffect();
@@ -1859,7 +2370,7 @@ public final class ClientCurseHandler {
     }
 
     /**
-     * Precomputes the shot list: the first 2–4 cuts are the victim (orbit angles), then it cuts to nearby
+     * precomputes the shot list: the first 2–4 cuts are the victim (orbit angles), then it cuts to nearby
      * frozen entities — each a FRONT-view face shot — biased toward ones not yet featured, so the spotlight
      * spreads around rather than lingering on one. Every shot gets a small dutch-angle roll for drama.
      */
@@ -1884,7 +2395,7 @@ public final class ClientCurseHandler {
             rolls.add(dutch(player));
         }
 
-        // Nearby frozen entities, nearest first, each a front-view face zoom. Shuffled so repeat loops don't
+        // nearby frozen entities, nearest first, each a front-view face zoom. Shuffled so repeat loops don't
         // always show them in the same order — the "variety bias" toward whoever hasn't been on screen.
         List<Entity> nearby = new ArrayList<>(mc.level.getEntitiesOfClass(LivingEntity.class,
                 pacingFocus.getBoundingBox().inflate(Config.PACING_FREEZE_RADIUS.get()),

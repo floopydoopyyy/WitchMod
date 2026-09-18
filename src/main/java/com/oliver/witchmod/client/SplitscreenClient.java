@@ -22,7 +22,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * Client half of the Splitscreen curse: the shared-screen side panel (the partner's screen), the
+ * client half of the Splitscreen curse: the shared-screen side panel (the partner's screen), the
  * "Entering/Exiting splitscreen…" fake-load transitions, and the shared-sign freeze + damage force-close.
  *
  * <p>The live partner POV is a real second render pass ({@link SplitscreenPov}); if that's disabled or fails
@@ -33,7 +33,7 @@ import com.oliver.witchmod.network.WitchModNetwork;
 public final class SplitscreenClient {
     private static boolean lastEditing = false;
     private static long lastSignCloseNonce = 0L;
-    /** The graphics mode to hand back when the split ends — non-null only while we've forced them off Fabulous. */
+    /** the graphics mode to hand back when the split ends — non-null only while we've forced them off Fabulous. */
     private static GraphicsStatus savedGraphics = null;
 
     private SplitscreenClient() {}
@@ -54,7 +54,7 @@ public final class SplitscreenClient {
         if (player == null) {
             return;
         }
-        // Report whether we have a sign editor open (drives the shared freeze).
+        // report whether we have a sign editor open (drives the shared freeze).
         boolean editing = mc.screen instanceof AbstractSignEditScreen;
         if (editing != lastEditing) {
             lastEditing = editing;
@@ -62,7 +62,7 @@ public final class SplitscreenClient {
                 mc.getConnection().send(new WitchModNetwork.SplitscreenSignPayload(editing));
             }
         }
-        // Force-close our sign when the server says someone took damage.
+        // force-close our sign when the server says someone took damage.
         long close = player.getData(WitchModAttachments.SPLITSCREEN_SIGN_CLOSE);
         if (close != lastSignCloseNonce) {
             lastSignCloseNonce = close;
@@ -75,7 +75,7 @@ public final class SplitscreenClient {
     }
 
     /**
-     * While the split's live POV is running, keep the player OFF Fabulous — its whole-screen transparency
+     * while the split's live POV is running, keep the player OFF Fabulous — its whole-screen transparency
      * chain fights our second render pass into a dangerous strobe. We flip Fabulous→Fancy each tick it's
      * engaged (so re-selecting Fabulous mid-curse is undone immediately) and hand Fabulous back once the
      * split ends. Fabulous↔Fancy share chunk meshes, so no rebuild/hitch is needed.
@@ -96,7 +96,7 @@ public final class SplitscreenClient {
         }
     }
 
-    /** Freeze movement during a transition, and for the non-editing partner while a shared sign is open. */
+    /** freeze movement during a transition, and for the non-editing partner while a shared sign is open. */
     @SubscribeEvent
     static void onMovementInput(MovementInputUpdateEvent event) {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -113,7 +113,7 @@ public final class SplitscreenClient {
         }
     }
 
-    /** Render the partner POV into its framebuffer before the HUD draws (world is already rendered here). */
+    /** render the partner POV into its framebuffer before the HUD draws (world is already rendered here). */
     @SubscribeEvent
     static void onRenderGuiPre(RenderGuiEvent.Pre event) {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -127,7 +127,7 @@ public final class SplitscreenClient {
         SplitscreenPov.renderPartnerView(partnerId, event.getPartialTick());
     }
 
-    /** Draw the split panel + any transition overlay on top of the HUD. */
+    /** draw the split panel + any transition overlay on top of the HUD. */
     @SubscribeEvent
     static void onRenderGuiPost(RenderGuiEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
@@ -163,7 +163,7 @@ public final class SplitscreenClient {
 
         boolean live = SplitscreenPov.blit(g, px, py, pw, ph);
         if (!live) {
-            // Fallback = an honest error screen (so testers can file a clear bug report).
+            // fallback = an honest error screen (so testers can file a clear bug report).
             g.fill(px, py, px + pw, py + ph, 0xFF14141C);
             int cx = px + pw / 2;
             int cy = ph / 2;
@@ -181,7 +181,7 @@ public final class SplitscreenClient {
                 g.drawCenteredString(mc.font, "§7(live POV disabled in config)", cx, cy + 14, 0xFF888888);
             }
         }
-        // Grey console divider.
+        // grey console divider.
         g.fill(half - 2, 0, half + 2, h, 0xFF9A9A9A);
         g.drawString(mc.font, "P2", px + 4, 4, 0xFFFFFFFF, true);
         g.drawString(mc.font, "P1", 4, 4, 0xFFFFFFFF, true);

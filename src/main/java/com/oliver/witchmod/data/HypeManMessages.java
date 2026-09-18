@@ -19,12 +19,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Hype Man blessing's praise, from {@code data/witchmod/text/hypeman.json} ({@code /reload}-able). Keyed
- * by what the blessed player just did — {@code combat}, {@code pickup}, {@code loot}, {@code nearby} — each a
- * writable list of lines. {@code {player}} in a line is swapped for the blessed player's username, so most
- * lines can name them directly.
- */
+/** hype man praise ({@code data/witchmod/text/hypeman.json}, /reload-able), keyed by what you just did; {player}=your name. */
 public final class HypeManMessages extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "hypeman");

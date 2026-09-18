@@ -15,7 +15,7 @@ import net.minecraft.util.RandomSource;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Minor Inconvenience curse's pool of silly OS window titles, read from a writable list.
+ * the Minor Inconvenience curse's pool of silly OS window titles, read from a writable list.
  *
  * <p><b>Lives in {@code assets/}, not {@code data/}</b> — same call as the Loading Screen's tips, and for the
  * same reason: it's consumed purely client-side, so putting it in assets means it needs no server→client
@@ -36,7 +36,7 @@ public final class WindowTitles {
 
     private WindowTitles() {}
 
-    /** Called on the curse's inactive→active edge, so edits are picked up without a restart. */
+    /** called on the curse's inactive→active edge, so edits are picked up without a restart. */
     public static void reload() {
         titles = read();
         loaded = true;

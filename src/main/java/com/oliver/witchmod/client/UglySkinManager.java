@@ -20,7 +20,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Client half of the Ugly curse: swaps a cursed player's rendered skin for one of the mod's own.
+ * client half of the Ugly curse: swaps a cursed player's rendered skin for one of the mod's own.
  *
  * <p><b>Skins are discovered from the resource pack at runtime</b>, from
  * {@code assets/witchmod/textures/entity/ugly/}. Any {@code .png} dropped in that folder is picked up with
@@ -44,7 +44,7 @@ public final class UglySkinManager {
     private static final String SKIN_FOLDER = "textures/entity/ugly";
 
     private static final Field SKIN_LOOKUP = resolveSkinLookup();
-    /** Players we've overridden, and the lookup to give them back. */
+    /** players we've overridden, and the lookup to give them back. */
     private static final Map<UUID, Supplier<PlayerSkin>> ORIGINALS = new HashMap<>();
 
     private static List<PlayerSkin> skins = List.of();
@@ -64,10 +64,10 @@ public final class UglySkinManager {
         }
     }
 
-    /** Called every client tick. */
+    /** called every client tick. */
     public static void clientTick(Minecraft minecraft) {
         if (SKIN_LOOKUP == null || minecraft.level == null || minecraft.getConnection() == null) {
-            // Disconnected. Everything we were holding refers to PlayerInfo objects from a connection that
+            // disconnected. Everything we were holding refers to PlayerInfo objects from a connection that
             // no longer exists, so it must be dropped — otherwise the stale entries make us think we've
             // already uglified someone and we never touch their NEW PlayerInfo on rejoin.
             ORIGINALS.clear();
@@ -87,7 +87,7 @@ public final class UglySkinManager {
             apply(minecraft, player, skins.get(Math.floorMod(roll, skins.size())));
         }
 
-        // Anyone we'd uglified who no longer is — cured, or simply out of range now — gets their face back.
+        // anyone we'd uglified who no longer is — cured, or simply out of range now — gets their face back.
         ORIGINALS.keySet().removeIf(id -> {
             if (stillCursed.contains(id)) {
                 return false;
@@ -102,8 +102,8 @@ public final class UglySkinManager {
         if (info == null) {
             return; // not in the tab list yet; we'll catch them next tick
         }
-        // Ask the CURRENT PlayerInfo what it's actually showing rather than trusting our own bookkeeping.
-        // Reconnecting builds a brand-new PlayerInfo, so a "have we done this player yet" flag would say yes
+        // ask the CURRENT PlayerInfo what it's actually showing rather than trusting our own bookkeeping.
+        // reconnecting builds a brand-new PlayerInfo, so a "have we done this player yet" flag would say yes
         // and leave the fresh one untouched — which is exactly why the skin reverted on relog.
         if (info.getSkin() == ugly) {
             return; // already wearing this exact skin
@@ -131,14 +131,14 @@ public final class UglySkinManager {
         }
     }
 
-    /** Re-reads the folder. Called on the first tick and on a resource reload, so F3+T picks up new files. */
+    /** re-reads the folder. Called on the first tick and on a resource reload, so F3+T picks up new files. */
     public static void reload() {
         scanned = true;
         List<ResourceLocation> found = new ArrayList<>(Minecraft.getInstance().getResourceManager()
                 .listResources(SKIN_FOLDER, location -> location.getNamespace().equals(WitchMod.MODID)
                         && location.getPath().endsWith(".png"))
                 .keySet());
-        // Sorted so every client walks the list in the same order — otherwise the same server roll would
+        // sorted so every client walks the list in the same order — otherwise the same server roll would
         // show different faces on different machines.
         found.sort(ResourceLocation::compareTo);
 
@@ -158,9 +158,9 @@ public final class UglySkinManager {
                     WitchMod.MODID, SKIN_FOLDER);
         } else if (!skins.isEmpty()) {
             warnedNoSkins = false;
-            // Worth logging the count: Minecraft silently drops any file whose path isn't lowercase
+            // worth logging the count: Minecraft silently drops any file whose path isn't lowercase
             // a-z/0-9/_/-/. (a space or a capital is enough), so a skin you added may simply not be here.
-            // Those show up separately as "Invalid path in pack: ... ignoring".
+            // those show up separately as "Invalid path in pack: ... ignoring".
             WitchMod.LOGGER.info("[Ugly] Loaded {} ugly skin(s).", skins.size());
         }
     }

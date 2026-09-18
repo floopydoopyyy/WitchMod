@@ -23,7 +23,7 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * Boing (master-spec Bouncy, sacrificial item SLIME BALL — registered as a blessing; it's a good time). You're
+ * boing. You're
  * made of rubber:
  * <ul>
  *   <li><b>Fall-immune and you REBOUND</b>, and repeatedly jumping BUILDS height (the movement physics —
@@ -46,7 +46,7 @@ public final class CurseBouncy extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 28, () -> Items.SLIME_BALL);
     }
 
-    /** You find out the first time you boing off anything — a floor, a wall, or somebody (Rule 2). */
+    /** you find out the first time you boing off anything — a floor, a wall, or somebody (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -65,7 +65,7 @@ public final class CurseBouncy extends Effect {
                 net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH, JUMP_ID);
     }
 
-    /** Rubber legs: you spring HIGHER too. A transient JUMP_STRENGTH modifier, re-asserted each tick. */
+    /** rubber legs: you spring HIGHER too. A transient JUMP_STRENGTH modifier, re-asserted each tick. */
     private static void applyJump(ServerPlayer target) {
         var jump = target.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH);
         if (jump != null && !jump.hasModifier(JUMP_ID)) {
@@ -78,6 +78,9 @@ public final class CurseBouncy extends Effect {
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         applyJump(target); // re-assert the transient jump modifier (survives reload)
+        // 2 = the low-gravity synergy is live (client reads it to rebound harder); 1 = plain bouncy.
+        target.setData(WitchModAttachments.BOUNCY_ACTIVE,
+                com.oliver.witchmod.synergy.Synergies.BOUNCINESS.activeFor(target) ? 2 : 1);
         ServerLevel level = target.serverLevel();
         double horizSpeedSqr = target.getDeltaMovement().horizontalDistanceSqr();
         boolean sprinting = target.isSprinting() && horizSpeedSqr > 0.02 * 0.02;
@@ -97,7 +100,7 @@ public final class CurseBouncy extends Effect {
         }
     }
 
-    /** The squared speed at which {@code mover} is closing on {@code toward} (0 if moving away). */
+    /** the squared speed at which {@code mover} is closing on {@code toward} (0 if moving away). */
     private static double closingSpeedSqr(LivingEntity mover, LivingEntity toward) {
         Vec3 vel = mover.getDeltaMovement();
         Vec3 dir = toward.position().subtract(mover.position());
@@ -108,7 +111,7 @@ public final class CurseBouncy extends Effect {
         return closing > 0 ? closing * closing : 0.0;
     }
 
-    /** Fling {@code victim} away from {@code source} horizontally (plus a hop), with a boing. Respects a short cooldown. */
+    /** fling {@code victim} away from {@code source} horizontally (plus a hop), with a boing. Respects a short cooldown. */
     public static void bounceAway(ServerPlayer source, LivingEntity victim, double force) {
         long now = source.serverLevel().getGameTime();
         Long ready = BOUNCE_COOLDOWN.get(victim.getUUID());

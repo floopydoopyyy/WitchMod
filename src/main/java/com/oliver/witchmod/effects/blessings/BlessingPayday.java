@@ -23,9 +23,7 @@ import com.oliver.witchmod.entities.TaxManEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * The Tax Man, but this time he owes YOU (master-spec Payday, formerly "Tax Man" the blessing — renamed to
- * be clearly distinct from the {@code audit} curse and from the Tax Man CHARACTER himself; sacrificial item
- * GOLD INGOT). He turns up, walks over, drops your money in front of you, and leaves — and that <b>one
+ * the Tax Man, but this time he owes YOU. He turns up, walks over, drops your money in front of you, and leaves — and that <b>one
  * delivery consumes the blessing</b>. What he hands over is everything the {@link com.oliver.witchmod.data.TaxBank}
  * has confiscated (across the whole world, memory-capped) — or, if the bank is empty, a random consolation gift.
  *
@@ -35,7 +33,7 @@ import com.oliver.witchmod.entities.WitchModEntities;
  * the bank is only ever drained on a genuine, completed delivery.
  */
 public final class BlessingPayday extends Effect {
-    /** Per-recipient waiting state: how long they've been still, where they were, and the summoned entity. */
+    /** per-recipient waiting state: how long they've been still, where they were, and the summoned entity. */
     private static final class Watch {
         int idleTicks;
         Vec3 lastPos;
@@ -54,7 +52,7 @@ public final class BlessingPayday extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.GOLD_INGOT);
     }
 
-    /** You find out when the Tax Man actually turns up and pays out (Rule 2), not when it's cast. */
+    /** you find out when the Tax Man actually turns up and pays out (Rule 2), not when it's cast. */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         Watch w = WATCHES.get(target.getUUID());
@@ -85,7 +83,7 @@ public final class BlessingPayday extends Effect {
     public void onTick(ServerPlayer target, int ticksRemaining) {
         Watch watch = WATCHES.computeIfAbsent(target.getUUID(), k -> new Watch(target.position()));
 
-        // Already sent him.
+        // already sent him.
         if (watch.entityId != null) {
             TaxManEntity taxMan = find(target, watch.entityId);
             if (taxMan != null) {
@@ -97,7 +95,7 @@ public final class BlessingPayday extends Effect {
                 }
                 return;
             }
-            // He's gone. If he actually paid out, the one use is spent; if he vanished first (a relog before
+            // he's gone. If he actually paid out, the one use is spent; if he vanished first (a relog before
             // he arrived), forget him so a fresh one is sent when the moment's right again.
             if (watch.delivered) {
                 EffectManager.remove(target, Blessings.PAYDAY);
@@ -107,7 +105,7 @@ public final class BlessingPayday extends Effect {
             return;
         }
 
-        // Track idleness: reset the moment they move, otherwise let it build.
+        // track idleness: reset the moment they move, otherwise let it build.
         if (target.position().distanceTo(watch.lastPos) > MOVE_EPSILON) {
             watch.idleTicks = 0;
         } else {

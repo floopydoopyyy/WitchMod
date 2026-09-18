@@ -19,12 +19,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Solicitor curse's names + dialogue, from {@code data/witchmod/text/solicitor.json} ({@code /reload}-able).
- * {@code names} is the pool the trader's random name is drawn from; the other keys ({@code arrive},
- * {@code pitch}, {@code killed}, {@code traded}) are the lines it says in chat. {@code {player}} is swapped for
- * the victim's name by the curse.
- */
+/** solicitor names + dialogue ({@code data/witchmod/text/solicitor.json}, /reload-able); {player}=victim. */
 public final class SolicitorLines extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "solicitor");

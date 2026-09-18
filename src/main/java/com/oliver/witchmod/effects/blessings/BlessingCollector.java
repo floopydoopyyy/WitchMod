@@ -14,7 +14,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Collector (sacrificial item BARREL): nearby dropped items drift to you, and XP is dragged in from a HUGE
+ * collector (sacrificial item BARREL): nearby dropped items drift to you, and XP is dragged in from a HUGE
  * radius at huge speed — the XP magnet especially is on steroids. A vacuum for loot and levels.
  */
 public final class BlessingCollector extends Effect {
@@ -22,7 +22,7 @@ public final class BlessingCollector extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> net.minecraft.world.item.Items.BARREL);
     }
 
-    /** Not instantly noticeable — you discover it the first time something is pulled toward you. */
+    /** not instantly noticeable — you discover it the first time something is pulled toward you. */
     @Override
     public boolean discoversOnTrigger() {
         return true;

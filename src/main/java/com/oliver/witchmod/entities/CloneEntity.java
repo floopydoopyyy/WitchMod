@@ -25,10 +25,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 /**
- * Blessing of Confusion's doppelganger: an exact clone of the caster (skin + nametag; see
- * {@code client/CloneRenderer}) that wanders and does fake actions — attacking nearby monsters, looking
- * around — to blend in with the real you. It has 1 HP, so one hit pops it in a flash of dust. Transient
- * (the blessing owns its lifetime).
+ * confusion's doppelganger — an exact clone of the caster (skin + nametag) that wanders and fakes actions to
+ * blend in. 1 hp, so one hit pops it to dust. transient (the blessing owns its lifetime).
  */
 public final class CloneEntity extends PathfinderMob {
     private static final EntityDataAccessor<Optional<UUID>> OWNER =

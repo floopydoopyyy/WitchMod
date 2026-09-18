@@ -11,7 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Wall-crawler (sacrificial item FERMENTED SPIDER EYE — Spider Eye is taken by Neutral Aggression): you climb
+ * wall-crawler (sacrificial item FERMENTED SPIDER EYE — Spider Eye is taken by Neutral Aggression): you climb
  * walls like a spider, but faster. Push into a wall to scale it, or sneak against one to cling.
  *
  * <p>Movement is client-authoritative, so the climbing lives in {@code client/ClientCurseHandler} off the

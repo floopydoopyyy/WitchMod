@@ -8,7 +8,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 import com.oliver.witchmod.entities.BodyguardEntity;
 
 /**
- * The Bodyguard's model — vanilla humanoid (skeleton geometry), but it poses the right arm to actually HOLD
+ * the Bodyguard's model — vanilla humanoid (skeleton geometry), but it poses the right arm to actually HOLD
  * its sword when one is drawn. Without that the arm just hangs and the attack swing reads as a flail; with
  * {@code ArmPose.ITEM} the sword is held out and vanilla's own attack-swing animation (driven by
  * {@code swing()} → {@code attackTime}) plays over it properly. Walking and idle bob come free from

@@ -29,8 +29,8 @@ import net.minecraft.world.phys.Vec3;
 import com.oliver.witchmod.Config;
 
 /**
- * One fake player: a {@link RemotePlayer} that exists ONLY in this client's {@code ClientLevel}, wearing a
- * real online player's skin and nametag (master-spec Delusions).
+ * one fake player: a {@link RemotePlayer} that exists ONLY in this client's {@code ClientLevel}, wearing a
+ * real online player's skin and nametag.
  *
  * <p><b>Skin and name come free from vanilla, via two different routes.</b> The nametag is just
  * {@code Player.getName()}, which returns the GameProfile's name — so the profile is built with the mirrored
@@ -58,13 +58,13 @@ import com.oliver.witchmod.Config;
  */
 public final class DelusionPlayer extends RemotePlayer {
     /**
-     * Fake entity ids are handed out from the top of the int range downwards. Client-created entities draw
+     * fake entity ids are handed out from the top of the int range downwards. Client-created entities draw
      * from the same counter the server's ids land in, and {@code ClientLevel.addEntity} DISCARDS whatever
      * already holds an id — so a low id risks a delusion silently deleting a real entity (or vice versa).
      */
     private static final AtomicInteger FAKE_IDS = new AtomicInteger(Integer.MAX_VALUE - 1);
 
-    /** Throttles, as a fraction of "holding W". Actual speed comes from the movement-speed attribute. */
+    /** throttles, as a fraction of "holding W". Actual speed comes from the movement-speed attribute. */
     private static final float FULL_THROTTLE = 1.0F;
     private static final float SNEAK_THROTTLE = 0.3F;      // vanilla's own slow-movement factor
     private static final float FLY_THROTTLE = 0.6F;
@@ -77,13 +77,13 @@ public final class DelusionPlayer extends RemotePlayer {
     private static final float BODY_TURN_RATE = 9.0F;
     private static final float LOOK_TURN_RATE = 12.0F;
 
-    /** The behaviours. REALISATION is never rolled — it's earned by being watched. */
+    /** the behaviours. REALISATION is never rolled — it's earned by being watched. */
     private enum State {
         IDLE, WANDERING, SPRINTING, SNEAKING, MINING, PUNCHING, WAVING,
         JUMPING, DANCING, TWERKING, SPINNING, FLYING, TELEPORTING, OBSERVING, REALISATION
     }
 
-    /** Everything except REALISATION, weighted so the mundane ones carry the illusion. */
+    /** everything except REALISATION, weighted so the mundane ones carry the illusion. */
     private static final State[] ROLLABLE = {
             State.WANDERING, State.WANDERING, State.WANDERING,
             State.IDLE, State.IDLE,
@@ -109,17 +109,17 @@ public final class DelusionPlayer extends RemotePlayer {
     private int stateDuration = 40;
     private int lifeTicks;
 
-    /** Builds while the victim has this one in view, decays when they look away. */
+    /** builds while the victim has this one in view, decays when they look away. */
     private double seenScore;
     private int realisationRollCooldown;
 
-    // The "mouse": where it's looking, and where it's easing to.
+    // the "mouse": where it's looking, and where it's easing to.
     private float lookYaw;
     private float lookPitch;
     private float wishYaw;
     private float wishPitch;
 
-    // The "keyboard" for this tick.
+    // the "keyboard" for this tick.
     private float headingYaw;
     private float throttle;
     private boolean wishSprint;
@@ -131,7 +131,7 @@ public final class DelusionPlayer extends RemotePlayer {
     private Vec3 stuckAnchor = Vec3.ZERO;
     private int lastAnimatedTick = -1;
 
-    // Sporadic-movement state: players don't hold W in a straight line for twenty seconds.
+    // sporadic-movement state: players don't hold W in a straight line for twenty seconds.
     private int pauseTicks;
     private int burstTicks;
 
@@ -146,25 +146,25 @@ public final class DelusionPlayer extends RemotePlayer {
         this.mirrored = mirrored;
         this.rng = RandomSource.create(seed);
         setId(FAKE_IDS.getAndDecrement());
-        // RemotePlayer's constructor turns physics off (real ones are positioned entirely by packets). These
+        // remotePlayer's constructor turns physics off (real ones are positioned entirely by packets). These
         // walk around under their own steam, so it goes back on. Player.tick re-asserts it every tick anyway,
         // since isSpectator() is false here, so travel() always collides properly.
         this.noPhysics = false;
         setInvulnerable(true);
-        // Which skin overlay layers to draw is normally SYNCED from the server, and its default is 0 — so
+        // which skin overlay layers to draw is normally SYNCED from the server, and its default is 0 — so
         // without this every delusion renders with no hat, jacket or sleeve layer, i.e. visibly bald and
         // wearing the wrong clothes. 0x7F turns on all seven PlayerModelParts.
         getEntityData().set(DATA_PLAYER_MODE_CUSTOMISATION, (byte) 0x7F);
     }
 
-    /** The whole point: this fake wears a real player's skin, and with it their slim/wide body type. */
+    /** the whole point: this fake wears a real player's skin, and with it their slim/wide body type. */
     @Override
     public PlayerSkin getSkin() {
         return mirrored.getSkin();
     }
 
     /**
-     * Never let vanilla's crosshair pick one. If it did, attacking would send the SERVER an interact packet
+     * never let vanilla's crosshair pick one. If it did, attacking would send the SERVER an interact packet
      * naming an entity id it has never heard of — the swing is ray-traced against delusions separately in
      * {@link DelusionManager} instead.
      */
@@ -178,7 +178,7 @@ public final class DelusionPlayer extends RemotePlayer {
         return false;
     }
 
-    /** They'd shove the real player around, which the server would immediately correct. */
+    /** they'd shove the real player around, which the server would immediately correct. */
     @Override
     protected void pushEntities() {
     }
@@ -212,7 +212,7 @@ public final class DelusionPlayer extends RemotePlayer {
         super.calculateEntityAnimation(includeHeight);
     }
 
-    /** The mirrored player's gamemode is none of this fake's business — it must always render solid. */
+    /** the mirrored player's gamemode is none of this fake's business — it must always render solid. */
     @Override
     public boolean isSpectator() {
         return false;
@@ -224,7 +224,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Pins this fake into a dead-still STARE at the victim (the Dweller mimic uses this): no wandering, no
+     * pins this fake into a dead-still STARE at the victim (the Dweller mimic uses this): no wandering, no
      * player-business — just an impostor standing unnaturally still, watching you. Behaviour, not a scare.
      */
     private boolean stalkerStare;
@@ -242,7 +242,7 @@ public final class DelusionPlayer extends RemotePlayer {
         lifeTicks++;
 
         if (stalkerStare) {
-            // Stand still and slowly turn to keep facing the victim — unblinking, unmoving, wrong.
+            // stand still and slowly turn to keep facing the victim — unblinking, unmoving, wrong.
             throttle = 0.0F;
             wishSprint = false;
             wishJump = false;
@@ -279,7 +279,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Vanilla's movement, minus the parts that only make sense for a genuinely remote player.
+     * vanilla's movement, minus the parts that only make sense for a genuinely remote player.
      *
      * <p>{@code RemotePlayer.aiStep} exists to interpolate toward positions the server sent, and never calls
      * {@code travel()} at all — so inheriting it means no physics whatsoever. {@code LivingEntity.aiStep}
@@ -300,7 +300,7 @@ public final class DelusionPlayer extends RemotePlayer {
             this.jumpFromGround();
             jumpCooldown = JUMP_COOLDOWN_TICKS;
         }
-        // Creative-style flight gets its lift the same way LocalPlayer does — a direct nudge before travel,
+        // creative-style flight gets its lift the same way LocalPlayer does — a direct nudge before travel,
         // which Player.travel then decays by 0.6 each tick.
         if (getAbilities().flying && flyClimb != 0) {
             setDeltaMovement(getDeltaMovement().add(0.0, flyClimb * getAbilities().getFlyingSpeed() * 3.0, 0.0));
@@ -316,7 +316,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Turns "walk toward {@code headingYaw} while looking at {@code lookYaw}" into the strafe/forward pair a
+     * turns "walk toward {@code headingYaw} while looking at {@code lookYaw}" into the strafe/forward pair a
      * real player would be holding, since {@code moveRelative} rotates the input by the entity's yaw.
      */
     private void applyInputs() {
@@ -334,7 +334,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Terrain handling, and the reason they stop snagging on hillsides. Vanilla's step-up only clears 0.6 of
+     * terrain handling, and the reason they stop snagging on hillsides. Vanilla's step-up only clears 0.6 of
      * a block, so a full block — a hill, a ledge, a single cobble someone left — stops a walker dead. Players
      * don't stop, they jump, and they start the jump BEFORE they're touching the thing.
      *
@@ -369,7 +369,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Last resort. If a run of jumping and shoving hasn't actually got us anywhere over the whole window,
+     * last resort. If a run of jumping and shoving hasn't actually got us anywhere over the whole window,
      * it's not a step — it's a wall — so give up on this direction and head somewhere else.
      */
     private void checkStuck() {
@@ -452,7 +452,7 @@ public final class DelusionPlayer extends RemotePlayer {
         }
     }
 
-    /** Standing about, glancing around now and then — the small mouse movements nobody makes on purpose. */
+    /** standing about, glancing around now and then — the small mouse movements nobody makes on purpose. */
     private void tickIdle() {
         if (stateTicks % (20 + rng.nextInt(40)) == 0) {
             wishYaw = lookYaw + (rng.nextFloat() - 0.5F) * 120.0F;
@@ -461,12 +461,12 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Walking, but never in a clean line. Nobody holds W for twenty seconds: they stop to look at something,
+     * walking, but never in a clean line. Nobody holds W for twenty seconds: they stop to look at something,
      * break into a jog, hop over nothing in particular, and drift off course constantly. The irregularity is
      * doing as much work here as the speed is.
      */
     private void tickWalk(boolean sprint) {
-        // Stopped to look at something.
+        // stopped to look at something.
         if (pauseTicks > 0) {
             pauseTicks--;
             wishPitch = (float) Math.sin(stateTicks / 9.0) * 14.0F;
@@ -478,7 +478,7 @@ public final class DelusionPlayer extends RemotePlayer {
         }
 
         throttle = FULL_THROTTLE;
-        // An unprompted jog, even mid-walk — and a walker who breaks into one is very hard to read as fake.
+        // an unprompted jog, even mid-walk — and a walker who breaks into one is very hard to read as fake.
         if (burstTicks > 0) {
             burstTicks--;
             wishSprint = true;
@@ -497,7 +497,7 @@ public final class DelusionPlayer extends RemotePlayer {
         if (stateTicks % (wishSprint ? 60 : 40) == 0) {
             headingYaw += (rng.nextFloat() - 0.5F) * (wishSprint ? 40.0F : 80.0F);
         }
-        // The head drifts a little off the direction of travel, as though watching the scenery go past.
+        // the head drifts a little off the direction of travel, as though watching the scenery go past.
         wishYaw = headingYaw + (float) Math.sin(stateTicks / 22.0) * 12.0F;
         wishPitch = (float) Math.sin(stateTicks / 31.0) * 6.0F;
         footsteps(wishSprint ? 6 : 9);
@@ -518,7 +518,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Chipping away at a block: the arm swings on the vanilla mining cadence, the block's own hit sound
+     * chipping away at a block: the arm swings on the vanilla mining cadence, the block's own hit sound
      * plays, and the cracking overlay really does creep across it — {@code destroyBlockProgress} is a
      * client-side renderer call, so the illusion costs the world nothing.
      */
@@ -542,7 +542,7 @@ public final class DelusionPlayer extends RemotePlayer {
             swing(InteractionHand.MAIN_HAND);
             playAt(mined.getSoundType(level(), miningPos, this).getHitSound(), 0.25F, 0.5F);
         }
-        // Crack it open over ~2s, break it, then start on it again — as if working through a seam.
+        // crack it open over ~2s, break it, then start on it again — as if working through a seam.
         if (stateTicks % 8 == 0) {
             miningStage++;
             if (miningStage > 9) {
@@ -567,7 +567,7 @@ public final class DelusionPlayer extends RemotePlayer {
         }
     }
 
-    /** Locked onto you, arm going like a metronome. There is no wave animation — this IS how players wave. */
+    /** locked onto you, arm going like a metronome. There is no wave animation — this IS how players wave. */
     private void tickWaving(LocalPlayer victim) {
         faceEntity(victim);
         if (stateTicks % 4 == 0) {
@@ -582,7 +582,7 @@ public final class DelusionPlayer extends RemotePlayer {
         }
     }
 
-    /** Strafe-spam plus jumps and a swinging camera — the universal "I'm bored in a lobby" dance. */
+    /** strafe-spam plus jumps and a swinging camera — the universal "I'm bored in a lobby" dance. */
     private void tickDancing() {
         headingYaw = lookYaw + ((stateTicks / 6) % 2 == 0 ? 90.0F : -90.0F);
         throttle = FULL_THROTTLE;
@@ -597,7 +597,7 @@ public final class DelusionPlayer extends RemotePlayer {
         }
     }
 
-    /** Crouch spam, aimed squarely at you. Authenticity demanded it. */
+    /** crouch spam, aimed squarely at you. Authenticity demanded it. */
     private void tickTwerking(LocalPlayer victim) {
         faceEntity(victim);
         boolean down = (stateTicks / 3) % 2 == 0;
@@ -605,14 +605,14 @@ public final class DelusionPlayer extends RemotePlayer {
         setPose(down ? Pose.CROUCHING : Pose.STANDING);
     }
 
-    /** Someone yanking the mouse in a circle. The body chases the head, which is what sells it. */
+    /** someone yanking the mouse in a circle. The body chases the head, which is what sells it. */
     private void tickSpinning() {
         lookYaw += 24.0F + rng.nextFloat() * 10.0F;
         wishYaw = lookYaw;
         wishPitch = (float) Math.sin(stateTicks / 8.0) * 20.0F;
     }
 
-    /** Drifting along a few blocks up, holding jump or sneak to hold its height, exactly like creative flight. */
+    /** drifting along a few blocks up, holding jump or sneak to hold its height, exactly like creative flight. */
     private void tickFlying() {
         getAbilities().flying = true;
         throttle = FLY_THROTTLE;
@@ -628,7 +628,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * Closes the distance and then just... watches. Deliberately the quietest state in the set: it walks in
+     * closes the distance and then just... watches. Deliberately the quietest state in the set: it walks in
      * at an ordinary pace with ordinary footsteps, and once it's near enough it stops dead and does nothing
      * at all — no swinging, no fidgeting, no sound. Everything else a delusion does is a person being
      * oblivious to you; this is the one that isn't.
@@ -641,7 +641,7 @@ public final class DelusionPlayer extends RemotePlayer {
             throttle = FULL_THROTTLE;
             footsteps(9);
         }
-        // Otherwise: stand perfectly still and stare. The stillness IS the behaviour.
+        // otherwise: stand perfectly still and stare. The stillness IS the behaviour.
     }
 
     /** A couple of pearl-style hops, with the sound and particles at BOTH ends so it reads as a teleport. */
@@ -661,7 +661,7 @@ public final class DelusionPlayer extends RemotePlayer {
             if (ny != null) {
                 setPos(nx, ny, nz);
                 setDeltaMovement(Vec3.ZERO);
-                // Without this it INTERPOLATES across the gap and slides there like a ghost on rails.
+                // without this it INTERPOLATES across the gap and slides there like a ghost on rails.
                 setOldPosAndRot();
                 stuckAnchor = position();
                 break;
@@ -672,7 +672,7 @@ public final class DelusionPlayer extends RemotePlayer {
     }
 
     /**
-     * It knows. Turn (fast, but not a snap — a snap looks like a teleport), stare, then either evaporate
+     * it knows. Turn (fast, but not a snap — a snap looks like a teleport), stare, then either evaporate
      * where it stands or come straight at you.
      */
     private void tickRealisation(LocalPlayer victim) {
@@ -764,7 +764,7 @@ public final class DelusionPlayer extends RemotePlayer {
 
     private void clearMining() {
         if (miningPos != null) {
-            // Anything outside 0..9 removes the overlay. Leaving it set would stick a crack on that block
+            // anything outside 0..9 removes the overlay. Leaving it set would stick a crack on that block
             // for the rest of the session.
             Minecraft.getInstance().levelRenderer.destroyBlockProgress(getId(), miningPos, -1);
             miningPos = null;
@@ -772,7 +772,7 @@ public final class DelusionPlayer extends RemotePlayer {
         miningStage = 0;
     }
 
-    /** Called when the delusion goes away, however it goes away. */
+    /** called when the delusion goes away, however it goes away. */
     void cleanUp() {
         clearMining();
     }
@@ -788,7 +788,7 @@ public final class DelusionPlayer extends RemotePlayer {
         return getY();
     }
 
-    /** The Y a player would stand at over this column, or null if there's nowhere sensible nearby. */
+    /** the Y a player would stand at over this column, or null if there's nowhere sensible nearby. */
     private Double standableY(double x, double z, double nearY) {
         BlockPos base = BlockPos.containing(x, nearY, z);
         for (int dy = 3; dy >= -6; dy--) {
@@ -860,7 +860,7 @@ public final class DelusionPlayer extends RemotePlayer {
 
     // --- Being watched ---------------------------------------------------------------------------------
 
-    /** Feeds the realisation timer. Builds fast while watched, bleeds away slowly when you look elsewhere. */
+    /** feeds the realisation timer. Builds fast while watched, bleeds away slowly when you look elsewhere. */
     void updateSeen(boolean visible) {
         if (visible) {
             seenScore += 1.0;

@@ -8,10 +8,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 
 /**
- * The immortal Snail (Snail curse). A dumb, unkillable puppet — the curse ({@code CurseSnail}) owns its
- * position entirely and teleports it each tick, so it has NO AI, no gravity, and can't be hurt or shoved. It
- * only exists while the curse materialises it near the victim; when the victim is far the curse despawns it and
- * keeps advancing a VIRTUAL position instead, so nothing is loaded constantly.
+ * the immortal snail — an unkillable puppet with no ai; {@code CurseSnail} owns its position and teleports it
+ * each tick. only materialises near the victim; far away the curse advances a virtual position instead.
  */
 public final class SnailEntity extends PathfinderMob {
     public SnailEntity(EntityType<? extends SnailEntity> type, Level level) {
@@ -35,7 +33,7 @@ public final class SnailEntity extends PathfinderMob {
         // none — the curse drives it
     }
 
-    /** Transient: never written to disk, so a reload leaves no orphan (the curse re-materialises it). */
+    /** transient: never written to disk, so a reload leaves no orphan (the curse re-materialises it). */
     @Override
     public boolean shouldBeSaved() {
         return false;

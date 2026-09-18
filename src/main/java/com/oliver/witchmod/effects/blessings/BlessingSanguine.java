@@ -18,7 +18,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Sanguine (sacrificial item RED DYE): a vampiric bargain. Your natural regeneration is throttled to
+ * sanguine (sacrificial item RED DYE): a vampiric bargain. Your natural regeneration is throttled to
  * {@code sanguineRegenMultiplier} (20%) of normal — you don't heal by resting — but you LIFESTEAL
  * {@code sanguineLifesteal} (30%) of ALL damage you deal, melee AND projectile. Bleed your enemies to keep
  * yourself standing. The two halves live in {@code BlessingEventHandler} (heal + damage events).
@@ -28,18 +28,18 @@ public final class BlessingSanguine extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.RED_DYE);
     }
 
-    /** Not instantly noticeable — you discover it the first time you drink someone's blood (first lifesteal). */
+    /** not instantly noticeable — you discover it the first time you drink someone's blood (first lifesteal). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Natural regen throttle — small heals (vanilla regen is ~1 HP/event) are cut to a fraction. */
+    /** natural regen throttle — small heals (vanilla regen is ~1 HP/event) are cut to a fraction. */
     public static float throttleRegen(float amount) {
         return amount <= 1.5F ? amount * (float) (double) Config.SANGUINE_REGEN_MULT.get() : amount;
     }
 
-    /** Heal the attacker for a share of the damage they just dealt (melee or projectile), with a cool blood-draw. */
+    /** heal the attacker for a share of the damage they just dealt (melee or projectile), with a cool blood-draw. */
     public static void lifesteal(ServerPlayer attacker, LivingEntity victim, float damageDealt) {
         if (damageDealt <= 0.0F || attacker.getHealth() >= attacker.getMaxHealth()) {
             return;
@@ -57,10 +57,10 @@ public final class BlessingSanguine extends Effect {
             Vec3 p = from.lerp(to, i / (double) steps);
             level.sendParticles(blood, p.x, p.y, p.z, 1, 0.03, 0.03, 0.03, 0.0);
         }
-        // The wound on the victim...
+        // the wound on the victim...
         level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, victim.getX(), victim.getEyeY(), victim.getZ(), 6, 0.25, 0.25, 0.25, 0.05);
         level.sendParticles(blood, victim.getX(), victim.getEyeY(), victim.getZ(), 12, 0.3, 0.3, 0.3, 0.12);
-        // ...and the life you gained.
+        //...and the life you gained.
         level.sendParticles(ParticleTypes.HEART, attacker.getX(), attacker.getEyeY() + 0.3, attacker.getZ(), 3, 0.3, 0.3, 0.3, 0.0);
 
         // A subtle, positive "restored" chime — not the old glug.

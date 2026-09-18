@@ -1,5 +1,11 @@
 package com.oliver.witchmod.effects.blessings;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
 import net.minecraft.core.particles.DustParticleOptions;
@@ -17,51 +23,95 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.effects.Blessings;
 
 /**
- * One last surge (master-spec Last Stand, sacrificial item TOTEM OF UNDYING — swapped from Enchanted Golden
- * Apple, Oliver's call). A fatal blow instead leaves you on half a heart and CONSUMES the blessing, bursting
- * outward with high knockback (no damage) to everyone nearby and handing you brief Strength, Speed and Fire
- * Resistance to turn the fight around.
- *
- * <p>Triggered from {@link com.oliver.witchmod.effects.BlessingEventHandler}'s death hook via {@link #trigger}
- * (single-use, mirroring Immortality's hook). The custom "rise" sound (Section 12) is still pending — a
- * vanilla totem/explosion stand-in plays for now.
+ * A comeback tool (Last Stand, TOTEM OF UNDYING). A fatal blow leaves you standing with a brief window of total
+ * invulnerability + an outward knockback burst to make space. It doesn't heal you back up — it just buys you the
+ * moment. Not consumed per use: instead an escalating cooldown (doubling each revive) up to {@code
+ * lastStandMaxUses} revives, then the blessing breaks.
  */
 public final class BlessingLastStand extends Effect {
+    /** short-lived invuln window end tick, per player (2s comeback window). */
+    private static final Map<UUID, Long> INVULN_END = new HashMap<>();
+    private static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1.0F, 0.78F, 0.20F), 1.6F);
+    private static final DustParticleOptions WHITE = new DustParticleOptions(new Vector3f(1.0F, 1.0F, 0.95F), 1.3F);
+
     public BlessingLastStand() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 50, () -> Items.TOTEM_OF_UNDYING);
     }
 
-    /** You find out when it actually saves you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Gold and white, for the revive burst. */
-    private static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1.0F, 0.78F, 0.20F), 1.6F);
-    private static final DustParticleOptions WHITE = new DustParticleOptions(new Vector3f(1.0F, 1.0F, 0.95F), 1.3F);
+    @Override
+    public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
+        target.setData(WitchModAttachments.LAST_STAND_USES, 0);
+        target.setData(WitchModAttachments.LAST_STAND_COOLDOWN_END, 0L);
+    }
 
-    /** The revive: half a heart, buffs, and an outward knockback burst. Called once, from the death hook. */
-    public static void trigger(ServerPlayer player) {
+    @Override
+    public void onRemove(ServerPlayer target) {
+        INVULN_END.remove(target.getUUID());
+    }
+
+    @Override
+    public Optional<String> scryingDetail(ServerPlayer target) {
+        long now = target.serverLevel().getGameTime();
+        int left = Math.max(0, Config.LASTSTAND_MAX_USES.get() - target.getData(WitchModAttachments.LAST_STAND_USES));
+        long cdEnd = target.getData(WitchModAttachments.LAST_STAND_COOLDOWN_END);
+        if (now < cdEnd) {
+            return Optional.of("recharging " + ((cdEnd - now) / 20) + "s — " + left + " revive(s) left");
+        }
+        return Optional.of("ready — " + left + " revive(s) left");
+    }
+
+    /** true while the post-revive invulnerability window is open (checked independently of the blessing being active). */
+    public static boolean isInvulnerable(ServerPlayer player) {
+        return player.serverLevel().getGameTime() < INVULN_END.getOrDefault(player.getUUID(), 0L);
+    }
+
+    /**
+     * A fatal blow: revive if off cooldown, otherwise let death proceed. @return true if the blow was saved.
+     * Escalating cooldown (doubles per use); the blessing is consumed after the last allowed revive.
+     */
+    public static boolean tryTrigger(ServerPlayer player) {
+        long now = player.serverLevel().getGameTime();
+        if (now < player.getData(WitchModAttachments.LAST_STAND_COOLDOWN_END)) {
+            return false;
+        }
+        int uses = player.getData(WitchModAttachments.LAST_STAND_USES) + 1;
+        player.setData(WitchModAttachments.LAST_STAND_USES, uses);
+
         player.setHealth((float) (double) Config.LASTSTAND_REVIVE_HEALTH.get());
         player.clearFire();
         player.fallDistance = 0.0F;
-
-        int buff = Config.LASTSTAND_BUFF_TICKS.get();
-        EffectUtil.addTimedEffect(player, MobEffects.DAMAGE_BOOST, buff, 1);     // Strength II
-        EffectUtil.addTimedEffect(player, MobEffects.MOVEMENT_SPEED, buff, 1);   // Speed II
-        EffectUtil.addTimedEffect(player, MobEffects.FIRE_RESISTANCE, buff, 0);  // Fire Resistance
-        EffectUtil.addTimedEffect(player, MobEffects.DIG_SPEED, buff, 1);        // Haste II
-
+        int invuln = Config.LASTSTAND_INVULN_TICKS.get();
+        INVULN_END.put(player.getUUID(), now + invuln);
+        EffectUtil.addTimedEffect(player, MobEffects.MOVEMENT_SPEED, invuln + 60, 1);  // Speed II to reposition
+        EffectUtil.addTimedEffect(player, MobEffects.FIRE_RESISTANCE, invuln + 60, 0);
         knockbackNearby(player);
 
-        // The on-screen totem-style flash (Blessed icon, client-side off the synced tick).
-        player.setData(WitchModAttachments.REVIVE_FLASH_END, player.serverLevel().getGameTime() + Config.REVIVE_FLASH_TICKS);
+        long cd = (long) Config.LASTSTAND_BASE_COOLDOWN_TICKS.get() << (uses - 1);
+        player.setData(WitchModAttachments.LAST_STAND_COOLDOWN_END, now + cd);
+        player.setData(WitchModAttachments.REVIVE_FLASH_END, now + Config.REVIVE_FLASH_TICKS);
+        burst(player);
+        // life synergy: a revive readies twist of fate's dodge again (last stand shares the rebirth pairing).
+        if (EffectManager.isActive(player, Blessings.TWIST_OF_FATE)) {
+            BlessingTwistOfFate.refreshOnRevive(player);
+        }
+        if (uses >= Config.LASTSTAND_MAX_USES.get()) {
+            EffectManager.remove(player, Blessings.LAST_STAND); // spent
+        }
+        return true;
+    }
 
+    private static void burst(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         Vec3 c = player.position();
         level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.5, c.z, 1, 0.0, 0.0, 0.0, 0.0);
@@ -73,7 +123,7 @@ public final class BlessingLastStand extends Effect {
         level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8F, 1.2F);
     }
 
-    /** Shove every nearby living entity (not the player) away hard, with no damage. */
+    /** shove every nearby living entity (not the player) away hard, with no damage. */
     private static void knockbackNearby(ServerPlayer player) {
         double radius = Config.LASTSTAND_RADIUS.get();
         double force = Config.LASTSTAND_KNOCKBACK.get();
@@ -86,10 +136,10 @@ public final class BlessingLastStand extends Effect {
                 away = new Vec3(player.getRandom().nextDouble() - 0.5, 0.0, player.getRandom().nextDouble() - 0.5);
                 dist = away.length();
             }
-            double falloff = Math.max(0.2, 1.0 - dist / radius); // stronger up close
+            double falloff = Math.max(0.2, 1.0 - dist / radius);
             Vec3 push = away.scale(1.0 / dist).scale(force * falloff);
             target.setDeltaMovement(target.getDeltaMovement().add(push.x, Math.max(0.35, push.y * 0.5 + 0.35), push.z));
-            target.hurtMarked = true; // or the velocity never reaches the client
+            target.hurtMarked = true;
         }
     }
 }

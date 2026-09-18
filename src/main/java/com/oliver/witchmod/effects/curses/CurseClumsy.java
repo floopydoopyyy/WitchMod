@@ -30,7 +30,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * You keep getting it slightly wrong (master-spec Clumsy). Every so often a block you place comes out facing
+ * you keep getting it slightly wrong. Every so often a block you place comes out facing
  * the wrong way, lands one over from where you aimed, or turns out to be a different block off your hotbar
  * entirely.
  *
@@ -52,7 +52,7 @@ public final class CurseClumsy extends Effect {
     /** victim -> blocks placed cleanly since the last slip, which drives the ramp. */
     private static final Map<UUID, Integer> CLEAN_RUN = new HashMap<>();
 
-    /** Properties whose presence means the block has an orientation worth getting wrong. */
+    /** properties whose presence means the block has an orientation worth getting wrong. */
     private static final Property<?>[] ORIENTATION_PROPS = {
             BlockStateProperties.HORIZONTAL_FACING,
             BlockStateProperties.FACING,
@@ -66,7 +66,7 @@ public final class CurseClumsy extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.EGG);
     }
 
-    /** You find out the first time a block goes down wrong (Rule 2). */
+    /** you find out the first time a block goes down wrong (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -78,7 +78,7 @@ public final class CurseClumsy extends Effect {
     }
 
     /**
-     * Hook for placing a block — see {@code CurseEventHandler}. The block is already in the world at
+     * hook for placing a block — see {@code CurseEventHandler}. The block is already in the world at
      * {@code pos} with {@code placedState}; if the ramping roll fires, this makes it go wrong.
      */
     public static void onBlockPlaced(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState placedState) {
@@ -101,7 +101,7 @@ public final class CurseClumsy extends Effect {
             case LOCATION -> wrongLocation(level, pos, placedState, rng);
             case WRONG_BLOCK -> wrongBlock(player, level, pos, placedState, rng);
         };
-        // If the chosen slip couldn't apply (nothing else in the hotbar, nowhere to misplace it), fall back
+        // if the chosen slip couldn't apply (nothing else in the hotbar, nowhere to misplace it), fall back
         // to something that always can, so a triggered slip is never silently wasted.
         if (!handled && slip != Slip.LOCATION) {
             handled = wrongLocation(level, pos, placedState, rng);
@@ -125,10 +125,10 @@ public final class CurseClumsy extends Effect {
         return roll < Config.CLUMSY_PLAIN_LOCATION.get() ? Slip.LOCATION : Slip.WRONG_BLOCK;
     }
 
-    /** Rotate the block to a different facing in place — the same block, just turned wrong. */
+    /** rotate the block to a different facing in place — the same block, just turned wrong. */
     private static boolean wrongOrientation(ServerLevel level, BlockPos pos, BlockState state, RandomSource rng) {
         Rotation[] turns = {Rotation.CLOCKWISE_90, Rotation.CLOCKWISE_180, Rotation.COUNTERCLOCKWISE_90};
-        // Start at a random turn so it isn't always 90 clockwise, but accept any that actually changes it —
+        // start at a random turn so it isn't always 90 clockwise, but accept any that actually changes it —
         // some blocks are symmetric under some rotations (a north-south log is unchanged by 180).
         int start = rng.nextInt(turns.length);
         for (int i = 0; i < turns.length; i++) {
@@ -141,7 +141,7 @@ public final class CurseClumsy extends Effect {
         return false;
     }
 
-    /** Yank the block one over from where it was aimed, if there's a sensible empty neighbour. */
+    /** yank the block one over from where it was aimed, if there's a sensible empty neighbour. */
     private static boolean wrongLocation(ServerLevel level, BlockPos pos, BlockState state, RandomSource rng) {
         List<Direction> dirs = new ArrayList<>(List.of(Direction.values()));
         java.util.Collections.shuffle(dirs, new java.util.Random(rng.nextLong()));
@@ -158,7 +158,7 @@ public final class CurseClumsy extends Effect {
     }
 
     /**
-     * Put a DIFFERENT hotbar block down instead. The original block is picked back up and its item refunded;
+     * put a DIFFERENT hotbar block down instead. The original block is picked back up and its item refunded;
      * one of the wrong item is consumed — so your counts move exactly as if you'd fumbled the wrong slot, and
      * nothing is ever created or destroyed.
      */
@@ -183,9 +183,9 @@ public final class CurseClumsy extends Effect {
         BlockItem wrong = (BlockItem) inventory.getItem(slot).getItem();
 
         level.removeBlock(pos, false);
-        // Refund the block we WOULD have placed (its item was already spent by vanilla)...
+        // refund the block we WOULD have placed (its item was already spent by vanilla)...
         inventory.add(new ItemStack(placedBlock));
-        // ...and spend one of the block that actually goes down.
+        //...and spend one of the block that actually goes down.
         inventory.getItem(slot).shrink(1);
         level.setBlock(pos, wrong.getBlock().defaultBlockState(), Block.UPDATE_ALL);
         return true;

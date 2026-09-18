@@ -34,24 +34,66 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * Voodoo Doll (CLAUDE.md section 4). Bound to a named player, sympathetic-magic style: what you do to the doll
- * happens to them. Passive: while it sits in your inventory, any curse you cast at the Bewitching Table is
- * forwarded onto its target (see {@link com.oliver.witchmod.blocks.BewitchingTableRitual}). Active:
- * <ul>
- *   <li>Off-hand Player Essence + use → (re)bind (consumes the essence).</li>
- *   <li>Off-hand food + use → FEED the victim (saturation + hunger, bad effects stripped, food consumed).</li>
- *   <li>Hold use (no off-hand item) → SQUEEZE: ramping tick damage + slow with clicks, on a use-cooldown.</li>
- * </ul>
- * See {@link ItemNeedle} (jab), {@link VoodooDollHazards} (fire/water/etc.), and the toss/lightning handlers.
+ * voodoo doll bound to a named player — what you do to the doll happens to them. passive: while held, any
+ * curse you cast at the table forwards onto its target. active: off-hand essence rebinds, off-hand food feeds,
+ * hold-use squeezes. see {@link ItemNeedle} (jab), {@link VoodooDollHazards}, and the toss/lightning handlers.
  */
 public final class ItemVoodooDoll extends BoundPlayerItem {
     public ItemVoodooDoll(Properties properties) {
         super(properties);
     }
 
+    /** debug (per-holder): temporarily point the tracker at this entity id until this tick, for testing. */
+    private static final java.util.Map<java.util.UUID, long[]> DEBUG_TRACK = new java.util.HashMap<>();
+
+    /** make {@code holder}'s held doll point at {@code target} for {@code ticks} — used by {@code /bewitch debug voodootrack}. */
+    public static void setDebugTrack(ServerPlayer holder, net.minecraft.world.entity.Entity target, int ticks) {
+        DEBUG_TRACK.put(holder.getUUID(), new long[]{target.getId(), holder.tickCount + ticks});
+    }
+
+    /** tracker: while you hold a bound doll and the target is online + in range, point a subtle mote at them. */
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int slot, boolean selected) {
+        if (level.isClientSide() || !(entity instanceof ServerPlayer holder) || holder.tickCount % 8 != 0) {
+            return;
+        }
+        net.minecraft.world.entity.Entity target = null;
+        long[] dbg = DEBUG_TRACK.get(holder.getUUID()); // debug override wins, and works on an unbound doll too
+        if (dbg != null) {
+            if (holder.tickCount >= dbg[1]) {
+                DEBUG_TRACK.remove(holder.getUUID());
+            } else if (level instanceof ServerLevel sl) {
+                target = sl.getEntity((int) dbg[0]);
+            }
+        }
+        if (target == null) {
+            if (!stack.has(WitchModDataComponents.BOUND_PLAYER)) {
+                return;
+            }
+            var bound = stack.get(WitchModDataComponents.BOUND_PLAYER);
+            target = bound == null ? null : holder.getServer().getPlayerList().getPlayer(bound.playerId());
+        }
+        if (target == null || target == holder || target.level() != holder.level()) {
+            return;
+        }
+        double radius = Config.VOODOO_TRACK_RADIUS.get();
+        net.minecraft.world.phys.Vec3 to = target.position().subtract(holder.position());
+        double distSqr = to.lengthSqr();
+        if (radius <= 0 || distSqr > radius * radius || distSqr < 1.0e-3) {
+            return;
+        }
+        net.minecraft.world.phys.Vec3 dir = to.normalize();
+        double y = holder.getY() + holder.getBbHeight() * 0.6;
+        for (int i = 1; i <= 2; i++) {
+            net.minecraft.world.phys.Vec3 p = holder.position().add(dir.scale(0.8 * i));
+            holder.connection.send(new net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket(
+                    ParticleTypes.WITCH, false, p.x, y, p.z, 0.02F, 0.02F, 0.02F, 0.0F, 1));
+        }
+    }
+
     // --- shared helpers ------------------------------------------------------------------------------
 
-    /** The first bound Voodoo Doll in the player's inventory (main or off-hand), or {@link ItemStack#EMPTY}. */
+    /** the first bound Voodoo Doll in the player's inventory (main or off-hand), or {@link ItemStack#EMPTY}. */
     public static ItemStack findBoundDoll(ServerPlayer caster) {
         for (ItemStack s : caster.getInventory().items) {
             if (s.getItem() instanceof ItemVoodooDoll && s.has(WitchModDataComponents.BOUND_PLAYER)) {
@@ -65,13 +107,13 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
         return ItemStack.EMPTY;
     }
 
-    /** The bound player if they're ONLINE, else null (voodoo needs them present). */
+    /** the bound player if they're ONLINE, else null (voodoo needs them present). */
     public static ServerPlayer onlineTarget(ServerPlayer caster, ItemStack doll) {
         PlayerEssenceData bound = doll.get(WitchModDataComponents.BOUND_PLAYER);
         return bound == null ? null : caster.getServer().getPlayerList().getPlayer(bound.playerId());
     }
 
-    /** Bind (or re-bind) a doll to a player, giving it its configurable low durability, fresh. */
+    /** bind (or re-bind) a doll to a player, giving it its configurable low durability, fresh. */
     public static void bind(ItemStack doll, PlayerEssenceData essence) {
         doll.set(WitchModDataComponents.BOUND_PLAYER, essence);
         doll.set(DataComponents.MAX_DAMAGE, Config.VOODOO_DOLL_DURABILITY.get());
@@ -95,7 +137,7 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
         damageFx(target.serverLevel(), target); // all feedback is FX + sound, no chat text
     }
 
-    /** The satisfying smack + burst that stands in for chat feedback on a voodoo hit. */
+    /** the satisfying smack + burst that stands in for chat feedback on a voodoo hit. */
     public static void damageFx(ServerLevel level, ServerPlayer target) {
         level.playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0F, 0.9F);
         level.playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35F, 1.6F);
@@ -109,7 +151,7 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
                 caster.level().getGameTime() + Config.VOODOO_SHAKE_TICKS.get());
     }
 
-    /** Client reported the holder is whipping a bound doll around → slightly disorient the victim. */
+    /** client reported the holder is whipping a bound doll around → slightly disorient the victim. */
     public static void onShake(ServerPlayer caster) {
         ItemStack doll = findBoundDoll(caster);
         if (doll.isEmpty()) {
@@ -123,11 +165,11 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
             com.oliver.witchmod.blocks.HolyWater.fizzle(target);
             return;
         }
-        // Only slightly: a short, low Nausea warps their view + a tiny movement wobble. Refreshed while shaking.
+        // only slightly: a short, low Nausea warps their view + a tiny movement wobble. Refreshed while shaking.
         target.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 60, 0, false, false, false));
     }
 
-    /** The vanilla armour damage-reduction formula (so we don't depend on CombatRules' shifting signature). */
+    /** the vanilla armour damage-reduction formula (so we don't depend on CombatRules' shifting signature). */
     private static float afterArmour(float damage, float armor, float toughness) {
         float f = 2.0F + toughness / 4.0F;
         float reduction = Mth.clamp(armor - damage / f, armor * 0.2F, 20.0F);
@@ -140,7 +182,7 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (level.isClientSide() || !(player instanceof ServerPlayer caster)) {
-            // Client: only START using if it'll be a squeeze (bound, no off-hand item), so the hold registers.
+            // client: only START using if it'll be a squeeze (bound, no off-hand item), so the hold registers.
             if (level.isClientSide() && stack.has(WitchModDataComponents.BOUND_PLAYER)
                     && player.getOffhandItem().isEmpty() && hand == InteractionHand.MAIN_HAND) {
                 player.startUsingItem(hand);
@@ -151,7 +193,7 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
 
         ItemStack offhand = caster.getOffhandItem();
 
-        // Off-hand Player Essence → (re)bind (a magical chime + spark instead of chat text).
+        // off-hand Player Essence → (re)bind (a magical chime + spark instead of chat text).
         if (offhand.getItem() == WitchModItems.PLAYER_ESSENCE.get()) {
             PlayerEssenceData essence = offhand.get(WitchModDataComponents.BOUND_PLAYER);
             if (essence != null) {
@@ -169,13 +211,13 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
             return InteractionResultHolder.fail(stack); // unbound — nothing to do (tooltip says so)
         }
 
-        // Off-hand food → feed the victim.
+        // off-hand food → feed the victim.
         FoodProperties food = offhand.get(DataComponents.FOOD);
         if (food != null) {
             return feed(caster, stack, offhand, bound, food);
         }
 
-        // Otherwise: SQUEEZE (held). Respect the use-cooldown (silent — a fizzle sound conveys it).
+        // otherwise: SQUEEZE (held). Respect the use-cooldown (silent — a fizzle sound conveys it).
         if (caster.getCooldowns().isOnCooldown(this)) {
             caster.serverLevel().playSound(null, caster.blockPosition(), SoundEvents.NOTE_BLOCK_BASS.value(),
                     SoundSource.PLAYERS, 0.5F, 0.7F);
@@ -209,7 +251,7 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
         return InteractionResultHolder.success(doll);
     }
 
-    /** Fling the victim horizontally along {@code lookDir} (shared by throw + fishing rod). */
+    /** fling the victim horizontally along {@code lookDir} (shared by throw + fishing rod). */
     public static void fling(ServerPlayer target, net.minecraft.world.phys.Vec3 lookDir, double force, double up) {
         if (com.oliver.witchmod.data.EffectManager.isMagicProtected(target)) {
             com.oliver.witchmod.blocks.HolyWater.fizzle(target);
@@ -266,7 +308,7 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
         int slowLevel = Math.min(3, tier / 2); // slow tier ramps more slowly
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, interval + 10, slowLevel, false, false, true));
 
-        // Squeezing costs the CASTER too: a camera jolt each click + a movement penalty while they hold it.
+        // squeezing costs the CASTER too: a camera jolt each click + a movement penalty while they hold it.
         casterShake(caster);
         caster.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, interval + 6,
                 Config.VOODOO_SQUEEZE_SELF_SLOW.get(), false, false, false));

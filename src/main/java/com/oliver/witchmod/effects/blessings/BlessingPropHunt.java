@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * Prop hunt (sacrificial item FLOWER POT): crouch and hold still for a second to disguise as the block below
+ * prop hunt (sacrificial item FLOWER POT): crouch and hold still for a second to disguise as the block below
  * you — for everyone — with a pop. Once disguised, you can RUN AROUND as the block (the disguise follows you);
  * <b>crouch to anchor</b> onto the grid at exact block height, and it re-samples the block underfoot so you can
  * borrow other blocks' looks. Only a real ACTION (attack/mine/use/place/interact) pops you back.
@@ -65,7 +65,7 @@ public final class BlessingPropHunt extends Effect {
         boolean disguised = target.getData(WitchModAttachments.PROPHUNT_BLOCK) >= 0;
 
         if (!disguised) {
-            // Enter: crouch + hold still for a second.
+            // enter: crouch + hold still for a second.
             boolean still = last != null && last.distanceToSqr(pos) < 0.0016;
             if (crouching && still) {
                 if (STILL.merge(id, 1, Integer::sum) >= Config.PROPHUNT_STILL_TICKS.get()) {
@@ -77,9 +77,10 @@ public final class BlessingPropHunt extends Effect {
             return;
         }
 
-        // Already disguised — persists through movement. Crouch anchors + re-samples the block underfoot.
+        // already disguised — persists through movement. Crouch grid-ALIGNS you but KEEPS the block you became
+        // (no re-sampling of what's underfoot), so you're not rebound to whatever you happen to stand over.
         if (crouching) {
-            anchor(target, level, false);
+            target.setData(WitchModAttachments.PROPHUNT_ANCHOR, supportPos(target).above().asLong());
         } else {
             target.setData(WitchModAttachments.PROPHUNT_ANCHOR, Long.MIN_VALUE); // moving — the block follows you
         }
@@ -101,7 +102,7 @@ public final class BlessingPropHunt extends Effect {
         }
     }
 
-    /** The support block just below the feet (robust against the feet resting a hair below the integer). */
+    /** the support block just below the feet (robust against the feet resting a hair below the integer). */
     private static BlockPos supportPos(ServerPlayer target) {
         return BlockPos.containing(target.getX(), target.getY() - 0.1, target.getZ());
     }

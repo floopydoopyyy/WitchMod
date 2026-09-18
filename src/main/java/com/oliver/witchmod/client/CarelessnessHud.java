@@ -15,7 +15,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Carelessness (client half): while the curse is active, the vanilla health layer is cancelled and every
+ * carelessness (client half): while the curse is active, the vanilla health layer is cancelled and every
  * heart is drawn IDENTICAL and black — so you can't read your health at all. The real value is untouched;
  * you're just blind to it. Off the synced {@link WitchModAttachments#CARELESSNESS_ACTIVE} flag.
  */
@@ -36,7 +36,7 @@ public final class CarelessnessHud {
         if (player == null || player.getData(WitchModAttachments.CARELESSNESS_ACTIVE) < 0) {
             return;
         }
-        // Match vanilla's own survival-HUD gate (no hearts in creative/spectator).
+        // match vanilla's own survival-HUD gate (no hearts in creative/spectator).
         if (mc.gameMode == null || !mc.gameMode.canHurtPlayer()) {
             return;
         }

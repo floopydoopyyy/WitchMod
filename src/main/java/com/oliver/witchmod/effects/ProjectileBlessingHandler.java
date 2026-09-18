@@ -27,16 +27,9 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The two archery blessings, which both hook the moment a projectile is fired.
- *
- * <ul>
- *   <li><b>Steady Hands</b> — bows/crossbows are extremely accurate (fired arrows/fireworks are re-aimed to
- *       your exact line with a tiny spread, which also COMPRESSES multishot so the pellets fly together and
- *       can all hit) and charge quicker (the draw/load use-tick is sped up).</li>
- *   <li><b>Hawk Guy</b> — every projectile you loose subtly HOMES on whoever you were aiming at: a cone
- *       raycast at spawn picks the intended target, stored on the projectile, and it bends toward that target
- *       each tick. Works for arrows and crossbow FIREWORKS alike.</li>
- * </ul>
+ * the archery blessings, hooked at the moment a projectile is fired: dexterous re-aims shots to your line
+ * (and speeds the draw); hawk guy homes each shot onto whoever you were aiming at (cone raycast at spawn,
+ * bends toward that target each tick). also carries forgiveness's projectile assist.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class ProjectileBlessingHandler {
@@ -51,18 +44,26 @@ public final class ProjectileBlessingHandler {
     @SubscribeEvent
     static void onUseTick(LivingEntityUseItemEvent.Tick event) {
         if (!(event.getEntity() instanceof Player player)
-                || player.getData(WitchModAttachments.STEADY_HANDS_ACTIVE) < 0) {
+                || player.getData(WitchModAttachments.DEXTEROUS_ACTIVE) < 0) {
             return;
         }
-        if (event.getItem().getItem() instanceof BowItem || event.getItem().getItem() instanceof CrossbowItem) {
-            int extra = Config.STEADYHANDS_CHARGE_SPEEDUP_TICKS.get();
+        // dexterous (renamed from Steady Hands): quicker bow/crossbow charge AND quicker eat / drink / shield
+        // raise — all run through the item-use duration, so crediting extra ticks each tick speeds them all.
+        net.minecraft.world.item.UseAnim anim = event.getItem().getUseAnimation();
+        boolean speedUp = event.getItem().getItem() instanceof BowItem
+                || event.getItem().getItem() instanceof CrossbowItem
+                || anim == net.minecraft.world.item.UseAnim.EAT
+                || anim == net.minecraft.world.item.UseAnim.DRINK
+                || anim == net.minecraft.world.item.UseAnim.BLOCK;
+        if (speedUp) {
+            int extra = Config.DEXTEROUS_CHARGE_SPEEDUP_TICKS.get();
             if (extra > 0) {
                 event.setDuration(Math.max(0, event.getDuration() - extra));
             }
         }
     }
 
-    /** As a projectile enters the world: Steady Hands re-aim, then Hawk Guy target acquisition. */
+    /** as a projectile enters the world: Steady Hands re-aim, then Hawk Guy target acquisition. */
     @SubscribeEvent
     static void onProjectileSpawn(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide()
@@ -75,25 +76,25 @@ public final class ProjectileBlessingHandler {
         }
         ServerLevel level = (ServerLevel) event.getLevel();
 
-        // Steady Hands: COMPRESS each shot toward your aim rather than snapping it dead-on. Keeping a fraction
+        // steady Hands: COMPRESS each shot toward your aim rather than snapping it dead-on. Keeping a fraction
         // of the natural spread makes single shots very accurate while leaving multishot a tight-but-visible
         // fan (so the three arrows aren't stacked inside each other, yet can still all hit one target).
-        if (EffectManager.isActive(shooter, Blessings.STEADY_HANDS)
+        if (EffectManager.isActive(shooter, Blessings.DEXTEROUS)
                 && (projectile instanceof AbstractArrow || projectile instanceof FireworkRocketEntity)) {
             Vec3 velocity = projectile.getDeltaMovement();
             double speed = velocity.length();
             if (speed > 1.0E-3) {
                 Vec3 look = shooter.getViewVector(1.0F);
-                double retain = Config.STEADYHANDS_SPREAD_RETAIN.get();
+                double retain = Config.DEXTEROUS_SPREAD_RETAIN.get();
                 Vec3 compressed = look.lerp(velocity.normalize(), retain); // look at retain=0, vanilla at retain=1
                 if (compressed.lengthSqr() > 1.0E-6) {
                     faceVelocity(projectile, compressed.normalize().scale(speed));
-                    Blessings.STEADY_HANDS.get().markDiscoveredByVictim(shooter);
+                    Blessings.DEXTEROUS.get().markDiscoveredByVictim(shooter);
                 }
             }
         }
 
-        // Hawk Guy: mark the intended target so the projectile homes on it.
+        // hawk Guy: mark the intended target so the projectile homes on it.
         if (EffectManager.isActive(shooter, Blessings.HAWK_GUY)) {
             LivingEntity target = acquireTarget(level, shooter);
             if (target != null) {
@@ -103,13 +104,13 @@ public final class ProjectileBlessingHandler {
         }
     }
 
-    /** Hawk Guy: each tick, bend a marked AIRBORNE projectile toward its target (speed-preserving). */
+    /** hawk Guy: each tick, bend a marked AIRBORNE projectile toward its target (speed-preserving). */
     @SubscribeEvent
     static void onProjectileTick(EntityTickEvent.Post event) {
         if (!(event.getEntity() instanceof Projectile projectile) || projectile.level().isClientSide()) {
             return;
         }
-        // Forgiveness: YOUR projectiles have an enlarged effective hitbox — curve onto an entity whose 40%-bigger
+        // forgiveness: YOUR projectiles have an enlarged effective hitbox — curve onto an entity whose 40%-bigger
         // box the shot was about to pass through, so near-misses connect. Only the shooter's own shots benefit.
         if (projectile.getDeltaMovement().lengthSqr() > 0.02 * 0.02
                 && projectile.getOwner() instanceof ServerPlayer shooter
@@ -124,7 +125,7 @@ public final class ProjectileBlessingHandler {
         if (targetId < 0) {
             return;
         }
-        // Once it's landed/stuck (a stuck arrow has zero velocity) or otherwise stopped, drop the mark so we
+        // once it's landed/stuck (a stuck arrow has zero velocity) or otherwise stopped, drop the mark so we
         // don't keep doing entity lookups + distance maths for it every tick for the rest of its life on the
         // floor. This is the fix for arrows "still tracking on the ground".
         if (projectile.getDeltaMovement().lengthSqr() < 0.02 * 0.02) {
@@ -133,25 +134,42 @@ public final class ProjectileBlessingHandler {
         }
         Entity target = ((ServerLevel) projectile.level()).getEntity(targetId);
         double maxRange = Config.HAWKGUY_MAX_HOMING_RANGE.get();
-        if (target == null || !target.isAlive() || projectile.distanceToSqr(target) > maxRange * maxRange) {
+        double distSqr = target == null ? 0.0 : projectile.distanceToSqr(target);
+        if (target == null || !target.isAlive() || distSqr > maxRange * maxRange) {
             projectile.setData(WitchModAttachments.HAWKGUY_TARGET, -1); // give up — target gone or too far
             return;
         }
-        steer(projectile, target.getBoundingBox().getCenter(), Config.HAWKGUY_HOMING_STRENGTH.get());
+        // homing gets much more BLATANT the further the shot is from its target — gentle up close (where it's
+        // already good), forgiving and sharp far away (where a distant shot needs help curving in).
+        steer(projectile, target.getBoundingBox().getCenter(), hawkGuyHomingStrength(Math.sqrt(distSqr)));
     }
 
-    /** Forgiveness: the nearest living entity whose ENLARGED box the projectile's forward path is about to cross. */
+    /** hawk Guy: per-tick homing strength, lerped from the close value up to the far value across the distance band. */
+    private static double hawkGuyHomingStrength(double distance) {
+        double near = Config.HAWKGUY_HOMING_STRENGTH.get();
+        double far = Config.HAWKGUY_HOMING_STRENGTH_FAR.get();
+        double nearDist = Config.HAWKGUY_HOMING_NEAR_DISTANCE.get();
+        double farDist = Math.max(nearDist + 1.0, Config.HAWKGUY_HOMING_FAR_DISTANCE.get());
+        double t = Mth.clamp((distance - nearDist) / (farDist - nearDist), 0.0, 1.0);
+        return Mth.lerp(t, near, far);
+    }
+
+    /** forgiveness: the nearest living entity whose ENLARGED box the projectile's forward path is about to cross. */
     private static LivingEntity forgivenessTarget(Projectile p, ServerPlayer shooter) {
         Vec3 vel = p.getDeltaMovement();
-        if (vel.lengthSqr() < 1.0E-4) {
+        double speed = vel.length();
+        if (speed < 1.0E-4) {
             return null;
         }
         Vec3 pos = p.position();
-        Vec3 to = pos.add(vel.normalize().scale(2.5)); // look ~2.5 blocks ahead of the shot
+        // look ahead a few TICKS of travel, not a fixed 2.5 blocks — a fast arrow covers ~3 blocks/tick, so a
+        // fixed short look-ahead almost never catches it. This is what makes Forgiveness actually assist arrows.
+        double lookAhead = Math.max(2.5, speed * Config.FORGIVENESS_PROJECTILE_LOOKAHEAD_TICKS.get());
+        Vec3 to = pos.add(vel.normalize().scale(lookAhead));
         double baseInflate = Config.FORGIVENESS_HITBOX_INFLATE.get();
         LivingEntity best = null;
         double bestD = Double.MAX_VALUE;
-        for (LivingEntity e : p.level().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(3.0),
+        for (LivingEntity e : p.level().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(lookAhead + 1.0),
                 e -> e != shooter && e.isAlive() && e.isPickable() && !e.isSpectator())) {
             double inf = Math.max(baseInflate, e.getBbWidth() * 0.2); // ~40% wider, with a floor that helps babies
             if (e.getBoundingBox().inflate(inf).clip(pos, to).isPresent()) {
@@ -165,7 +183,7 @@ public final class ProjectileBlessingHandler {
         return best;
     }
 
-    /** The intended target: the living entity most in line with where the shooter is aiming, with clear sight. */
+    /** the intended target: the living entity most in line with where the shooter is aiming, with clear sight. */
     private static LivingEntity acquireTarget(ServerLevel level, ServerPlayer shooter) {
         double range = Config.HAWKGUY_ACQUIRE_RANGE.get();
         double cosCone = Math.cos(Math.toRadians(Config.HAWKGUY_ACQUIRE_CONE.get()));
@@ -197,7 +215,7 @@ public final class ProjectileBlessingHandler {
                 ClipContext.Fluid.NONE, shooter)).getType() == net.minecraft.world.phys.HitResult.Type.MISS;
     }
 
-    /** Bend the projectile's velocity toward {@code point}, preserving speed (mirrors the Magnet steer). */
+    /** bend the projectile's velocity toward {@code point}, preserving speed (mirrors the Magnet steer). */
     private static void steer(Projectile projectile, Vec3 point, double strength) {
         Vec3 velocity = projectile.getDeltaMovement();
         double speed = velocity.length();
@@ -215,7 +233,7 @@ public final class ProjectileBlessingHandler {
         faceVelocity(projectile, aimed.normalize().scale(speed));
     }
 
-    /** Set the projectile's velocity and point its model where it's now heading (or it flies sideways). */
+    /** set the projectile's velocity and point its model where it's now heading (or it flies sideways). */
     private static void faceVelocity(Projectile projectile, Vec3 result) {
         projectile.setDeltaMovement(result);
         projectile.hasImpulse = true;
@@ -233,10 +251,10 @@ public final class ProjectileBlessingHandler {
      * explosion that never goes through a direct projectile-on-entity impact.
      */
     @SubscribeEvent
-    static void onSteadyHandsDamage(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post event) {
+    static void onDexterousDamage(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post event) {
         var source = event.getSource();
         if (!(source.getEntity() instanceof ServerPlayer shooter)
-                || !EffectManager.isActive(shooter, Blessings.STEADY_HANDS)) {
+                || !EffectManager.isActive(shooter, Blessings.DEXTEROUS)) {
             return;
         }
         Entity direct = source.getDirectEntity();

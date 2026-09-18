@@ -20,21 +20,8 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Oversharer curse's writable templates, loaded from {@code data/witchmod/text/oversharer.json} and
- * reloadable with {@code /reload}. A JSON object keyed by the kind of thing being leaked; each value is a
- * list of goofy lines with a {@code {value}} placeholder (and an optional {@code {player}}) that the curse
- * fills in with the actual detail.
- *
- * <pre>
- * {
- *   "coords":  ["FYI I'm hanging out at {value} right now", "Come find me at {value}!"],
- *   "biome":   ["The {value} is lovely this time of year"],
- *   ...
- * }
- * </pre>
- *
- * <p>The keys are whatever {@code CurseOversharer} knows how to compute a value for; a category present in the
- * file with no lines, or absent, is simply skipped — so leaks can be turned off by emptying their list.
+ * oversharer templates ({@code data/witchmod/text/oversharer.json}, /reload-able) — keyed by leak kind, each
+ * a list of lines with {value} (and optional {player}) placeholders. an empty/absent category is skipped.
  */
 public final class OversharerMessages extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
@@ -74,12 +61,12 @@ public final class OversharerMessages extends SimpleJsonResourceReloadListener {
         templates = Map.copyOf(parsed);
     }
 
-    /** The categories that currently have at least one line, so the curse only picks ones it can fill. */
+    /** categories with at least one line, so the curse only picks fillable ones. */
     public static List<String> availableCategories() {
         return List.copyOf(templates.keySet());
     }
 
-    /** A random template line for a category, with {@code {value}} still to be substituted. */
+    /** a random template line for a category, {value} not yet substituted. */
     @Nullable
     public static String pickTemplate(String category, RandomSource random) {
         List<String> lines = templates.get(category);

@@ -11,23 +11,16 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * What the Tax Man thinks things are worth (master-spec Taxes).
- *
- * <p>Per-item weighting rather than a flat item count, so a haul cap means the same thing whether he's
- * rifling through copper or netherite — otherwise "take 40 items" would be trivial from one angle and
- * devastating from another. Storage blocks are worth roughly 9x their ingot, because that is literally what
- * they are made of.
- *
- * <p>Values come from config ({@code taxesItemValues}), parsed once and cached; anything in the
- * {@link WitchModTags#VALUABLES} tag with no entry falls back to {@code taxesDefaultItemValue}, which is how
- * modded ores get a sensible worth without anyone having to list them.
+ * what the tax man thinks things are worth — per-item weighting so a haul cap means the same across copper
+ * vs netherite. values come from config (parsed once + cached); an untagged-but-valuable item falls back to
+ * the default, so modded ores get a sensible worth for free.
  */
 public final class TaxValues {
     private static Map<ResourceLocation, Integer> values;
 
     private TaxValues() {}
 
-    /** Worth of a whole stack. */
+    /** worth of a whole stack. */
     public static int valueOf(ItemStack stack) {
         return valuePerItem(stack) * stack.getCount();
     }
@@ -47,7 +40,7 @@ public final class TaxValues {
         return values;
     }
 
-    /** Called when configs reload, so edits take effect without a restart. */
+    /** re-parse on config reload so edits apply without a restart. */
     public static void invalidate() {
         values = null;
     }

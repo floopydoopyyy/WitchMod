@@ -24,7 +24,7 @@ import com.oliver.witchmod.entities.SnailEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
 
 /**
- * The Snail (sacrificial item NAUTILUS SHELL): a tiny, immortal snail that never stops chasing you and
+ * the Snail (sacrificial item NAUTILUS SHELL): a tiny, immortal snail that never stops chasing you and
  * detonates you the instant it touches you.
  *
  * <p><b>Speed is the whole balance.</b> {@code snailBaseSpeedBlocksPerSecond} is the fundamental constant: how
@@ -65,7 +65,7 @@ public final class CurseSnail extends Effect {
         Vec3 you = target.position();
         double dist = snail.distanceTo(you);
 
-        // Touched you — detonate, then reappear far off to begin the hunt anew.
+        // touched you — detonate, then reappear far off to begin the hunt anew.
         if (dist <= Config.SNAIL_TOUCH_DISTANCE.get()) {
             detonate(target);
             VIRTUAL.put(id, farPointAround(target));
@@ -73,7 +73,7 @@ public final class CurseSnail extends Effect {
             return;
         }
 
-        // Advance the virtual position toward you at the distance-scaled speed.
+        // advance the virtual position toward you at the distance-scaled speed.
         double bps = Math.min(Config.SNAIL_MAX_SPEED.get(),
                 Config.SNAIL_BASE_SPEED.get() * (1.0 + dist * Config.SNAIL_DISTANCE_SCALE.get()));
         double step = Math.min(bps / 20.0, dist);
@@ -86,7 +86,7 @@ public final class CurseSnail extends Effect {
             Curses.SNAIL.get().markDiscoveredByVictim(target); // the music kicks in — you know now
         }
 
-        // Materialise the real entity only when close enough to be seen, and slide it along the ground.
+        // materialise the real entity only when close enough to be seen, and slide it along the ground.
         if (dist <= Config.SNAIL_MATERIALISE_RADIUS.get()) {
             SnailEntity entity = ENTITY.get(id);
             if (entity == null || !entity.isAlive()) {
@@ -97,12 +97,12 @@ public final class CurseSnail extends Effect {
                 level.addFreshEntity(entity);
                 ENTITY.put(id, entity);
             }
-            // Snap to the ground surface at its spot (so it slides ACROSS the ground); if that's far from the
+            // snap to the ground surface at its spot (so it slides ACROSS the ground); if that's far from the
             // tracked height (you're underground/up high), fall back to the tracked height instead.
             double surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(snail.x), Mth.floor(snail.z));
             double y = Math.abs(surface - snail.y) <= 4.0 ? surface : snail.y;
             entity.setPos(snail.x, y, snail.z);
-            // Face you — the model's front (eye stalks) is -Z at yaw 0.
+            // face you — the model's front (eye stalks) is -Z at yaw 0.
             float yaw = (float) (Mth.atan2(-dir.x, dir.z) * (180.0 / Math.PI));
             entity.setYRot(yaw);
             entity.setYBodyRot(yaw);
@@ -127,7 +127,7 @@ public final class CurseSnail extends Effect {
         level.explode(null, target.getX(), target.getY(), target.getZ(),
                 Config.SNAIL_EXPLODE_POWER.get().floatValue(), Level.ExplosionInteraction.MOB);
         level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, target.getX(), target.getY() + 0.5, target.getZ(), 1, 0, 0, 0, 0);
-        // Guaranteed lethal (barring a totem / Last Stand, which is fair counterplay).
+        // guaranteed lethal (barring a totem / Last Stand, which is fair counterplay).
         target.hurt(level.damageSources().explosion(null, null), 1000.0F);
     }
 

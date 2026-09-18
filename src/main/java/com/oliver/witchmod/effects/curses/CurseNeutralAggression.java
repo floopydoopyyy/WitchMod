@@ -16,8 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * Every creature that would normally leave you alone has decided today is not that day (master-spec Neutral
- * Aggression). Endermen, zombified piglins, wolves, iron golems, bees, polar bears — anything neutral within
+ * every creature that would normally leave you alone has decided today is not that day. Endermen, zombified piglins, wolves, iron golems, bees, polar bears — anything neutral within
  * {@code RADIUS} turns on you.
  *
  * <p><b>"Neutral" is vanilla's own {@link NeutralMob} interface, not a hardcoded list.</b> Same principle as
@@ -38,7 +37,7 @@ public final class CurseNeutralAggression extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.SPIDER_EYE);
     }
 
-    /** You find out the first time something that had no quarrel with you comes for you (Rule 2). */
+    /** you find out the first time something that had no quarrel with you comes for you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -77,7 +76,7 @@ public final class CurseNeutralAggression extends Effect {
     }
 
     /**
-     * What counts as neutral. Vanilla's {@link NeutralMob} interface is the rule — plus SPIDERS, which are
+     * what counts as neutral. Vanilla's {@link NeutralMob} interface is the rule — plus SPIDERS, which are
      * the one glaring omission from it.
      *
      * <p>A spider is a {@code Monster}, not a {@code NeutralMob}: its daytime passivity comes from

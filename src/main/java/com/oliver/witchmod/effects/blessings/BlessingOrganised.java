@@ -5,21 +5,22 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.OrganisedStash;
+import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * A place for everything (master-spec Organised — a CUSTOM UI blessing, Phase D). Grants 9 extra inventory
+ * A place for everything. Grants 9 extra inventory
  * slots (a personal stash opened with {@code /bewitch organised}, backed by {@link OrganisedStash}), whose
  * contents drop when the blessing expires. As a bonus it also auto-consolidates matching stacks in your
  * main inventory.
  *
- * <p>PROTOTYPE: the extra slots open via a command rather than being injected as a literal extra row into
- * the vanilla inventory screen (which needs a mixin); a keybind for survival access is the intended
- * follow-up (Human Action Items).
+ * <p>Opened via a small stash button added to the inventory screen (no keybind), or {@code /bewitch organised}.
  */
 public final class BlessingOrganised extends Effect {
     private static final int INTERVAL_TICKS = 100;
@@ -29,15 +30,21 @@ public final class BlessingOrganised extends Effect {
     }
 
     @Override
+    public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
+        target.setData(WitchModAttachments.ORGANISED_ACTIVE, 1);
+    }
+
+    @Override
     public void onRemove(ServerPlayer target) {
-        // When lost, the extra row's items try to go into the main inventory first; overflow is dropped.
+        target.setData(WitchModAttachments.ORGANISED_ACTIVE, -1);
+        // when lost, the extra row's items try to go into the main inventory first; overflow is dropped.
         OrganisedStash.returnOrDrop(target);
     }
 
     @Override
     public String debugForce(ServerPlayer target, String arg) {
         com.oliver.witchmod.data.OrganisedStash.openMenu(target);
-        return "opened your 9-slot stash — note: normally you'd open it with the survival keybind (/bewitch organised for now)";
+        return "opened your 9-slot stash (normally: the button on your inventory screen, or /bewitch organised)";
     }
 
     @Override

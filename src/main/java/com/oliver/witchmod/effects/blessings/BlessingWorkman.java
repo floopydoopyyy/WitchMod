@@ -16,9 +16,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Nothing you use wears out (master-spec Workman — renamed from "Tools Don't Use Durability"; id
- * {@code tools_dont_use_durability} → {@code workman}; sacrificial item OBSIDIAN, previously Netherite Scrap
- * — nothing else used Obsidian, so no collision, and Netherite Scrap is now free). Tools AND armour take no
+ * nothing you use wears out. Tools AND armour take no
  * durability for the duration.
  *
  * <p><b>It WATCHES and heals, rather than stamping items {@code Unbreakable}.</b> Only the six slots that
@@ -43,7 +41,7 @@ public final class BlessingWorkman extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.OBSIDIAN);
     }
 
-    /** You find out the first time your gear shrugs off wear it should have taken (Rule 2). */
+    /** you find out the first time your gear shrugs off wear it should have taken (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -67,7 +65,7 @@ public final class BlessingWorkman extends Effect {
             Tracked previous = slots.get(slot);
             int damage = stack.getDamageValue();
 
-            // Same item as last tick and it took some wear? Heal it right back to where it was.
+            // same item as last tick and it took some wear? Heal it right back to where it was.
             if (previous != null && previous.item() == stack.getItem() && damage > previous.damage()) {
                 stack.setDamageValue(previous.damage());
                 damage = previous.damage();

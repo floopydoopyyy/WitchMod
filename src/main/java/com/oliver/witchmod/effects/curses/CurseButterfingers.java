@@ -18,7 +18,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * Whatever's in your hands has a habit of just... slipping (master-spec Butterfingers). Three ways to lose
+ * whatever's in your hands has a habit of just... slipping. Three ways to lose
  * your grip, all sharing ONE internal cooldown so a bad moment can't strip you bare:
  * <ul>
  *   <li><b>Passive</b> — rare, out of nowhere, for no reason at all.</li>
@@ -34,7 +34,7 @@ public final class CurseButterfingers extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.MILK_BUCKET);
     }
 
-    /** You find out the first time something leaps out of your hands (Rule 2). */
+    /** you find out the first time something leaps out of your hands (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -52,23 +52,32 @@ public final class CurseButterfingers extends Effect {
         }
     }
 
-    /** Hook for taking a hit — see {@code CurseEventHandler}. */
+    /** hook for taking a hit — see {@code CurseEventHandler}. */
     public static void onDamaged(ServerPlayer player) {
         tryFumble(player, Config.BUTTERFINGERS_ON_DAMAGE_CHANCE_PERCENT.get());
     }
 
-    /** Hook for swinging a tool/weapon at a block or an entity — see {@code CurseEventHandler}. */
+    /** hook for swinging a tool/weapon at a block or an entity — see {@code CurseEventHandler}. */
     public static void onToolSwing(ServerPlayer player) {
         tryFumble(player, Config.BUTTERFINGERS_ON_SWING_CHANCE_PERCENT.get());
     }
 
-    /** Rolls for a fumble, respecting the one shared cooldown, and resets it only on an actual drop. */
+    /** rolls for a fumble, respecting the one shared cooldown, and resets it only on an actual drop. */
     private static void tryFumble(ServerPlayer player, int chancePercent) {
         long now = player.serverLevel().getGameTime();
         if (now < player.getData(WitchModAttachments.BUTTERFINGERS_NEXT_ALLOWED)) {
             return;
         }
         if (player.getRandom().nextInt(100) >= chancePercent) {
+            return;
+        }
+        // stuck-fingers synergy: Sticky catches the fumble — swing + squelch, nothing leaves your hands.
+        if (com.oliver.witchmod.synergy.Synergies.STUCK_FINGERS.activeFor(player)) {
+            player.swing(InteractionHand.MAIN_HAND, true);
+            CurseSticky.squelch(player);
+            player.setData(WitchModAttachments.BUTTERFINGERS_NEXT_ALLOWED,
+                    now + Config.BUTTERFINGERS_COOLDOWN_TICKS.get());
+            Curses.BUTTERFINGERS.value().markDiscoveredByVictim(player);
             return;
         }
         if (!dropSomething(player)) {
@@ -80,7 +89,7 @@ public final class CurseButterfingers extends Effect {
     }
 
     /**
-     * Fumbles whatever is most embarrassing to lose: what you're holding first, then the offhand, then a
+     * fumbles whatever is most embarrassing to lose: what you're holding first, then the offhand, then a
      * random hotbar slot if configured. @return whether anything was actually dropped.
      */
     private static boolean dropSomething(ServerPlayer player) {
@@ -108,7 +117,7 @@ public final class CurseButterfingers extends Effect {
         return dropStack(player, player.getItemInHand(hand));
     }
 
-    /** Splits the configured amount off {@code stack} (mutating the real inventory stack) and throws it. */
+    /** splits the configured amount off {@code stack} (mutating the real inventory stack) and throws it. */
     private static boolean dropStack(ServerPlayer player, ItemStack stack) {
         if (stack.isEmpty()) {
             return false;

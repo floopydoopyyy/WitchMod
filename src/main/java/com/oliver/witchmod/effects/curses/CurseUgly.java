@@ -11,7 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Your face is not your own any more (master-spec Ugly). For the duration, every client — including your
+ * your face is not your own any more. For the duration, every client — including your
  * own — renders you wearing one of the mod's ugly skins instead of yours.
  *
  * <p><b>The server picks a NUMBER, not a skin.</b> It can't pick a skin: they live in a client-side resource
@@ -29,7 +29,7 @@ public final class CurseUgly extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.CARVED_PUMPKIN);
     }
 
-    /** Hard to miss, given it's your own face (Rule 2). */
+    /** hard to miss, given it's your own face (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -43,7 +43,7 @@ public final class CurseUgly extends Effect {
 
     @Override
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {
-        // Non-negative and otherwise arbitrary; the client does the modulo.
+        // non-negative and otherwise arbitrary; the client does the modulo.
         target.setData(WitchModAttachments.UGLY_SKIN, target.getRandom().nextInt(1 << 20));
         markDiscoveredByVictim(target);
     }
@@ -55,7 +55,7 @@ public final class CurseUgly extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Self-heal: keeps the same face across a relog rather than re-rolling, and restores it if the value
+        // self-heal: keeps the same face across a relog rather than re-rolling, and restores it if the value
         // was ever lost. The roll only happens when there genuinely isn't one.
         if (target.getData(WitchModAttachments.UGLY_SKIN) < 0) {
             target.setData(WitchModAttachments.UGLY_SKIN, target.getRandom().nextInt(1 << 20));

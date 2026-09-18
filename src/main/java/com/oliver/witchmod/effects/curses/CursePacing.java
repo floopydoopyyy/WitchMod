@@ -12,7 +12,7 @@ import com.oliver.witchmod.data.PacingManager;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Every big moment gets a One Piece-style dramatic beat (master-spec Pacing, refactored). The trigger
+ * every big moment gets a One Piece-style dramatic beat. The trigger
  * chance RAMPS the longer it's gone without a moment — high right when the curse lands, resetting each time
  * one fires, and firing on a non-combat tick if it maxes out. The moment is a time-stop (everyone involved
  * frozen + briefly invulnerable) with the victim's camera hijacked for cinematic cuts. All the logic lives
@@ -36,7 +36,7 @@ public final class CursePacing extends Effect {
         PacingManager.onApply(target); // pre-charge the ramp so the chance starts high
     }
 
-    /** You find out the first time a dramatic moment seizes your screen (Rule 2). */
+    /** you find out the first time a dramatic moment seizes your screen (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;

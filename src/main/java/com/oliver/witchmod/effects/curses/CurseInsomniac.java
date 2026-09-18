@@ -10,7 +10,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.InsomniacMessages;
 
 /**
- * You can't sleep (master-spec Insomniac). Trying to get into bed just doesn't work — you get one of a few
+ * you can't sleep. Trying to get into bed just doesn't work — you get one of a few
  * silly excuses from a writable list instead, and because you never actually sleep, vanilla's own phantom
  * "time since rest" counter keeps climbing exactly as it would for anyone who stayed up all night.
  *
@@ -23,13 +23,13 @@ public final class CurseInsomniac extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.PHANTOM_MEMBRANE);
     }
 
-    /** You find out the first time your bed just... won't take you (Rule 2). */
+    /** you find out the first time your bed just... won't take you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Hook for a thwarted bedtime — see {@code CurseEventHandler}. */
+    /** hook for a thwarted bedtime — see {@code CurseEventHandler}. */
     public void onSleepDenied(ServerPlayer target) {
         String line = InsomniacMessages.pick(target.getRandom());
         if (line != null) {

@@ -29,7 +29,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * Your own personal Twitch stream (master-spec Chat, sacrificial item PURPLE WOOL). A fake chat panel reacts
+ * your own personal Twitch stream. A fake chat panel reacts
  * to everything you do, sometimes drops genuinely-useful info (nearby structures/players/chests), and runs an
  * internal <b>entertainment score</b> that drives a live <b>viewer count</b>, chains highlights into a
  * <b>hype train</b>, and earns <b>subs</b> — cashed in for rewards at the end (capped).
@@ -56,17 +56,17 @@ public final class BlessingChat extends Effect {
     private static final Map<UUID, Long> DEATH_SPAM_UNTIL = new HashMap<>(); // window of rapid dealwithit/trolldance spam
     private static final long ACTION_WINDOW = 80; // ticks a recent action keeps flavouring the chat
 
-    /** Message tokens the overlay recognises: an emote image or an animated gif, by name. */
+    /** message tokens the overlay recognises: an emote image or an animated gif, by name. */
     public static final String EMOTE_PREFIX = "E";
     public static final String GIF_PREFIX = "G";
     private static final String[] EMOTES = {"kappa", "kekw", "lul", "pog", "sadge"};
     private static final String[] GIFS = {"stevedance", "trolldance", "dealwithit"};
 
-    /** Categories that read as GOOD highlights → rendered with the hype background. */
+    /** categories that read as GOOD highlights → rendered with the hype background. */
     private static final Set<String> HYPE_CATEGORIES =
             Set.of("pvp_kill", "kill", "clutch", "diamond", "crit", "tame", "hype_train");
 
-    /** Stable-ish chatter name colours (twitch-ish). */
+    /** stable-ish chatter name colours (twitch-ish). */
     private static final int[] NAME_COLORS = {
             0xFF4A80, 0x9147FF, 0x1DB9C3, 0x2ECC71, 0xE67E22, 0xF1C40F, 0x3498DB, 0xE74C3C, 0x00D1B2, 0xC792EA,
             0xFF7AC6, 0x8AE234, 0x5DA9FF, 0xFFB347, 0xB39DFF
@@ -82,7 +82,7 @@ public final class BlessingChat extends Effect {
         target.setData(WitchModAttachments.CHAT_OVERLAY, 1);
         target.setData(WitchModAttachments.CHAT_SUBS, 0);
         target.setData(WitchModAttachments.CHAT_HYPE, 0);
-        // You start with a DEAD chat and have to earn your way out of it.
+        // you start with a DEAD chat and have to earn your way out of it.
         SCORE.put(id, 0.0);
         SUB_ACCUM.put(id, 0.0);
         COMBO.put(id, 0);
@@ -114,7 +114,7 @@ public final class BlessingChat extends Effect {
         DEATH_SPAM_UNTIL.remove(id);
     }
 
-    /** The streamer died — chat tanks (a lot of interest lost) and rapidly spams the mocking gifs. */
+    /** the streamer died — chat tanks (a lot of interest lost) and rapidly spams the mocking gifs. */
     public static void onStreamerDeath(ServerPlayer player) {
         UUID id = player.getUUID();
         double score = SCORE.getOrDefault(id, 0.0);
@@ -127,7 +127,7 @@ public final class BlessingChat extends Effect {
         }
     }
 
-    /** The live viewer count for a given hype fraction — exponential from base to max (bottom crawls, top blows up). */
+    /** the live viewer count for a given hype fraction — exponential from base to max (bottom crawls, top blows up). */
     public static double viewersAt(double hype01) {
         double base = Math.max(1.0, Config.CHAT_VIEWER_BASE.get());
         double max = Math.max(base, Config.CHAT_VIEWER_MAX.get());
@@ -146,7 +146,7 @@ public final class BlessingChat extends Effect {
         add(player, category, amount);
         UUID id = player.getUUID();
         long now = player.serverLevel().getGameTime();
-        // Combo streak — chained highlights within the window build a multiplier and eventually a hype train.
+        // combo streak — chained highlights within the window build a multiplier and eventually a hype train.
         int streak = (now - COMBO_TICK.getOrDefault(id, -100000L) <= Config.CHAT_COMBO_WINDOW_TICKS.get())
                 ? COMBO.getOrDefault(id, 0) + 1 : 1;
         COMBO.put(id, streak);
@@ -203,12 +203,12 @@ public final class BlessingChat extends Effect {
         long now = level.getGameTime();
         double max = Config.CHAT_SCORE_MAX.get();
 
-        // Self-heal the overlay flag after a respawn/relog (the blessing persists through death).
+        // self-heal the overlay flag after a respawn/relog (the blessing persists through death).
         if (target.getData(WitchModAttachments.CHAT_OVERLAY) != 1) {
             target.setData(WitchModAttachments.CHAT_OVERLAY, 1);
         }
 
-        // Fresh-chunk exploration bonus (cheap: only when the chunk key changes).
+        // fresh-chunk exploration bonus (cheap: only when the chunk key changes).
         long chunk = target.chunkPosition().toLong();
         if (LAST_CHUNK.getOrDefault(id, Long.MIN_VALUE) != chunk) {
             if (LAST_CHUNK.containsKey(id)) {
@@ -217,8 +217,8 @@ public final class BlessingChat extends Effect {
             LAST_CHUNK.put(id, chunk);
         }
 
-        // Score decay — idling loses a lot, drifting about loses a little; a recent action pauses the decay.
-        // Sleeping drains it regardless (nobody watches you nap) and chat cracks sleep-stream jokes.
+        // score decay — idling loses a lot, drifting about loses a little; a recent action pauses the decay.
+        // sleeping drains it regardless (nobody watches you nap) and chat cracks sleep-stream jokes.
         double score = SCORE.getOrDefault(id, 0.0);
         if (target.isSleeping()) {
             score = Math.max(0.0, score - Config.CHAT_SLEEP_DECAY.get());
@@ -232,7 +232,7 @@ public final class BlessingChat extends Effect {
                 SCORE.put(id, score);
             }
         }
-        // Eased hype so climbs (and the death drop) are GRADUAL, not instant — viewers ramp in over a beat.
+        // eased hype so climbs (and the death drop) are GRADUAL, not instant — viewers ramp in over a beat.
         double rawHype = score / max;
         double shown = SHOWN_HYPE.getOrDefault(id, 0.0);
         shown += (rawHype - shown) * Config.CHAT_HYPE_EASE.get();
@@ -243,14 +243,14 @@ public final class BlessingChat extends Effect {
         double hype = Mth.clamp(shown, 0.0, 1.0);
         target.setData(WitchModAttachments.CHAT_HYPE, (int) Math.round(hype * 100));
 
-        // Death spam: rapid dealwithit / trolldance right after a death.
+        // death spam: rapid dealwithit / trolldance right after a death.
         long spamUntil = DEATH_SPAM_UNTIL.getOrDefault(id, 0L);
         boolean deathSpam = now < spamUntil;
         if (deathSpam && now % 3 == 0) {
             gifLine(target, target.getRandom().nextBoolean() ? "dealwithit" : "trolldance", KIND_NORMAL);
         }
 
-        // Phase: DEAD chat has to be crawled out of. Hysteresis so it doesn't flicker on the boundary.
+        // phase: DEAD chat has to be crawled out of. Hysteresis so it doesn't flicker on the boundary.
         boolean alive = ALIVE.getOrDefault(id, false);
         if (!alive && hype >= Config.CHAT_REVIVE_THRESHOLD.get()) {
             alive = true;
@@ -270,7 +270,7 @@ public final class BlessingChat extends Effect {
 
         double viewers = viewersAt(hype);
 
-        // Sub economy — subs are driven by the (exponential) viewer count, so they crawl at the bottom and
+        // sub economy — subs are driven by the (exponential) viewer count, so they crawl at the bottom and
         // pour in at the top. Nothing accrues while the chat is dead.
         if (alive) {
             double accum = SUB_ACCUM.getOrDefault(id, 0.0) + viewers * Config.CHAT_SUB_PER_VIEWER_TICK.get();
@@ -288,21 +288,21 @@ public final class BlessingChat extends Effect {
             SUB_ACCUM.put(id, accum);
         }
 
-        // Chat messages — sparse & sad while dead; an escalating flood as hype climbs. Held during death spam.
+        // chat messages — sparse & sad while dead; an escalating flood as hype climbs. Held during death spam.
         if (!deathSpam && now >= NEXT_MESSAGE.getOrDefault(id, 0L)) {
             RandomSource random = target.getRandom();
             int min = Config.CHAT_INTERVAL_MIN.get();
             int maxI = Math.max(min, Config.CHAT_INTERVAL_MAX.get());
             int interval;
             if (!alive) {
-                // Dead chat: rare, lonely tumbleweed lines.
+                // dead chat: rare, lonely tumbleweed lines.
                 String d = TwitchChat.pick("dead", random);
                 if (d != null) {
                     line(target, format(d, target, ""), KIND_NORMAL);
                 }
                 interval = maxI + random.nextInt(maxI); // even longer than the ambient max
             } else {
-                // Random monetisation events, scaled by hype.
+                // random monetisation events, scaled by hype.
                 if (random.nextDouble() < Config.CHAT_RAID_CHANCE.get() * hype) {
                     sendRaid(target);
                 } else if (random.nextDouble() < Config.CHAT_DONATION_CHANCE.get() * hype) {
@@ -313,7 +313,7 @@ public final class BlessingChat extends Effect {
                         sendMessage(target, hype);
                     }
                 }
-                // Interval shrinks EXPONENTIALLY with hype (max->min), so the pace ramps hard near the top.
+                // interval shrinks EXPONENTIALLY with hype (max->min), so the pace ramps hard near the top.
                 interval = (int) Math.round(maxI * Math.pow((double) min / maxI, hype));
                 interval = Math.max(min, interval);
                 interval += random.nextInt(Math.max(1, interval / 3 + 1));
@@ -355,7 +355,7 @@ public final class BlessingChat extends Effect {
     private static String pickCategory(ServerPlayer player, double hype) {
         UUID id = player.getUUID();
         RandomSource random = player.getRandom();
-        // Sleeping? Chat mostly cracks sleep-stream jokes (with the odd emote for flavour).
+        // sleeping? Chat mostly cracks sleep-stream jokes (with the odd emote for flavour).
         if (player.isSleeping() && random.nextFloat() < 0.8F) {
             return "sleep";
         }
@@ -421,7 +421,7 @@ public final class BlessingChat extends Effect {
         player.setData(WitchModAttachments.CHAT_SUBS, subs);
     }
 
-    /** Send one line with a random chatter name (coloured) + message + a kind for special styling. */
+    /** send one line with a random chatter name (coloured) + message + a kind for special styling. */
     private static void line(ServerPlayer player, String message, int kind) {
         String user = Usernames.random(player.getRandom());
         int color = NAME_COLORS[Math.floorMod(user.hashCode(), NAME_COLORS.length)];
@@ -545,12 +545,12 @@ public final class BlessingChat extends Effect {
             player.sendSystemMessage(Component.literal("Stream over — 0 subs. Better luck next time. Sadge").withColor(0xB79CE8));
             return;
         }
-        // Emeralds are the ONLY reward, and deliberately modest.
+        // emeralds are the ONLY reward, and deliberately modest.
         int emeralds = subs / Config.CHAT_SUBS_PER_EMERALD.get();
         giveOrDrop(player, new ItemStack(Items.EMERALD, emeralds));
         player.sendSystemMessage(Component.literal("🎉 Stream over! " + subs + " subs → ")
-                .withColor(0x9147FF)
-                .append(Component.literal(emeralds + " emerald" + (emeralds == 1 ? "" : "s")).withColor(0xE6DCF5)));
+.withColor(0x9147FF)
+.append(Component.literal(emeralds + " emerald" + (emeralds == 1 ? "" : "s")).withColor(0xE6DCF5)));
     }
 
     private static void giveOrDrop(ServerPlayer player, ItemStack stack) {

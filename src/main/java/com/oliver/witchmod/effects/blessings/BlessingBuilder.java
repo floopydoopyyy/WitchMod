@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Master builder (master-spec-style Builder, sacrificial item ANY PLANKS): the little cooldowns vanilla puts
+ * master builder: the little cooldowns vanilla puts
  * between placing and breaking blocks are gone, so you can lay down and tear through blocks as fast as you can
  * click. Great for big builds and fast teardown.
  *

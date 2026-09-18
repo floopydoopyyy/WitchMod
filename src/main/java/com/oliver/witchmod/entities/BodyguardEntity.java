@@ -39,23 +39,10 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.BodyguardLines;
 
 /**
- * The Bodyguard (master-spec Bodyguard blessing). An armoured, tough skeleton in sunglasses that trails the
- * blessed player — the <b>anchor</b> — and runs interference on anyone who crowds them, escalating through
- * three states while narrating the whole thing to nearby players:
- * <ol>
- *   <li><b>WARNING</b> — an intruder is near the anchor; the bodyguard plants itself in the way and tells
- *       them, by name, to leave (random multi-line dialogue trees).</li>
- *   <li><b>AGGRESSION</b> — they crowd in anyway; now it shoves them with low-damage <i>warning hits</i>
- *       between (nastier) lines.</li>
- *   <li><b>ATTACKING</b> — they actually hit the anchor (or the bodyguard); now it commits, chasing them at
- *       full damage until one of them is dead or the aggressor is dragged beyond the leash from the anchor.</li>
- * </ol>
- *
- * <p><b>It never fights the anchor</b> — the anchor can even whack it and it won't retaliate (though killing
- * your own bodyguard will, like any death, break the blessing instantly). It is a {@link PathfinderMob}, not
- * a {@code Monster}, deliberately: it isn't {@code Enemy}, so iron golems don't jump it and it doesn't burn
- * in the sun — it's a hired hand, not a hostile. All movement is driven manually here rather than through
- * target goals, so nothing vanilla can make it target the anchor by accident.
+ * the bodyguard — an armoured sunglasses-skeleton bound to the blessed player (the anchor). escalates
+ * warning → aggression → attacking on anyone who crowds/hits the anchor, narrating as it goes; never
+ * retaliates against the anchor. a {@link PathfinderMob}, not an {@code Enemy}, so golems ignore it and it
+ * doesn't burn; all movement is manual so nothing vanilla can make it target the anchor by accident.
  */
 public final class BodyguardEntity extends PathfinderMob {
     public enum State { FOLLOWING, WARNING, AGGRESSION, ATTACKING }
@@ -91,17 +78,19 @@ public final class BodyguardEntity extends PathfinderMob {
 
     private final List<String> pendingLines = new ArrayList<>();
     private int lineGap;
-    /** Ticks until the next dialogue TREE may start. Only ever set when a tree starts (or an ATTACK forces
+    /** ticks until the next dialogue TREE may start. Only ever set when a tree starts (or an ATTACK forces
      *  a line) — never on a plain state change, which is what stopped the constant chatter. */
     private int speakCooldown;
     private int warningHitCooldown;
     private int attackCooldown;
-    /** How long the current intruder has been crowding in AGGRESSION — past patience, steel comes out. */
+    /** how long the current intruder has been crowding in AGGRESSION — past patience, steel comes out. */
     private int aggressionTicks;
-    /** Verbal warnings actually delivered to the current focus — patience won't draw steel below the minimum. */
+    /** verbal warnings actually delivered to the current focus — patience won't draw steel below the minimum. */
     private int warningsSpoken;
     @Nullable
     private UUID warnedFocus;
+    /** true when the current focus is a genuine attacker (chase it on the longer threat leash), not an intruder. */
+    private boolean focusIsThreat;
     private boolean configured;
 
     public BodyguardEntity(EntityType<? extends BodyguardEntity> type, Level level) {
@@ -140,7 +129,7 @@ public final class BodyguardEntity extends PathfinderMob {
                 .add(Attributes.STEP_HEIGHT, 1.0);
     }
 
-    /** Push the config-tunable attribute values onto this instance (config IS loaded by spawn time). */
+    /** push the config-tunable attribute values onto this instance (config IS loaded by spawn time). */
     private void applyConfig() {
         setBase(Attributes.MAX_HEALTH, Config.BODYGUARD_HEALTH.get());
         setBase(Attributes.ATTACK_DAMAGE, Config.BODYGUARD_DAMAGE.get());
@@ -163,7 +152,7 @@ public final class BodyguardEntity extends PathfinderMob {
     }
 
     private void equipArmour() {
-        // Black-dyed leather — a bouncer's blacks, not plate. Toughness comes from the ARMOR attribute, so
+        // black-dyed leather — a bouncer's blacks, not plate. Toughness comes from the ARMOR attribute, so
         // the leather is purely the look. Bare head so the shades read.
         setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
         setItemSlot(EquipmentSlot.CHEST, dyedBlack(Items.LEATHER_CHESTPLATE));
@@ -174,7 +163,7 @@ public final class BodyguardEntity extends PathfinderMob {
         }
     }
 
-    /** Vanilla's black-dye colour (0x1D1D21) — near-black, so the leather still catches a little light. */
+    /** vanilla's black-dye colour (0x1D1D21) — near-black, so the leather still catches a little light. */
     private static final int BLACK_DYE = 0x1D1D21;
 
     private static ItemStack dyedBlack(net.minecraft.world.item.Item leather) {
@@ -183,7 +172,7 @@ public final class BodyguardEntity extends PathfinderMob {
         return stack;
     }
 
-    /** Steel comes out when it means business — the visible "this is now a real threat". */
+    /** steel comes out when it means business — the visible "this is now a real threat". */
     private void drawWeapon() {
         setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
     }
@@ -211,21 +200,29 @@ public final class BodyguardEntity extends PathfinderMob {
     public boolean hurt(DamageSource source, float amount) {
         boolean took = super.hurt(source, amount);
         if (took && level() instanceof ServerLevel && source.getEntity() instanceof LivingEntity attacker) {
-            // Someone hit the bodyguard — that's a straight ticket to ATTACKING (unless it was the anchor).
-            escalateToAttacking(attacker);
+            // someone hit the bodyguard — that's a straight ticket to ATTACKING (unless it was the anchor).
+            escalateToAttacking(attacker, true);
         }
         return took;
     }
 
+    /** an intruder who won't leave (patience path) — pursued only within the normal leash. */
+    public void escalateToAttacking(LivingEntity attacker) {
+        escalateToAttacking(attacker, false);
+    }
+
     /**
      * Latch onto {@code attacker} and commit — called when the anchor or the bodyguard is struck by anything
-     * (a player, a zombie, a golem). It'll never turn on the anchor or itself.
+     * (a player, a zombie, a golem). It'll never turn on the anchor or itself. A genuine ATTACKER (isThreat) is
+     * chased on the longer threat leash, so aggro on "anything that attacks you" actually sticks rather than
+     * standing down the moment they back off a step.
      */
-    public void escalateToAttacking(LivingEntity attacker) {
+    public void escalateToAttacking(LivingEntity attacker, boolean isThreat) {
         if (attacker == this || attacker.getUUID().equals(anchorId)) {
             return; // never the anchor, never itself
         }
         focusId = attacker.getUUID();
+        focusIsThreat = isThreat;
         setState(State.ATTACKING);
     }
 
@@ -237,7 +234,7 @@ public final class BodyguardEntity extends PathfinderMob {
         if (!(level() instanceof ServerLevel level)) {
             return;
         }
-        // Self-heal duplicates: if a newer bodyguard has claimed my anchor, I'm a leftover — vanish.
+        // self-heal duplicates: if a newer bodyguard has claimed my anchor, I'm a leftover — vanish.
         if (anchorId != null) {
             UUID canonical = CANONICAL.get(anchorId);
             if (canonical != null && !canonical.equals(getUUID())) {
@@ -258,7 +255,7 @@ public final class BodyguardEntity extends PathfinderMob {
 
         ServerPlayer anchor = anchorId == null ? null : level.getServer().getPlayerList().getPlayer(anchorId);
 
-        // Bound to the anchor like a tamed wolf: if it's strayed (or the anchor pearled/flew off), blink back.
+        // bound to the anchor like a tamed wolf: if it's strayed (or the anchor pearled/flew off), blink back.
         if (anchor != null) {
             double tp = Config.BODYGUARD_TELEPORT_DISTANCE.get();
             if (distanceToSqr(anchor) > tp * tp) {
@@ -289,7 +286,7 @@ public final class BodyguardEntity extends PathfinderMob {
         boolean tooClose = anchor != null && intruder.distanceToSqr(anchor) <= aggro * aggro;
         setState(tooClose ? State.AGGRESSION : State.WARNING);
 
-        // Interpose: walk toward the intruder and hold at arm's length.
+        // interpose: walk toward the intruder and hold at arm's length.
         if (distanceToSqr(intruder) > REACH * REACH) {
             getNavigation().moveTo(intruder, 1.0);
         } else {
@@ -299,7 +296,7 @@ public final class BodyguardEntity extends PathfinderMob {
             }
         }
 
-        // Patience runs out: someone who WON'T take the hint gets the sword drawn on them, no attack from them
+        // patience runs out: someone who WON'T take the hint gets the sword drawn on them, no attack from them
         // required (needs BODYGUARD_WARNINGS_BEFORE_ATTACK spoken warnings first, so it never jumps to violence
         // silently). The clock builds while the SAME intruder is present at all — WARNING or AGGRESSION — so a
         // warning-shove bumping them out to WARNING range no longer resets it (which is why it used to only
@@ -313,7 +310,7 @@ public final class BodyguardEntity extends PathfinderMob {
 
     private void tickAttacking(@Nullable ServerPlayer anchor) {
         LivingEntity target = resolveFocus();
-        double leash = Config.BODYGUARD_LEASH_RANGE.get();
+        double leash = focusIsThreat ? Config.BODYGUARD_THREAT_LEASH_RANGE.get() : Config.BODYGUARD_LEASH_RANGE.get();
         boolean lost = target == null || !target.isAlive()
                 || (anchor != null && target.distanceToSqr(anchor) > leash * leash);
         if (lost) {
@@ -351,7 +348,7 @@ public final class BodyguardEntity extends PathfinderMob {
         swing(InteractionHand.MAIN_HAND);
         warningHitCooldown = Config.BODYGUARD_WARNING_HIT_INTERVAL.get();
         if (intruder instanceof Villager) {
-            // Villagers get SHOVED, not hurt — a warning hit would just sic the iron golem on us and slowly
+            // villagers get SHOVED, not hurt — a warning hit would just sic the iron golem on us and slowly
             // murder the village, which isn't the bit. The push still makes the point.
             intruder.knockback(0.5, getX() - intruder.getX(), getZ() - intruder.getZ());
             intruder.hurtMarked = true;
@@ -402,7 +399,7 @@ public final class BodyguardEntity extends PathfinderMob {
         return level.getEntity(focusId) instanceof LivingEntity living && living.isAlive() ? living : null;
     }
 
-    /** Blink to a safe spot at the anchor's side (wolf-style), trying a few nearby cells before giving up. */
+    /** blink to a safe spot at the anchor's side (wolf-style), trying a few nearby cells before giving up. */
     private void teleportToAnchor(ServerPlayer anchor) {
         BlockPos base = anchor.blockPosition();
         for (int i = 0; i < 10; i++) {
@@ -458,7 +455,7 @@ public final class BodyguardEntity extends PathfinderMob {
         if (lineGap > 0) {
             lineGap--;
         }
-        // Still delivering the current tree, one line per gap.
+        // still delivering the current tree, one line per gap.
         if (!pendingLines.isEmpty()) {
             if (lineGap <= 0) {
                 say(anchor, pendingLines.remove(0));
@@ -466,7 +463,7 @@ public final class BodyguardEntity extends PathfinderMob {
             }
             return;
         }
-        // Between trees: a single global cooldown, immune to state flicker (only reset when a tree STARTS).
+        // between trees: a single global cooldown, immune to state flicker (only reset when a tree STARTS).
         if (speakCooldown > 0) {
             speakCooldown--;
             return;
@@ -485,6 +482,20 @@ public final class BodyguardEntity extends PathfinderMob {
         }
     }
 
+    /** speak a companionship-banter line (already filled), as {@code <Bodyguard> line}, to nearby players. */
+    public void speakBanter(String line) {
+        if (!(level() instanceof ServerLevel level)) {
+            return;
+        }
+        Component message = Component.literal("<Bodyguard> " + line);
+        double radius = Config.BODYGUARD_CHAT_RADIUS.get();
+        for (ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(this) <= radius * radius) {
+                player.sendSystemMessage(message);
+            }
+        }
+    }
+
     private void say(@Nullable ServerPlayer anchor, String rawLine) {
         if (!(level() instanceof ServerLevel level)) {
             return;
@@ -493,7 +504,7 @@ public final class BodyguardEntity extends PathfinderMob {
         String name = focus != null ? focus.getName().getString()
                 : (anchor != null ? anchor.getName().getString() : "you");
 
-        // Count warnings actually delivered to THIS focus, so patience can require a couple before it attacks.
+        // count warnings actually delivered to THIS focus, so patience can require a couple before it attacks.
         if (state == State.WARNING || state == State.AGGRESSION) {
             if (!Objects.equals(focusId, warnedFocus)) {
                 warnedFocus = focusId;

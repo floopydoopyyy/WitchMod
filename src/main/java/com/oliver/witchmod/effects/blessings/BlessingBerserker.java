@@ -21,7 +21,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * Bloodlust (master-spec-style Berserker, sacrificial item IRON AXE): landing hit after hit without whiffing
+ * bloodlust: landing hit after hit without whiffing
  * winds your attack cooldown up faster and faster — each consecutive hit shaves another chunk off it, up to a
  * hard cap. The instant you MISS (swing at air) or go a few seconds without connecting, the whole thing
  * resets and you have to build it again.
@@ -41,7 +41,7 @@ public final class BlessingBerserker extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 35, () -> Items.IRON_AXE);
     }
 
-    /** Discovered the first time a landed hit builds the frenzy. */
+    /** discovered the first time a landed hit builds the frenzy. */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         int stacks = STACKS.getOrDefault(target.getUUID(), 0);
@@ -72,13 +72,19 @@ public final class BlessingBerserker extends Effect {
         if (stacks <= 0) {
             return;
         }
-        // Reset after going too long without a hit.
+        // reset after going too long without a hit.
         long resetTicks = Math.round(Config.BERSERKER_RESET_SECONDS.get() * 20.0);
         if (target.serverLevel().getGameTime() - LAST_HIT.getOrDefault(id, 0L) > resetTicks) {
             reset(target);
             return;
         }
         applyModifier(target, stacks); // self-heal the transient modifier if a reload dropped it
+        // subtle rolling feedback: a few embers per second, scaling with the stack count.
+        if (target.serverLevel().getGameTime() % 4 == 0) {
+            target.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT,
+                    target.getX(), target.getY() + 1.0, target.getZ(),
+                    Math.min(6, 1 + stacks / 2), 0.35, 0.4, 0.35, 0.0);
+        }
     }
 
     @Override
@@ -90,14 +96,24 @@ public final class BlessingBerserker extends Effect {
         target.setData(WitchModAttachments.BERSERKER_ACTIVE, -1);
     }
 
-    /** A landed hit: build a stack (capped) and refresh the no-hit timer. */
+    /** A landed hit: build a stack (or a couple with the Violence synergy) and refresh the no-hit timer. */
     public static void onHit(ServerPlayer player) {
+        // frenzy synergy (with Violence): its stolen swings never miss, so each landed hit banks extra stacks.
+        addStacks(player, com.oliver.witchmod.synergy.Synergies.FRENZY.activeFor(player) ? 2 : 1);
+    }
+
+    /** grant {@code amount} stacks (capped), refresh the timer, and pop a little gain-burst. Shared by the synergies. */
+    public static void addStacks(ServerPlayer player, int amount) {
         UUID id = player.getUUID();
-        int maxStacks = maxStacks();
-        int stacks = Math.min(maxStacks, STACKS.getOrDefault(id, 0) + 1);
+        int before = STACKS.getOrDefault(id, 0);
+        int stacks = Math.min(maxStacks(), before + Math.max(1, amount));
         STACKS.put(id, stacks);
         LAST_HIT.put(id, player.serverLevel().getGameTime());
         applyModifier(player, stacks);
+        if (stacks > before) {
+            player.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT,
+                    player.getX(), player.getY() + 1.1, player.getZ(), 6, 0.3, 0.3, 0.3, 0.15);
+        }
         Blessings.BERSERKER.get().markDiscoveredByVictim(player);
     }
 
@@ -111,11 +127,16 @@ public final class BlessingBerserker extends Effect {
     private static void reset(ServerPlayer player) {
         STACKS.put(player.getUUID(), 0);
         EffectUtil.removeModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
+        // the frenzy fizzling out.
+        player.serverLevel().playSound(null, player.blockPosition(),
+                net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 0.8F);
+        player.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE,
+                player.getX(), player.getY() + 1.0, player.getZ(), 8, 0.3, 0.3, 0.3, 0.01);
     }
 
     private static void applyModifier(ServerPlayer player, int stacks) {
         double reduction = Math.min(Config.BERSERKER_MAX_REDUCTION.get(), Config.BERSERKER_REDUCTION_PER_HIT.get() * stacks);
-        // Shorter cooldown -> higher attack speed. 70% shorter => 1/0.30 - 1 = +233% attack speed.
+        // shorter cooldown -> higher attack speed. 70% shorter => 1/0.30 - 1 = +233% attack speed.
         double speedMult = 1.0 / (1.0 - reduction) - 1.0;
         EffectUtil.removeModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
         EffectUtil.addModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, speedMult,
@@ -123,7 +144,6 @@ public final class BlessingBerserker extends Effect {
     }
 
     private static int maxStacks() {
-        double perHit = Config.BERSERKER_REDUCTION_PER_HIT.get();
-        return perHit <= 0 ? 0 : (int) Math.ceil(Config.BERSERKER_MAX_REDUCTION.get() / perHit);
+        return Config.BERSERKER_MAX_STACKS.get();
     }
 }

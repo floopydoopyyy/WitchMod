@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Lights-Out (tier 3): every nearby light dies at once and the dark rushes in — Darkness + a screen flicker.
+ * lights-Out (tier 3): every nearby light dies at once and the dark rushes in — Darkness + a screen flicker.
  * The reference extraction of the per-event refactor (see {@link DwellerEvent}).
  */
 public final class LightsOutEvent implements DwellerEvent {

@@ -24,7 +24,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Everything you're holding is stuck to you (master-spec Sticky). You cannot drop items and you cannot take
+ * everything you're holding is stuck to you. You cannot drop items and you cannot take
  * your armour off. Containers are deliberately untouched — chests, furnaces and the like all work exactly as
  * normal, so this is an inconvenience rather than a lockout.
  *
@@ -50,7 +50,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * curse for one item beats deleting somebody's netherite. This was a real bug, caught in play.
  */
 public final class CurseSticky extends Effect {
-    /** Ticks between squelches, so mashing the drop key doesn't machine-gun the sound. */
+    /** ticks between squelches, so mashing the drop key doesn't machine-gun the sound. */
     private static final int SQUELCH_COOLDOWN_TICKS = 12;
     private static final Map<UUID, Long> NEXT_SQUELCH = new HashMap<>();
 
@@ -58,7 +58,7 @@ public final class CurseSticky extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.HONEY_BOTTLE);
     }
 
-    /** You find out the first time something refuses to leave your hands (Rule 2). */
+    /** you find out the first time something refuses to leave your hands (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -82,7 +82,7 @@ public final class CurseSticky extends Effect {
     }
 
     /**
-     * Hook for equipment changing — see {@code CurseEventHandler}. Puts armour back on if the victim just
+     * hook for equipment changing — see {@code CurseEventHandler}. Puts armour back on if the victim just
      * took it off.
      */
     public static void onArmourRemoved(ServerPlayer player, EquipmentSlot slot,
@@ -96,7 +96,7 @@ public final class CurseSticky extends Effect {
         if (!player.isAlive() || player.isDeadOrDying()) {
             return; // death drops are deliberately unaffected
         }
-        // Only give it back if we can find where it went. If it BROKE it's nowhere, and restoring it would
+        // only give it back if we can find where it went. If it BROKE it's nowhere, and restoring it would
         // be an infinite-durability exploit rather than a curse.
         if (!reclaim(player, removed)) {
             return;
@@ -112,7 +112,7 @@ public final class CurseSticky extends Effect {
     }
 
     /**
-     * The feedback for something refusing to come off: a wet honey-block squelch and a few drips.
+     * the feedback for something refusing to come off: a wet honey-block squelch and a few drips.
      *
      * <p>Rate-limited, because both triggers are things a frustrated player mashes — holding Q or clicking
      * repeatedly at a helmet would otherwise machine-gun the sound into noise. One squelch every
@@ -133,14 +133,14 @@ public final class CurseSticky extends Effect {
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.SLIME_BLOCK_HIT, SoundSource.PLAYERS,
                 0.4F, 0.8F + player.getRandom().nextFloat() * 0.2F);
-        // Deliberately sparse — a few drips off the hands, not a honey fountain.
+        // deliberately sparse — a few drips off the hands, not a honey fountain.
         level.sendParticles(ParticleTypes.FALLING_HONEY,
                 player.getX(), player.getY() + 1.1, player.getZ(), 6, 0.35, 0.25, 0.35, 0.0);
         level.sendParticles(ParticleTypes.ITEM_SLIME,
                 player.getX(), player.getY() + 1.0, player.getZ(), 3, 0.3, 0.2, 0.3, 0.01);
     }
 
-    /** Removes the just-taken-off piece from wherever the click put it. */
+    /** removes the just-taken-off piece from wherever the click put it. */
     private static boolean reclaim(ServerPlayer player, ItemStack removed) {
         AbstractContainerMenu menu = player.containerMenu;
         if (ItemStack.isSameItemSameComponents(menu.getCarried(), removed)) {

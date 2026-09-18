@@ -9,11 +9,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.UUIDUtil;
 
 /**
- * One player's ongoing brush with a single {@link Effect}: how long it has left, who cast it (absent for
- * command/system-applied effects), and a per-instance <b>display</b> override used by two modifiers — Ink Sac
- * ({@link #DISPLAY_HIDDEN}: no Cursed/Blessed wrapper at all until discovery) and Wither Rose
- * ({@link #DISPLAY_DISGUISED}: the wrapper shows the OPPOSITE category until discovery). {@link StatusEffectSync}
- * honours it; discovery clears it back to {@link #DISPLAY_NORMAL}.
+ * one active effect on a player: ticks left, who cast it (absent for command/system casts), and a display
+ * override for two modifiers — ink sac hides the wrapper until discovery, wither rose disguises it as the
+ * opposite category. {@link StatusEffectSync} honours it; discovery resets it to normal.
  */
 public record ActiveEffectInstance(int remainingTicks, Optional<UUID> caster, int display) {
     public static final int DISPLAY_NORMAL = 0;
@@ -26,7 +24,7 @@ public record ActiveEffectInstance(int remainingTicks, Optional<UUID> caster, in
             Codec.INT.optionalFieldOf("display", DISPLAY_NORMAL).forGetter(ActiveEffectInstance::display))
             .apply(instance, ActiveEffectInstance::new));
 
-    /** The common case — a normally-displayed instance. */
+    /** the common case — a normally-displayed instance. */
     public ActiveEffectInstance(int remainingTicks, Optional<UUID> caster) {
         this(remainingTicks, caster, DISPLAY_NORMAL);
     }

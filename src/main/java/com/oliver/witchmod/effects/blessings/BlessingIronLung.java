@@ -9,7 +9,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * You breathe anywhere (master-spec Iron Lung, sacrificial item KELP): underwater AND buried in blocks. Done
+ * you breathe anywhere: underwater AND buried in blocks. Done
  * with the mod's own lung-work rather than a vanilla Water Breathing effect —
  * <ul>
  *   <li><b>Underwater:</b> the air supply is topped back up every tick, so the bubble bar never drains and
@@ -24,7 +24,7 @@ public final class BlessingIronLung extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.KELP);
     }
 
-    /** You find out the first time your lungs hold where they shouldn't — underwater or buried (Rule 2). */
+    /** you find out the first time your lungs hold where they shouldn't — underwater or buried (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -32,7 +32,7 @@ public final class BlessingIronLung extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Runs on PlayerTickEvent.Post — after vanilla has decremented air this tick — so resetting it to
+        // runs on PlayerTickEvent.Post — after vanilla has decremented air this tick — so resetting it to
         // full here keeps it pinned there: full lungs, no depletion, no drowning.
         if (target.getAirSupply() < target.getMaxAirSupply()) {
             target.setAirSupply(target.getMaxAirSupply());

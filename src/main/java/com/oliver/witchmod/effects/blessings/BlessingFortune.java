@@ -7,7 +7,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Ore just gives you more (master-spec Fortune, sacrificial item DIAMOND). Breaking an ore-tag block yields
+ * ore just gives you more. Breaking an ore-tag block yields
  * a few EXTRA drops on top of whatever it would normally give — and it's <b>additive</b>, applied after the
  * item's own enchantment Fortune has already rolled, so the two stack without multiplying into absurdity.
  * You get 0–{@code fortuneExtraMax} extra, biased toward {@code fortuneExtraMode} (usually one).
@@ -21,7 +21,7 @@ public final class BlessingFortune extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.DIAMOND);
     }
 
-    /** You notice it the first time an ore hands you more than it should. */
+    /** you notice it the first time an ore hands you more than it should. */
     @Override
     public boolean discoversOnTrigger() {
         return true;

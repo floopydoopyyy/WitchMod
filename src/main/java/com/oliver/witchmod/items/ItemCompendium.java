@@ -12,11 +12,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
-/**
- * The Compendium — right-click to open its own custom two-page book UI ({@code client/CompendiumScreen}) with a
- * Chapters sidebar (Curses / Blessings). Each entry shows the attachment's name, description, sacrificial item
- * and power level, pulled live from the effect registry. Purely client-side display, so no networking or menu.
- */
+/** the compendium — right-click opens its two-page book ui; purely client-side display, no networking or menu. */
 public final class ItemCompendium extends Item {
     public ItemCompendium(Properties properties) {
         super(properties);

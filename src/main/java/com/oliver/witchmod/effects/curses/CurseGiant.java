@@ -29,7 +29,7 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * GIANT (master-spec add, sacrificial item SEEDS). You swell to THREE TIMES your size and become a slow,
+ * GIANT. You swell to THREE TIMES your size and become a slow,
  * near-unkillable powerhouse: 10% slower, take 75% less damage, deal 80% more, but swing 30% slower.
  *
  * <p>Everything but the combat multipliers is a set of TRANSIENT attribute modifiers (re-applied each tick,
@@ -53,14 +53,14 @@ public final class CurseGiant extends Effect {
     private static final ResourceLocation SWING_ID = EffectUtil.modifierId("curse_giant_swing");
     private static final ResourceLocation REACH_ID = EffectUtil.modifierId("curse_giant_reach");
 
-    /** Per-victim next-stomp tick, so a crushed entity isn't hit every single tick before it's launched clear. */
+    /** per-victim next-stomp tick, so a crushed entity isn't hit every single tick before it's launched clear. */
     private static final Map<UUID, Long> NEXT_STOMP = new HashMap<>();
 
     public CurseGiant() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.WHEAT_SEEDS);
     }
 
-    /** You notice the instant you balloon in size (Rule 2). */
+    /** you notice the instant you balloon in size (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -74,12 +74,23 @@ public final class CurseGiant extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        grow(target); // re-assert the transient modifiers (survives reload) ...
-        stomp(target); // ... and crush anything underfoot
+        // size-crisis synergy (with Dwarfism): hand the whole size/traits over to the oscillator.
+        if (com.oliver.witchmod.synergy.Synergies.SIZE_CRISIS.activeFor(target)) {
+            SizeCrisis.tick(target);
+            return;
+        }
+        grow(target); // re-assert the transient modifiers (survives reload)...
+        stomp(target); //... and crush anything underfoot
     }
 
     @Override
     public void onRemove(ServerPlayer target) {
+        clearModifiers(target);
+        SizeCrisis.clear(target); // stop the giant+dwarfism oscillation cleanly if it was running
+    }
+
+    /** strip the giant attribute modifiers (used by onRemove and the size-crisis synergy takeover). */
+    public static void clearModifiers(ServerPlayer target) {
         EffectUtil.removeModifier(target, Attributes.SCALE, SCALE_ID);
         EffectUtil.removeModifier(target, Attributes.MOVEMENT_SPEED, SPEED_ID);
         EffectUtil.removeModifier(target, Attributes.ATTACK_SPEED, SWING_ID);
@@ -101,11 +112,11 @@ public final class CurseGiant extends Effect {
         }
     }
 
-    /** Crushes any LivingEntity the giant TOUCHES — walking into them or standing on them: stomp damage + a launch. */
-    private static void stomp(ServerPlayer target) {
+    /** crushes any LivingEntity the giant TOUCHES — walking into them or standing on them: stomp damage + a launch. */
+    static void stomp(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         long now = level.getGameTime();
-        // Anything overlapping the giant's huge body is being trampled — you don't have to stand ON them, just
+        // anything overlapping the giant's huge body is being trampled — you don't have to stand ON them, just
         // walk INTO them (fair, since the giant is slow).
         var footprint = target.getBoundingBox().inflate(0.25);
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, footprint,
@@ -126,13 +137,13 @@ public final class CurseGiant extends Effect {
             level.playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.5F, 1.6F);
             level.sendParticles(ParticleTypes.EXPLOSION, e.getX(), e.getY(), e.getZ(), 3, 0.2, 0.05, 0.2, 0.0);
         }
-        // Housekeeping so the cooldown map doesn't grow forever.
+        // housekeeping so the cooldown map doesn't grow forever.
         if (now % 200 == 0) {
             NEXT_STOMP.values().removeIf(t -> t < now);
         }
     }
 
-    /** True for a direct melee blow FROM this attacker (a projectile's direct entity is the projectile). */
+    /** true for a direct melee blow FROM this attacker (a projectile's direct entity is the projectile). */
     public static boolean isMelee(Entity directEntity, LivingEntity attacker) {
         return directEntity == attacker;
     }
@@ -153,7 +164,7 @@ public final class CurseGiant extends Effect {
         if (!(giant.serverLevel() instanceof ServerLevel level) || !(target instanceof LivingEntity victim)) {
             return;
         }
-        // Big extra knockback away from the giant (vanilla's own knockback then stacks on top).
+        // big extra knockback away from the giant (vanilla's own knockback then stacks on top).
         victim.knockback(Config.GIANT_HIT_KNOCKBACK.get(), giant.getX() - victim.getX(), giant.getZ() - victim.getZ());
         victim.hurtMarked = true;
         double cx = victim.getX(), cy = victim.getY() + victim.getBbHeight() * 0.6, cz = victim.getZ();

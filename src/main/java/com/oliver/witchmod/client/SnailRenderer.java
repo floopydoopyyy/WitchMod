@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.SnailEntity;
 
-/** Draws the {@link SnailEntity} with the code-baked {@link SnailModel}. */
+/** draws the {@link SnailEntity} with the code-baked {@link SnailModel}. */
 public final class SnailRenderer extends MobRenderer<SnailEntity, SnailModel<SnailEntity>> {
     public static final ModelLayerLocation LAYER =
             new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "snail"), "main");

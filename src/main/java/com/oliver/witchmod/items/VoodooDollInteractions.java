@@ -21,12 +21,12 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
-/** Event-driven Voodoo Doll interactions: throwing it flings the victim, and a lightning strike hits them. */
+/** event-driven Voodoo Doll interactions: throwing it flings the victim, and a lightning strike hits them. */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class VoodooDollInteractions {
     private VoodooDollInteractions() {}
 
-    /** Throwing (dropping) a bound doll flings the victim the same way — for a big chunk of durability. */
+    /** throwing (dropping) a bound doll flings the victim the same way — for a big chunk of durability. */
     @SubscribeEvent
     static void onToss(ItemTossEvent event) {
         ItemEntity itemEntity = event.getEntity();
@@ -48,7 +48,7 @@ public final class VoodooDollInteractions {
         }
     }
 
-    /** Using a FISHING ROD on a bound doll lying in front of you YANKS the victim your way — huge durability cost. */
+    /** using a FISHING ROD on a bound doll lying in front of you YANKS the victim your way — huge durability cost. */
     @SubscribeEvent
     static void onFishingRod(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickItem event) {
         if (!(event.getEntity() instanceof ServerPlayer caster)

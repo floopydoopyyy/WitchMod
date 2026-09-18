@@ -83,20 +83,23 @@
     ["You've had too many warnings, {player}", "Now it's my time."],
     "No more Mr. Nice guy!",
     "Get over here.",
-    "Playtimes over!"
+    "Playtimes over!",
+    "Nothing personal, kid."
   ],
   "fell": [
-    "Gah... I'm... hit...",
-    ["Tell my agency... I went down swinging...", "*collapses*"],
-    "I'll... be back...",
-    "You're on your own for a bit, boss...",
-    "Argh! They got me!"
+    "It's been an honour, boss...",
+    ["Boss?", "I don't feel too good..."],
+    "I shall return!",
+    "You're on your own now.",
+    "I WILL BE BACK",
+    "I'll miss you, boss..."
   ],
   "respawn": [
-    "Reporting for duty, boss. Miss me?",
-    ["The agency sent a replacement.", "Same great service."],
-    "Did somebody order more muscle?",
-    ["I'm back.", "And this time it's personal."],
-    "New guy, same job. Nobody touches you."
+    "Miss me?",
+    ["Miss me?", "I missed you?"],
+    "Did somebody order muscle?",
+    ["I'm back.", "I'm ready."],
+    "Am I the same guy or a new one? Who knows?",
+    "Now I'm mad."
   ]
 }

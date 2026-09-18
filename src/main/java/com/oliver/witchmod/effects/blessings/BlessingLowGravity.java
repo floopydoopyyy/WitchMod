@@ -16,8 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 
 /**
- * Gravity takes it easy on you — you are constantly LIGHT (master-spec Low Gravity, sacrificial item EYE OF
- * ENDER): big floaty hops and soft, slow descents, the whole time.
+ * gravity takes it easy on you — you are constantly LIGHT: big floaty hops and soft, slow descents, the whole time.
  *
  * <p>Done with real vanilla physics rather than Jump Boost / Slow Falling: a {@code GRAVITY} multiplier does
  * the actual moon-walk feel (you rise higher on the same jump and fall slower, exactly like reduced gravity),

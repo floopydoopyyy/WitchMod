@@ -17,7 +17,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.BodyguardEntity;
 
 /**
- * Renders the Bodyguard's sunglasses, locked to the head bone so they turn with its head. The little box is
+ * renders the Bodyguard's sunglasses, locked to the head bone so they turn with its head. The little box is
  * baked from {@link BodyguardRenderer#SUNGLASSES_LAYER}; here we just re-apply the parent model's head
  * transform and draw it, textured from {@code textures/entity/bodyguard/sunglasses.png}.
  */

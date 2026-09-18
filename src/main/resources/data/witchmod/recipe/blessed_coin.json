@@ -1,4 +1,9 @@
-{ "type": "minecraft:crafting_shaped", "category": "misc",
-  "key": { "G": { "item": "minecraft:gold_ingot" }, "A": { "item": "minecraft:amethyst_shard" } },
-  "pattern": [" G ", "GAG", " G "],
-  "result": { "id": "witchmod:blessed_coin", "count": 1 } }
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": { "item": "witchmod:cursed_essence" },
+    "I": { "item": "minecraft:iron_block" }
+  },
+  "pattern": [ "CCC", "CIC", "CCC" ],
+  "result": { "id": "witchmod:blessed_coin", "count": 1 }
+}

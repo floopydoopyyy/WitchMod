@@ -20,7 +20,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * You hit hard and you break like one (master-spec Glass Cannon). Every hit you take lands for
+ * you hit hard and you break like one. Every hit you take lands for
  * {@code TAKEN_MULT} (200%), and every MELEE hit you land deals {@code DEALT_MULT} (150%).
  *
  * <p><b>Both are done on the damage event, not via attributes</b> (the prototype used ATTACK_DAMAGE and ARMOR
@@ -34,7 +34,7 @@ import com.oliver.witchmod.effects.Curses;
  */
 public final class CurseGlassCannon extends Effect {
     /**
-     * Per-player FX cooldown. The DAMAGE multiplier still applies to every instance — it must, or lava and
+     * per-player FX cooldown. The DAMAGE multiplier still applies to every instance — it must, or lava and
      * fire wouldn't hit at 200% — but the shatter sound and particles are throttled, so a fast-ticking source
      * like standing in lava crackles once rather than machine-gunning a wall of glass every tick.
      */
@@ -46,13 +46,13 @@ public final class CurseGlassCannon extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.GLASS);
     }
 
-    /** You find out the first time you shatter — hitting or being hit (Rule 2). */
+    /** you find out the first time you shatter — hitting or being hit (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Multiplies incoming damage and shatters glass around the victim. Returns the scaled amount. */
+    /** multiplies incoming damage and shatters glass around the victim. Returns the scaled amount. */
     public static float onDamageTaken(ServerPlayer victim, float amount) {
         if (fxReady(NEXT_TAKEN_FX, victim)) {
             ServerLevel level = victim.serverLevel();
@@ -65,7 +65,7 @@ public final class CurseGlassCannon extends Effect {
         return amount * (float) (double) Config.GLASS_CANNON_DAMAGE_TAKEN_MULT.get();
     }
 
-    /** Multiplies a melee hit and cracks the air at the target. Returns the scaled amount. */
+    /** multiplies a melee hit and cracks the air at the target. Returns the scaled amount. */
     public static float onMeleeDealt(ServerPlayer attacker, Entity victim, float amount) {
         if (attacker.level() instanceof ServerLevel level && fxReady(NEXT_DEALT_FX, attacker)) {
             level.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
@@ -88,7 +88,7 @@ public final class CurseGlassCannon extends Effect {
         return true;
     }
 
-    /** True for a direct melee blow FROM this attacker (a projectile's direct entity is the projectile). */
+    /** true for a direct melee blow FROM this attacker (a projectile's direct entity is the projectile). */
     public static boolean isMelee(Entity directEntity, LivingEntity attacker) {
         return directEntity == attacker;
     }

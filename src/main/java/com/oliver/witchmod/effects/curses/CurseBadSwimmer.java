@@ -17,7 +17,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * You never learned to swim, and water isn't going to hold you up (master-spec Bad Swimmer). Liquid stops
+ * you never learned to swim, and water isn't going to hold you up. Liquid stops
  * behaving like liquid: you drop straight through it like it's air, land on the bottom and walk along it.
  * You can't kick your way back up — and you still can't breathe down there.
  *
@@ -50,7 +50,7 @@ public final class CurseBadSwimmer extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.COPPER_INGOT);
     }
 
-    /** You find out the first time you get in water and go straight to the bottom (Rule 2). */
+    /** you find out the first time you get in water and go straight to the bottom (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -91,7 +91,7 @@ public final class CurseBadSwimmer extends Effect {
             water.addOrUpdateTransientModifier(new AttributeModifier(WATER_MODIFIER_ID,
                     Config.BAD_SWIMMER_WATER_EFFICIENCY.get(), AttributeModifier.Operation.ADD_VALUE));
         }
-        // Extra STEP HEIGHT so a single block can be walked up on the bottom.
+        // extra STEP HEIGHT so a single block can be walked up on the bottom.
         //
         // ⚠ Step height, NOT a weaker pull. Underwater there is no impulse jump to boost: once you're
         // submerged past the fluid-jump threshold, vanilla routes jumping to jumpInFluid() — a gentle
@@ -106,7 +106,7 @@ public final class CurseBadSwimmer extends Effect {
         }
     }
 
-    /** Out of liquid these must come off, or normal falling would be brutal. */
+    /** out of liquid these must come off, or normal falling would be brutal. */
     private static void restoreNormalPhysics(ServerPlayer target) {
         AttributeInstance gravity = target.getAttribute(Attributes.GRAVITY);
         if (gravity != null && gravity.hasModifier(GRAVITY_MODIFIER_ID)) {

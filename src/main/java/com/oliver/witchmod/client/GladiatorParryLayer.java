@@ -14,18 +14,18 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Gladiator's parry gauge, drawn just under the crosshair as a tiny pixel-art SHIELD — a distinct, defensive
+ * gladiator's parry gauge, drawn just under the crosshair as a tiny pixel-art SHIELD — a distinct, defensive
  * silhouette (not another bar) that fills from the bottom with the parry stage:
  * <ul>
  *   <li>glows <b>gold</b> and drains while a window is open,</li>
  *   <li>full <b>muted gold</b> when you're ready,</li>
  *   <li><b>grey</b>, refilling, while it recharges.</li>
  * </ul>
- * It <b>auto-hides</b> after sitting full/ready for a second, so it isn't a constant obstruction — reappearing
+ * it <b>auto-hides</b> after sitting full/ready for a second, so it isn't a constant obstruction — reappearing
  * the instant you parry or it starts recharging. First person + a sword/axe in hand only.
  */
 public final class GladiatorParryLayer implements LayeredDraw.Layer {
-    // Shield silhouette, top→bottom row widths (all odd, centred).
+    // shield silhouette, top→bottom row widths (all odd, centred).
     private static final int[] WIDTHS = {7, 9, 9, 9, 9, 7, 5, 3, 1};
 
     private static final int OUTLINE = 0xB0202020;
@@ -57,7 +57,7 @@ public final class GladiatorParryLayer implements LayeredDraw.Layer {
         boolean windowOpen = parryEnd > 0 && now < parryEnd;
         boolean cooling = now < cooldownEnd;
 
-        // Auto-hide once it's been sitting full/ready for a second.
+        // auto-hide once it's been sitting full/ready for a second.
         if (!windowOpen && !cooling) {
             if (readySince < 0) {
                 readySince = now;
@@ -102,10 +102,10 @@ public final class GladiatorParryLayer implements LayeredDraw.Layer {
             int ry = y0 + r;
             boolean filled = (rows - r) <= filledRows; // fills from the bottom up
             g.fill(left, ry, left + w, ry + 1, filled ? fillColor : WELL);
-            // Dark side edges for the shield outline.
+            // dark side edges for the shield outline.
             g.fill(left, ry, left + 1, ry + 1, OUTLINE);
             g.fill(left + w - 1, ry, left + w, ry + 1, OUTLINE);
-            // Raised centre ridge on filled rows.
+            // raised centre ridge on filled rows.
             if (filled && w >= 3) {
                 g.fill(cx, ry, cx + 1, ry + 1, boss);
             }

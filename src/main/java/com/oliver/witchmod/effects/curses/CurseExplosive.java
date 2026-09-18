@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * You go off when you go down (master-spec Explosive). Dying detonates you properly: a real
+ * you go off when you go down. Dying detonates you properly: a real
  * {@link Level#explode} with full damage, knockback and block damage, so everything nearby gets the same
  * treatment a creeper would hand out — <b>and your dropped inventory is destroyed in the blast</b>, which
  * makes dying with this genuinely expensive rather than merely loud.
@@ -30,11 +30,10 @@ import com.oliver.witchmod.effects.Curses;
  * <p>World damage is gated on the {@code mobGriefing} gamerule via
  * {@link Level.ExplosionInteraction#MOB}, which is vanilla's own switch for exactly that.
  *
- * <p>Sacrificial item is Gunpowder per master-spec Section 5 (Explosive = Gunpowder, Super Explosive = TNT).
- * The prototype originally used TNT here; corrected during Phase A so the two no longer collide.
+ * <p>sacrificial item is gunpowder (super explosive is tnt) — the two are kept distinct.
  */
 public final class CurseExplosive extends Effect {
-    /** Deaths waiting to go off — see the class note on why this can't happen immediately. */
+    /** deaths waiting to go off — see the class note on why this can't happen immediately. */
     private static final List<PendingBlast> PENDING = new ArrayList<>();
 
     private record PendingBlast(ServerPlayer player, ServerLevel level, Vec3 pos, long fireAt) {}
@@ -43,13 +42,13 @@ public final class CurseExplosive extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 65, () -> Items.GUNPOWDER);
     }
 
-    /** You find out by dying (Rule 2) — there's no missing it. */
+    /** you find out by dying (Rule 2) — there's no missing it. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Hook for dying — see {@code CurseEventHandler}. Queues the blast for a tick's time. */
+    /** hook for dying — see {@code CurseEventHandler}. Queues the blast for a tick's time. */
     public static void onDeath(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         PENDING.add(new PendingBlast(player, level, player.position(),
@@ -57,7 +56,7 @@ public final class CurseExplosive extends Effect {
         Curses.EXPLOSIVE.value().markDiscoveredByVictim(player);
     }
 
-    /** Detonates anything whose moment has come. Called once per server tick from {@code CurseEventHandler}. */
+    /** detonates anything whose moment has come. Called once per server tick from {@code CurseEventHandler}. */
     public static void tickPending() {
         if (PENDING.isEmpty()) {
             return;
@@ -66,7 +65,7 @@ public final class CurseExplosive extends Effect {
             if (blast.level().getGameTime() < blast.fireAt()) {
                 return false;
             }
-            // The dying player stays the source so the kill is attributed to them, not to thin air.
+            // the dying player stays the source so the kill is attributed to them, not to thin air.
             blast.level().explode(blast.player(), blast.pos().x, blast.pos().y, blast.pos().z,
                     Config.EXPLOSIVE_POWER.get().floatValue(),
                     Config.EXPLOSIVE_CREATES_FIRE.get(),

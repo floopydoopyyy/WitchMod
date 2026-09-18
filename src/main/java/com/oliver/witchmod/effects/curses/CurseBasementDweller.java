@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -18,7 +19,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModDamageTypes;
 
 /**
- * You never go outside, and daylight makes that very clear (master-spec Basement Dweller). Standing in direct
+ * you never go outside, and daylight makes that very clear. Standing in direct
  * sunlight burns you — a hat takes the edge off but never fully protects you.
  *
  * <p>A hat doesn't SOFTEN the burns, it SLOWS them: wearing anything on your head multiplies the gap between
@@ -31,14 +32,14 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
  * Discovered on the first burn.
  */
 public final class CurseBasementDweller extends Effect {
-    /** victim -> game tick the next burn is due. */
-    private static final Map<UUID, Long> NEXT_BURN = new HashMap<>();
+    /** victim -> {rampOrigin (grace end), nextBurnTick}. */
+    private static final Map<UUID, long[]> STATE = new HashMap<>();
 
     public CurseBasementDweller() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.GRASS_BLOCK);
     }
 
-    /** You find out the first time the sun bites (Rule 2). */
+    /** you find out the first time the sun bites (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -46,7 +47,7 @@ public final class CurseBasementDweller extends Effect {
 
     @Override
     public void onRemove(ServerPlayer target) {
-        NEXT_BURN.remove(target.getUUID());
+        STATE.remove(target.getUUID());
     }
 
     @Override
@@ -54,27 +55,46 @@ public final class CurseBasementDweller extends Effect {
         ServerLevel level = target.serverLevel();
         UUID id = target.getUUID();
 
-        // Genuinely IN the sun: daytime, sky visible straight up, and not raining on this spot.
+        // genuinely IN the sun: daytime, sky visible straight up, and not raining on this spot.
         boolean inSun = level.isDay()
                 && level.canSeeSky(target.blockPosition())
                 && !level.isRainingAt(target.blockPosition().above());
         if (!inSun) {
-            NEXT_BURN.remove(id); // in the shade the clock stops; stepping back out starts a fresh interval
+            STATE.remove(id); // in the shade the clock stops; stepping back out starts a fresh, slow ramp
             return;
         }
 
         long now = level.getGameTime();
-        long next = NEXT_BURN.computeIfAbsent(id, k -> now); // first tick in the sun burns immediately
-        if (now < next) {
-            return;
+        boolean both = EnvBurn.bothActive(target);
+        long[] s = STATE.get(id);
+        if (s == null) {
+            // just stepped into the sun. The burn interval STARTS slow and speeds up the longer you stay out
+            // (ramp measured from the grace end); a combined-curse grace pushes the first burn back further.
+            long rampOrigin = now + EnvBurn.graceTicks(both);
+            long first = rampOrigin + EnvBurn.interval(0, Config.BASEMENT_START_INTERVAL.get(),
+                    Config.BASEMENT_END_INTERVAL.get(), Config.BASEMENT_RAMP_TICKS.get(), both);
+            s = new long[]{rampOrigin, first};
+            STATE.put(id, s);
         }
 
-        boolean hatted = !target.getItemBySlot(EquipmentSlot.HEAD).isEmpty();
-        long interval = Config.BASEMENT_DAMAGE_INTERVAL.get();
-        if (hatted) {
-            interval = Math.round(interval * Config.BASEMENT_HELMET_INTERVAL_MULT.get()); // a hat buys time
+        // subtle warning particles while the conditions are met — a light heat-haze, not a bonfire.
+        if (now % 8 == 0) {
+            level.sendParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + 1.1, target.getZ(), 1, 0.25, 0.4, 0.25, 0.0);
+            if (target.getRandom().nextInt(3) == 0) {
+                level.sendParticles(ParticleTypes.SMALL_FLAME, target.getX(), target.getY() + 0.6, target.getZ(), 1, 0.2, 0.3, 0.2, 0.0);
+            }
         }
-        NEXT_BURN.put(id, now + interval);
+
+        if (now < s[1]) {
+            return;
+        }
+        boolean hatted = !target.getItemBySlot(EquipmentSlot.HEAD).isEmpty();
+        long interval = EnvBurn.interval(now - s[0], Config.BASEMENT_START_INTERVAL.get(),
+                Config.BASEMENT_END_INTERVAL.get(), Config.BASEMENT_RAMP_TICKS.get(), both);
+        if (hatted) {
+            interval = Math.round(interval * Config.BASEMENT_HELMET_INTERVAL_MULT.get()); // a hat still buys time
+        }
+        s[1] = now + interval;
 
         double damage = Config.BASEMENT_DAMAGE.get();
         if (damage <= 0.0) {

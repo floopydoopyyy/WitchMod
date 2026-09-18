@@ -11,11 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-/**
- * Holds the Table's 4 ritual slots (CLAUDE.md section 2.1). Implements {@link Container} so
- * {@link com.oliver.witchmod.ui.BewitchingTableMenu} (Phase 5) can wrap its slots directly with vanilla
- * {@code Slot} objects, the same pattern as any other block-entity-backed GUI (furnace, hopper, etc).
- */
+/** holds the table's 4 ritual slots; implements {@link Container} so the menu can wrap them with vanilla slots. */
 public final class BewitchingTableBlockEntity extends BlockEntity implements Container {
     public static final int SLOT_PLAYER_ESSENCE = 0;
     public static final int SLOT_SACRIFICIAL_ITEM = 1;
@@ -80,7 +76,7 @@ public final class BewitchingTableBlockEntity extends BlockEntity implements Con
     @Override
     public void clearContent() {
         // ⚠ items is a FIXED-SIZE NonNullList.withSize (Arrays.asList-backed), so add() throws
-        // UnsupportedOperationException. NonNullList.clear() already resets EVERY slot to the default EMPTY
+        // unsupportedOperationException. NonNullList.clear() already resets EVERY slot to the default EMPTY
         // while keeping the size — that's all we need. The old clear()+add() loop threw on every cast, which
         // is what aborted the whole ritual after the slots were emptied (items consumed, nothing applied).
         items.clear();
@@ -96,8 +92,8 @@ public final class BewitchingTableBlockEntity extends BlockEntity implements Con
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        // NonNullList.withSize is FIXED-SIZE (Arrays.asList-backed), so add() throws
-        // UnsupportedOperationException — which was killing every load and wiping the table's contents.
+        // nonNullList.withSize is FIXED-SIZE (Arrays.asList-backed), so add() throws
+        // unsupportedOperationException — which was killing every load and wiping the table's contents.
         // clear() is all that's needed: with a non-null default it re-sets every slot to EMPTY and keeps
         // the size, which is exactly the reset loadAllItems wants.
         items.clear();

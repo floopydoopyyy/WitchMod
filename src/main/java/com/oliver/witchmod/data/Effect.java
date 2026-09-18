@@ -11,9 +11,8 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 
 /**
- * A single curse or blessing. There are no strength tiers (CLAUDE.md section 1) — every effect is one
- * fixed behavior, hooked in here for Phase 1 to implement per curse/blessing. Registered through
- * {@link WitchModRegistries#EFFECTS}.
+ * base class for a single curse or blessing — one fixed behaviour, hooked in via the lifecycle methods below.
+ * registered through {@link WitchModRegistries#EFFECTS}. subclasses override only the hooks they need.
  */
 public abstract class Effect {
     private final EffectCategory category;
@@ -36,112 +35,74 @@ public abstract class Effect {
         return tier;
     }
 
-    /** Essence cost consumed by the success/backfire formulas in CLAUDE.md section 5.7. */
+    /** essence cost the success/backfire formulas key off. */
     public int baseCost() {
         return baseCost;
     }
 
-    /** The item that must be placed in the Bewitching Table's Sacrificial Item slot to select this effect. */
+    /** the item that selects this effect in the table's sacrificial slot. */
     public Item sacrificialItem() {
         return sacrificialItem.get();
     }
 
     /**
-     * Whether this effect can be SELECTED directly — as a Sacrificial Item, a Coin roll, or a Compendium
-     * curse/blessing page. Internal attachments that only ever land as a side-effect (e.g. the hidden
-     * "infectious" state applied by the Slime Ball / Slime Block modifiers) return false, so they never appear
-     * as castable curses or in the Compendium's Curses chapter.
+     * whether this effect can be selected directly (sacrificial item, coin, compendium page). internal
+     * side-effect-only states (e.g. infectious) return false so they never show as castable or in the compendium.
      */
     public boolean selectable() {
         return true;
     }
 
-    /** Number of pips the Compendium draws for the 0..100 power scale. */
+    /** pips the compendium draws for the 0..100 power scale. */
     public static final int POWER_PIPS = 5;
 
-    /**
-     * Power rating shown in the Compendium, on a 0..100 scale (the 5 pips fill in fifths, and the exact number
-     * is shown in brackets). NOT per-attachment yet — every effect shares this placeholder until the
-     * strength/tier balancing pass lands (see the §10.1 TODO). Override per effect once real values exist; the
-     * Compendium reads this live, so no strings need touching when they do.
-     */
+    /** power rating (0..100) read live from {@link PowerLevels} by registry id, so it's editable without code. */
     public int powerLevel() {
-        return 50;
+        return PowerLevels.get(this);
     }
 
     /**
-     * A tag whose members ALL select this effect at the Table, as the explicit exception to exact-item
-     * matching (master-spec Rule 9): only Hype Man (any music disc) and Party Time (any candle) use it. Empty
-     * by default. {@link SacrificialItems#findEffect} checks it only when no exact-item match is found, and
-     * {@link #sacrificialItem()} still returns a representative member for the icon/preview.
+     * tag whose members all select this effect — the exact-item exception (hype man = discs, party time =
+     * candles). checked only as a fallback; {@link #sacrificialItem()} still returns a member for the icon.
      */
     public Optional<TagKey<Item>> sacrificialTag() {
         return Optional.empty();
     }
 
     /**
-     * Called when this effect begins acting on {@code target}, whether by successful Table cast,
-     * command, Voodoo Doll forward, Coin gamble, or backfire (Mirror).
-     *
-     * @param caster       null when the effect wasn't attributed to a specific player (e.g. command with
-     *                     no selector, or a system-triggered backfire).
-     * @param durationTicks the tracked duration this instance was applied for; effects that layer a
-     *                     vanilla {@link net.minecraft.world.effect.MobEffectInstance} on top should size
-     *                     it to match, since removal is explicit (see {@link #onRemove}) rather than relying
-     *                     on the vanilla effect's own countdown.
+     * called when the effect begins acting on {@code target} (any cast path). {@code caster} is null when
+     * unattributed; size any layered vanilla MobEffect to {@code durationTicks} since removal is explicit.
      */
     public void onApply(ServerPlayer target, @Nullable ServerPlayer caster, int durationTicks) {}
 
-    /** Called when this effect stops acting on {@code target}, whether by expiry, cure, or removal. */
+    /** called when the effect stops (expiry, cure, or removal). */
     public void onRemove(ServerPlayer target) {}
 
-    /**
-     * Called once per tick while this effect is active on {@code target}. Most effects that only need a
-     * one-time state change (a status effect, an attribute modifier) can ignore this; effects with
-     * periodic behavior (a chance each tick, a fixed interval) should check {@code ticksRemaining} here.
-     */
+    /** called once per tick while active; periodic effects check {@code ticksRemaining} here. */
     public void onTick(ServerPlayer target, int ticksRemaining) {}
 
-    /**
-     * Extra, instance-specific detail the Scrying Mirror should reveal about this effect on {@code target} —
-     * e.g. Allergic's rolled diet, which is otherwise hidden from the victim until they eat the wrong thing.
-     * Empty by default; the mirror lists those effects by name and timer only.
-     */
+    /** instance detail the scrying mirror reveals (e.g. allergic's diet); empty by default (name + timer only). */
     public Optional<String> scryingDetail(ServerPlayer target) {
         return Optional.empty();
     }
 
     /**
-     * Whether the VICTIM only discovers this attachment when it actually fires, rather than the moment it
-     * lands (master-spec Rule 2: "the victim discovers on trigger"). Effects that return true must call
-     * {@link #markDiscoveredByVictim} at their real trigger moment — otherwise the victim never discovers
-     * it. Defaults to false, which keeps the centralised discover-on-apply behaviour for everything that
-     * hasn't been refined yet.
+     * whether the victim discovers this only when it fires (rather than at cast). effects that return true
+     * must call {@link #markDiscoveredByVictim} at the real moment. default false = discover-on-apply.
      */
     public boolean discoversOnTrigger() {
         return false;
     }
 
-    /**
-     * A multiplier applied to this effect's rolled duration when it's cast (master-spec "duration override").
-     * Defaults to 1.0. Moonwalker halves it, because being unable to walk forward is punishing enough that
-     * it shouldn't last a full 30–60 minutes. Applied centrally in {@code EffectManager.apply}, so it's
-     * respected by every cast path (table, command, coin, effigy...).
-     */
+    /** multiplier on the rolled duration at cast (moonwalker halves it); applied centrally so every path honours it. */
     public float durationMultiplier() {
         return 1.0F;
     }
 
     /**
-     * DEBUG: force this effect's signature event (or, with {@code arg}, a named sub-event / parameter) on
-     * {@code target}, for testing via {@code /bewitch debug force}. Returns a human-readable feedback line —
-     * including when a precondition wasn't met but it fired anyway, or when the arg named no valid sub-event.
-     * Returns {@code null} (the default) for effects that have no discrete, forcible event.
-     *
-     * <p><b>PROJECT RULE (see CLAUDE.md §16.4):</b> any curse/blessing/event with a discrete, observable
-     * moment MUST override this so the moment is forcible for hands-on testing. Effects whose event fires from
-     * an internal method should expose a small package-visible trigger the override can call; if a precondition
-     * genuinely can't be satisfied, still do as much as possible and say so in the returned message.
+     * debug: force this effect's signature event (or a named sub-event via {@code arg}) for {@code /bewitch
+     * debug force}. returns a feedback line, or null if the effect has no discrete forcible event. anything
+     * with an observable moment should override this.
      *
      * @param arg optional free-text argument (a sub-event name, a stat value, etc.); may be null/blank.
      */
@@ -150,15 +111,12 @@ public abstract class Effect {
         return null;
     }
 
-    /**
-     * Valid {@code arg} values for {@code /bewitch debug force}, surfaced as tab-completions so you can see
-     * (and pick) them while typing — e.g. a multi-event effect's sub-event names. Empty by default.
-     */
+    /** valid {@code arg} values for {@code debug force}, surfaced as tab-completions; empty by default. */
     public java.util.List<String> debugArgs() {
         return java.util.List.of();
     }
 
-    /** Marks this effect discovered for {@code target}, alerting them — call at the real trigger moment. */
+    /** mark this effect discovered for {@code target} (alerts them) — call at the real trigger moment. */
     public void markDiscoveredByVictim(ServerPlayer target) {
         ResourceLocation id = WitchModRegistries.EFFECT_REGISTRY.getKey(this);
         if (id != null) {

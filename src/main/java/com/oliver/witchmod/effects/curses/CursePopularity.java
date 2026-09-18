@@ -34,14 +34,14 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * You're a bit too well-liked (master-spec Popularity). Hostiles keep spawning around you and every hostile
+ * you're a bit too well-liked. Hostiles keep spawning around you and every hostile
  * that spots you commits to the chase — the "whole server chasing one guy" TikTok, made real.
  *
  * <p>Two halves, both on a tick:
  * <ul>
  *   <li><b>Conjured horde</b> — extra hostiles are spawned in a ring around you using VANILLA spawn rules:
  *       the mob type comes from the local biome's monster list (so drowned appear in water, husks in the
- *       desert, ...) and both the ground-fit and the light/daylight checks are vanilla's own, so shade and
+ *       desert,...) and both the ground-fit and the light/daylight checks are vanilla's own, so shade and
  *       daytime still keep you safe. Spawned mobs are tagged and capped.</li>
  *   <li><b>Dedicated hunters</b> — every nearby hostile is set up once as a committed hunter: a big follow
  *       range, PROLONGED tracking after losing line of sight (but it still has to see you to lock on — no
@@ -50,9 +50,9 @@ import com.oliver.witchmod.data.EffectCostTier;
  * </ul>
  */
 public final class CursePopularity extends Effect {
-    /** Scoreboard tag marking a curse-spawned mob (counted toward the cap and the discovery horde size). */
+    /** scoreboard tag marking a curse-spawned mob (counted toward the cap and the discovery horde size). */
     private static final String TAG_SPAWNED = "witchmod_popularity";
-    /** Scoreboard tag marking a hostile we've already turned into a dedicated hunter, so we do it once. */
+    /** scoreboard tag marking a hostile we've already turned into a dedicated hunter, so we do it once. */
     private static final String TAG_HUNTER = "witchmod_popularity_hunter";
 
     private static final ResourceLocation FOLLOW_RANGE_ID =
@@ -62,7 +62,7 @@ public final class CursePopularity extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 32, () -> Items.BELL);
     }
 
-    /** Discovered once the crowd is unmistakable (see the horde-size check), not on the first spawn. */
+    /** discovered once the crowd is unmistakable (see the horde-size check), not on the first spawn. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -83,10 +83,10 @@ public final class CursePopularity extends Effect {
 
     // --- Dedicated hunters -----------------------------------------------------------------------------
 
-    /** Turns nearby hostiles into committed hunters and re-aims the ones that can see the victim. */
+    /** turns nearby hostiles into committed hunters and re-aims the ones that can see the victim. */
     private void enlistHunters(ServerPlayer target, ServerLevel level) {
         double r = Config.POPULARITY_DETECTION_RADIUS.get();
-        // NeutralMobs (endermen, zombified piglins, ...) are deliberately EXCLUDED — force-aggroing them is
+        // neutralMobs (endermen, zombified piglins,...) are deliberately EXCLUDED — force-aggroing them is
         // what a different curse (Neutral Aggression) does, and doing it here would make that one pointless.
         for (Mob mob : level.getEntitiesOfClass(Mob.class, target.getBoundingBox().inflate(r),
                 m -> m instanceof Enemy && !(m instanceof NeutralMob) && m.isAlive())) {
@@ -98,7 +98,7 @@ public final class CursePopularity extends Effect {
         }
     }
 
-    /** One-time setup per hostile: follow range, prolonged unseen memory, and door-breaking for zombies. */
+    /** one-time setup per hostile: follow range, prolonged unseen memory, and door-breaking for zombies. */
     private static void configureHunter(Mob mob, ServerPlayer target) {
         if (!mob.addTag(TAG_HUNTER)) {
             return; // addTag returns false if it was already present — already configured
@@ -119,9 +119,9 @@ public final class CursePopularity extends Effect {
         hunt.setUnseenMemoryTicks(Config.POPULARITY_PROLONGED_TRACKING_TICKS.get());
         mob.targetSelector.addGoal(1, hunt);
 
-        // Zombies (and their kin — husk/zombie villager extend Zombie) smash doors on ANY difficulty: a
+        // zombies (and their kin — husk/zombie villager extend Zombie) smash doors on ANY difficulty: a
         // custom BreakDoorGoal with an always-true predicate, bypassing vanilla's hard-only gate.
-        // BreakDoorGoal's constructor REQUIRES ground-path navigation and throws otherwise — drowned use
+        // breakDoorGoal's constructor REQUIRES ground-path navigation and throws otherwise — drowned use
         // water navigation, so they're correctly excluded by this guard (they'd never path to a door anyway).
         if (mob instanceof Zombie && mob.getNavigation() instanceof GroundPathNavigation) {
             mob.goalSelector.addGoal(1, new BreakDoorGoal(mob, difficulty -> true));
@@ -142,7 +142,7 @@ public final class CursePopularity extends Effect {
                 living++;
             }
         }
-        // Discovered only once a proper crowd has gathered (Rule 2, per Oliver).
+        // discovered only once a proper crowd has gathered (Rule 2, per Oliver).
         if (living >= Config.POPULARITY_DISCOVERY_HORDE_SIZE.get()) {
             markDiscoveredByVictim(target);
         }
@@ -162,7 +162,7 @@ public final class CursePopularity extends Effect {
         int z = (int) Math.floor(target.getZ() + Math.sin(angle) * dist);
         int startY = target.blockPosition().getY();
 
-        // Find a candidate spot near the victim's height: either standing WATER (→ a water hostile) or a
+        // find a candidate spot near the victim's height: either standing WATER (→ a water hostile) or a
         // standable ground spot (→ a biome-appropriate land hostile). Water is checked first so a submerged
         // victim reliably gets drowned regardless of which biome the pond happens to be in.
         for (int dy = 4; dy >= -8; dy--) {
@@ -176,7 +176,7 @@ public final class CursePopularity extends Effect {
                 continue;
             }
 
-            // Light is the safety gate (daylight + torches keep you clear), matching vanilla's dark threshold.
+            // light is the safety gate (daylight + torches keep you clear), matching vanilla's dark threshold.
             if (level.getMaxLocalRawBrightness(pos) > Config.POPULARITY_MAX_SPAWN_LIGHT.get()) {
                 return false;
             }
@@ -190,7 +190,7 @@ public final class CursePopularity extends Effect {
         return false;
     }
 
-    /** A biome-appropriate land hostile (husk in desert, stray in snow, ...), skipping non-Mob picks. */
+    /** A biome-appropriate land hostile (husk in desert, stray in snow,...), skipping non-Mob picks. */
     private static EntityType<?> pickLandMob(ServerPlayer target, ServerLevel level, BlockPos pos) {
         var mobs = level.getBiome(pos).value().getMobSettings().getMobs(MobCategory.MONSTER);
         if (mobs.isEmpty()) {
@@ -200,16 +200,17 @@ public final class CursePopularity extends Effect {
         return pick.map(d -> d.type).orElse(null);
     }
 
-    /** Creates, places and enlists one conjured hostile; refuses neutral mobs and bad placements. */
+    /** creates, places and enlists one conjured hostile; refuses neutral mobs and bad placements. */
     private boolean spawnAt(ServerPlayer target, ServerLevel level, BlockPos pos, EntityType<?> type) {
         SpawnPlacementType placement = SpawnPlacements.getPlacementType(type);
         if (!placement.isSpawnPositionOk(level, pos, type)) {
             return false; // wrong footing for this mob (e.g. a ground mob at a water spot)
         }
         Entity created = type.create(level);
-        if (!(created instanceof Mob mob) || mob instanceof NeutralMob) {
-            // NeutralMobs (endermen, zombified piglins) are never conjured — they wouldn't chase you anyway,
-            // and force-aggroing them is Neutral Aggression's whole job.
+        // neutralMobs (endermen, zombified piglins) are normally skipped — they wouldn't chase you. but with
+        // neutral aggression also active (synergy) they DO turn on you, so the horde is allowed to conjure them.
+        boolean allowNeutral = com.oliver.witchmod.synergy.Synergies.AGGRO_HORDE.activeFor(target);
+        if (!(created instanceof Mob mob) || (!allowNeutral && mob instanceof NeutralMob)) {
             if (created != null) {
                 created.discard();
             }
@@ -229,6 +230,6 @@ public final class CursePopularity extends Effect {
         return true;
     }
 
-    // No onRemove teardown: conjured mobs aren't persistence-locked, so the crowd despawns naturally after
+    // no onRemove teardown: conjured mobs aren't persistence-locked, so the crowd despawns naturally after
     // the curse ends. The hunter goals stay on whatever mobs are still alive until they too despawn.
 }

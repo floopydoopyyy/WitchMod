@@ -29,7 +29,7 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.data.WitchModMobEffects;
 
 /**
- * A second bar you have to keep topped up (master-spec Thirst Meter). It works like hunger but is weighted
+ * A second bar you have to keep topped up. It works like hunger but is weighted
  * almost entirely toward ACTIVITY: standing about barely moves it, while sprinting, swimming, mining and
  * fighting drain it fast. The whole point of the curse is to stop a target being very busy.
  *
@@ -66,7 +66,7 @@ public final class CurseThirstMeter extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.POTION);
     }
 
-    /** The bar appearing is impossible to miss (Rule 2). */
+    /** the bar appearing is impossible to miss (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -97,7 +97,7 @@ public final class CurseThirstMeter extends Effect {
             target.setData(WitchModAttachments.THIRST, Config.THIRST_MAX.get()); // self-heal after a relog
             return;
         }
-        // Frozen in creative and spectator, matching the HUD — which already hides itself on the same
+        // frozen in creative and spectator, matching the HUD — which already hides itself on the same
         // condition vanilla uses for health, hunger and air. Draining a bar nobody can see (or refill)
         // would just mean walking back into survival already parched.
         if (target.isCreative() || target.isSpectator()) {
@@ -109,13 +109,13 @@ public final class CurseThirstMeter extends Effect {
         tickFullBonus(target, thirst);
 
         if (thirst <= 0 && target.tickCount % Config.THIRST_EMPTY_DAMAGE_INTERVAL.get() == 0) {
-            // No difficulty check on purpose — unlike starving, dying of thirst happens on Peaceful too.
+            // no difficulty check on purpose — unlike starving, dying of thirst happens on Peaceful too.
             target.hurt(WitchModDamageTypes.dehydration(target.level()),
                     Config.THIRST_EMPTY_DAMAGE.get().floatValue());
         }
     }
 
-    /** Accumulates thirst exhaustion from what the player is actually doing, and spends it on the bar. */
+    /** accumulates thirst exhaustion from what the player is actually doing, and spends it on the bar. */
     private static int drain(ServerPlayer target, int thirst) {
         double amount = Config.THIRST_IDLE_DRAIN.get();
         if (target.isSprinting() || target.isSwimming()) {
@@ -130,7 +130,7 @@ public final class CurseThirstMeter extends Effect {
     }
 
     /**
-     * Shared by the tick drain and the one-off action costs. Mirrors {@code FoodData.tick}: each unit of
+     * shared by the tick drain and the one-off action costs. Mirrors {@code FoodData.tick}: each unit of
      * exhaustion is taken off SATURATION first, and only eats the visible bar once saturation is gone.
      */
     private static int spend(ServerPlayer target, float amount, int thirst) {
@@ -149,7 +149,7 @@ public final class CurseThirstMeter extends Effect {
                 break;
             }
             thirst--;
-            // Burning through the bar while it's ALREADY low is what counts as overexertion.
+            // burning through the bar while it's ALREADY low is what counts as overexertion.
             if (thirst <= Config.THIRST_MAX.get() / 2) {
                 int strain = STRAIN.merge(id, 1, Integer::sum);
                 if (strain >= Config.THIRST_ACTIVITY_DEHYDRATION_THRESHOLD.get()) {
@@ -164,7 +164,7 @@ public final class CurseThirstMeter extends Effect {
         return thirst;
     }
 
-    /** Vanilla regen already rewards a full stomach; this stacks a little more on for a full bar too. */
+    /** vanilla regen already rewards a full stomach; this stacks a little more on for a full bar too. */
     private static void tickFullBonus(ServerPlayer target, int thirst) {
         if (thirst < Config.THIRST_MAX.get()
                 || target.getFoodData().getFoodLevel() < 20
@@ -176,7 +176,7 @@ public final class CurseThirstMeter extends Effect {
         }
     }
 
-    /** Mining, fighting — the strenuous one-off actions. Called from {@code CurseEventHandler}. */
+    /** mining, fighting — the strenuous one-off actions. Called from {@code CurseEventHandler}. */
     public static void onStrenuousAction(ServerPlayer target) {
         int thirst = target.getData(WitchModAttachments.THIRST);
         if (thirst >= 0) {
@@ -199,7 +199,7 @@ public final class CurseThirstMeter extends Effect {
 
     // --- Refills ---------------------------------------------------------------------------------------
 
-    /** Anything drunk or eaten. Called from the use-Finish hook in {@code CurseEventHandler}. */
+    /** anything drunk or eaten. Called from the use-Finish hook in {@code CurseEventHandler}. */
     public static void onConsumed(ServerPlayer target, ItemStack stack) {
         int thirst = target.getData(WitchModAttachments.THIRST);
         if (thirst < 0) {
@@ -212,7 +212,7 @@ public final class CurseThirstMeter extends Effect {
     }
 
     /**
-     * How hydrating something is. Food categories deliberately reuse the same in-game split as the Allergic
+     * how hydrating something is. Food categories deliberately reuse the same in-game split as the Allergic
      * curse — {@code minecraft:meat} tag, effect-granting = magic, the remainder = natural — so modded food
      * is classified automatically rather than from a list that rots.
      */
@@ -229,7 +229,7 @@ public final class CurseThirstMeter extends Effect {
         boolean meat = stack.is(ItemTags.MEAT);
         boolean magic = !food.effects().isEmpty();
         if (meat) {
-            // Raw meat still carries moisture; cooked is dry, and falls through to the "other" bucket.
+            // raw meat still carries moisture; cooked is dry, and falls through to the "other" bucket.
             return isCooked(stack) ? Config.THIRST_RESTORE_OTHER_FOOD.get()
                     : Config.THIRST_RESTORE_RAW_FOOD.get();
         }
@@ -239,15 +239,15 @@ public final class CurseThirstMeter extends Effect {
         return Config.THIRST_RESTORE_OTHER_FOOD.get();
     }
 
-    /** No vanilla "is cooked" flag exists, so this reads the registry name — modded cooked food works too. */
+    /** no vanilla "is cooked" flag exists, so this reads the registry name — modded cooked food works too. */
     private static boolean isCooked(ItemStack stack) {
         String path = stack.getItemHolder().unwrapKey()
-                .map(key -> key.location().getPath()).orElse("");
+.map(key -> key.location().getPath()).orElse("");
         return path.startsWith("cooked_") || path.contains("_cooked") || path.equals("dried_kelp");
     }
 
     /**
-     * Drinking untreated water — from a pond, a cauldron, or (regrettably) a sponge. Generous, but you may
+     * drinking untreated water — from a pond, a cauldron, or (regrettably) a sponge. Generous, but you may
      * well come to regret it.
      *
      * @return true if a drink actually happened, so the caller can consume the water source
@@ -272,7 +272,20 @@ public final class CurseThirstMeter extends Effect {
         return true;
     }
 
-    /** Restores points AND the hidden saturation that stops the bar draining the instant you stop drinking. */
+    /** a clean, blessed drink — restores with NO raw-water risk (used when drinking holy water). */
+    public static boolean drinkHoly(ServerPlayer target, InteractionHand hand) {
+        int thirst = target.getData(WitchModAttachments.THIRST);
+        if (thirst < 0 || thirst >= Config.THIRST_MAX.get()) {
+            return false;
+        }
+        restore(target, Config.THIRST_RESTORE_RAW_WATER.get());
+        target.swing(hand, true);
+        target.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 0.6F, 1.0F);
+        return true;
+    }
+
+    /** restores points AND the hidden saturation that stops the bar draining the instant you stop drinking. */
     private static void restore(ServerPlayer target, int points) {
         int max = Config.THIRST_MAX.get();
         int updated = Math.min(max, target.getData(WitchModAttachments.THIRST) + points);
@@ -280,12 +293,12 @@ public final class CurseThirstMeter extends Effect {
 
         UUID id = target.getUUID();
         float gained = points * Config.THIRST_SATURATION_PER_POINT.get().floatValue();
-        // Capped at the bar itself, exactly as vanilla caps hunger saturation at the food level.
+        // capped at the bar itself, exactly as vanilla caps hunger saturation at the food level.
         float capped = Math.min(updated, SATURATION.getOrDefault(id, 0.0F) + gained);
         SATURATION.put(id, capped);
     }
 
-    /** True when the bar is low enough that vanilla's full-hunger eating block should be worked around. */
+    /** true when the bar is low enough that vanilla's full-hunger eating block should be worked around. */
     public static boolean wantsToDrink(ServerPlayer target) {
         int thirst = target.getData(WitchModAttachments.THIRST);
         return thirst >= 0 && thirst < Config.THIRST_MAX.get();

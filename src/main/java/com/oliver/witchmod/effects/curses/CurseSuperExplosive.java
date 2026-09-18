@@ -15,7 +15,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * You're a bit of a hazard to be around (master-spec Super Explosive). Every hit you take is a small,
+ * you're a bit of a hazard to be around. Every hit you take is a small,
  * <b>constant</b> chance of simply going off — a real explosion with full damage, big knockback, and block
  * damage gated on {@code mobGriefing} via {@link Level.ExplosionInteraction#MOB}.
  *
@@ -40,17 +40,17 @@ public final class CurseSuperExplosive extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 60, () -> Items.TNT);
     }
 
-    /** You find out the first time you go off (Rule 2). */
+    /** you find out the first time you go off (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Hook for taking a hit — see {@code CurseEventHandler}. */
+    /** hook for taking a hit — see {@code CurseEventHandler}. */
     public static void detonate(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         level.explode(
-                // The source entity is deliberately NULL, not the player. Explosion collects its victims
+                // the source entity is deliberately NULL, not the player. Explosion collects its victims
                 // with Level.getEntities(source, box), whose first argument is the entity to EXCLUDE — so
                 // naming the player as source quietly omits them from their own blast, and they take no
                 // damage and no knockback at all. Attribution is preserved by the damage source instead.

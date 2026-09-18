@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Restock (sacrificial item CHEST): a stacked item you USE is instantly topped back up from your inventory —
+ * restock (sacrificial item CHEST): a stacked item you USE is instantly topped back up from your inventory —
  * place torches all day and your hand stays at a full 64 as long as you've spares in the backpack; the same
  * for arrows, food, blocks. Never break your rhythm to dig through the pack again.
  *
@@ -34,7 +34,7 @@ public final class BlessingRestock extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.CHEST);
     }
 
-    /** Not instantly noticeable — you discover it the first time a slot tops itself back up. */
+    /** not instantly noticeable — you discover it the first time a slot tops itself back up. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -79,7 +79,7 @@ public final class BlessingRestock extends Effect {
         }
     }
 
-    /** Moves up to {@code need} matching items out of the MAIN inventory INTO {@code dest} (the live slot stack). */
+    /** moves up to {@code need} matching items out of the MAIN inventory INTO {@code dest} (the live slot stack). */
     private static int pullMatching(Inventory inv, ItemStack dest, int need) {
         int moved = 0;
         for (int s = 9; s < 36 && need > 0; s++) { // main storage rows only (not the hotbar/offhand)

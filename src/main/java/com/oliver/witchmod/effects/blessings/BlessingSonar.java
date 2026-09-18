@@ -31,7 +31,7 @@ import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * Sonar (sacrificial item SCULK SENSOR — Spectral Arrow is taken by Steady Hands). A slow, dramatic ping:
+ * sonar (sacrificial item SCULK SENSOR — Spectral Arrow is taken by Steady Hands). A slow, dramatic ping:
  * every {@code sonarIntervalTicks} (140s) it spends a {@code sonarBuildupTicks} (2.5s) CHARGE — a swelling hum
  * and gathering rings of light around you — then bursts a pulse that reveals nearby entities: it makes them
  * GLOW briefly and streams your-eyes-only pointers straight at each. A CROUCHED player is stealthier (their
@@ -53,7 +53,7 @@ public final class BlessingSonar extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.SCULK_SENSOR);
     }
 
-    /** Not instantly noticeable — you discover it on the first ping. */
+    /** not instantly noticeable — you discover it on the first ping. */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -71,7 +71,7 @@ public final class BlessingSonar extends Effect {
         CHARGE.remove(target.getUUID());
     }
 
-    /** Debug: kick off a ping now (charge → scan). */
+    /** debug: kick off a ping now (charge → scan). */
     @Override
     @Nullable
     public String debugForce(ServerPlayer target, @Nullable String arg) {
@@ -79,7 +79,7 @@ public final class BlessingSonar extends Effect {
         return "sonar charging (scan in " + (Config.SONAR_BUILDUP_TICKS.get() / 20.0) + "s)";
     }
 
-    /** Time to the next pulse, shown in the Scrying Mirror. */
+    /** time to the next pulse, shown in the Scrying Mirror. */
     @Override
     public Optional<String> scryingDetail(ServerPlayer target) {
         if (CHARGE.containsKey(target.getUUID())) {
@@ -113,7 +113,7 @@ public final class BlessingSonar extends Effect {
         }
     }
 
-    /** Taking damage sharpens your senses: shave time off the next ping (called from BlessingEventHandler). */
+    /** taking damage sharpens your senses: shave time off the next ping (called from BlessingEventHandler). */
     public static void onDamaged(ServerPlayer target) {
         Integer t = TIMER.get(target.getUUID());
         if (t != null) {
@@ -128,7 +128,7 @@ public final class BlessingSonar extends Effect {
                 WitchModSounds.SONAR_PING.get(), SoundSource.PLAYERS, 0.7F, 0.6F); // the low charging note
     }
 
-    /** The buildup: gathering rings of warm light + a rising hum, so the pulse is TELEGRAPHED. */
+    /** the buildup: gathering rings of warm light + a rising hum, so the pulse is TELEGRAPHED. */
     private void tickBuildup(ServerPlayer target, int chargeLeft) {
         ServerLevel level = target.serverLevel();
         int total = Config.SONAR_BUILDUP_TICKS.get();
@@ -149,14 +149,14 @@ public final class BlessingSonar extends Effect {
         }
     }
 
-    /** Force a ping's SCAN immediately (skips the buildup) — used by the timer/charge and available internally. */
+    /** force a ping's SCAN immediately (skips the buildup) — used by the timer/charge and available internally. */
     public static void scan(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         double radius = Config.SONAR_RADIUS.get();
         double crouchMult = Config.SONAR_CROUCH_RADIUS_MULT.get();
         Vec3 origin = target.getEyePosition();
 
-        // The pulse: a bright burst + a strong warm ring, plus the ping sound at full pitch.
+        // the pulse: a bright burst + a strong warm ring, plus the ping sound at full pitch.
         level.playSound(null, target.getX(), target.getY(), target.getZ(),
                 WitchModSounds.SONAR_PING.get(), SoundSource.PLAYERS, 1.0F, 1.0F);
         victimParticles(target, ParticleTypes.FLASH, target.getX(), target.getY() + 1.0, target.getZ(), 1, 0, 0, 0, 0);

@@ -5,11 +5,7 @@ import java.util.Optional;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
-/**
- * Reverse lookup from a Modifier item (CLAUDE.md section 4.6/section 6.4 note) back to the {@link Modifier}
- * it represents. Every modifier reuses an existing vanilla item, Recovery Compass included — a mistakenly
- * added custom {@code witchmod:recovery_compass} was removed in favour of vanilla's own.
- */
+/** reverse lookup from a modifier item back to its {@link Modifier}. every modifier reuses a vanilla item. */
 public final class ModifierItems {
     private ModifierItems() {}
 
@@ -77,13 +73,15 @@ public final class ModifierItems {
         if (item == Items.WITHER_ROSE) {
             return Optional.of(Modifier.WITHER_ROSE);
         }
-        // Gunpowder / Redstone / Milk Bucket are intentionally NOT modifiers (master-spec Section 9) — they
-        // serve as sacrificial items / the Redstone-Dust table mechanic instead. (Paper doubles as the Yap
-        // curse's sacrificial item, but the Modifier slot is separate, so there's no collision.)
+        if (item == Items.ENDER_EYE) {
+            return Optional.of(Modifier.EYE_OF_ENDER);
+        }
+        // gunpowder / redstone / milk bucket are deliberately not modifiers — they're sacrificial items / the
+        // redstone table mechanic instead (the modifier slot is separate, so no collision)
         return Optional.empty();
     }
 
-    /** Forward map: the vanilla item that represents each modifier (used by the Compendium). */
+    /** forward map: the vanilla item representing each modifier (for the compendium). */
     public static Item itemFor(Modifier modifier) {
         return switch (modifier) {
             case CLOCK -> Items.CLOCK;
@@ -107,6 +105,7 @@ public final class ModifierItems {
             case AMETHYST_SHARD -> Items.AMETHYST_SHARD;
             case WITHER_ROSE -> Items.WITHER_ROSE;
             case RECOVERY_COMPASS -> Items.RECOVERY_COMPASS;
+            case EYE_OF_ENDER -> Items.ENDER_EYE;
         };
     }
 }

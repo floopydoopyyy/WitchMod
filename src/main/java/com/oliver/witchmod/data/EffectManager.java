@@ -15,9 +15,9 @@ import net.minecraft.server.level.ServerPlayer;
 
 import com.oliver.witchmod.Config;
 
-/** Applies, removes, and ticks down curses/blessings on players. The single entry point into {@link ActiveEffects}. */
+/** applies, removes, and ticks down curses/blessings on players. The single entry point into {@link ActiveEffects}. */
 public final class EffectManager {
-    /** Called when an active Ward BLOCKS an attachment cast by someone else — for the item's FX + durability. */
+    /** called when an active Ward BLOCKS an attachment cast by someone else — for the item's FX + durability. */
     public interface WardBlock {
         void block(ServerPlayer target, ServerPlayer caster, boolean curse);
     }
@@ -48,12 +48,12 @@ public final class EffectManager {
         return entity.hasEffect(WitchModMobEffects.PROTECTED);
     }
 
-    /** Whether a cast from {@code caster} would be blocked by {@code target}'s protection — for Ledger logging. */
+    /** whether a cast from {@code caster} would be blocked by {@code target}'s protection — for Ledger logging. */
     public static boolean wouldBlock(ServerPlayer target, @Nullable ServerPlayer caster) {
         return caster != target && isMagicProtected(target);
     }
 
-    /** The "your magic fizzles on their shield" feedback shown at a protected target when a cast is blocked. */
+    /** the "your magic fizzles on their shield" feedback shown at a protected target when a cast is blocked. */
     private static void protectedFizzle(ServerPlayer target, boolean curse) {
         if (!(target.level() instanceof net.minecraft.server.level.ServerLevel level)) {
             return;
@@ -65,30 +65,23 @@ public final class EffectManager {
                 net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 1.5F);
         level.playSound(null, target.blockPosition(), net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
                 net.minecraft.sounds.SoundSource.PLAYERS, 0.4F, 1.4F);
+        level.playSound(null, target.blockPosition(), WitchModSounds.SPELL_FAIL.get(),
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 1.0F);
     }
 
     /**
-     * Applies {@code effect} to {@code target} for {@code durationTicks}. NO-STACKING with KEEP_LONGER
-     * (master-spec Rule 1): if the effect is already active, the instance keeps whichever remaining
-     * duration is longer — never additive, never refreshed to a shorter time. Because this is the single
-     * entry point every application path goes through (table, commands, coins, jars, Effigy, Bell, Gamble,
-     * Mirror backfire), that rule is inherited everywhere for free.
-     */
-    /** @return true if the effect actually landed on someone (a Ward deflect counts — it landed on the caster). */
-    /**
-     * Per-application modifier options: Netherite Ingot bypasses the Ward; Ink Sac hides the wrapper/tell until
-     * discovery ({@link ActiveEffectInstance#DISPLAY_HIDDEN}); Wither Rose shows the OPPOSITE category until
-     * discovery ({@link ActiveEffectInstance#DISPLAY_DISGUISED}).
+     * per-application options: netherite bypasses the ward; ink sac hides the wrapper until discovery; wither
+     * rose disguises it as the opposite category.
      */
     public record ApplyOptions(boolean bypassWard, int display, boolean directHit) {
         public static final ApplyOptions DEFAULT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, false);
 
-        /** Existing 2-arg callers (modifier casts) — not a direct hit, so protection still blocks them. */
+        /** existing 2-arg callers (modifier casts) — not a direct hit, so protection still blocks them. */
         public ApplyOptions(boolean bypassWard, int display) {
             this(bypassWard, display, false);
         }
 
-        /** A direct thrown-jar splash — bypasses the Protected shield (a well-aimed bottle still catches you). */
+        /** a direct thrown-jar splash — bypasses the Protected shield (a well-aimed bottle still catches you). */
         public static final ApplyOptions DIRECT_HIT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, true);
     }
 
@@ -96,6 +89,11 @@ public final class EffectManager {
         return apply(target, effect, durationTicks, caster, ApplyOptions.DEFAULT);
     }
 
+    /**
+     * the single application chokepoint (table, commands, coins, jars, effigy, bell, backfire), so the shared
+     * guarantees live here for free: no-stacking keep-longer, the per-category cap, discovery, protection.
+     * @return true if it actually landed (a ward deflect counts — it landed on the caster).
+     */
     public static boolean apply(ServerPlayer target, Holder<Effect> effect, int durationTicks, @Nullable ServerPlayer caster, ApplyOptions opts) {
         boolean categoryEnabled = effect.value().category() == EffectCategory.CURSE
                 ? Config.CURSES_ENABLED.get()
@@ -111,54 +109,85 @@ public final class EffectManager {
             caster.displayClientMessage(Component.literal(target.getName().getString() + " is still under a new-player grace period."), true);
             return false;
         }
-        // The PROTECTED effect (from a Warding Totem, Holy Water, or /effect) shields against OTHERS' magic —
-        // curses/blessings, jar lashes, coins, the dummy command and voodoo all fizzle. Self-casts pass, and a
-        // DIRECT thrown-jar splash punches through (directHit).
+        // the PROTECTED effect shields against OTHERS' magic — curses/blessings, jar lashes, coins, the dummy
+        // command and voodoo all fizzle. Self-casts pass, and a DIRECT thrown-jar splash punches through
+        // (directHit). Holding a Ward now ALSO grants Protected (so its icon shows), so this is where a ward
+        // block is resolved: if the protection is a WARD's, it does the lash + spends durability (and Netherite's
+        // bypassWard punches through it); a Totem/Holy-Water Protected is the unbypassable dome instead.
         if (caster != target && !opts.directHit() && isMagicProtected(target)) {
-            protectedFizzle(target, effect.value().category() == EffectCategory.CURSE);
-            return false;
-        }
-        // A Ward BLOCKS any attachment cast by someone ELSE (self-casts pass through). It doesn't redirect —
-        // it just stops it, with a coloured incoming-lash + a block, spending 1 durability.
-        if (!opts.bypassWard() && caster != null && caster != target && wardCheck.test(target)) {
-            onWardBlock.block(target, caster, effect.value().category() == EffectCategory.CURSE);
-            return false;
+            boolean curse = effect.value().category() == EffectCategory.CURSE;
+            boolean holdsWard = caster != null && wardCheck.test(target);
+            if (holdsWard) {
+                if (!opts.bypassWard()) {
+                    onWardBlock.block(target, caster, curse);
+                    return false;
+                }
+                // netherite bypasses the ward — fall through and let it land.
+            } else {
+                protectedFizzle(target, curse);
+                return false;
+            }
         }
 
-        // Per-effect duration override (e.g. Moonwalker halves its own). Applied here so every cast path
+        // per-effect duration override (e.g. Moonwalker halves its own). Applied here so every cast path
         // honours it. Clamped to at least 1 tick so a zero multiplier can't make an effect never land.
         durationTicks = Math.max(1, Math.round(durationTicks * effect.value().durationMultiplier()));
 
         ResourceLocation id = idOf(effect);
         ActiveEffects active = target.getData(WitchModAttachments.ACTIVE_EFFECTS);
 
+        // absolute hard cap: at most Limit curses AND Limit blessings, driven by the configurable
+        // `maxActiveEffectsPerPlayer` (the "Limit" gamerule). Refuses a NEW effect over the cap on EVERY path
+        // (table / jar / coin / effigy / command). Reapplying an already-active effect is fine (no new slot),
+        // and Infectious is exempt (modifier). Nothing can push a player past the limit.
+        int cap = Config.MAX_ACTIVE_EFFECTS_PER_PLAYER.get();
+        EffectCategory category = effect.value().category();
+        if (!isCapExempt(id) && active.get(id).isEmpty() && countActiveOfCategory(target, category) >= cap) {
+            if (caster != null) {
+                caster.displayClientMessage(Component.literal(target.getName().getString()
+                        + " already has the maximum " + cap + " "
+                        + (category == EffectCategory.CURSE ? "curses" : "blessings") + "."), true);
+            }
+            return false;
+        }
+
         int existingRemaining = active.get(id).map(ActiveEffectInstance::remainingTicks).orElse(0);
         int effectiveDuration = Math.max(existingRemaining, durationTicks);
-        // Caster attribution follows the winning duration: a longer (or equal) reapply takes ownership of
+        // caster attribution follows the winning duration: a longer (or equal) reapply takes ownership of
         // the instance; if the existing one was longer, its original caster stands.
         Optional<UUID> casterId = durationTicks >= existingRemaining
                 ? Optional.ofNullable(caster).map(ServerPlayer::getUUID)
                 : active.get(id).flatMap(ActiveEffectInstance::caster);
         active.put(id, new ActiveEffectInstance(effectiveDuration, casterId, opts.display()));
         target.setData(WitchModAttachments.ACTIVE_EFFECTS, active);
-        // Size the effect's own vanilla sub-effects to the kept (never-shortened) duration.
+        // size the effect's own vanilla sub-effects to the kept (never-shortened) duration.
         effect.value().onApply(target, caster, effectiveDuration);
         StatusEffectSync.sync(target);
 
-        // Discovery (Rule 2): the caster discovers the instant they successfully send it. The victim
+        // discovery (Rule 2): the caster discovers the instant they successfully send it. The victim
         // normally discovers here too, EXCEPT for effects that define a real trigger moment
         // (discoversOnTrigger) — those call markDiscoveredByVictim themselves when they actually fire,
         // e.g. Allergic's first bad reaction or Backseat Driver's first AI takeover.
         boolean discoversOnTrigger = effect.value().discoversOnTrigger();
-        // Ink Sac (hidden) / Wither Rose (disguised) suppress the victim's IMMEDIATE discovery so the wrapper
+        // ink Sac (hidden) / Wither Rose (disguised) suppress the victim's IMMEDIATE discovery so the wrapper
         // stays hidden/faked until the effect's real discovery moment reveals it (see revealDisplay).
         if (!discoversOnTrigger && opts.display() == ActiveEffectInstance.DISPLAY_NORMAL) {
             DiscoveryManager.markEffectDiscovered(target, id);
         }
-        // A self-cast makes you both roles at once. For a trigger-discovered effect the VICTIM half has to
+        // a self-cast makes you both roles at once. For a trigger-discovered effect the VICTIM half has to
         // win, or casting one on yourself would spoil the very moment you're meant to find out from.
         if (caster != null && !(caster == target && discoversOnTrigger)) {
             DiscoveryManager.markEffectDiscovered(caster, id);
+        }
+
+        // the Narrator comments on being blessed/cursed, and on inflicting one on someone else. Skip the
+        // narrator curse itself landing (it would spoil its own reveal) and self-casts of the inflict line.
+        if (!(effect.value() instanceof com.oliver.witchmod.effects.curses.CurseNarrator)) {
+            boolean curse = effect.value().category() == EffectCategory.CURSE;
+            com.oliver.witchmod.effects.curses.CurseNarrator.event(target, curse ? "cursed" : "blessed");
+            if (caster != null && caster != target) {
+                com.oliver.witchmod.effects.curses.CurseNarrator.event(caster, curse ? "inflict_curse" : "inflict_blessing");
+            }
         }
         return true;
     }
@@ -204,7 +233,7 @@ public final class EffectManager {
         return removed;
     }
 
-    /** Purifying Water's "rapidly burns down active curse/blessing timers" (CLAUDE.md section 2.5). */
+    /** holy water: rapidly burn down active effect timers. */
     public static void reduceAllDurations(ServerPlayer player, int ticksToRemove) {
         ActiveEffects active = player.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
         if (active == null || active.isEmpty()) {
@@ -215,7 +244,7 @@ public final class EffectManager {
         for (ResourceLocation id : expired) {
             WitchModRegistries.EFFECT_REGISTRY.getOptional(id).ifPresent(effect -> effect.onRemove(player));
         }
-        // Re-sync EVERY call (not only on expiry) so the visible Cursed/Blessed wrapper's timer shrinks in step
+        // re-sync EVERY call (not only on expiry) so the visible Cursed/Blessed wrapper's timer shrinks in step
         // with the internal drain — otherwise the on-screen effect counts down at 1x while the real timer races.
         // updateWrapper only bursts particles on the onset edge, so a per-tick re-sync doesn't spam anything.
         StatusEffectSync.sync(player);
@@ -227,14 +256,36 @@ public final class EffectManager {
                 .orElse(false);
     }
 
-    /** Total curses+blessings currently active on {@code target} — CLAUDE.md section 2.7's per-player limit. */
+    /** total curses+blessings active on {@code target} — the per-player cap check. */
     public static int activeCount(ServerPlayer target) {
         return target.getExistingData(WitchModAttachments.ACTIVE_EFFECTS)
                 .map(ActiveEffects::size)
                 .orElse(0);
     }
 
-    /** Whether {@code target} already carries any active effect of {@code category} (Amethyst Shard modifier). */
+    /** infectious is a modifier internally classed as a curse — exempt from (and uncounted by) the hard cap. */
+    private static boolean isCapExempt(ResourceLocation id) {
+        String p = id.getPath();
+        return p.equals("infectious") || p.equals("very_infectious");
+    }
+
+    /** count active NON-exempt effects of {@code category} (drives the absolute 3-per-category cap). */
+    public static int countActiveOfCategory(ServerPlayer target, EffectCategory category) {
+        ActiveEffects active = target.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
+        if (active == null) {
+            return 0;
+        }
+        int n = 0;
+        for (ResourceLocation id : active.activeIds()) {
+            if (!isCapExempt(id) && WitchModRegistries.EFFECT_REGISTRY.getOptional(id)
+                    .map(e -> e.category() == category).orElse(false)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** whether {@code target} already carries any active effect of {@code category} (Amethyst Shard modifier). */
     public static boolean hasActiveOfCategory(ServerPlayer target, EffectCategory category) {
         ActiveEffects active = target.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
         if (active == null) {
@@ -248,7 +299,7 @@ public final class EffectManager {
         return false;
     }
 
-    /** A snapshot of {@code target}'s active effects → their remaining ticks (for the Infectious spread). */
+    /** a snapshot of {@code target}'s active effects → their remaining ticks (for the Infectious spread). */
     public static java.util.Map<ResourceLocation, Integer> activeSnapshot(ServerPlayer target) {
         ActiveEffects active = target.getData(WitchModAttachments.ACTIVE_EFFECTS);
         java.util.Map<ResourceLocation, Integer> out = new java.util.LinkedHashMap<>();
@@ -274,7 +325,7 @@ public final class EffectManager {
         });
     }
 
-    /** Resolves the registry holder for an effect id (used when moving effects between players). */
+    /** resolves the registry holder for an effect id (used when moving effects between players). */
     public static Optional<Holder.Reference<Effect>> holderOf(ResourceLocation id) {
         return WitchModRegistries.EFFECT_REGISTRY.holders().filter(h -> h.key().location().equals(id)).findFirst();
     }
@@ -298,7 +349,7 @@ public final class EffectManager {
         }
     }
 
-    /** Called once per player per tick by {@link WitchModEventHandler}. */
+    /** called once per player per tick by {@link WitchModEventHandler}. */
     public static void tick(ServerPlayer player) {
         ActiveEffects active = player.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
         if (active == null || active.isEmpty()) {

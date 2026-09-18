@@ -12,7 +12,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 
 import com.oliver.witchmod.WitchMod;
 
-/** Small shared helpers for {@link Effect} implementations — kept out of the base class to keep its contract pure. */
+/** small shared helpers for {@link Effect} implementations (attribute modifiers, timed effects, interval/chance). */
 public final class EffectUtil {
     private EffectUtil() {}
 
@@ -34,7 +34,7 @@ public final class EffectUtil {
         }
     }
 
-    /** Applies a vanilla status effect sized to {@code durationTicks} so it tracks our own duration, not vanilla's. */
+    /** applies a vanilla status effect sized to our own {@code durationTicks}, not vanilla's timer. */
     public static void addTimedEffect(ServerPlayer target, Holder<MobEffect> mobEffect, int durationTicks, int amplifier) {
         target.addEffect(new MobEffectInstance(mobEffect, durationTicks, amplifier, false, true));
     }
@@ -43,7 +43,7 @@ public final class EffectUtil {
         target.removeEffect(mobEffect);
     }
 
-    /** {@code true} every {@code intervalTicks}, using the effect's own remaining-ticks countdown as the clock. */
+    /** true every {@code intervalTicks}, off the effect's own remaining-ticks countdown. */
     public static boolean every(int ticksRemaining, int intervalTicks) {
         return ticksRemaining % intervalTicks == 0;
     }

@@ -29,9 +29,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.effects.goals.BrokenBondsFleeGoal;
 
 /**
- * Your animals are quietly deciding they've had enough of you (master-spec Broken Bonds, renamed from the
- * prototype's "Sick Of You" — the registry id changed with it, {@code sick_of_you} → {@code broken_bonds},
- * because display names derive from the id path so the id IS the visible name).
+ * your animals are quietly deciding they've had enough of you.
  *
  * <p>Every owned tamed mob nearby carries a hidden <b>hate meter</b>. It builds while the animal is close —
  * faster the closer it is — and faster still while it's actively trailing you around or, worst of all, being
@@ -51,7 +49,7 @@ public final class CurseBrokenBonds extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.LEAD);
     }
 
-    /** You find out the first time one of your own animals turns its back on you (Rule 2). */
+    /** you find out the first time one of your own animals turns its back on you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -74,7 +72,7 @@ public final class CurseBrokenBonds extends Effect {
         double radius = Config.BROKEN_BONDS_RADIUS.get();
         double limit = Config.BROKEN_BONDS_LIMIT.get();
 
-        // Grow the meter for every owned pet in range. Scanned as Animal + OwnableEntity, so it catches
+        // grow the meter for every owned pet in range. Scanned as Animal + OwnableEntity, so it catches
         // BOTH taming systems — TamableAnimal (wolves, cats, parrots) AND AbstractHorse (horses, donkeys,
         // mules, llamas), which are owned through an entirely separate mechanism and were missed before.
         List<Animal> nearby = level.getEntitiesOfClass(Animal.class,
@@ -92,11 +90,11 @@ public final class CurseBrokenBonds extends Effect {
             }
         }
 
-        // Everything we're tracking that ISN'T in range this sweep cools off, and is forgotten at zero.
+        // everything we're tracking that ISN'T in range this sweep cools off, and is forgotten at zero.
         decayAbsent(meters, nearby, rng);
     }
 
-    /** How much resentment this pet earns this check: proximity, plus following, plus being ridden. */
+    /** how much resentment this pet earns this check: proximity, plus following, plus being ridden. */
     private static float gainFor(ServerPlayer owner, Animal pet, RandomSource rng) {
         double radius = Config.BROKEN_BONDS_RADIUS.get();
         double distance = Math.sqrt(pet.distanceToSqr(owner));
@@ -104,11 +102,11 @@ public final class CurseBrokenBonds extends Effect {
 
         double gain = Config.BROKEN_BONDS_PROXIMITY_GAIN.get() * closeness;
         // A tamed animal that's standing (not parked in a sit) is trailing you around — that wears on it.
-        // Horses don't sit or follow, so they don't earn this; their gain comes from proximity and riding.
+        // horses don't sit or follow, so they don't earn this; their gain comes from proximity and riding.
         if (pet instanceof TamableAnimal tamable && !tamable.isInSittingPose()) {
             gain += Config.BROKEN_BONDS_FOLLOW_GAIN.get();
         }
-        // Being sat on is the fast track to a broken bond.
+        // being sat on is the fast track to a broken bond.
         if (owner.getVehicle() == pet) {
             gain += Config.BROKEN_BONDS_RIDE_GAIN.get();
         }
@@ -137,7 +135,7 @@ public final class CurseBrokenBonds extends Effect {
         return (float) (base * (1.0 + (rng.nextDouble() * 2.0 - 1.0) * spread));
     }
 
-    /** The betrayal itself: untame, dismount, and drive it off — keeping everything else about it intact. */
+    /** the betrayal itself: untame, dismount, and drive it off — keeping everything else about it intact. */
     private void snap(ServerPlayer owner, ServerLevel level, Animal pet) {
         Vec3 from = owner.position();
         if (owner.getVehicle() == pet) {
@@ -145,7 +143,7 @@ public final class CurseBrokenBonds extends Effect {
         }
         pet.ejectPassengers();
 
-        // Untame, clearing ONLY the ownership — name tag, collar dye, saddle, chest and any other NBT are
+        // untame, clearing ONLY the ownership — name tag, collar dye, saddle, chest and any other NBT are
         // separate values, so they survive untouched, which is the point. The two taming systems clear it
         // differently, hence the split.
         if (pet instanceof TamableAnimal tamable) {

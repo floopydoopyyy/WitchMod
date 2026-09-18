@@ -16,7 +16,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * Every block you break has something living in it (master-spec Pests). A decent chance per block mined —
+ * every block you break has something living in it. A decent chance per block mined —
  * ANY block, not just stone — that 1–3 silverfish pour out of the gap and come straight for you.
  *
  * <p><b>The nearby ceiling isn't balance, it's a safety guard.</b> Silverfish call MORE silverfish out of
@@ -34,15 +34,19 @@ public final class CursePests extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.COBBLESTONE);
     }
 
-    /** You find out the first time something crawls out of a block (Rule 2). */
+    /** you find out the first time something crawls out of a block (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
     }
 
-    /** Hook for breaking a block — see {@code CurseEventHandler}. */
+    /** hook for breaking a block — see {@code CurseEventHandler}. */
     public static void onBlockMined(ServerPlayer player, BlockPos pos) {
-        if (player.getRandom().nextInt(100) >= Config.PESTS_CHANCE.get()) {
+        double chance = Config.PESTS_CHANCE.get();
+        if (com.oliver.witchmod.synergy.Synergies.VIRAL_INFESTATION.activeFor(player)) {
+            chance *= Config.PESTS_POPULARITY_MULTIPLIER.get(); // popularity's crowd draws far more of them out
+        }
+        if (player.getRandom().nextInt(100) >= chance) {
             return;
         }
         ServerLevel level = player.serverLevel();

@@ -12,7 +12,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * You see in the dark, and nothing dims your view (master-spec Nightowl, sacrificial item GLOW BERRIES).
+ * you see in the dark, and nothing dims your view.
  * Every visual obstruction is switched off:
  * <ul>
  *   <li><b>No fog</b> anywhere — distance, water and lava fog are all stripped (client, off the synced flag).</li>
@@ -41,7 +41,7 @@ public final class BlessingNightowl extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
-        // Backstop: clear any Blindness/Darkness that slipped in (the Applicable veto is the primary guard).
+        // backstop: clear any Blindness/Darkness that slipped in (the Applicable veto is the primary guard).
         if (target.hasEffect(MobEffects.BLINDNESS) || target.hasEffect(MobEffects.DARKNESS)) {
             stripDarkening(target);
         }

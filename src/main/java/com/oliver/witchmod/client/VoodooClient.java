@@ -16,7 +16,7 @@ import com.oliver.witchmod.items.ItemVoodooDoll;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * Voodoo Doll "shake" (client half): whipping your camera around while holding a bound doll tells the server to
+ * voodoo Doll "shake" (client half): whipping your camera around while holding a bound doll tells the server to
  * slightly disorient the victim. Rate-limited so it's a gentle, occasional nudge, not a spam.
  */
 @EventBusSubscriber(modid = WitchMod.MODID, value = Dist.CLIENT)

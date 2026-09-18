@@ -10,7 +10,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.DreamEntity;
 
 /**
- * Renders the Cutaway Gag's Dream mimic as a real vanilla {@link PlayerModel} (the wide/Steve layout) wearing
+ * renders the Cutaway Gag's Dream mimic as a real vanilla {@link PlayerModel} (the wide/Steve layout) wearing
  * the dream skin — so it looks like an ordinary player rather than a mob. Reuses the vanilla {@code PLAYER}
  * model layer, so no custom layer definition is needed.
  */

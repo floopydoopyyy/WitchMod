@@ -14,7 +14,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * Client driver for the Main Character theme. Every tick it looks over the players it can see (local + nearby
+ * client driver for the Main Character theme. Every tick it looks over the players it can see (local + nearby
  * remote players, whose {@code MAINCHAR_TIER} is synced to trackers) and, for any that are powered up without a
  * loop already following them, spins one up. The instance stops itself and fades by distance, so onlookers
  * hear the protagonist's theme swell as they approach.

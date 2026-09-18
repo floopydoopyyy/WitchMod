@@ -30,7 +30,7 @@ import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The sea is calling and staying dry aches (master-spec Siren's Call, NEW). A hidden <b>longing</b> stat
+ * the sea is calling and staying dry aches. A hidden <b>longing</b> stat
  * builds whenever the victim is out of water and drains — after a grace period — when they're back in it,
  * escalating through SIX stages:
  * <ol>
@@ -56,18 +56,18 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class CurseSirensCall extends Effect {
     private static final Map<UUID, Float> LONGING = new HashMap<>();
-    /** Consecutive ticks the victim has been in water — drives the grace period and the shader fade. */
+    /** consecutive ticks the victim has been in water — drives the grace period and the shader fade. */
     private static final Map<UUID, Integer> WATER_TICKS = new HashMap<>();
-    /** The magenta shader's current strength, ramped/faded per tick. */
+    /** the magenta shader's current strength, ramped/faded per tick. */
     private static final Map<UUID, Float> SHADER = new HashMap<>();
-    /** Whether the yearning cue has fired this bout, so it lands on the stage-2 EDGE for discovery. */
+    /** whether the yearning cue has fired this bout, so it lands on the stage-2 EDGE for discovery. */
     private static final Map<UUID, Boolean> ACHED = new HashMap<>();
 
     public CurseSirensCall() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 35, () -> Items.HEART_OF_THE_SEA);
     }
 
-    /** You find out the first time the longing bites, not the moment it lands (Rule 2). */
+    /** you find out the first time the longing bites, not the moment it lands (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -99,7 +99,7 @@ public final class CurseSirensCall extends Effect {
         target.setData(WitchModAttachments.SIREN_SHADER, 0.0F);
     }
 
-    /** The Scrying Mirror gives editable FLAVOUR for the yearning level (lang keys, resolved on the client). */
+    /** the Scrying Mirror gives editable FLAVOUR for the yearning level (lang keys, resolved on the client). */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         Float longing = LONGING.get(target.getUUID());
@@ -119,7 +119,7 @@ public final class CurseSirensCall extends Effect {
         }
     }
 
-    /** Per-tick: track time in water, drive the magenta shader, and apply the velocity tug while marching. */
+    /** per-tick: track time in water, drive the magenta shader, and apply the velocity tug while marching. */
     private static void perTick(ServerPlayer target) {
         UUID id = target.getUUID();
         boolean inWater = target.isInWater();
@@ -134,7 +134,7 @@ public final class CurseSirensCall extends Effect {
 
         float shader = SHADER.getOrDefault(id, 0.0F);
         if (inWater) {
-            // Fade out across the grace window, hitting 0 right as the longing is about to start dropping.
+            // fade out across the grace window, hitting 0 right as the longing is about to start dropping.
             float remaining = grace <= 0 ? 0.0F : Math.max(0.0F, 1.0F - waterTicks / grace);
             shader = Math.min(shader, remaining);
         } else if (marching) {
@@ -149,12 +149,12 @@ public final class CurseSirensCall extends Effect {
             double yaw = Math.toRadians(target.getData(WitchModAttachments.SIREN_PULL_YAW) + 90.0F);
             double force = Config.SIREN_PULL_FORCE.get();
             target.setDeltaMovement(target.getDeltaMovement()
-                    .add(Math.cos(yaw) * force, 0.0, Math.sin(yaw) * force));
+.add(Math.cos(yaw) * force, 0.0, Math.sin(yaw) * force));
             target.hurtMarked = true;
         }
     }
 
-    /** Interval: move the longing meter and apply the current stage's symptoms. */
+    /** interval: move the longing meter and apply the current stage's symptoms. */
     private void doCheck(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         UUID id = target.getUUID();
@@ -166,7 +166,7 @@ public final class CurseSirensCall extends Effect {
         forgiveDrowned(target, soothed);
 
         if (inWater) {
-            // Only past the grace period does the water actually settle you.
+            // only past the grace period does the water actually settle you.
             if (WATER_TICKS.getOrDefault(id, 0) >= Config.SIREN_WATER_GRACE.get()) {
                 longing = Math.max(0.0F, longing - Config.SIREN_WATER_DRAIN.get().floatValue());
             }
@@ -193,7 +193,7 @@ public final class CurseSirensCall extends Effect {
         boolean s5 = longing >= Config.SIREN_STAGE5.get();
         boolean s6 = longing >= Config.SIREN_STAGE6.get();
 
-        // Stage 1 — Unease: a few bubbles off you and, rarely, a drip. Purely atmospheric.
+        // stage 1 — Unease: a few bubbles off you and, rarely, a drip. Purely atmospheric.
         if (s1 && !inWater) {
             level.sendParticles(ParticleTypes.BUBBLE_POP,
                     target.getX(), target.getEyeY(), target.getZ(), 2, 0.3, 0.3, 0.3, 0.0);
@@ -203,7 +203,7 @@ public final class CurseSirensCall extends Effect {
             }
         }
 
-        // Stage 2 — Yearning: the ache begins. This is the discovery moment.
+        // stage 2 — Yearning: the ache begins. This is the discovery moment.
         if (s2) {
             int amp = s3 ? 1 : 0; // stage 3 deepens Mining Fatigue to II
             target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, refresh, amp, false, false, true));
@@ -215,24 +215,24 @@ public final class CurseSirensCall extends Effect {
                 int gap = s3 ? 30 : 60; // yearning cue gets more insistent at stage 3
                 if (target.tickCount % gap == 0) {
                     target.displayClientMessage(Component.literal("You yearn for the water...")
-                            .withStyle(ChatFormatting.AQUA), true);
+.withStyle(ChatFormatting.AQUA), true);
                 }
             }
         } else {
             ACHED.put(id, false); // dropped below the ache — next onset counts fresh
         }
 
-        // Stage 3 — Restlessness: the longing starts muddling your senses.
+        // stage 3 — Restlessness: the longing starts muddling your senses.
         if (s3 && !inWater && target.tickCount % 120 == 0) {
             target.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 60, 0, false, false, true));
         }
 
-        // Stage 4/5 — Heaviness/Grip: Slowness on land, deepening at stage 5.
+        // stage 4/5 — Heaviness/Grip: Slowness on land, deepening at stage 5.
         if (s4 && !inWater) {
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, refresh, s5 ? 1 : 0, false, false, true));
         }
 
-        // Stage 5 — intermittent pull-bursts; Stage 6 — continuous march. Both need water in range.
+        // stage 5 — intermittent pull-bursts; Stage 6 — continuous march. Both need water in range.
         boolean wantsPull = s6 || (s5 && (target.tickCount % 80) < 30); // grip = ~1.5s on, ~2.5s off
         if (wantsPull && !inWater) {
             BlockPos water = nearestWater(level, target);

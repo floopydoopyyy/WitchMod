@@ -22,21 +22,15 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * The Farmhand curse's "get in the way" AI: the animal makes it its whole job to stand exactly where the
- * cursed player is working — on the block under their crosshair, so placement/mining is physically blocked —
- * or, for part of the herd, in a tight ring pressing in around them.
- *
- * <p><b>Re-pathing is deliberately conservative.</b> The crosshair target moves constantly as the player
- * looks around, and calling {@code moveTo} every few ticks forces a full path recalculation each time, which
- * leaves the animal stuttering on the spot instead of actually travelling. A new path is only requested when
- * the destination has really moved, the current path is finished, or a slow refresh timer elapses — and only
- * once the path is done does it amble the last step via its MoveControl. Driving the MoveControl every tick
- * as well made the herd stampede rather than wander into the way, so that is deliberately not done.
+ * farmhand's "get in the way" ai — the animal stands on the block under the player's crosshair (blocking
+ * placement/mining) or, for part of the herd, presses in around them. re-pathing is deliberately
+ * conservative: a new path only when the target really moved / the path finished / a slow refresh elapses,
+ * and the move-control nudge only fires once the path is done — driving it every tick made the herd stampede.
  */
 public final class FarmhandBlockGoal extends Goal {
-    /** Slow safety refresh; real re-paths are driven by the destination actually moving. */
+    /** slow safety refresh; real re-paths are driven by the destination actually moving. */
     private static final int PATH_REFRESH_TICKS = 20;
-    /** How far the destination must move before it's worth recomputing a path (blocks, squared). */
+    /** how far the destination must move before it's worth recomputing a path (blocks, squared). */
     private static final double REPATH_DISTANCE_SQR = 2.25; // 1.5 blocks
     private static final double CROSSHAIR_REACH = 5.0;
     private static final double GOLDEN_ANGLE = 2.399963; // spreads surround slots evenly around the player
@@ -120,7 +114,7 @@ public final class FarmhandBlockGoal extends Goal {
             nav.moveTo(goal.x, goal.y, goal.z, speed);
         }
 
-        // Path exhausted (arrived, or nowhere to path) — amble the last bit under our own steam. Deliberately
+        // path exhausted (arrived, or nowhere to path) — amble the last bit under our own steam. Deliberately
         // NOT applied while a path is running: driving them every tick made them shove like a stampede
         // instead of wandering into the way.
         if (nav.isDone()) {
@@ -144,13 +138,13 @@ public final class FarmhandBlockGoal extends Goal {
                 return aim;
             }
         }
-        // Concentric rings so a big herd nests around the player instead of fighting for one spot.
+        // concentric rings so a big herd nests around the player instead of fighting for one spot.
         double angle = mob.getId() * GOLDEN_ANGLE;
         double ring = Config.FARMHAND_SURROUND_RADIUS.get() + (mob.getId() % 3) * 0.5;
         return target.position().add(Math.cos(angle) * ring, 0.0, Math.sin(angle) * ring);
     }
 
-    /** The block the player is looking at (server-side raycast), aimed at the space just on top of it. */
+    /** the block the player is looking at (server-side raycast), aimed at the space just on top of it. */
     private Vec3 crosshairTarget() {
         Vec3 eye = target.getEyePosition();
         Vec3 end = eye.add(target.getViewVector(1.0F).scale(CROSSHAIR_REACH));

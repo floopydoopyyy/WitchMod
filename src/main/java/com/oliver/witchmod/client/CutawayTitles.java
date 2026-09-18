@@ -15,7 +15,7 @@ import net.minecraft.util.RandomSource;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Cutaway Gag's pool of Family-Guy title-card lines ("Meanwhile…", "Cut to…", …), read from a writable
+ * the Cutaway Gag's pool of Family-Guy title-card lines ("Meanwhile…", "Cut to…", …), read from a writable
  * list. Client-side only (drawn as an overlay), so it lives in {@code assets/} and reloads with F3+T — same
  * approach as {@link WindowTitles} and the Loading Screen tips. Missing/malformed falls back to one line.
  */

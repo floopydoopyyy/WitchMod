@@ -9,12 +9,8 @@ import com.oliver.witchmod.effects.curses.dweller.CurseTheDweller;
 import com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment;
 
 /**
- * Registers all 49 curses (master-spec Section 5). Some still carry the prototype's original ids where the
- * master spec later renamed them (loud = "Flat Footed", pidgeon_toed = "Wonky", sick_of_you = "Broken
- * Bonds"). Those are renamed AS EACH ONE IS REFINED rather than in bulk, because display names are derived
- * from the id path ({@code DiscoveryManager.titleCase}) — so the id IS the visible name, and leaving it
- * stale would leave the wrong name on screen. Renaming drops any saved instance of the old id as unknown,
- * which is harmless for a placeholder that was never shipped.
+ * registers all the curses. display names derive from the id path, so a rename changes the visible name (and
+ * drops any saved instance of the old id — harmless for placeholders).
  */
 public final class Curses {
     public static final DeferredHolder<Effect, CurseViolence> VIOLENCE = register("violence", CurseViolence::new);
@@ -29,7 +25,7 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseGluttony> GLUTTONY = register("gluttony", CurseGluttony::new);
     public static final DeferredHolder<Effect, CurseGassy> GASSY = register("gassy", CurseGassy::new);
     public static final DeferredHolder<Effect, CurseFarmhand> FARMHAND = register("farmhand", CurseFarmhand::new);
-    /** Dense = the merged Heavy + Heavyweight (see {@link CurseDense}). The old {@code heavy}/{@code heavyweight} ids are retired. */
+    /** dense = the merged Heavy + Heavyweight (see {@link CurseDense}). The old {@code heavy}/{@code heavyweight} ids are retired. */
     public static final DeferredHolder<Effect, CurseDense> DENSE = register("dense", CurseDense::new);
     public static final DeferredHolder<Effect, CurseSlipperyFeet> SLIPPERY_FEET = register("slippery_feet", CurseSlipperyFeet::new);
     public static final DeferredHolder<Effect, CurseMagnet> MAGNET = register("magnet", CurseMagnet::new);
@@ -62,8 +58,7 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseBouncy> BOUNCY = register("bouncy", CurseBouncy::new);
     public static final DeferredHolder<Effect, CurseHeavyHanded> HEAVY_HANDED = register("klutz", CurseHeavyHanded::new);
 
-    // Phase A (master-spec Section 16): the 7 previously NOT-PROTOTYPED curses, now built to the same
-    // loosely-functional/command-startable bar as the rest. (Heavy Handed was already present above.)
+    // the previously not-prototyped curses
     public static final DeferredHolder<Effect, CurseSuperExplosive> SUPER_EXPLOSIVE = register("volatile", CurseSuperExplosive::new);
     public static final DeferredHolder<Effect, CurseClaustrophobia> CLAUSTROPHOBIA = register("claustrophobia", CurseClaustrophobia::new);
     public static final DeferredHolder<Effect, CurseMoonwalker> MOONWALKER = register("moonwalker", CurseMoonwalker::new);
@@ -82,7 +77,19 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseCarelessness> CARELESSNESS = register("carelessness", CurseCarelessness::new);
     public static final DeferredHolder<Effect, CurseNarcolepsy> NARCOLEPSY = register("narcolepsy", CurseNarcolepsy::new);
 
-    // Hidden internal attachments applied by the Slime Ball / Slime Block MODIFIERS (not selectable/castable).
+    // later curse ideas
+    public static final DeferredHolder<Effect, CurseLightweight> LIGHTWEIGHT = register("lightweight", CurseLightweight::new);
+    public static final DeferredHolder<Effect, CurseMunchies> MUNCHIES = register("munchies", CurseMunchies::new);
+    public static final DeferredHolder<Effect, CurseSpotlight> SPOTLIGHT = register("spotlight", CurseSpotlight::new);
+    public static final DeferredHolder<Effect, CurseHiccups> HICCUPS = register("hiccups", CurseHiccups::new);
+    public static final DeferredHolder<Effect, CurseBodySwapping> BODY_SWAPPING = register("body_swapping", CurseBodySwapping::new);
+    public static final DeferredHolder<Effect, CurseLeftHanded> LEFT_HANDED = register("left_handed", CurseLeftHanded::new);
+    public static final DeferredHolder<Effect, CurseIceSkates> ICE_SKATES = register("ice_skates", CurseIceSkates::new);
+    public static final DeferredHolder<Effect, CurseVertigo> VERTIGO = register("vertigo", CurseVertigo::new);
+    public static final DeferredHolder<Effect, CurseChannels> CHANNELS = register("channels", CurseChannels::new);
+    public static final DeferredHolder<Effect, CurseNarrator> NARRATOR = register("narrator", CurseNarrator::new);
+
+    // hidden internal attachments applied by the Slime Ball / Slime Block MODIFIERS (not selectable/castable).
     public static final DeferredHolder<Effect, CurseInfectious> INFECTIOUS = register("infectious", CurseInfectious::new);
     public static final DeferredHolder<Effect, CurseVeryInfectious> VERY_INFECTIOUS = register("very_infectious", CurseVeryInfectious::new);
 
@@ -92,6 +99,6 @@ public final class Curses {
         return WitchModRegistries.EFFECTS.register(name, factory);
     }
 
-    /** Forces this class to load (and thus register its curses) before {@code RegisterEvent} fires. */
+    /** forces this class to load (and thus register its curses) before {@code RegisterEvent} fires. */
     public static void bootstrap() {}
 }

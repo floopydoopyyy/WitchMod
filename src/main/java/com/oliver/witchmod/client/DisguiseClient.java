@@ -21,7 +21,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Blessing of Disguise (client half): render any player whose {@link WitchModAttachments#DISGUISE_TYPE} is set
+ * blessing of Disguise (client half): render any player whose {@link WitchModAttachments#DISGUISE_TYPE} is set
  * as a cow / sheep / pig instead of their player model (and no nametag). A cached dummy mob per player mirrors
  * the player's facing + walk animation so the costume moves convincingly.
  */
@@ -36,12 +36,18 @@ public final class DisguiseClient {
         EntityType<?> want = switch (type) {
             case 1 -> EntityType.SHEEP;
             case 2 -> EntityType.PIG;
+            case 3 -> EntityType.BAT;
+            case 4 -> EntityType.SPIDER;
+            case 5 -> EntityType.VILLAGER;
             default -> EntityType.COW;
         };
         if (cached == null || cached.getType() != want) {
             Entity e = want.create(Minecraft.getInstance().level);
             if (!(e instanceof Mob m)) {
                 return null;
+            }
+            if (m instanceof net.minecraft.world.entity.ambient.Bat bat) {
+                bat.setResting(false); // a resting bat folds its wings and T-poses — keep it flying so they flap
             }
             CACHE.put(p.getUUID(), m);
             cached = m;
@@ -66,19 +72,43 @@ public final class DisguiseClient {
             if (m == null) {
                 continue;
             }
-            // Drive the leg animation off the player's per-tick horizontal movement (like vanilla aiStep does).
+            // drive the leg animation off the player's per-tick horizontal movement (like vanilla aiStep does).
             float dx = (float) (p.getX() - p.xOld);
             float dz = (float) (p.getZ() - p.zOld);
             float f = Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0F, 1.0F);
             m.walkAnimation.update(f, 0.4F);
             m.tickCount = p.tickCount;
+            if (m instanceof net.minecraft.world.entity.ambient.Bat bat) {
+                bat.setResting(false); // stay in the flapping-flight pose, never the folded T-pose
+            }
+        }
+        // bat flight GLIDES: sprinting gives a forward push (+ FOV zoom via onBatFov), like an elytra glide.
+        if (mc.player != null && mc.player.getData(WitchModAttachments.DISGUISE_TYPE) == 3
+                && mc.player.getAbilities().flying && mc.player.isSprinting()) {
+            net.minecraft.world.phys.Vec3 look = mc.player.getLookAngle();
+            double push = com.oliver.witchmod.Config.FLIGHT_ELYTRA_SPRINT_SPEED.get();
+            mc.player.setDeltaMovement(mc.player.getDeltaMovement().add(look.x * push, 0.0, look.z * push));
         }
         CACHE.keySet().removeIf(id -> mc.level.getPlayerByUUID(id) == null);
     }
 
     @SubscribeEvent
+    static void onBatFov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
+        if (event.getPlayer().getData(WitchModAttachments.DISGUISE_TYPE) == 3
+                && event.getPlayer().getAbilities().flying && event.getPlayer().isSprinting()) {
+            event.setNewFovModifier(event.getNewFovModifier() * com.oliver.witchmod.Config.FLIGHT_ELYTRA_FOV.get().floatValue());
+        }
+    }
+
+    @SubscribeEvent
     static void onRenderPre(RenderPlayerEvent.Pre event) {
         Player p = event.getEntity();
+        // concealment flash: briefly unrendered (armour and all, no floating gear) right after a form change.
+        long flash = p.getData(WitchModAttachments.CONCEAL_FLASH_END);
+        if (flash > 0 && p.level().getGameTime() < flash) {
+            event.setCanceled(true);
+            return;
+        }
         int type = p.getData(WitchModAttachments.DISGUISE_TYPE);
         if (type < 0) {
             return;

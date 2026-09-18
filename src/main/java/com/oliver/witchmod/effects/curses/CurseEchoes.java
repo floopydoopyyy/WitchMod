@@ -30,7 +30,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
- * You keep hearing things that aren't there (master-spec Echoes). Every so often the victim — and ONLY the
+ * you keep hearing things that aren't there. Every so often the victim — and ONLY the
  * victim — hears a completely ordinary game sound, played at a believable spot in the world: footsteps
  * behind them, someone sprinting up, mining below, a creeper going off, a chest opening, a far-off blast.
  *
@@ -45,7 +45,7 @@ import com.oliver.witchmod.data.WitchModSounds;
  * so the penny drops a moment later instead of the alert giving the sound away.
  */
 public final class CurseEchoes extends Effect {
-    /** One queued sound, delivered when the game clock reaches {@code dueTick}. */
+    /** one queued sound, delivered when the game clock reaches {@code dueTick}. */
     private record Echo(long dueTick, Holder<SoundEvent> sound, double x, double y, double z,
                         float volume, float pitch) {}
 
@@ -57,7 +57,7 @@ public final class CurseEchoes extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 15, () -> Items.ECHO_SHARD);
     }
 
-    /** You work it out shortly AFTER the first thing you imagine hearing (Rule 2). */
+    /** you work it out shortly AFTER the first thing you imagine hearing (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -83,7 +83,7 @@ public final class CurseEchoes extends Effect {
         long now = level.getGameTime();
         UUID id = target.getUUID();
 
-        // Self-heal: the schedule is transient, so a curse that persisted across a relog would otherwise
+        // self-heal: the schedule is transient, so a curse that persisted across a relog would otherwise
         // never fire again (the Yap lesson).
         if (!NEXT_ECHO.containsKey(id)) {
             scheduleNext(target, now);
@@ -129,15 +129,15 @@ public final class CurseEchoes extends Effect {
         }
     }
 
-    /** Queues a sound for a future tick, at a world position, audible to this player alone. */
+    /** queues a sound for a future tick, at a world position, audible to this player alone. */
     private static void queue(ServerPlayer target, long dueTick, Holder<SoundEvent> sound,
                               Vec3 pos, float volume, float pitch) {
         PENDING.computeIfAbsent(target.getUUID(), k -> new ArrayList<>())
-                .add(new Echo(dueTick, sound, pos.x, pos.y, pos.z, volume, pitch));
+.add(new Echo(dueTick, sound, pos.x, pos.y, pos.z, volume, pitch));
     }
 
     /**
-     * The delivery itself: a positional sound packet down this one player's connection. Not
+     * the delivery itself: a positional sound packet down this one player's connection. Not
      * {@code level.playSound}, which every nearby player would hear — the illusion only works if nobody
      * can confirm it wasn't real.
      */
@@ -149,7 +149,7 @@ public final class CurseEchoes extends Effect {
 
     // --- The hallucinations ----------------------------------------------------------------------------
 
-    /** One kind of hallucination. Returns false if its conditions weren't met, so another can be tried. */
+    /** one kind of hallucination. Returns false if its conditions weren't met, so another can be tried. */
     @FunctionalInterface
     private interface Hallucination {
         boolean fire(ServerPlayer target, ServerLevel level, long now);
@@ -158,7 +158,7 @@ public final class CurseEchoes extends Effect {
     private record Weighted(int weight, Hallucination fire) {}
 
     /**
-     * The pool, weighted by how ORDINARY each sound is. Mundane background noise comes up constantly;
+     * the pool, weighted by how ORDINARY each sound is. Mundane background noise comes up constantly;
      * a creeper priming behind you or a notification chime stay rare, because the ones that make you spin
      * round lose all their power if they happen every time.
      */
@@ -194,7 +194,7 @@ public final class CurseEchoes extends Effect {
             roll -= entry.weight();
             if (roll < 0) {
                 if (!entry.fire().fire(target, level, now)) {
-                    // Conditions weren't met (nobody else online, no water nearby, no solid ground) — fall
+                    // conditions weren't met (nobody else online, no water nearby, no solid ground) — fall
                     // back to something that always works rather than wasting the slot in silence.
                     undeadAmbient(target, level, now);
                 }
@@ -204,7 +204,7 @@ public final class CurseEchoes extends Effect {
         DISCOVER_AT.putIfAbsent(target.getUUID(), now + Config.ECHOES_DISCOVERY_DELAY_TICKS.get());
     }
 
-    /** Someone swimming — only ever placed in actual water, or it's not believable. */
+    /** someone swimming — only ever placed in actual water, or it's not believable. */
     private static boolean swimming(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         Vec3 at = findWaterNear(level, target, 14.0);
@@ -221,7 +221,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** Someone having a snack, finished off with a burp. */
+    /** someone having a snack, finished off with a burp. */
     private static boolean eating(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         Vec3 at = around(target, 2.5, 7.0);
@@ -234,7 +234,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** An animal taking a hit somewhere nearby — someone's butchering livestock out of sight. */
+    /** an animal taking a hit somewhere nearby — someone's butchering livestock out of sight. */
     private static boolean animalHurt(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         SoundEvent hurt = switch (rnd.nextInt(4)) {
@@ -257,7 +257,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** Someone whiffing at thin air — the flat "no damage" swing, which is unmistakable. */
+    /** someone whiffing at thin air — the flat "no damage" swing, which is unmistakable. */
     private static boolean swingingAtAir(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         Vec3 at = around(target, 3.0, 8.0);
@@ -304,7 +304,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** Finds standing water within range, so swimming sounds come from somewhere you could actually swim. */
+    /** finds standing water within range, so swimming sounds come from somewhere you could actually swim. */
     private static Vec3 findWaterNear(ServerLevel level, ServerPlayer target, double radius) {
         RandomSource rnd = target.getRandom();
         for (int attempt = 0; attempt < 24; attempt++) {
@@ -322,7 +322,7 @@ public final class CurseEchoes extends Effect {
         return null;
     }
 
-    /** Footsteps from a random direction, using the real step sound of whatever they'd be walking on. */
+    /** footsteps from a random direction, using the real step sound of whatever they'd be walking on. */
     private static boolean footstepsNearby(ServerPlayer target, ServerLevel level, long now, boolean sprinting) {
         RandomSource rnd = target.getRandom();
         double angle = rnd.nextDouble() * Math.PI * 2.0;
@@ -331,7 +331,7 @@ public final class CurseEchoes extends Effect {
         int gap = sprinting ? 4 : 11; // sprint cadence vs a calm walk
 
         for (int i = 0; i < steps; i++) {
-            // Sprinters close the distance step by step; a calm walker just wanders past at range.
+            // sprinters close the distance step by step; a calm walker just wanders past at range.
             double dist = sprinting
                     ? startDist * (1.0 - (double) i / steps) + 1.5
                     : startDist + Math.sin(i) * 0.6;
@@ -345,7 +345,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** Someone mining below you: a run of hits at a believable pace, then the block breaking. */
+    /** someone mining below you: a run of hits at a believable pace, then the block breaking. */
     private static boolean mining(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         double angle = rnd.nextDouble() * Math.PI * 2.0;
@@ -405,7 +405,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** Someone landing a jump or a fall, on actual ground. */
+    /** someone landing a jump or a fall, on actual ground. */
     private static boolean landing(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         Vec3 at = groundedAt(level, target, rnd.nextDouble() * Math.PI * 2.0, 2.5 + rnd.nextDouble() * 4.0);
@@ -453,7 +453,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** The cave ambience sting — arguably the most unsettling sound in the game, and totally deniable. */
+    /** the cave ambience sting — arguably the most unsettling sound in the game, and totally deniable. */
     private static boolean caveAmbience(ServerPlayer target, ServerLevel level, long now) {
         queue(target, now, holder(SoundEvents.AMBIENT_CAVE.value()), around(target, 6.0, 16.0), 1.0F, 1.0F);
         return true;
@@ -467,7 +467,7 @@ public final class CurseEchoes extends Effect {
         return true;
     }
 
-    /** Assorted one-offs that all sound like another player going about their business. */
+    /** assorted one-offs that all sound like another player going about their business. */
     private static boolean miscStartle(ServerPlayer target, ServerLevel level, long now) {
         RandomSource rnd = target.getRandom();
         Vec3 at = around(target, 3.0, 12.0);
@@ -525,13 +525,13 @@ public final class CurseEchoes extends Effect {
         return null; // nothing solid underfoot within range — this spot wouldn't be believable
     }
 
-    /** The step sound of whatever is actually underfoot at that spot. */
+    /** the step sound of whatever is actually underfoot at that spot. */
     private static Holder<SoundEvent> stepSoundAt(ServerLevel level, Vec3 pos) {
         BlockPos below = BlockPos.containing(pos).below();
         return holder(level.getBlockState(below).getSoundType().getStepSound());
     }
 
-    /** SoundEvents is a mix of raw SoundEvent and Holder fields; the packet needs a Holder either way. */
+    /** soundEvents is a mix of raw SoundEvent and Holder fields; the packet needs a Holder either way. */
     private static Holder<SoundEvent> holder(SoundEvent event) {
         return BuiltInRegistries.SOUND_EVENT.wrapAsHolder(event);
     }

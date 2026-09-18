@@ -45,28 +45,26 @@ import com.oliver.witchmod.items.ItemWard;
 import com.oliver.witchmod.items.WitchModItems;
 import com.oliver.witchmod.ui.WitchModMenus;
 
-// The value here should match an entry in the META-INF/neoforge.mods.toml file
+/**
+ * common mod entrypoint — owns the shared registers (blocks/items/tabs), wires every deferred register and
+ * subsystem onto the event bus, and registers the configs. runs on both sides; client-only setup lives in
+ * {@link WitchModClient}.
+ */
 @Mod(WitchMod.MODID)
 public class WitchMod {
-    // Define mod id in a common place for everything to reference
     public static final String MODID = "witchmod";
-    // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
-    // Create a Deferred Register to hold Blocks which will all be registered under the "witchmod" namespace
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
-    // Create a Deferred Register to hold Items which will all be registered under the "witchmod" namespace
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
-    // Create a Deferred Register to hold CreativeModeTabs which will all be registered under the "witchmod" namespace
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 
-    // The mod's creative tab — every WitchMod item and block, iconed by Cursed Essence (the mod's currency).
-    // (Not specified in CLAUDE.md; added on request.)
+    // creative tab — every item + block, iconed by cursed essence
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> WITCHMOD_TAB = CREATIVE_MODE_TABS.register("witchmod", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.witchmod"))
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> WitchModItems.CURSED_ESSENCE.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
-                // Items (section 4)
+                // items
                 output.accept(WitchModItems.CURSED_ESSENCE.get());
                 output.accept(WitchModItems.PLAYER_ESSENCE.get());
                 output.accept(WitchModItems.COMPENDIUM.get());
@@ -82,93 +80,67 @@ public class WitchMod {
                 output.accept(WitchModItems.CURSED_JAR.get());
                 output.accept(WitchModItems.BLESSED_JAR.get());
                 output.accept(WitchModItems.MIXED_JAR.get());
-                // (Recovery Compass is a modifier backed by vanilla's own item — left out of the tab so it
-                // doesn't duplicate the vanilla one.)
-                // Blocks (section 3)
+                // (recovery compass modifier is backed by the vanilla item — left out to avoid a duplicate)
+                // blocks
                 output.accept(WitchModBlocks.BEWITCHING_TABLE_ITEM.get());
                 output.accept(WitchModBlocks.CURSED_ESSENCE_BLOCK_ITEM.get());
                 output.accept(WitchModBlocks.LEDGER_ITEM.get());
                 output.accept(WitchModBlocks.WARDING_TOTEM_ITEM.get());
                 output.accept(WitchModBlocks.AMETHYST_BELL_ITEM.get());
-                // Purifying Water bucket (section 2.5)
                 output.accept(WitchModFluids.PURIFYING_WATER_BUCKET.get());
             }).build());
 
-    // The constructor for the mod class is the first code that is run when your mod is loaded.
-    // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
     public WitchMod(IEventBus modEventBus, ModContainer modContainer) {
-        // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
-        // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
-        // Register the Deferred Register to the mod event bus so items get registered
         ITEMS.register(modEventBus);
-        // Register the Deferred Register to the mod event bus so tabs get registered
         CREATIVE_MODE_TABS.register(modEventBus);
 
-        // Register the Effect registry (curses/blessings)
         WitchModRegistries.register(modEventBus);
-        // Register the per-player active-effect data attachment
         WitchModAttachments.register(modEventBus);
-        // Register the Cursed/Blessed/Afflicted wrapper status effects
         WitchModMobEffects.register(modEventBus);
-
         WitchModSounds.register(modEventBus);
         com.oliver.witchmod.data.WitchModParticles.register(modEventBus);
         com.oliver.witchmod.items.WitchModRecipes.register(modEventBus);
-        // Register the mod's custom entities (the Tax Man)
         com.oliver.witchmod.entities.WitchModEntities.register(modEventBus);
         com.oliver.witchmod.entities.WitchModEntityAttributes.register(modEventBus);
-        // Register custom item data components (bound player, captured effects)
         WitchModDataComponents.register(modEventBus);
-        // Register this mod's items and blocks (Phase 3/section 3)
         WitchModItems.register(modEventBus);
         WitchModBlocks.register(modEventBus);
         WitchModFluids.register(modEventBus);
         WitchModBlockEntities.register(modEventBus);
         WitchModMenus.register(modEventBus);
+        com.oliver.witchmod.loot.WitchModLootModifiers.register(modEventBus);
 
-        // Force curse/blessing holder classes to load so their DeferredRegister entries exist
-        // before RegisterEvent fires
+        // force the curse/blessing holders to class-load so their register entries exist before RegisterEvent
         Curses.bootstrap();
         Blessings.bootstrap();
 
-        // Let the Ward item and Warding Totem block hook into effect application without EffectManager
-        // depending on them directly
+        // ward hook so EffectManager doesn't depend on the item directly; totem/holy-water protect via the
+        // PROTECTED effect instead (gate lives in EffectManager.apply), so they need no hook here
         EffectManager.setWardHook(ItemWard::hasActiveWard, ItemWard::onBlock);
-        // Warding Totem + Holy Water now protect by APPLYING the PROTECTED effect; the gate lives in
-        // EffectManager.apply (isMagicProtected), so no per-source hook is needed here.
 
-        // Register ourselves for server and other game events we are interested in.
-        // Note that this is necessary if and only if we want *this* class (ExampleMod) to respond directly to events.
-        // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
 
-        // Register the item to a creative tab
-
-        // Custom networking (the Organised keybind's open-stash request).
         modEventBus.addListener(com.oliver.witchmod.network.WitchModNetwork::onRegisterPayloads);
 
-        // SERVER (not COMMON) — every value here affects gameplay resolution the client must agree with
-        // (the Table screen's live probability preview reads the same formula constants/overrides the
-        // server uses to actually resolve a cast), and SERVER configs are per-world and auto-synced to
-        // clients on join, unlike COMMON. No custom payload needed for that sync — same "use the built-in
-        // mechanism instead of a bespoke one" approach as the Table's Cast button (see BewitchingTableMenu).
+        // SERVER, not COMMON: these values decide cast resolution the client must agree with, and server
+        // configs are per-world + auto-synced to clients on join (so the table's live odds preview matches)
         modContainer.registerConfig(ModConfig.Type.SERVER, Config.SPEC);
         modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
-        // Cauldron interaction maps are shared mutable state — register on the main thread.
+        // cauldron interaction maps are shared mutable state — touch them on the main thread
         event.enqueueWork(com.oliver.witchmod.blocks.HolyWaterCauldron::registerInteractions);
-        LOGGER.info("WitchMod common setup complete");
+        // read/merge the power-levels file now the effect registry is frozen
+        event.enqueueWork(com.oliver.witchmod.data.PowerLevels::load);
     }
 
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        // Do something when the server starts
-        LOGGER.info("HELLO from server starting");
+        // re-read power-levels so title-screen edits apply on world load (also /reload-able)
+        com.oliver.witchmod.data.PowerLevels.load();
     }
 }

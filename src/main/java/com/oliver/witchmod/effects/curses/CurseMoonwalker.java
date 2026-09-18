@@ -11,7 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * You cannot walk forward (master-spec Moonwalker). Every other direction works normally — back, both
+ * you cannot walk forward. Every other direction works normally — back, both
  * strafes — but W does nothing: the client zeroes any forward movement input while the curse is set (see
  * {@code client/ClientCurseHandler}), off the auto-synced {@link WitchModAttachments#MOONWALKER_ACTIVE} flag,
  * because movement is client-authoritative.
@@ -24,7 +24,7 @@ public final class CurseMoonwalker extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.END_STONE);
     }
 
-    // Discovery stays on apply (the centralised default): it's client-only, so the server can't cleanly see
+    // discovery stays on apply (the centralised default): it's client-only, so the server can't cleanly see
     // the first blocked W-press, and pressing W and going nowhere gives it away within a second regardless.
 
     @Override

@@ -15,10 +15,8 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * A shared pool of made-up usernames, from {@code data/witchmod/text/usernames.json} ({@code /reload}-able) —
- * a plain JSON array of strings. Used to stand in for a real player when one is needed but none is around:
- * the Hype Man blessing's "sighting" praise attributes itself to one of these when you're alone, and the
- * Chat (Twitch overlay) blessing draws its chatters' names from the same list.
+ * shared pool of made-up usernames ({@code data/witchmod/text/usernames.json}, /reload-able) — stands in
+ * for a real player when none is around (hype man's lone "sighting", chat blessing's fake chatters).
  */
 public final class Usernames extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
@@ -47,7 +45,7 @@ public final class Usernames extends SimpleJsonResourceReloadListener {
         names = List.copyOf(loaded);
     }
 
-    /** A random made-up username, or "a fan" if the list is empty. */
+    /** a random made-up username, or "a fan" if the list is empty. */
     public static String random(RandomSource random) {
         return names.isEmpty() ? "a fan" : names.get(random.nextInt(names.size()));
     }

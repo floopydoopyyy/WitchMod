@@ -27,7 +27,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Something else decides where you're going (master-spec Backseat Driver). While you're riding anything, an
+ * something else decides where you're going. While you're riding anything, an
  * AI can seize the wheel: your control is cut dead and the mount makes for the stupidest thing in range —
  * lava, water, or the nearest big drop — or wanders if there's nothing dangerous to aim at.
  *
@@ -50,7 +50,7 @@ public final class CurseBackseatDriver extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.SADDLE);
     }
 
-    /** You find out you have this the first time the AI actually takes the wheel (Rule 2). */
+    /** you find out you have this the first time the AI actually takes the wheel (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -90,7 +90,7 @@ public final class CurseBackseatDriver extends Effect {
 
         if (episodeActive) {
             if (vehicle == null) {
-                // Bailed out — stops instantly, but the next one comes around sooner.
+                // bailed out — stops instantly, but the next one comes around sooner.
                 endEpisode(target, now, Config.BACKSEAT_EARLY_EXIT_COOLDOWN_SECONDS.get());
             } else {
                 steer(level, target, vehicle, now);
@@ -99,7 +99,7 @@ public final class CurseBackseatDriver extends Effect {
         }
 
         if (vehicle == null) {
-            // Not riding: hold the ramp at zero so the chance builds from mounting, not from idling.
+            // not riding: hold the ramp at zero so the chance builds from mounting, not from idling.
             target.setData(WitchModAttachments.BACKSEAT_NEXT_ALLOWED, now);
             return;
         }
@@ -112,7 +112,7 @@ public final class CurseBackseatDriver extends Effect {
             return; // still on cooldown
         }
 
-        // Chance grows with time ridden, clamped to a ceiling that jumps when a hazard is in range.
+        // chance grows with time ridden, clamped to a ceiling that jumps when a hazard is in range.
         boolean hazardNearby = findHazard(level, vehicle) != null;
         int cap = hazardNearby ? Config.BACKSEAT_HAZARD_CHANCE_CAP_PERCENT.get() : Config.BACKSEAT_CHANCE_CAP_PERCENT.get();
         long secondsRidden = (now - nextAllowed) / 20L;
@@ -127,8 +127,12 @@ public final class CurseBackseatDriver extends Effect {
         int episodeTicks = Config.BACKSEAT_EPISODE_SECONDS.get() * 20;
         target.setData(WitchModAttachments.BACKSEAT_EPISODE_END, now + episodeTicks);
 
-        // Let it really bolt — a genuine Speed effect on the mount, which expires on its own.
+        // let it really bolt — a genuine Speed effect on the mount, which expires on its own. speed demon
+        // (synergy) whips it along even faster while both are active.
         int boost = Config.BACKSEAT_SPEED_BOOST_LEVEL.get();
+        if (com.oliver.witchmod.synergy.Synergies.SPEEDY_BACKSEAT.activeFor(target)) {
+            boost += Config.BACKSEAT_SPEED_DEMON_BONUS_LEVEL.get();
+        }
         if (boost > 0 && vehicle instanceof LivingEntity mount) {
             mount.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, episodeTicks, boost - 1, false, false));
         }
@@ -141,14 +145,14 @@ public final class CurseBackseatDriver extends Effect {
     }
 
     /**
-     * Points the hijack at the nearest hazard (or a wandering heading) and lets the mount get itself there.
+     * points the hijack at the nearest hazard (or a wandering heading) and lets the mount get itself there.
      * Publishes the heading for the client-side steering; additionally pathfinds any mount that isn't
      * rider-steered, since those ignore rider input entirely.
      */
     private static void steer(ServerLevel level, ServerPlayer rider, Entity vehicle, long now) {
         Vec3 destination = findHazard(level, vehicle);
         if (destination == null) {
-            // No hazard in range — wander, changing heading periodically so it looks erratic, not scripted.
+            // no hazard in range — wander, changing heading periodically so it looks erratic, not scripted.
             double angle = (now / RETARGET_INTERVAL) * 2.399963; // golden-angle steps = non-repeating spread
             destination = vehicle.position().add(Math.cos(angle) * 10.0, 0.0, Math.sin(angle) * 10.0);
         }
@@ -161,7 +165,7 @@ public final class CurseBackseatDriver extends Effect {
         float yaw = (float) Math.toDegrees(Math.atan2(-toward.x, toward.z));
         rider.setData(WitchModAttachments.BACKSEAT_DRIVE_YAW, yaw);
 
-        // Mounts that aren't rider-steered (pig with no carrot on a stick, llamas, ...) never read rider
+        // mounts that aren't rider-steered (pig with no carrot on a stick, llamas,...) never read rider
         // input, so send them with their OWN pathfinding instead — they walk there like they mean it.
         if (vehicle instanceof Mob mob && mob.getControllingPassenger() != rider) {
             mob.getNavigation().moveTo(destination.x, destination.y, destination.z, Config.BACKSEAT_NAV_SPEED_MULTIPLIER.get());
@@ -169,7 +173,7 @@ public final class CurseBackseatDriver extends Effect {
     }
 
     /**
-     * What the AI would love to drive into, in PRIORITY order — declaration order IS the priority, so the
+     * what the AI would love to drive into, in PRIORITY order — declaration order IS the priority, so the
      * scan always picks the best available type and only falls back to proximity within that type.
      */
     private enum Hazard {
@@ -182,7 +186,7 @@ public final class CurseBackseatDriver extends Effect {
     }
 
     /**
-     * Best "stupid action" target in range: the highest-priority hazard type present, nearest-first within
+     * best "stupid action" target in range: the highest-priority hazard type present, nearest-first within
      * that type. Blocks are sampled on a coarse grid so it stays cheap enough to run while riding.
      */
     @Nullable
@@ -193,7 +197,7 @@ public final class CurseBackseatDriver extends Effect {
         HazardScan scan = new HazardScan(from);
         AABB box = vehicle.getBoundingBox().inflate(radius);
 
-        // Entity hazards.
+        // entity hazards.
         for (PrimedTnt tnt : level.getEntitiesOfClass(PrimedTnt.class, box)) {
             scan.consider(Hazard.LIT_TNT, tnt.position());
         }
@@ -201,7 +205,7 @@ public final class CurseBackseatDriver extends Effect {
             scan.consider(Hazard.HOSTILE, mob.position());
         }
 
-        // Block hazards.
+        // block hazards.
         for (int dx = -radius; dx <= radius; dx += 3) {
             for (int dz = -radius; dz <= radius; dz += 3) {
                 if (dx == 0 && dz == 0) {
@@ -213,7 +217,7 @@ public final class CurseBackseatDriver extends Effect {
         return scan.best();
     }
 
-    /** Records every block hazard in one sampled column: lava, water, cacti, or a nasty drop. */
+    /** records every block hazard in one sampled column: lava, water, cacti, or a nasty drop. */
     private static void scanColumn(ServerLevel level, BlockPos column, int riderY, HazardScan scan) {
         for (int dy = 1; dy >= -2; dy--) {
             BlockPos pos = column.atY(riderY + dy);
@@ -226,7 +230,7 @@ public final class CurseBackseatDriver extends Effect {
                 scan.consider(Hazard.CACTUS, Vec3.atCenterOf(pos));
             }
         }
-        // Ledge: nothing solid for several blocks under this column means a drop worth running off.
+        // ledge: nothing solid for several blocks under this column means a drop worth running off.
         for (int dy = 0; dy >= -3; dy--) {
             if (!level.getBlockState(column.atY(riderY + dy)).isAir()) {
                 return; // ground is close, not a ledge
@@ -235,7 +239,7 @@ public final class CurseBackseatDriver extends Effect {
         scan.consider(Hazard.LEDGE, Vec3.atCenterOf(column.atY(riderY)));
     }
 
-    /** Keeps the nearest candidate per hazard type, then hands back the highest-priority one found. */
+    /** keeps the nearest candidate per hazard type, then hands back the highest-priority one found. */
     private static final class HazardScan {
         private final Vec3 from;
         private final Vec3[] nearest = new Vec3[Hazard.values().length];

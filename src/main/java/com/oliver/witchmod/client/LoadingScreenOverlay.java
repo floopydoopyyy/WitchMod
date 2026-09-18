@@ -11,14 +11,11 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 
 /**
- * The Loading Screen curse's fake fullscreen overlay: an animated sprite, a progress bar, a live percentage
- * and a tip scrolling along the bottom. All timing lives in {@link LoadingScreenState}; this only draws
- * whatever that says the current state is.
- *
- * <p>Registered above every other HUD layer so it covers the lot. The page is a <b>slightly translucent
- * white</b> — the visual interest comes from the world showing faintly through it rather than from anything
- * painted on. Everything except the animation strip is drawn from plain fills, so the whole look lives in
- * the constants below; see CLAUDE.md 13.6 for which one moves which element.
+ * the loading screen curse's fake fullscreen overlay: animated sprite, progress bar, live percentage and a
+ * tip scrolling along the bottom. all timing lives in {@link LoadingScreenState}; this only draws the current
+ * state. registered above every other hud layer so it covers the lot. the page is a slightly translucent
+ * white — the interest is the world showing faintly through it, so it needs no painted decoration; the whole
+ * look lives in the constants below.
  */
 public final class LoadingScreenOverlay implements LayeredDraw.Layer {
     private static final ResourceLocation ANIMATION =
@@ -27,7 +24,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
     private static final int BAR_WIDTH = 240;
     private static final int BAR_HEIGHT = 10;
 
-    /** Soft white, deliberately not fully opaque so the world reads through as the background interest. */
+    /** soft white, deliberately not fully opaque so the world reads through as the background interest. */
     private static final int BACKGROUND = 0xDCF7F5F0;
     private static final int BAR_RIM = 0xFFA9B79A;      // muted sage — the accent, quiet next to the fill
     private static final int BAR_BACKING = 0xFF3A3A3A;
@@ -41,7 +38,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
 
     private static final String LOADING_WORD = "Loading";
 
-    // Layout. Vertical positions are measured from the centre so they scale with the window; everything is
+    // layout. Vertical positions are measured from the centre so they scale with the window; everything is
     // horizontally centred.
     private static final int ANIMATION_BASE = 18; // where the chest's feet sit, below centre
     private static final int TEXT_Y = 60;         // "Loading..." baseline, below centre
@@ -67,7 +64,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
     }
 
     /**
-     * One frame of the sprite sheet, centred and sitting on a soft shadow. Handles both sheet layouts: a
+     * one frame of the sprite sheet, centred and sitting on a soft shadow. Handles both sheet layouts: a
      * vertical column (Aseprite's default export, which the shipped chest sheet is) or a horizontal row.
      */
     private static void drawAnimation(GuiGraphics guiGraphics, int width, int height) {
@@ -83,7 +80,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
         float v = vertical ? (float) frame * frameHeight : 0.0F;
 
         int base = height / 2 + ANIMATION_BASE;
-        // Clamp so a very tall sheet on a very small GUI can't run off the top of the screen.
+        // clamp so a very tall sheet on a very small GUI can't run off the top of the screen.
         int y = Math.max(2, base - frameHeight);
 
         drawShadow(guiGraphics, width / 2, base);
@@ -103,7 +100,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
     }
 
     private static void drawBarAndCaption(GuiGraphics guiGraphics, Font font, int width, int height) {
-        // Cycles "Loading." -> ".." -> "..." so the screen never looks frozen, even mid-stutter. Centred on
+        // cycles "Loading." -> ".." -> "..." so the screen never looks frozen, even mid-stutter. Centred on
         // the WIDEST form so it can't twitch sideways as the dots come and go, and drawn without a shadow,
         // which would read as mud against a light background.
         String caption = LOADING_WORD + ".".repeat(LoadingScreenState.loadingDots());
@@ -131,7 +128,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
                 y + (BAR_HEIGHT - font.lineHeight) / 2 + 1, FAINT_COLOUR, false);
     }
 
-    /** The hairline rule and the scrolling tip. */
+    /** the hairline rule and the scrolling tip. */
     private static void drawFooter(GuiGraphics guiGraphics, Font font, DeltaTracker deltaTracker,
                                    int width, int height) {
         int margin = Math.max(16, width / 8);
@@ -141,7 +138,7 @@ public final class LoadingScreenOverlay implements LayeredDraw.Layer {
         drawScrollingTip(guiGraphics, font, deltaTracker, width, height);
     }
 
-    /** The tip marquee: scrolls right-to-left, and moves to the next tip once it has fully left the screen. */
+    /** the tip marquee: scrolls right-to-left, and moves to the next tip once it has fully left the screen. */
     private static void drawScrollingTip(GuiGraphics guiGraphics, Font font, DeltaTracker deltaTracker,
                                          int width, int height) {
         String tip = LoadingScreenState.currentTip();

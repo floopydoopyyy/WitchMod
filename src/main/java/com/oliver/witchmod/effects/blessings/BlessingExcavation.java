@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
 
@@ -16,7 +18,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * The more you dig, the faster you dig (master-spec Excavation, sacrificial item IRON PICKAXE). Constantly
+ * the more you dig, the faster you dig. Constantly
  * breaking blocks builds a mining-speed bonus that ramps and ramps ({@code excavationRampPerBlock} per block,
  * up to {@code excavationMaxBonus}) — great for mindlessly clearing out big areas, where it gets really fast.
  * Stop for {@code excavationDecayGraceTicks} and it bleeds back down.
@@ -34,7 +36,7 @@ public final class BlessingExcavation extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.IRON_PICKAXE);
     }
 
-    /** You find out the first time the digging starts to snowball (Rule 2). */
+    /** you find out the first time the digging starts to snowball (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -57,14 +59,21 @@ public final class BlessingExcavation extends Effect {
         if (bonus <= 0.0F) {
             return;
         }
-        long idle = target.serverLevel().getGameTime() - LAST_MINE.getOrDefault(target.getUUID(), 0L);
+        long now = target.serverLevel().getGameTime();
+        long idle = now - LAST_MINE.getOrDefault(target.getUUID(), 0L);
         if (idle > Config.EXCAVATION_DECAY_GRACE.get()) {
             target.setData(WitchModAttachments.EXCAVATION_BONUS,
                     Math.max(0.0F, bonus - Config.EXCAVATION_DECAY_PER_TICK.get().floatValue()));
+        } else if (now % 3 == 0) {
+            // subtle sparks while actively digging — more of them the faster you're going.
+            float frac = Math.min(1.0F, bonus / Config.EXCAVATION_MAX_BONUS.get().floatValue());
+            ServerLevel level = target.serverLevel();
+            level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5,
+                    target.getZ(), 1 + Math.round(frac * 5), 0.35, 0.4, 0.35, 0.05 + frac * 0.15);
         }
     }
 
-    /** Called when an Excavation player breaks a block — ramps the bonus up and marks the mine time. */
+    /** called when an Excavation player breaks a block — ramps the bonus up and marks the mine time. */
     public void onBlockBroken(ServerPlayer player) {
         float bonus = Math.min(Config.EXCAVATION_MAX_BONUS.get().floatValue(),
                 Math.max(0.0F, player.getData(WitchModAttachments.EXCAVATION_BONUS))

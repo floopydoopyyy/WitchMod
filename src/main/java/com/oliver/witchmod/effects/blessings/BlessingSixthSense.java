@@ -36,7 +36,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
 
 /**
- * A prickle at the back of your neck (master-spec Sixth Sense, sacrificial item COMPASS): every so often you
+ * A prickle at the back of your neck: every so often you
  * get a detailed hint on the ACTION BAR about something nearby — another player, an ordinary structure, or a
  * rare biome — with a compass direction and rough distance.
  *
@@ -52,22 +52,22 @@ public final class BlessingSixthSense extends Effect {
 
     private record Sense(TagKey<Structure> tag, String name) {}
 
-    /** Ordinary structures — common enough to be flavour, on the normal cadence. */
+    /** ordinary structures — common enough to be flavour, on the normal cadence. */
     private static final List<Sense> STRUCTURES = List.of(
             new Sense(StructureTags.VILLAGE, "a village"),
             new Sense(StructureTags.MINESHAFT, "a mineshaft"),
             new Sense(StructureTags.SHIPWRECK, "a shipwreck"),
             new Sense(StructureTags.RUINED_PORTAL, "a ruined portal"),
             new Sense(StructureTags.OCEAN_RUIN, "ocean ruins"),
-            new Sense(StructureTags.EYE_OF_ENDER_LOCATED, "a stronghold"),
             new Sense(StructureTags.ON_TRIAL_CHAMBERS_MAPS, "a trial chamber"));
 
-    /** Rare, high-value structures — the override list, each its own witchmod tag so it can be named. */
+    /** rare, high-value structures — the override list, each its own witchmod tag so it can be named. */
     private static final List<Sense> RARE_STRUCTURES = List.of(
             new Sense(rareTag("rare_ancient_city"), "an ancient city"),
             new Sense(rareTag("rare_end_city"), "an end city"),
             new Sense(rareTag("rare_bastion_remnant"), "a bastion remnant"),
             new Sense(rareTag("rare_fortress"), "a nether fortress"),
+            new Sense(rareTag("rare_stronghold"), "a stronghold"),
             new Sense(rareTag("rare_buried_treasure"), "buried treasure"));
 
     private static final List<ResourceKey<Biome>> RARE_BIOMES = List.of(
@@ -83,7 +83,7 @@ public final class BlessingSixthSense extends Effect {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.COMPASS);
     }
 
-    /** You find out the first time an insight surfaces (Rule 2). */
+    /** you find out the first time an insight surfaces (Rule 2). */
     @Override
     public java.util.Optional<String> scryingDetail(ServerPlayer target) {
         int next = NEXT.getOrDefault(target.getUUID(), 0);
@@ -120,7 +120,7 @@ public final class BlessingSixthSense extends Effect {
         }
         ServerLevel level = target.serverLevel();
 
-        // Rare override FIRST: if something valuable is nearby, announce it and wait the longer cooldown.
+        // rare override FIRST: if something valuable is nearby, announce it and wait the longer cooldown.
         Component rare = senseRareStructure(level, target);
         if (rare != null) {
             show(target, rare);
@@ -128,7 +128,7 @@ public final class BlessingSixthSense extends Effect {
             return;
         }
 
-        // Otherwise an ordinary hint: try the three categories in a random order, show the first that resolves.
+        // otherwise an ordinary hint: try the three categories in a random order, show the first that resolves.
         List<Integer> order = new ArrayList<>(List.of(0, 1, 2));
         java.util.Collections.shuffle(order, new java.util.Random(target.getRandom().nextLong()));
         for (int category : order) {
@@ -162,7 +162,7 @@ public final class BlessingSixthSense extends Effect {
         markDiscoveredByVictim(target);
     }
 
-    /** The nearest rare structure that can generate in this dimension, or null if none is in range. */
+    /** the nearest rare structure that can generate in this dimension, or null if none is in range. */
     @Nullable
     private static Component senseRareStructure(ServerLevel level, ServerPlayer self) {
         int radius = Config.SIXTHSENSE_RARE_RADIUS_CHUNKS.get();
@@ -187,7 +187,7 @@ public final class BlessingSixthSense extends Effect {
         String dir = direction(self.getX(), self.getZ(), bestPos.getX(), bestPos.getZ());
         int dist = (int) Math.sqrt(bestDist);
         return Component.literal("Your sixth sense stirs — " + bestName + " to the " + dir + ", ~" + dist + " blocks")
-                .withStyle(ChatFormatting.GOLD);
+.withStyle(ChatFormatting.GOLD);
     }
 
     @Nullable

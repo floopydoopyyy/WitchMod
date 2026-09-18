@@ -11,9 +11,7 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * Sure-footed and forgiving (master-spec Coyote — renamed from the prototype "Civilisation", id
- * {@code civilisation} → {@code coyote}, since display names derive from the id path; sacrificial item RAW
- * BEEF). Parkour is easier:
+ * sure-footed and forgiving. Parkour is easier:
  * <ul>
  *   <li><b>Coyote time</b> — you can still jump for {@code coyoteTicks} after walking off a ledge.</li>
  *   <li><b>Edge magnetism</b> — while airborne you're gently biased toward ledge edges you'd otherwise just

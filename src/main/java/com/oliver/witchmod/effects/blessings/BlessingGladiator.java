@@ -57,7 +57,7 @@ public final class BlessingGladiator extends Effect {
 
     private static final Map<UUID, Riposte> PENDING_RIPOSTE = new HashMap<>();
     private static final Map<UUID, PendingHit> PENDING_HIT = new HashMap<>();
-    /** Tick the current window OPENED — projectile parries use this for a wider (both-ends) catch window than melee. */
+    /** tick the current window OPENED — projectile parries use this for a wider (both-ends) catch window than melee. */
     private static final Map<UUID, Long> WINDOW_OPEN = new HashMap<>();
     @Nullable private static Field attackTickerField;
     private static boolean attackTickerResolved;
@@ -112,26 +112,26 @@ public final class BlessingGladiator extends Effect {
         return stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
     }
 
-    /** Records an unparried melee hit so a slightly-late parry (leeway) can still catch it. */
+    /** records an unparried melee hit so a slightly-late parry (leeway) can still catch it. */
     public static void recordLeewayHit(ServerPlayer player, int attackerId, float damage) {
         PENDING_HIT.put(player.getUUID(), new PendingHit(attackerId, damage, player.serverLevel().getGameTime()));
     }
 
-    /** Right-clicked a sword/axe: a reactive (leeway) parry if a hit just landed, else open a fresh window. */
+    /** right-clicked a sword/axe: a reactive (leeway) parry if a hit just landed, else open a fresh window. */
     public static void tryStartParry(ServerPlayer player) {
         if (player.isBlocking() || !isParryWeapon(player.getMainHandItem())) {
             return;
         }
         long now = player.serverLevel().getGameTime();
 
-        // Leeway: caught a hit a fraction of a second ago? Parry it retroactively (refund the damage).
+        // leeway: caught a hit a fraction of a second ago? Parry it retroactively (refund the damage).
         PendingHit ph = PENDING_HIT.get(player.getUUID());
         if (ph != null && now - ph.tick() <= Config.GLADIATOR_LEEWAY_TICKS.get() && player.isAlive()) {
             Entity attacker = player.serverLevel().getEntity(ph.attackerId());
             if (attacker instanceof LivingEntity living && living.isAlive() && isFront(player, attacker.position())) {
                 PENDING_HIT.remove(player.getUUID());
                 player.heal(ph.damage()); // undo the damage you just took...
-                player.setDeltaMovement(0.0, player.getDeltaMovement().y, 0.0); // ...and the knockback with it
+                player.setDeltaMovement(0.0, player.getDeltaMovement().y, 0.0); //...and the knockback with it
                 player.hurtMarked = true;
                 boolean perfect = now - ph.tick() <= Config.GLADIATOR_PERFECT_TICKS.get();
                 succeedMeleeParry(player, living, perfect);
@@ -161,14 +161,14 @@ public final class BlessingGladiator extends Effect {
         if (parryEnd <= 0 || now >= parryEnd || !isFront(player, attacker.position())) {
             return false;
         }
-        // Perfect if the danger arrived in the first few ticks of the window (you opened it just in time).
+        // perfect if the danger arrived in the first few ticks of the window (you opened it just in time).
         boolean perfect = (parryEnd - now) >= (Config.GLADIATOR_WINDOW_TICKS.get() - Config.GLADIATOR_PERFECT_TICKS.get());
         succeedMeleeParry(player, living, perfect);
         return true;
     }
 
     /**
-     * An EMPTY parry: a blockable, non-melee hit during the window (an explosion, a hurting-projectile impact
+     * an EMPTY parry: a blockable, non-melee hit during the window (an explosion, a hurting-projectile impact
      * that wasn't reflected, etc.) is simply turned aside — with no riposte, since there's no one to hit back.
      * Parries anything a shield could (not fall/drowning etc., which bypass shields), and only from the front.
      * This is what makes the parry a real ALTERNATIVE to a shield rather than a strictly-worse one.
@@ -187,7 +187,7 @@ public final class BlessingGladiator extends Effect {
         if (srcPos != null && !isFront(player, srcPos)) {
             return false; // must face it, like a shield
         }
-        // Success — negate it. No riposte, no weapon-swing cooldown (you didn't swing).
+        // success — negate it. No riposte, no weapon-swing cooldown (you didn't swing).
         ServerLevel level = player.serverLevel();
         WINDOW_OPEN.remove(player.getUUID());
         player.setData(WitchModAttachments.GLADIATOR_PARRY_END, 0L);
@@ -210,7 +210,7 @@ public final class BlessingGladiator extends Effect {
             return false;
         }
         long now = player.serverLevel().getGameTime();
-        // Projectiles use a WIDER catch window than melee (a few ticks of slack on each side of the window),
+        // projectiles use a WIDER catch window than melee (a few ticks of slack on each side of the window),
         // and it survives the window's whiff so a fast shot caught in the tail still counts.
         Long open = WINDOW_OPEN.get(player.getUUID());
         if (open == null) {
@@ -233,7 +233,7 @@ public final class BlessingGladiator extends Effect {
                 now + Math.round(Config.GLADIATOR_COOLDOWN_SECONDS.get() * 20.0));
         setWeaponCooldown(player, Config.GLADIATOR_SWORD_COOLDOWN_TICKS.get()); // reflect -> sword swing timing
 
-        // Send it where you're aiming, with a soft assist toward an entity roughly in your view.
+        // send it where you're aiming, with a soft assist toward an entity roughly in your view.
         Vec3 look = player.getLookAngle();
         Vec3 aim = look;
         LivingEntity assist = coneTarget(player, look, Config.GLADIATOR_REFLECT_AIM_CONE.get(), Config.GLADIATOR_REFLECT_AIM_RANGE.get());
@@ -277,6 +277,10 @@ public final class BlessingGladiator extends Effect {
         parryFx(player, attacker.position(), perfect);
         shake(player, Config.GLADIATOR_SHAKE_STRENGTH.get() * (perfect ? 1.7 : 1.0), now);
         Blessings.GLADIATOR.get().markDiscoveredByVictim(player);
+        // parry_frenzy synergy (with Berserker): a clean parry banks a chunk of berserker stacks.
+        if (com.oliver.witchmod.synergy.Synergies.PARRY_FRENZY.activeFor(player)) {
+            BlessingBerserker.addStacks(player, Config.BERSERKER_GLADIATOR_PARRY_STACKS.get());
+        }
     }
 
     private static void whiff(ServerPlayer player, long now) {
@@ -306,7 +310,7 @@ public final class BlessingGladiator extends Effect {
         float mult = r.perfect() ? Config.GLADIATOR_PERFECT_DAMAGE_MULT.get().floatValue()
                 : Config.GLADIATOR_RIPOSTE_DAMAGE_MULT.get().floatValue();
         if (r.perfect()) {
-            // Stun so the knockback isn't shrugged off.
+            // stun so the knockback isn't shrugged off.
             int stun = Config.GLADIATOR_PERFECT_STUN_TICKS.get();
             victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, stun, 6, false, true));
             victim.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, stun, 1, false, true));
@@ -362,7 +366,7 @@ public final class BlessingGladiator extends Effect {
 
     // --- Helpers -----------------------------------------------------------------------------------------
 
-    /** The living entity best aligned with the player's look, within the cone + range (assist-aim target). */
+    /** the living entity best aligned with the player's look, within the cone + range (assist-aim target). */
     @Nullable
     private static LivingEntity coneTarget(ServerPlayer player, Vec3 look, double coneDegrees, double range) {
         double minDot = Math.cos(Math.toRadians(coneDegrees));
@@ -401,7 +405,7 @@ public final class BlessingGladiator extends Effect {
     }
 
     /**
-     * Impose a fixed weapon swing cooldown of {@code cooldownTicks}, whatever weapon is held. The ticker
+     * impose a fixed weapon swing cooldown of {@code cooldownTicks}, whatever weapon is held. The ticker
      * counts up to the held item's delay; setting it to {@code delay - cooldownTicks} (allowed to go negative
      * — the attack-strength SCALE is clamped to 0 while it's below zero) makes the recharge take exactly
      * {@code cooldownTicks}, so a sword's timing or an axe's timing can be applied to either weapon.
@@ -424,7 +428,7 @@ public final class BlessingGladiator extends Effect {
                 // non-fatal
             }
         }
-        // The attack-indicator reads the CLIENT player's ticker, so sync the ready-tick down and let the
+        // the attack-indicator reads the CLIENT player's ticker, so sync the ready-tick down and let the
         // client set its own ticker (server-side alone never shows the cooldown).
         player.setData(WitchModAttachments.GLADIATOR_WEAPON_READY, player.serverLevel().getGameTime() + cooldownTicks);
     }

@@ -3,6 +3,7 @@ package com.oliver.witchmod.effects.curses;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
@@ -13,7 +14,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 
 /**
- * Everything thrown in your general direction finds you (master-spec Magnet). Projectiles within
+ * everything thrown in your general direction finds you. Projectiles within
  * {@code RADIUS} have their velocity bent toward the victim every tick, so arrows that would have sailed
  * past instead curve in. It exists to make fighting at range miserable.
  *
@@ -31,7 +32,7 @@ public final class CurseMagnet extends Effect {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.LODESTONE);
     }
 
-    /** You find out the first time something visibly bends toward you (Rule 2). */
+    /** you find out the first time something visibly bends toward you (Rule 2). */
     @Override
     public boolean discoversOnTrigger() {
         return true;
@@ -60,6 +61,37 @@ public final class CurseMagnet extends Effect {
         if (steered > 0) {
             markDiscoveredByVictim(target);
         }
+
+        // beyond projectiles, harmful THINGS creep toward you too — subtly, so it reads as bad luck rather
+        // than a yank. Primed TNT is the headline case: it drifts your way while its fuse burns down.
+        double hazardPull = Config.MAGNET_HAZARD_PULL.get();
+        if (hazardPull > 0.0) {
+            for (PrimedTnt tnt : target.serverLevel().getEntitiesOfClass(PrimedTnt.class,
+                    target.getBoundingBox().inflate(radius))) {
+                Vec3 toVictim = target.position().subtract(tnt.position());
+                double d = toVictim.length();
+                if (d > 1.5) { // don't fuss with TNT already on top of you
+                    tnt.setDeltaMovement(tnt.getDeltaMovement().add(toVictim.normalize().scale(hazardPull)));
+                    tnt.hasImpulse = true;
+                    markDiscoveredByVictim(target);
+                }
+            }
+        }
+
+        // magnetic-storm synergy (with Thunder): in a thunderstorm under open sky you literally draw lightning.
+        net.minecraft.server.level.ServerLevel level = target.serverLevel();
+        if (level.isThundering() && level.canSeeSky(target.blockPosition())
+                && com.oliver.witchmod.data.EffectUtil.every(ticksRemaining, Config.MAGNET_STORM_INTERVAL.get())
+                && target.getRandom().nextInt(100) < Config.MAGNET_STORM_CHANCE.get()
+                && com.oliver.witchmod.synergy.Synergies.MAGNETIC_STORM.activeFor(target)) {
+            net.minecraft.world.entity.LightningBolt bolt =
+                    net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(level);
+            if (bolt != null) {
+                bolt.moveTo(Vec3.atBottomCenterOf(target.blockPosition()));
+                level.addFreshEntity(bolt);
+                markDiscoveredByVictim(target);
+            }
+        }
     }
 
     private static boolean isOwnedBy(Projectile projectile, ServerPlayer target) {
@@ -79,7 +111,7 @@ public final class CurseMagnet extends Effect {
             return false;
         }
 
-        // Rotate toward the victim, then restore the original speed — see the class note on why this is a
+        // rotate toward the victim, then restore the original speed — see the class note on why this is a
         // steer rather than a pull.
         Vec3 aimed = velocity.normalize().lerp(toVictim.normalize(), strength);
         if (aimed.lengthSqr() < 1.0E-6) {
@@ -89,7 +121,7 @@ public final class CurseMagnet extends Effect {
         projectile.setDeltaMovement(result);
         projectile.hasImpulse = true;
 
-        // Point it where it's actually going, or arrows visibly fly sideways down their old heading.
+        // point it where it's actually going, or arrows visibly fly sideways down their old heading.
         projectile.setYRot((float) (Mth.atan2(result.x, result.z) * (180.0 / Math.PI)));
         projectile.setXRot((float) (Mth.atan2(result.y, result.horizontalDistance()) * (180.0 / Math.PI)));
         projectile.yRotO = projectile.getYRot();

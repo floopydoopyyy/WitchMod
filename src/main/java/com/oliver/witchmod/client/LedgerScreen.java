@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
- * The Ledger's custom screen: a scrollable list of nearby ritual activity (who cursed/blessed whom, with the
+ * the Ledger's custom screen: a scrollable list of nearby ritual activity (who cursed/blessed whom, with the
  * modifier used and how long ago), newest first. Opened by right-clicking a Ledger block, populated from a
  * {@link WitchModNetwork.LedgerPayload} the server range-filters. Paper-scribbled entries render as an
  * unreadable obfuscated scrawl.
@@ -55,7 +55,7 @@ public final class LedgerScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        // No-op: the dim is drawn as border strips in render() so it never lands over the parchment.
+        // no-op: the dim is drawn as border strips in render() so it never lands over the parchment.
     }
 
     @Override
@@ -64,7 +64,7 @@ public final class LedgerScreen extends Screen {
         int left = (this.width - PANEL_W) / 2;
         int top = (this.height - PANEL_H) / 2;
 
-        // Dim only OUTSIDE the panel (opaque panel + translucent dim in the same pass would otherwise clash).
+        // dim only OUTSIDE the panel (opaque panel + translucent dim in the same pass would otherwise clash).
         int ox0 = left - 3, oy0 = top - 3, ox1 = left + PANEL_W + 3, oy1 = top + PANEL_H + 3;
         g.fill(0, 0, this.width, oy0, DIM);
         g.fill(0, oy1, this.width, this.height, DIM);
@@ -75,7 +75,7 @@ public final class LedgerScreen extends Screen {
         g.fill(left - 1, top - 1, left + PANEL_W + 1, top + PANEL_H + 1, FRAME_HI);
         g.fill(left, top, left + PANEL_W, top + PANEL_H, PAGE);
 
-        // Header.
+        // header.
         Component title = Component.literal("The Ledger").withStyle(s -> s.withBold(true));
         g.drawString(font, title, left + PANEL_W / 2 - font.width(title) / 2, top + 8, PURPLE, false);
         String sub = "recent activity within " + range + " blocks";
@@ -128,7 +128,7 @@ public final class LedgerScreen extends Screen {
             g.fill(x, y + ROW_H - 3, x + w, y + ROW_H - 2, 0x11000000);
             return;
         }
-        // Line 1: caster → target.
+        // line 1: caster → target.
         var purple = net.minecraft.network.chat.TextColor.fromRgb(PURPLE & 0xFFFFFF);
         var soft = net.minecraft.network.chat.TextColor.fromRgb(INK_SOFT & 0xFFFFFF);
         net.minecraft.network.chat.MutableComponent who = Component.literal(row.caster()).withStyle(s -> s.withColor(purple))
@@ -136,7 +136,7 @@ public final class LedgerScreen extends Screen {
                 .append(Component.literal(row.target()).withStyle(s -> s.withColor(purple)));
         g.drawString(font, who, x, y, INK, false);
 
-        // Line 2: effect [+modifier] · result/age.
+        // line 2: effect [+modifier] · result/age.
         var green = net.minecraft.network.chat.TextColor.fromRgb(GREEN & 0xFFFFFF);
         net.minecraft.network.chat.MutableComponent line = Component.literal(row.effect())
                 .withStyle(s -> s.withBold(true));

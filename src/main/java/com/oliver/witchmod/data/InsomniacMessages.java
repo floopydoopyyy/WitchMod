@@ -17,11 +17,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Insomniac curse's writable pool of "you can't sleep" excuses, loaded from
- * {@code data/witchmod/text/insomniac.json} and reloadable with {@code /reload}. A plain JSON array of
- * strings — one is shown each time the victim tries and fails to get into bed.
- */
+/** insomniac's "can't sleep" excuses ({@code data/witchmod/text/insomniac.json}, /reload-able) — one shown per failed bedtime. */
 public final class InsomniacMessages extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "insomniac");

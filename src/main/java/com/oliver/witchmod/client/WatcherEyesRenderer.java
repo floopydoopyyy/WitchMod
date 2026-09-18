@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.entities.WatcherEyesEntity;
 
-/** Draws the {@link WatcherEyesEntity}: an invisible body plus the glowing {@link WatcherEyesEyesLayer}. */
+/** draws the {@link WatcherEyesEntity}: an invisible body plus the glowing {@link WatcherEyesEyesLayer}. */
 public final class WatcherEyesRenderer extends MobRenderer<WatcherEyesEntity, WatcherEyesModel<WatcherEyesEntity>> {
     public static final ModelLayerLocation LAYER =
             new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "watcher_eyes"), "main");

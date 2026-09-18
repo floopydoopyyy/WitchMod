@@ -1,14 +1,10 @@
 {
   "type": "minecraft:crafting_shaped",
   "key": {
-    "N": { "item": "minecraft:netherite_ingot" },
+    "N": { "item": "minecraft:iron_ingot" },
     "C": { "item": "witchmod:cursed_essence" },
     "G": { "item": "minecraft:glass" }
   },
-  "pattern": [
-    "GNG",
-    "GCG",
-    "GGG"
-  ],
+  "pattern": [ "GNG", "GCG", "GGG" ],
   "result": { "id": "witchmod:jar", "count": 1 }
 }

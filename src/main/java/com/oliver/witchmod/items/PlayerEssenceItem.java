@@ -13,13 +13,9 @@ import com.oliver.witchmod.data.PlayerEssenceData;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * Player Essence: a bottled trace of a specific player, used to target the Bewitching Table's rituals. Bound
- * to a player's UUID (which never changes) — that UUID picks a fixed "colour" of essence via the item model,
- * a purely visual differential so you can tell whose essence you're holding at a glance.
- *
- * <p>The tooltip names the target by username (even offline) and, on the client, tells you whether they're
- * currently online. An UNBOUND essence (no target) is the funny fallback — see the {@code no_target} lang line.
- * A bound essence carries an enchantment glint; an empty one doesn't.
+ * player essence — a bottled trace of a player, used to target the table's rituals. bound to a uuid, which
+ * also picks a fixed essence "colour" via the item model. tooltip names the target (offline-aware) and shows
+ * online state; a bound essence carries a glint.
  */
 public final class PlayerEssenceItem extends BoundPlayerItem {
     public PlayerEssenceItem(Properties properties) {
@@ -30,7 +26,7 @@ public final class PlayerEssenceItem extends BoundPlayerItem {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         PlayerEssenceData bound = stack.get(WitchModDataComponents.BOUND_PLAYER);
         if (bound == null) {
-            // The fallback, editable in lang (item.witchmod.player_essence.no_target).
+            // the fallback, editable in lang (item.witchmod.player_essence.no_target).
             tooltip.add(Component.translatable("item.witchmod.player_essence.no_target")
                     .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
             return;
@@ -38,7 +34,7 @@ public final class PlayerEssenceItem extends BoundPlayerItem {
         tooltip.add(Component.translatable("item.witchmod.player_essence.target",
                 Component.literal(bound.playerName()).withStyle(ChatFormatting.WHITE)).withStyle(ChatFormatting.GRAY));
 
-        // Online status is a client-only lookup (tooltips render on the client); skip it server-side.
+        // online status is a client-only lookup (tooltips render on the client); skip it server-side.
         if (FMLEnvironment.dist == Dist.CLIENT) {
             Boolean online = EssenceTooltipClient.isOnline(bound.playerId());
             if (online != null) {

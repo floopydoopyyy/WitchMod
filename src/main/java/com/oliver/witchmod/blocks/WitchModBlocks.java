@@ -10,7 +10,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.oliver.witchmod.WitchMod;
 
-/** Registers all blocks: Amethyst Bell (Phase 3, section 3) and the Phase 4 blocks (section 2). */
+/** registers the mod's blocks: amethyst bell, cursed essence block, warding totem, ritual table, ledger. */
 public final class WitchModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(WitchMod.MODID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(WitchMod.MODID);
@@ -19,32 +19,32 @@ public final class WitchModBlocks {
             AmethystBellBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_PURPLE).noOcclusion().strength(2.5F));
     public static final DeferredItem<net.minecraft.world.item.BlockItem> AMETHYST_BELL_ITEM = ITEMS.registerSimpleBlockItem(AMETHYST_BELL);
 
-    /** Storage block for Cursed Essence (CLAUDE.md section 2.2); also the Global bank's currency unit. */
+    /** 9× cursed essence storage block; also bulk essence at the table. */
     public static final DeferredBlock<Block> CURSED_ESSENCE_BLOCK = BLOCKS.registerSimpleBlock("cursed_essence_block",
             BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_PURPLE).strength(5.0F, 6.0F).requiresCorrectToolForDrops());
     public static final DeferredItem<net.minecraft.world.item.BlockItem> CURSED_ESSENCE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem(CURSED_ESSENCE_BLOCK);
 
-    /**
-     * Radius-based curse/blessing shield (CLAUDE.md section 2.4). No recipe specified in the doc yet —
-     * command/creative only until one's decided (see Human Action Items).
-     */
+    /** radius-based curse/blessing shield. */
     public static final DeferredBlock<WardingTotemBlock> WARDING_TOTEM = BLOCKS.registerBlock("warding_totem",
             WardingTotemBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_LIGHT_BLUE).strength(3.0F).noOcclusion());
-    public static final DeferredItem<net.minecraft.world.item.BlockItem> WARDING_TOTEM_ITEM = ITEMS.registerSimpleBlockItem(WARDING_TOTEM);
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> WARDING_TOTEM_ITEM = ITEMS.register("warding_totem",
+            () -> new net.minecraft.world.item.BlockItem(WARDING_TOTEM.get(), new net.minecraft.world.item.Item.Properties()) {
+                @Override
+                public void appendHoverText(net.minecraft.world.item.ItemStack stack,
+                        net.minecraft.world.item.Item.TooltipContext context,
+                        java.util.List<net.minecraft.network.chat.Component> tooltip,
+                        net.minecraft.world.item.TooltipFlag flag) {
+                    tooltip.add(net.minecraft.network.chat.Component.translatable("item.witchmod.warding_totem.desc")
+                            .withStyle(net.minecraft.ChatFormatting.GRAY));
+                }
+            });
 
-    /**
-     * The ritual block (CLAUDE.md section 2.1). No real UI until Phase 5 — right-click with an item
-     * inserts it into the matching slot, right-click empty-handed casts, sneak + right-click empty-handed
-     * returns the contents.
-     */
+    /** the ritual table block — right-click opens its screen. */
     public static final DeferredBlock<BewitchingTableBlock> BEWITCHING_TABLE = BLOCKS.registerBlock("bewitching_table",
             BewitchingTableBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_PURPLE).strength(4.0F).noOcclusion());
     public static final DeferredItem<net.minecraft.world.item.BlockItem> BEWITCHING_TABLE_ITEM = ITEMS.registerSimpleBlockItem(BEWITCHING_TABLE);
 
-    /**
-     * Read-only book UI, accessed via a lectern-style block (CLAUDE.md section 2.3). Recipe: Wood +
-     * Compendium.
-     */
+    /** read-only ledger — a lectern-style block. */
     public static final DeferredBlock<LedgerBlock> LEDGER = BLOCKS.registerBlock("ledger",
             LedgerBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(2.5F).noOcclusion());
     public static final DeferredItem<net.minecraft.world.item.BlockItem> LEDGER_ITEM = ITEMS.registerSimpleBlockItem(LEDGER);

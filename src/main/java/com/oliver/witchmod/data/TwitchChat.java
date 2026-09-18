@@ -16,11 +16,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.oliver.witchmod.WitchMod;
 
-/**
- * The Chat blessing's fake-Twitch message pool, from {@code data/witchmod/text/twitch_chat.json}
- * ({@code /reload}-able). A keyed object: category → list of lines (see the file for the categories). The
- * server picks a category by what the streamer is doing and pulls a random line from it.
- */
+/** chat blessing's fake-twitch pool ({@code data/witchmod/text/twitch_chat.json}, /reload-able), keyed category → lines. */
 public final class TwitchChat extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
     private static final ResourceLocation FILE_ID = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "twitch_chat");
@@ -57,7 +53,7 @@ public final class TwitchChat extends SimpleJsonResourceReloadListener {
         categories = Map.copyOf(loaded);
     }
 
-    /** A random line from {@code category}, or from {@code generic}, or null if nothing is loaded. */
+    /** a random line from {@code category}, else {@code generic}, else null. */
     public static String pick(String category, RandomSource random) {
         List<String> lines = categories.get(category);
         if (lines == null || lines.isEmpty()) {
