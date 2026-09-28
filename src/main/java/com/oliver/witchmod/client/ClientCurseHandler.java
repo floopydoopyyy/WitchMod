@@ -45,6 +45,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
+import com.oliver.witchmod.ClientConfig;
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
@@ -288,6 +289,7 @@ public final class ClientCurseHandler {
     private static boolean screensaverSeen;
 
     private static boolean minorSeen;
+    private static boolean minorWasFullscreen; // Minor Inconvenience: whether the victim was fullscreen on cast, to restore on cure
     private static boolean wasInLiquid; // Bad Swimmer: tracks the surface-break for the entry plunge
     private static float loadingLockedYaw;   // Loading Screen: the view is frozen here for the duration
     private static float loadingLockedPitch;
@@ -701,6 +703,9 @@ public final class ClientCurseHandler {
         int points = (int) Mth.clamp(radius * 5.0, 32, 140);
         double y = player.getY() + 0.1;
         for (int i = 0; i < points; i++) {
+            if (!ClientConfig.particleAllowed()) {
+                continue; // client particle-density preference thins the ring
+            }
             double a = 2.0 * Math.PI * i / points;
             player.level().addParticle(LEADER_GOLD,
                     player.getX() + radius * Math.cos(a), y, player.getZ() + radius * Math.sin(a), 0.0, 0.0, 0.0);
@@ -731,7 +736,7 @@ public final class ClientCurseHandler {
             double x = allay.getX();
             double y = allay.getY();
             double z = allay.getZ();
-            if (kind != 9 && now % 3 == 0) { // halo (all but stealth)
+            if (kind != 9 && now % 3 == 0 && ClientConfig.particleAllowed()) { // halo (all but stealth)
                 double ha = now * 0.25;
                 for (int i = 0; i < 3; i++) {
                     double a = ha + i * (Math.PI * 2.0 / 3.0);
@@ -749,7 +754,7 @@ public final class ClientCurseHandler {
                 default -> null; // 8 (idle-still) / 9 (stealth) leave no trail
             };
             int cadence = (kind == 3 || kind == 5 || kind == 6 || kind == 7) ? 4 : 7;
-            if (trail != null && now % cadence == 0) {
+            if (trail != null && now % cadence == 0 && ClientConfig.particleAllowed()) {
                 mc.level.addParticle(trail, x, y + 0.3, z, 0.0, 0.0, 0.0);
             }
         }
@@ -792,6 +797,9 @@ public final class ClientCurseHandler {
         int points = 56;
         double y = player.getY() + 0.1;
         for (int i = 0; i < points; i++) {
+            if (!ClientConfig.particleAllowed()) {
+                continue; // client particle-density preference thins the ring
+            }
             double a = 2.0 * Math.PI * i / points;
             level.addParticle(net.minecraft.core.particles.ParticleTypes.COMPOSTER,
                     player.getX() + radius * Math.cos(a), y, player.getZ() + radius * Math.sin(a), 0.0, 0.0, 0.0);
@@ -1024,7 +1032,8 @@ public final class ClientCurseHandler {
      */
     private static void tickDwellerShader(Minecraft mc, LocalPlayer player) {
         float dread = player.getData(WitchModAttachments.DWELLER_DREAD);
-        boolean want = dread > 0.06F;
+        // client preference: post shaders can be hard-disabled, or the desaturation scaled down (0 = none).
+        boolean want = dread > 0.06F && ClientConfig.postShadersEnabled() && ClientConfig.screenShaderIntensity() > 0.0;
         if (want && !dwellerShaderActive && !dwellerShaderFailed) {
             try {
                 mc.gameRenderer.loadEffect(DWELLER_SHADER);
@@ -1039,6 +1048,7 @@ public final class ClientCurseHandler {
         if (dwellerShaderActive) {
             float amount = net.minecraft.util.Mth.clamp((dread - 0.06F) / (0.85F - 0.06F), 0.0F, 1.0F);
             amount = amount * amount * amount; // very drawn out — barely there until dread is high, bites near the top
+            amount *= (float) ClientConfig.screenShaderIntensity(); // client preference eases the desaturation
             try {
                 if (postEffectField == null) {
                     postEffectField = net.minecraft.client.renderer.GameRenderer.class.getDeclaredField("postEffect");
@@ -1248,7 +1258,11 @@ public final class ClientCurseHandler {
         if (t <= 0.0) {
             return;
         }
-        double strength = Config.VERTIGO_CAMERA_STRENGTH.get() * t * (dizzy ? Config.DIZZY_HEIGHTS_SWAY_MULT.get() : 1.0);
+        double strength = Config.VERTIGO_CAMERA_STRENGTH.get() * t * (dizzy ? Config.DIZZY_HEIGHTS_SWAY_MULT.get() : 1.0)
+                * ClientConfig.cameraShakeMultiplier(); // the shake slider also eases vertigo's camera sway
+        if (strength <= 0.0) {
+            return;
+        }
         double clock = System.nanoTime() / 1.0e9;
         event.setRoll((float) (event.getRoll() + Math.sin(clock * 1.7) * strength));
         event.setPitch((float) (event.getPitch() + Math.sin(clock * 1.3) * strength * 0.5));
@@ -1399,6 +1413,9 @@ public final class ClientCurseHandler {
             for (double y = gap; y <= top; y += 0.5) {
                 double angle = y * 1.15 + spin;
                 for (int strand = 0; strand < 2; strand++) {
+                    if (!ClientConfig.particleAllowed()) {
+                        continue; // client particle-density preference thins the pillar
+                    }
                     double a = angle + strand * Math.PI;
                     mc.level.addParticle(ParticleTypes.END_ROD,
                             p.getX() + Math.cos(a) * radius, p.getY() + y, p.getZ() + Math.sin(a) * radius, 0, 0, 0);
@@ -1431,6 +1448,42 @@ public final class ClientCurseHandler {
                     : com.oliver.witchmod.blocks.AmethystBellEffects.applyRampTicks();
             float progress = net.minecraft.util.Mth.clamp((duration - (end - now)) / (float) duration, 0F, 1F);
             com.oliver.witchmod.blocks.AmethystBellEffects.emitConsume(mc.level, p, progress, fizzle);
+        }
+    }
+
+    private static final net.minecraft.core.particles.DustParticleOptions GRENADE_GOLD =
+            new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.86F, 0.35F), 1.3F);
+
+    /** the holy grenade's shockwave "overtake" — gold+holy motes gathering over a player, client-rendered off
+     *  the synced GRENADE_CLEANSE_END so the server never streams the particles. mirrors the bell consume. */
+    private static void tickGrenadeCleanse(Minecraft mc) {
+        if (mc.level == null) {
+            return;
+        }
+        long now = mc.level.getGameTime();
+        int duration = Config.GRENADE_SHOCKWAVE_TICKS.get();
+        for (Player p : mc.level.players()) {
+            long end = p.getData(WitchModAttachments.GRENADE_CLEANSE_END);
+            if (end <= now) {
+                continue;
+            }
+            float progress = net.minecraft.util.Mth.clamp((duration - (end - now)) / (float) duration, 0F, 1F);
+            net.minecraft.util.RandomSource r = mc.level.getRandom();
+            double w = p.getBbWidth() * 0.6, h = p.getBbHeight();
+            double cx = p.getX(), cy = p.getY(), cz = p.getZ();
+            int count = ClientConfig.scaledParticleCount(Math.round(1 + progress * progress * 12));
+            for (int i = 0; i < count; i++) {
+                mc.level.addParticle(GRENADE_GOLD, cx + (r.nextDouble() - 0.5) * 2 * w, cy + r.nextDouble() * h,
+                        cz + (r.nextDouble() - 0.5) * 2 * w, 0.0, 0.02, 0.0);
+            }
+            int inward = ClientConfig.scaledParticleCount(Math.round(progress * 4));
+            for (int i = 0; i < inward; i++) {
+                double a = r.nextDouble() * Math.PI * 2;
+                double rad = 1.6 * (1.0 - progress) + 0.5;
+                double px = cx + Math.cos(a) * rad, pz = cz + Math.sin(a) * rad, py = cy + r.nextDouble() * h;
+                mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD, px, py, pz,
+                        (cx - px) * 0.2, 0.0, (cz - pz) * 0.2);
+            }
         }
     }
 
@@ -1502,14 +1555,15 @@ public final class ClientCurseHandler {
             target = (float) net.minecraft.util.Mth.clamp(1.0 - dist / 22.0, 0.0, 1.0);
         }
         dwellerChaseRed += (target - dwellerChaseRed) * 0.08F; // smooth fade in/out
-        if (dwellerChaseRed < 0.02F) {
+        float shown = dwellerChaseRed * (float) ClientConfig.screenShaderIntensity(); // client preference eases the wash
+        if (shown < 0.02F) {
             return;
         }
         net.minecraft.client.gui.GuiGraphics g = event.getGuiGraphics();
         int w = g.guiWidth();
         int h = g.guiHeight();
-        int flatA = (int) (dwellerChaseRed * 40.0F);              // faint full-screen tint
-        int edgeA = (int) (dwellerChaseRed * 150.0F);             // stronger at the top/bottom edges
+        int flatA = (int) (shown * 40.0F);              // faint full-screen tint
+        int edgeA = (int) (shown * 150.0F);             // stronger at the top/bottom edges
         int red = 0x00FF0000;
         int band = h / 3;
         g.fill(0, 0, w, h, (flatA << 24) | red);
@@ -1546,6 +1600,9 @@ public final class ClientCurseHandler {
             return;
         }
         float a = Mth.clamp(left / 8.0F, 0.0F, 1.0F); // full white at the start, fading to nothing
+        if (ClientConfig.reduceFlashing()) {
+            a *= 0.25F; // photosensitivity: keep it a faint pulse, not a full white burst
+        }
         net.minecraft.client.gui.GuiGraphics g = event.getGuiGraphics();
         g.fill(0, 0, g.guiWidth(), g.guiHeight(), ((int) (a * 255) << 24) | 0x00FFFFFF);
     }
@@ -1639,6 +1696,32 @@ public final class ClientCurseHandler {
      * the MUSIC/RECORDS channels — so the only thing you ever hear is it. (The title screen can't be gated by a
      * per-player curse, so that's left alone.)
      */
+    /** the holy grenade's lightning is meant to be visual only — mute its (unconditional) thunder near a blast. */
+    @SubscribeEvent
+    static void onGrenadeSilenceLightning(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        net.minecraft.client.resources.sounds.SoundInstance sound = event.getSound();
+        Minecraft mc = Minecraft.getInstance();
+        if (sound == null || mc.level == null
+                || com.oliver.witchmod.entities.HolyHandGrenadeEntity.CLIENT_BLASTS.isEmpty()) {
+            return;
+        }
+        net.minecraft.resources.ResourceLocation loc = sound.getLocation();
+        if (!loc.equals(net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER.getLocation())
+                && !loc.equals(net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_IMPACT.getLocation())) {
+            return;
+        }
+        long now = mc.level.getGameTime();
+        var blasts = com.oliver.witchmod.entities.HolyHandGrenadeEntity.CLIENT_BLASTS;
+        blasts.removeIf(b -> now > b.expiry());
+        for (var b : blasts) {
+            double dx = sound.getX() - b.x(), dy = sound.getY() - b.y(), dz = sound.getZ() - b.z();
+            if (dx * dx + dy * dy + dz * dz <= 64.0) { // within 8 blocks of a recent blast
+                event.setSound(null);
+                return;
+            }
+        }
+    }
+
     @SubscribeEvent
     static void onDwellerSilenceMusic(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -1811,6 +1894,9 @@ public final class ClientCurseHandler {
         // ...and the Amethyst Bell's subtle toll jolt for anyone nearby.
         applyShake(event, now, mc.player.getData(WitchModAttachments.AMETHYST_BELL_SHAKE_END),
                 Config.BELL_SHAKE_TICKS.get(), Config.BELL_SHAKE_STRENGTH.get());
+        // ...and the Holy Hand Grenade's detonation jolt / shockwave rattle.
+        applyShake(event, now, mc.player.getData(WitchModAttachments.GRENADE_SHAKE_END),
+                Config.GRENADE_SHAKE_TICKS.get(), Config.GRENADE_SHAKE_STRENGTH.get());
     }
 
     /** one decaying random jolt on the camera ANGLES (never the real rotation), shared by both shake sources. */
@@ -1821,7 +1907,11 @@ public final class ClientCurseHandler {
         }
         int window = Math.max(1, windowTicks);
         double decay = Math.min(1.0, (end - now) / (double) window);
-        double strength = peakStrength * decay * decay;
+        // client preference: scale (or fully mute at 0) all screen shake.
+        double strength = peakStrength * decay * decay * ClientConfig.cameraShakeMultiplier();
+        if (strength <= 0.0) {
+            return;
+        }
         event.setYaw((float) (event.getYaw() + (SHAKE_RNG.nextDouble() - 0.5) * 2.0 * strength));
         event.setPitch((float) (event.getPitch() + (SHAKE_RNG.nextDouble() - 0.5) * 2.0 * strength));
         event.setRoll((float) (event.getRoll() + (SHAKE_RNG.nextDouble() - 0.5) * 2.0 * strength));
@@ -1889,6 +1979,7 @@ public final class ClientCurseHandler {
 
         // amethyst Bell: render the "consume" purple-dust ramp CLIENT-side (off the synced consume attachment).
         tickBellConsume(mc);
+        tickGrenadeCleanse(mc);
 
         // builder: zero the place/break delays so you can build and tear down at click speed.
         tickBuilder(mc, player);
@@ -1915,6 +2006,9 @@ public final class ClientCurseHandler {
             mc.getSoundManager().play(dwellerBreathing);
         }
 
+        // delusions: refresh which real players are being misidentified as other players (skin + nametag),
+        // before UglySkinManager reads the mapping to actually swap the skins.
+        DelusionMisidentify.tick(mc);
         // ugly: re-assert the swapped skin on every cursed player in view (and put faces back when cured).
         UglySkinManager.clientTick(mc);
 
@@ -2245,6 +2339,11 @@ public final class ClientCurseHandler {
         if (!active) {
             if (minorSeen) {
                 window.setTitle("Minecraft");
+                // put fullscreen back the way we found it on cast — the curse forced windowed, so a victim who
+                // was fullscreen would otherwise be left stuck in a window after the curse ends.
+                if (minorWasFullscreen && !window.isFullscreen()) {
+                    mc.options.fullscreen().set(true);
+                }
                 minorSeen = false;
             }
             return;
@@ -2252,6 +2351,7 @@ public final class ClientCurseHandler {
 
         if (!minorSeen) {
             WindowTitles.reload();   // pick up edits to the list without a restart
+            minorWasFullscreen = window.isFullscreen(); // remember it so we can restore on cure
             minorSeen = true;
             nextRenameTick = 0;      // rename immediately on activation
         }

@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -20,6 +21,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -83,6 +86,10 @@ public final class BodyguardEntity extends PathfinderMob {
     private int speakCooldown;
     private int warningHitCooldown;
     private int attackCooldown;
+    private int frenzyCooldown;
+    private int struggleCooldown;
+    private int recentTeleports;
+    private long teleportWindowStart;
     /** how long the current intruder has been crowding in AGGRESSION — past patience, steel comes out. */
     private int aggressionTicks;
     /** verbal warnings actually delivered to the current focus — patience won't draw steel below the minimum. */
@@ -252,6 +259,12 @@ public final class BodyguardEntity extends PathfinderMob {
         if (attackCooldown > 0) {
             attackCooldown--;
         }
+        if (frenzyCooldown > 0) {
+            frenzyCooldown--;
+        }
+        if (struggleCooldown > 0) {
+            struggleCooldown--;
+        }
 
         ServerPlayer anchor = anchorId == null ? null : level.getServer().getPlayerList().getPlayer(anchorId);
 
@@ -414,6 +427,31 @@ public final class BodyguardEntity extends PathfinderMob {
         }
         teleportTo(anchor.getX(), anchor.getY(), anchor.getZ()); // fallback: right on top of them
         getNavigation().stop();
+        noteStruggle();
+    }
+
+    /** repeated blink-backs in a short window (usually the anchor is airborne) earn a grumbled 'struggle' line. */
+    private void noteStruggle() {
+        if (!(level() instanceof ServerLevel level) || state == State.ATTACKING) {
+            return;
+        }
+        long now = level.getGameTime();
+        if (now - teleportWindowStart > Config.BODYGUARD_STRUGGLE_WINDOW_TICKS.get()) {
+            teleportWindowStart = now;
+            recentTeleports = 0;
+        }
+        recentTeleports++;
+        if (struggleCooldown > 0 || recentTeleports < Config.BODYGUARD_STRUGGLE_TELEPORTS.get()) {
+            return;
+        }
+        struggleCooldown = Config.BODYGUARD_STRUGGLE_COOLDOWN_TICKS.get();
+        List<String> tree = BodyguardLines.pickTree("struggle", getRandom());
+        if (!tree.isEmpty()) {
+            pendingLines.clear();
+            pendingLines.addAll(tree);
+            lineGap = 0;
+            speakCooldown = Config.BODYGUARD_DIALOGUE_COOLDOWN.get();
+        }
     }
 
     private boolean canStandAt(int x, int y, int z) {
@@ -479,6 +517,41 @@ public final class BodyguardEntity extends PathfinderMob {
         List<String> tree = BodyguardLines.pickTree(key, getRandom());
         if (!tree.isEmpty()) {
             pendingLines.addAll(tree);
+        }
+    }
+
+    /**
+     * the guardian angel whips the bodyguard into a frenzy (guarded_ally synergy): a burst of combat buffs, a
+     * war cry and drawn steel. {@code strong} is the full version (you're under attack + the angel is alive);
+     * the softer version fires when the angel dies. cooldown-gated so a run of hits can't re-buff every tick.
+     */
+    public void frenzy(boolean strong) {
+        if (!(level() instanceof ServerLevel level) || frenzyCooldown > 0) {
+            return;
+        }
+        frenzyCooldown = Config.GUARDED_ALLY_COOLDOWN_TICKS.get();
+        int dur = (strong ? Config.GUARDED_ALLY_STRONG_SECONDS.get() : Config.GUARDED_ALLY_SOFT_SECONDS.get()) * 20;
+        int amp = strong ? Config.GUARDED_ALLY_STRONG_AMPLIFIER.get() : Config.GUARDED_ALLY_SOFT_AMPLIFIER.get();
+        addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, dur, amp, false, true, true));
+        addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, dur, amp, false, true, true));
+        addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, dur, amp, false, true, true));
+        if (strong) {
+            addEffect(new MobEffectInstance(MobEffects.REGENERATION, dur, 0, false, true, true));
+            drawWeapon(); // spoiling for a fight
+        }
+        level.sendParticles(strong ? ParticleTypes.ANGRY_VILLAGER : ParticleTypes.CRIT,
+                getX(), getY() + getBbHeight() * 0.85, getZ(), strong ? 18 : 10, 0.3, 0.4, 0.3, strong ? 0.12 : 0.02);
+        level.playSound(null, blockPosition(), SoundEvents.IRON_GOLEM_ATTACK, SoundSource.HOSTILE, 1.0F, strong ? 0.75F : 1.1F);
+        // only the STRONG (under-attack) frenzy gets a war cry — the soft one on the angel's death stays silent
+        // (he already reacts to that in the companionship banter).
+        if (strong) {
+            List<String> tree = BodyguardLines.pickTree("frenzy", getRandom());
+            if (!tree.isEmpty()) {
+                pendingLines.clear();
+                pendingLines.addAll(tree);
+                lineGap = 0;
+                speakCooldown = Config.BODYGUARD_DIALOGUE_COOLDOWN.get();
+            }
         }
     }
 

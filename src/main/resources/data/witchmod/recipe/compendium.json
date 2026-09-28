@@ -1,8 +1,21 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:compendium"
+    }
+  ],
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "minecraft:book" },
-    { "item": "witchmod:cursed_essence" }
+    {
+      "item": "minecraft:book"
+    },
+    {
+      "item": "witchmod:cursed_essence"
+    }
   ],
-  "result": { "id": "witchmod:compendium", "count": 1 }
+  "result": {
+    "id": "witchmod:compendium",
+    "count": 1
+  }
 }

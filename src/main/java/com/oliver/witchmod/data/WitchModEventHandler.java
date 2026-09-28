@@ -24,6 +24,7 @@ public final class WitchModEventHandler {
     static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             GracePeriod.markFirstSeenIfAbsent(player);
+            DiscoveryManager.grantStarterDiscoveries(player); // one-time starter compendium entries
         }
     }
 

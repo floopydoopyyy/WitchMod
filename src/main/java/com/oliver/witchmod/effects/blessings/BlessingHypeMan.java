@@ -6,6 +6,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import java.util.Set;
+
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -13,14 +16,19 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.effects.Blessings;
+import com.oliver.witchmod.effects.BlessingEventHandler;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.HypeManMessages;
 import com.oliver.witchmod.data.Usernames;
@@ -42,8 +50,17 @@ public final class BlessingHypeMan extends Effect {
     /** blessed player -> game tick of their last praise, so all triggers share one cooldown. */
     private static final Map<UUID, Long> LAST_PRAISE = new HashMap<>();
 
-    /** the only trigger that fires with NOBODY around (using a made-up name); the rest need a real audience. */
-    private static final String SIGHTING = "nearby";
+    /** triggers that fire with NOBODY around (using a made-up name); the rest need a real audience. */
+    private static final Set<String> CROWDLESS = Set.of("nearby", "downtime");
+
+    /** the pool a compliment buff draws from — all wholesome positives. */
+    @SuppressWarnings("unchecked")
+    private static final Holder<MobEffect>[] BUFFS = new Holder[]{
+            MobEffects.MOVEMENT_SPEED, MobEffects.DAMAGE_BOOST, MobEffects.REGENERATION,
+            MobEffects.DAMAGE_RESISTANCE, MobEffects.JUMP, MobEffects.DIG_SPEED,
+            MobEffects.ABSORPTION, MobEffects.LUCK, MobEffects.FIRE_RESISTANCE,
+            MobEffects.WATER_BREATHING, MobEffects.NIGHT_VISION, MobEffects.HERO_OF_THE_VILLAGE
+    };
 
     /** the vanilla music-disc tag — any disc selects this blessing at the Table. */
     private static final TagKey<Item> MUSIC_DISCS =
@@ -75,6 +92,14 @@ public final class BlessingHypeMan extends Effect {
         if (EffectUtil.every(ticksRemaining, Config.HYPEMAN_AMBIENT_INTERVAL.get())) {
             praise(target, "nearby");
         }
+        // rarer downtime chatter: after a real lull with no praise at all, the crowd fills the silence.
+        if (EffectUtil.every(ticksRemaining, Config.HYPEMAN_DOWNTIME_INTERVAL.get())
+                && target.level() instanceof ServerLevel level) {
+            Long last = LAST_PRAISE.get(target.getUUID());
+            if (last == null || level.getGameTime() - last >= Config.HYPEMAN_DOWNTIME_THRESHOLD.get()) {
+                praise(target, "downtime");
+            }
+        }
     }
 
     /**
@@ -101,7 +126,7 @@ public final class BlessingHypeMan extends Effect {
         String speaker;
         if (!nearby.isEmpty()) {
             speaker = nearby.get(random.nextInt(nearby.size())).getGameProfile().getName();
-        } else if (key.equals(SIGHTING)) {
+        } else if (CROWDLESS.contains(key)) {
             speaker = Usernames.random(random);
         } else {
             return;
@@ -123,5 +148,23 @@ public final class BlessingHypeMan extends Effect {
         level.getPlayers(p -> p.distanceToSqr(blessed) <= radius * radius)
 .forEach(p -> p.sendSystemMessage(message));
         Blessings.HYPE_MAN.get().markDiscoveredByVictim(blessed); // discovered on the first cheer, not on cast
+
+        // being hyped up sets off the laugh track too (if you're carrying it), like the crowd cracking up.
+        if (EffectManager.isActive(blessed, Blessings.LAUGH_TRACK)) {
+            BlessingEventHandler.triggerLaughTrack(blessed);
+        }
+        // and a compliment sometimes leaves you glowing with a random buff.
+        if (random.nextDouble() < Config.HYPEMAN_BUFF_CHANCE.get()) {
+            grantComplimentBuff(blessed, random);
+        }
+    }
+
+    /** a compliment hands the blessed player a random wholesome buff for 10–60s. */
+    private static void grantComplimentBuff(ServerPlayer blessed, RandomSource random) {
+        int min = Config.HYPEMAN_BUFF_MIN_SECONDS.get();
+        int max = Math.max(min, Config.HYPEMAN_BUFF_MAX_SECONDS.get());
+        int seconds = min + random.nextInt(max - min + 1);
+        Holder<MobEffect> effect = BUFFS[random.nextInt(BUFFS.length)];
+        blessed.addEffect(new MobEffectInstance(effect, seconds * 20, 0, false, true, true));
     }
 }

@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.oliver.witchmod.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ShieldRaiseMixin"
+  ],
+  "client": [
+    "ListenerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -12,10 +12,9 @@ public final class ModifierCalculator {
     private ModifierCalculator() {}
 
     public static int applyCost(int baseCost, @Nullable Modifier modifier) {
-        if (modifier == null) {
-            return baseCost;
-        }
-        return Math.round(baseCost * (1 + modifier.costDeltaPercent() / 100F));
+        double delta = modifier == null ? 0.0 : modifier.costDeltaPercent() / 100.0;
+        // a global cost multiplier rides on top of the per-effect cost + modifier delta.
+        return Math.max(0, (int) Math.round(baseCost * (1 + delta) * Config.globalCostMultiplier()));
     }
 
     public static int applyDuration(int baseDurationTicks, @Nullable Modifier modifier,
@@ -34,6 +33,10 @@ public final class ModifierCalculator {
     /** {@code successChance = min(cap, floor + span * (essenceSpent / baseCost))}. */
     public static float baseSuccessChance(int essenceSpent, int baseCost) {
         float ratio = baseCost <= 0 ? 1F : (float) essenceSpent / baseCost;
+        // paying the full cost guarantees success when the config asks for it (no residual fizzle at full pay).
+        if (Config.guaranteedIfFullyPaid() && ratio >= 1.0F) {
+            return 1.0F;
+        }
         float floor = Config.SUCCESS_FLOOR_PERCENT.get() / 100F;
         float span = Config.SUCCESS_SPAN_PERCENT.get() / 100F;
         return Math.min(successCap(), floor + span * ratio);

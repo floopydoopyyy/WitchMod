@@ -7,7 +7,6 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -28,7 +27,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.DiscoveryManager;
-import com.oliver.witchmod.data.LedgerLog;
 import com.oliver.witchmod.network.WitchModNetwork;
 
 /**
@@ -81,16 +79,15 @@ public final class LedgerBlock extends Block implements EntityBlock {
         LedgerFeedback.register(level, pos); // make sure this Ledger reacts to future hexes this session
 
         int range = Config.LEDGER_RANGE.get();
-        GlobalPos here = GlobalPos.of(level.dimension(), pos);
         long now = level.getGameTime();
 
         List<WitchModNetwork.LedgerEntry> entries = new ArrayList<>();
-        for (LedgerLog.Entry e : LedgerLog.entriesNear(here, range)) {
-            String effect = DiscoveryManager.titleCase(e.effectId().getPath());
-            String modifier = e.modifier().orElse("");
-            String result = e.result() + " · " + ago(now - e.gameTime());
-            entries.add(new WitchModNetwork.LedgerEntry(
-                    e.casterName().orElse("(system)"), e.targetName(), effect, modifier, result, e.scribbled()));
+        if (level.getBlockEntity(pos) instanceof LedgerBlockEntity be) {
+            for (LedgerBlockEntity.Row r : be.newestFirst()) {
+                String effect = DiscoveryManager.titleCase(r.effectId().getPath());
+                String result = r.result() + " · " + ago(now - r.gameTime());
+                entries.add(new WitchModNetwork.LedgerEntry(r.caster(), r.target(), effect, r.modifier(), result, r.scribbled()));
+            }
         }
         PacketDistributor.sendToPlayer(serverPlayer, new WitchModNetwork.LedgerPayload(range, entries));
         return InteractionResult.SUCCESS;

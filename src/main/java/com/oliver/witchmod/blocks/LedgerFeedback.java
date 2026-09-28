@@ -61,6 +61,66 @@ public final class LedgerFeedback {
         }
     }
 
+    // the registry is in-memory, so a restart/reload would lose it — re-register ledgers as their chunks load
+    // (same as the Warding Totem) so a placed ledger keeps recording without needing to be opened first.
+    @SubscribeEvent
+    static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        net.minecraft.world.level.chunk.ChunkAccess chunk = event.getChunk();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        for (int si = 0; si < sections.length; si++) {
+            net.minecraft.world.level.chunk.LevelChunkSection sec = sections[si];
+            if (sec == null || sec.hasOnlyAir()) {
+                continue;
+            }
+            int y0 = level.getMinBuildHeight() + si * 16;
+            for (int x = 0; x < 16; x++) {
+                for (int y = 0; y < 16; y++) {
+                    for (int z = 0; z < 16; z++) {
+                        if (sec.getBlockState(x, y, z).getBlock() instanceof LedgerBlock) {
+                            register(level, new BlockPos(baseX + x, y0 + y, baseZ + z));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** push a logged cast into every registered Ledger within range of where it happened (event-driven, no scan). */
+    public static void record(com.oliver.witchmod.data.LedgerLog.Entry e) {
+        if (e.pos().isEmpty()) {
+            return;
+        }
+        net.minecraft.core.GlobalPos where = e.pos().get();
+        net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
+            return;
+        }
+        ServerLevel level = server.getLevel(where.dimension());
+        if (level == null) {
+            return;
+        }
+        Set<BlockPos> set = LEDGERS.get(level.dimension());
+        if (set == null || set.isEmpty()) {
+            return;
+        }
+        double r2 = (double) Config.LEDGER_RANGE.get() * Config.LEDGER_RANGE.get();
+        LedgerBlockEntity.Row row = new LedgerBlockEntity.Row(e.casterName().orElse("(system)"), e.targetName(),
+                e.effectId(), e.result(), e.gameTime(), e.scribbled(), e.modifier().orElse(""));
+        for (BlockPos lp : set) {
+            if (where.pos().distSqr(lp) > r2) {
+                continue;
+            }
+            if (level.getBlockEntity(lp) instanceof LedgerBlockEntity be) {
+                be.record(row);
+            }
+        }
+    }
+
     /** streams particles + a chime into every Ledger within range of a landed hex at {@code from}. */
     public static void pulse(ServerLevel level, Vec3 from, boolean blessing) {
         Set<BlockPos> set = LEDGERS.get(level.dimension());

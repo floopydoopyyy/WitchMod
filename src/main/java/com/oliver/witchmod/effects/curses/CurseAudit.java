@@ -69,12 +69,13 @@ public final class CurseAudit extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         if (ACTIVE.containsKey(target.getUUID())) {
-            return java.util.Optional.of("audit under way");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.audit.underway"));
         }
-        return java.util.Optional.of(
-                target.level().getGameTime() < COOLDOWN.getOrDefault(target.getUUID(), 0L) ? "audit complete" : "audit pending");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                target.level().getGameTime() < COOLDOWN.getOrDefault(target.getUUID(), 0L)
+                        ? "witchmod.scry.audit.complete" : "witchmod.scry.audit.pending"));
     }
 
     @Override

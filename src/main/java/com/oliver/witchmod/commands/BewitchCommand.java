@@ -6,9 +6,11 @@ import java.util.Optional;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
@@ -96,14 +98,50 @@ public final class BewitchCommand {
     // =====================================================================================================
 
     private static LiteralArgumentBuilder<CommandSourceStack> applyNode(CommandBuildContext context) {
-        // /bewitch apply <effect> [targets] [duration] — cast attributed to you (self if no targets).
+        // /bewitch apply <effect> [targets] [duration] [modifier] — cast attributed to you (self if no targets).
+        // A modifier name can be tacked on the end (after targets, or after duration) to apply it to the cast.
+        // NOTE the duration child is registered BEFORE the trailing modifier child at each level: a time arg
+        // ("45s") must be tried before the word modifier, or "45s" would be read as a (bogus) modifier name.
         return Commands.literal("apply")
                 .then(Commands.argument("effect", effectArg(context))
-                        .executes(ctx -> applyEffect(ctx, self(ctx), DEFAULT_EFFECT_DURATION_TICKS, false))
+                        .executes(ctx -> applyEffect(ctx, self(ctx), DEFAULT_EFFECT_DURATION_TICKS, false, null))
                         .then(Commands.argument("targets", EntityArgument.players())
-                                .executes(ctx -> applyEffect(ctx, targets(ctx), DEFAULT_EFFECT_DURATION_TICKS, false))
+                                .executes(ctx -> applyEffect(ctx, targets(ctx), DEFAULT_EFFECT_DURATION_TICKS, false, null))
                                 .then(Commands.argument("duration", TimeArgument.time(1))
-                                        .executes(ctx -> applyEffect(ctx, targets(ctx), duration(ctx), false)))));
+                                        .executes(ctx -> applyEffect(ctx, targets(ctx), duration(ctx), false, null))
+                                        .then(modifierArg(ctx -> applyWithModifierArg(ctx, targets(ctx), duration(ctx)))))
+                                .then(modifierArg(ctx -> applyWithModifierArg(ctx, targets(ctx), DEFAULT_EFFECT_DURATION_TICKS)))));
+    }
+
+    /** the trailing optional {@code <modifier>} argument node for apply, tab-completed from the Modifier ids. */
+    private static RequiredArgumentBuilder<CommandSourceStack, String> modifierArg(Command<CommandSourceStack> exec) {
+        return Commands.argument("modifier", StringArgumentType.word())
+                .suggests((c, b) -> SharedSuggestionProvider.suggest(
+                        java.util.Arrays.stream(Modifier.values()).map(Modifier::id), b))
+                .executes(exec);
+    }
+
+    /** resolves the trailing modifier arg, then applies with it (fails on an unknown modifier name). */
+    private static int applyWithModifierArg(CommandContext<CommandSourceStack> ctx, Collection<ServerPlayer> targets, int durationTicks)
+            throws CommandSyntaxException {
+        String id = StringArgumentType.getString(ctx, "modifier");
+        Modifier modifier = null;
+        for (Modifier m : Modifier.values()) {
+            if (m.id().equals(id)) {
+                modifier = m;
+                break;
+            }
+        }
+        if (modifier == null) {
+            ctx.getSource().sendFailure(Component.literal("Unknown modifier: " + id));
+            return 0;
+        }
+        if (Config.isModifierDisabled(modifier.id())) {
+            ctx.getSource().sendFailure(Component.literal("The " + DiscoveryManager.titleCase(modifier.id())
+                    + " modifier is disabled on this server."));
+            return 0;
+        }
+        return applyEffect(ctx, targets, durationTicks, false, modifier);
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> dummyNode(CommandBuildContext context) {
@@ -111,11 +149,11 @@ public final class BewitchCommand {
         // the Ledger, and (unlike a self-cast) a Ward/Warding Totem WILL block it, so it's the way to test them.
         return Commands.literal("dummy")
                 .then(Commands.argument("effect", effectArg(context))
-                        .executes(ctx -> applyEffect(ctx, self(ctx), DEFAULT_EFFECT_DURATION_TICKS, true))
+                        .executes(ctx -> applyEffect(ctx, self(ctx), DEFAULT_EFFECT_DURATION_TICKS, true, null))
                         .then(Commands.argument("targets", EntityArgument.players())
-                                .executes(ctx -> applyEffect(ctx, targets(ctx), DEFAULT_EFFECT_DURATION_TICKS, true))
+                                .executes(ctx -> applyEffect(ctx, targets(ctx), DEFAULT_EFFECT_DURATION_TICKS, true, null))
                                 .then(Commands.argument("duration", TimeArgument.time(1))
-                                        .executes(ctx -> applyEffect(ctx, targets(ctx), duration(ctx), true)))));
+                                        .executes(ctx -> applyEffect(ctx, targets(ctx), duration(ctx), true, null)))));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> removeNode(CommandBuildContext context) {
@@ -141,12 +179,15 @@ public final class BewitchCommand {
                                 .executes(ctx -> clearEffects(ctx, targets(ctx), EffectCategory.BLESSING))));
     }
 
-    /** Shared apply handler. {@code dummy} = cast with no caster (attributed "dummy"; blocked by Wards/Totems). */
+    /** Shared apply handler. {@code dummy} = cast with no caster (attributed "dummy"; blocked by Wards/Totems).
+     *  An optional {@code modifier} applies the Table modifier's cast-side behaviours (Clock duration, Ink Sac
+     *  hiding, Dragon's Breath splash, Goat Horn sound, ...) to the cast. */
     private static int applyEffect(CommandContext<CommandSourceStack> ctx, Collection<ServerPlayer> targets,
-                                   int durationTicks, boolean dummy) throws CommandSyntaxException {
+                                   int durationTicks, boolean dummy, @Nullable Modifier modifier) throws CommandSyntaxException {
         Holder.Reference<Effect> effect = effect(ctx);
         ServerPlayer caster = dummy ? null : ctx.getSource().getPlayer();
         String casterName = dummy ? "dummy" : (caster != null ? caster.getName().getString() : "command");
+        String modifierName = modifier == null ? null : DiscoveryManager.titleCase(modifier.id());
         long gameTime = ctx.getSource().getLevel().getGameTime();
 
         // Audit is refused while the tax bank is at its memory ceiling — never cast it into a state where the
@@ -166,34 +207,26 @@ public final class BewitchCommand {
 
         int landed = 0;
         for (ServerPlayer target : targets) {
-            boolean ok = EffectManager.apply(target, effect, durationTicks, caster);
+            // route through the Table's modifier-aware apply so a named modifier's cast-side behaviours fire;
+            // with a null modifier it's just a plain apply.
+            boolean ok = com.oliver.witchmod.blocks.BewitchingTableRitual.applyWithModifier(
+                    target.serverLevel(), target, effect, durationTicks, caster, modifier,
+                    Config.disabledAttachmentsCommandBypass());
             String result = ok ? (dummy ? "success" : "command")
                     : (EffectManager.wouldBlock(target, caster) ? "blocked" : "refused");
             LedgerLog.log(Optional.of(casterName), target.getName().getString(), effect.key().location(),
                     result, gameTime, false,
-                    net.minecraft.core.GlobalPos.of(target.level().dimension(), target.blockPosition()), null);
+                    net.minecraft.core.GlobalPos.of(target.level().dimension(), target.blockPosition()), modifierName);
             if (ok) {
                 landed++;
             }
         }
 
-        // Voodoo Doll hint: a self-cast isn't forwarded (redirect is Table-only), but a caster holding a bound
-        // doll is reminded that a natural Table cast would have redirected this curse.
-        if (caster != null && effect.value().category() == EffectCategory.CURSE) {
-            net.minecraft.world.item.ItemStack doll = com.oliver.witchmod.items.ItemVoodooDoll.findBoundDoll(caster);
-            if (!doll.isEmpty()) {
-                com.oliver.witchmod.data.PlayerEssenceData db = doll.get(com.oliver.witchmod.data.WitchModDataComponents.BOUND_PLAYER);
-                String who = db == null ? "its target" : db.playerName();
-                caster.sendSystemMessage(Component.literal(
-                        "(Your bound voodoo doll would redirect this curse to " + who
-                        + " if cast at the Ritual Table.)").withStyle(net.minecraft.ChatFormatting.GRAY));
-            }
-        }
-
         int applied = landed;
         String verb = dummy ? "'dummy' cast" : "Cast";
+        String suffix = modifierName == null ? "" : " with " + modifierName;
         ctx.getSource().sendSuccess(() -> Component.literal(verb + " " + effect.key().location().getPath()
-                + " on " + targets.size() + " player(s) — " + applied + " landed."), true);
+                + suffix + " on " + targets.size() + " player(s) — " + applied + " landed."), true);
         return applied;
     }
 

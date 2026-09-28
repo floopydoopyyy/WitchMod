@@ -60,13 +60,13 @@ public final class BlessingImmortality extends Effect {
 
     /** you find out you're immortal the first time it actually saves you. */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         if (isRecovering(target)) {
             long left = (target.getData(WitchModAttachments.IMMORTALITY_RECOVERY_END) - target.level().getGameTime()) / 20;
-            return java.util.Optional.of("reviving — " + Math.max(0, left) + "s");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.immortality.reviving", Math.max(0, left)));
         }
         int left = Config.IMMORTALITY_MAX_USES.get() - target.getData(WitchModAttachments.IMMORTALITY_USES);
-        return java.util.Optional.of(Math.max(0, left) + " revives left");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.immortality.revives", Math.max(0, left)));
     }
 
     @Override

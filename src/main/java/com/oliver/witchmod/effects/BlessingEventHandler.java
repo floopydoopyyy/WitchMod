@@ -12,6 +12,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -88,6 +89,7 @@ import com.oliver.witchmod.effects.blessings.BlessingAngler;
 import com.oliver.witchmod.effects.blessings.BlessingImmortality;
 import com.oliver.witchmod.effects.blessings.BlessingLastStand;
 import com.oliver.witchmod.effects.blessings.BlessingMainCharacter;
+import com.oliver.witchmod.effects.blessings.BlessingNinja;
 import com.oliver.witchmod.effects.blessings.BlessingThickSkinned;
 import com.oliver.witchmod.effects.blessings.BlessingTwistOfFate;
 
@@ -234,6 +236,46 @@ public final class BlessingEventHandler {
             }
         }
         Blessings.IRON_STOMACH.get().markDiscoveredByVictim(player);
+    }
+
+    /**
+     * Iron Stomach: a cast-iron gut can also wolf down normally-inedible things (glistering melon, sugar,
+     * cane, mushrooms...). They have no vanilla use, so a right-click in the air eats one for a fixed amount
+     * of hunger; a glistering melon slice also grants a short Regeneration. Planting sugar cane / cocoa /
+     * nether wart is a block interaction (unaffected) — only the air right-click is caught here.
+     */
+    @SubscribeEvent
+    static void onIronStomachExtraEat(PlayerInteractEvent.RightClickItem event) {
+        if (event.getLevel().isClientSide()
+                || !(event.getEntity() instanceof ServerPlayer player)
+                || !EffectManager.isActive(player, Blessings.IRON_STOMACH)) {
+            return;
+        }
+        ItemStack stack = event.getItemStack();
+        Integer hunger = BlessingIronStomach.EXTRA_FOODS.get(stack.getItem());
+        if (hunger == null) {
+            return;
+        }
+        boolean melon = stack.is(Items.GLISTERING_MELON_SLICE);
+        if (player.getFoodData().getFoodLevel() >= 20 && !melon) {
+            return; // already full and nothing else to gain — leave the item be (don't eat it)
+        }
+        player.getFoodData().eat(hunger, hunger * Config.IRONSTOMACH_EXTRA_SATURATION.get().floatValue());
+        if (melon) {
+            player.addEffect(new MobEffectInstance(MobEffects.REGENERATION,
+                    Config.IRONSTOMACH_MELON_REGEN_SECONDS.get() * 20,
+                    Config.IRONSTOMACH_MELON_REGEN_LEVEL.get() - 1));
+        }
+        ItemStack particleItem = stack.copyWithCount(1); // before consuming, so the crunch shows the right item
+        stack.consume(1, player);
+        player.swing(event.getHand());
+        ServerLevel level = player.serverLevel();
+        level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EAT, SoundSource.PLAYERS, 0.9F, 1.0F);
+        level.sendParticles(new net.minecraft.core.particles.ItemParticleOption(ParticleTypes.ITEM, particleItem),
+                player.getX(), player.getEyeY() - 0.2, player.getZ(), 8, 0.2, 0.15, 0.2, 0.05);
+        Blessings.IRON_STOMACH.get().markDiscoveredByVictim(player);
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
     }
 
     /** excavation: each block you break ramps your (invisible) mining-speed bonus up. */
@@ -738,6 +780,26 @@ public final class BlessingEventHandler {
     @SubscribeEvent
     static void onHeavyHitterKnockback(LivingKnockBackEvent event) {
         float mult = com.oliver.witchmod.effects.blessings.BlessingHeavyHitter.knockbackMultiplier(event.getEntity());
+        if (mult != 1.0F) {
+            event.setStrength(event.getStrength() * mult);
+        }
+    }
+
+    // --- Ninja blessing: your hits carry much less knockback, UNLESS you also boost knockback (then it's off).
+    @SubscribeEvent
+    static void onNinjaAttack(AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && event.getTarget() instanceof LivingEntity victim
+                && EffectManager.isActive(player, Blessings.NINJA)
+                && !EffectManager.isActive(player, Blessings.HEAVY_HITTER)
+                && !EffectManager.isActive(player, Blessings.MAIN_CHARACTER)) {
+            BlessingNinja.onMeleeHit(victim);
+        }
+    }
+
+    @SubscribeEvent
+    static void onNinjaKnockback(LivingKnockBackEvent event) {
+        float mult = BlessingNinja.knockbackMultiplier(event.getEntity());
         if (mult != 1.0F) {
             event.setStrength(event.getStrength() * mult);
         }
@@ -1400,6 +1462,43 @@ public final class BlessingEventHandler {
     static void onHypeManBuild(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
             BlessingHypeMan.praise(player, "building");
+        }
+    }
+
+    /** landing a kill — the crowd goes wild. */
+    @SubscribeEvent
+    static void onHypeManKill(LivingDeathEvent event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
+            BlessingHypeMan.praise(player, "kill");
+        }
+    }
+
+    /** taking a hit — the crowd gasps and rallies behind you. */
+    @SubscribeEvent
+    static void onHypeManHurt(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.HYPE_MAN)) {
+            BlessingHypeMan.praise(player, "hurt");
+        }
+    }
+
+    /** Confusion: being attacked forces out a burst of decoys, so a fight always throws up doppelgangers. */
+    @SubscribeEvent
+    static void onConfusionHurt(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.CONFUSION)) {
+            com.oliver.witchmod.effects.blessings.BlessingConfusion.onOwnerHurt(player);
+        }
+    }
+
+    /** finishing a meal — even eating gets applause. */
+    @SubscribeEvent
+    static void onHypeManEat(LivingEntityUseItemEvent.Finish event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && EffectManager.isActive(player, Blessings.HYPE_MAN)
+                && event.getItem().has(net.minecraft.core.component.DataComponents.FOOD)) {
+            BlessingHypeMan.praise(player, "eat");
         }
     }
 

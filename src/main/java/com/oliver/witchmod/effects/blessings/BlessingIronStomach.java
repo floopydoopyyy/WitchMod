@@ -1,5 +1,6 @@
 package com.oliver.witchmod.effects.blessings;
 
+import java.util.Map;
 import java.util.Set;
 
 import net.minecraft.world.item.Item;
@@ -23,6 +24,22 @@ public final class BlessingIronStomach extends Effect {
      */
     public static final Set<Item> BAD_FOODS = Set.of(
             Items.ROTTEN_FLESH, Items.CHICKEN, Items.PUFFERFISH, Items.POISONOUS_POTATO, Items.SPIDER_EYE);
+
+    /**
+     * extra normally-INEDIBLE things a cast-iron gut can stomach → the hunger each restores. Eaten via a
+     * right-click (they have no vanilla use), handled in {@code BlessingEventHandler.onIronStomachExtraEat};
+     * a glistering melon slice also grants a short burst of Regeneration. Curated data, like {@link #BAD_FOODS}.
+     */
+    public static final Map<Item, Integer> EXTRA_FOODS = Map.of(
+            Items.GLISTERING_MELON_SLICE, 6,
+            Items.FERMENTED_SPIDER_EYE, 6,
+            Items.EGG, 1,
+            Items.SUGAR, 1,
+            Items.SUGAR_CANE, 2,
+            Items.RED_MUSHROOM, 2,
+            Items.BROWN_MUSHROOM, 2,
+            Items.NETHER_WART, 4,
+            Items.COCOA_BEANS, 1);
 
     public BlessingIronStomach() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.CHICKEN);

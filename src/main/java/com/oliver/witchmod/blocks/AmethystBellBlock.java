@@ -54,8 +54,9 @@ public final class AmethystBellBlock extends Block implements EntityBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
+        // the bell hangs across the bar, so it should sit PERPENDICULAR to the way you're facing — swap the axis.
         Direction.Axis axis = context.getHorizontalDirection().getAxis();
-        return defaultBlockState().setValue(AXIS, axis == Direction.Axis.Z ? Direction.Axis.Z : Direction.Axis.X);
+        return defaultBlockState().setValue(AXIS, axis == Direction.Axis.Z ? Direction.Axis.X : Direction.Axis.Z);
     }
 
     @Nullable

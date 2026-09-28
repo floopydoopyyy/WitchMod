@@ -65,6 +65,15 @@ public final class TwitchChat extends SimpleJsonResourceReloadListener {
         return lines.get(random.nextInt(lines.size()));
     }
 
+    /**
+     * the entry at {@code index} of {@code category} (NO generic fallback) — for indexed template/fragment
+     * lists like the 8 compass directions, or a single-entry template at index 0. null if absent/out of range.
+     */
+    public static String at(String category, int index) {
+        List<String> lines = categories.get(category);
+        return lines != null && index >= 0 && index < lines.size() ? lines.get(index) : null;
+    }
+
     public static boolean isLoaded() {
         return !categories.isEmpty();
     }

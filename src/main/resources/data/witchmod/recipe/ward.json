@@ -1,14 +1,29 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:ward"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "E": { "item": "minecraft:emerald" },
-    "C": { "item": "witchmod:cursed_essence" },
-    "S": { "item": "minecraft:string" }
+    "E": {
+      "item": "minecraft:emerald"
+    },
+    "C": {
+      "item": "witchmod:cursed_essence"
+    },
+    "S": {
+      "item": "minecraft:string"
+    }
   },
   "pattern": [
     "S S",
     " E ",
     " C "
   ],
-  "result": { "id": "witchmod:ward", "count": 1 }
+  "result": {
+    "id": "witchmod:ward",
+    "count": 1
+  }
 }

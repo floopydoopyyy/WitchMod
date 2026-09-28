@@ -73,16 +73,26 @@ public final class EffectManager {
      * per-application options: netherite bypasses the ward; ink sac hides the wrapper until discovery; wither
      * rose disguises it as the opposite category.
      */
-    public record ApplyOptions(boolean bypassWard, int display, boolean directHit) {
-        public static final ApplyOptions DEFAULT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, false);
+    public record ApplyOptions(boolean bypassWard, int display, boolean directHit, boolean bypassDisabled) {
+        public static final ApplyOptions DEFAULT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, false, false);
 
         /** existing 2-arg callers (modifier casts) — not a direct hit, so protection still blocks them. */
         public ApplyOptions(boolean bypassWard, int display) {
-            this(bypassWard, display, false);
+            this(bypassWard, display, false, false);
+        }
+
+        /** existing 3-arg callers — no disabled-attachment bypass (only op commands get that). */
+        public ApplyOptions(boolean bypassWard, int display, boolean directHit) {
+            this(bypassWard, display, directHit, false);
         }
 
         /** a direct thrown-jar splash — bypasses the Protected shield (a well-aimed bottle still catches you). */
-        public static final ApplyOptions DIRECT_HIT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, true);
+        public static final ApplyOptions DIRECT_HIT = new ApplyOptions(false, ActiveEffectInstance.DISPLAY_NORMAL, true, false);
+
+        /** same options but allowed to apply a config-DISABLED attachment (the op-command bypass). */
+        public ApplyOptions withBypassDisabled() {
+            return new ApplyOptions(bypassWard, display, directHit, true);
+        }
     }
 
     public static boolean apply(ServerPlayer target, Holder<Effect> effect, int durationTicks, @Nullable ServerPlayer caster) {
@@ -102,6 +112,23 @@ public final class EffectManager {
             if (caster != null) {
                 caster.displayClientMessage(Component.literal(
                         (effect.value().category() == EffectCategory.CURSE ? "Curses" : "Blessings") + " are disabled on this server."), true);
+            }
+            return false;
+        }
+        // a specifically-DISABLED attachment can never be present (any in-world route). op commands may bypass.
+        if (!opts.bypassDisabled() && Config.isAttachmentDisabled(idOf(effect))) {
+            if (caster != null) {
+                caster.displayClientMessage(Component.translatable("witchmod.disabled.attachment",
+                        DiscoveryManager.titleCase(idOf(effect).getPath())), true);
+            }
+            return false;
+        }
+        // the target opted out of this effect in their client config (unless the server overrides opt-outs). the
+        // caster is quietly told; refund at the ritual is handled by a pre-check there, so nothing is spent.
+        if (ClientOptOut.blocks(target, idOf(effect))) {
+            if (caster != null && caster != target) {
+                caster.displayClientMessage(Component.translatable("witchmod.optout.refused",
+                        target.getName().getString()), true);
             }
             return false;
         }
@@ -337,6 +364,9 @@ public final class EffectManager {
      */
     public static void applyExact(ServerPlayer target, Holder<Effect> effect, int remainingTicks, @Nullable ServerPlayer caster) {
         ResourceLocation id = idOf(effect);
+        if (Config.isAttachmentDisabled(id)) {
+            return; // disabled attachments never spread (infectious) or land via the bell either
+        }
         ActiveEffects active = target.getData(WitchModAttachments.ACTIVE_EFFECTS);
         int existing = active.get(id).map(ActiveEffectInstance::remainingTicks).orElse(0);
         int dur = Math.max(existing, Math.max(1, remainingTicks));

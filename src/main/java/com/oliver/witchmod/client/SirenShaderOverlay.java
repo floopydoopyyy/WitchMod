@@ -35,7 +35,9 @@ public final class SirenShaderOverlay implements LayeredDraw.Layer {
         }
 
         float maxAlpha = Config.SIREN_SHADER_MAX_ALPHA.get().floatValue();
-        int alpha = Math.round(Math.min(1.0F, strength) * maxAlpha * 255.0F);
+        // client preference: scale (or fully mute) the mind-control colour wash.
+        int alpha = Math.round(Math.min(1.0F, strength) * maxAlpha
+                * (float) com.oliver.witchmod.ClientConfig.screenShaderIntensity() * 255.0F);
         if (alpha <= 0) {
             return;
         }

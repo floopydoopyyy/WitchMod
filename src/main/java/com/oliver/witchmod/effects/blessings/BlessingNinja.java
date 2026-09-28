@@ -1,9 +1,13 @@
 package com.oliver.witchmod.effects.blessings;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -28,6 +32,28 @@ import com.oliver.witchmod.data.WitchModAttachments;
 public final class BlessingNinja extends Effect {
     public static final ResourceLocation SPEED_ID = EffectUtil.modifierId("blessing_ninja_speed");
     public static final ResourceLocation ATTACK_ID = EffectUtil.modifierId("blessing_ninja_attack");
+
+    /** entityId -> game tick a ninja hit landed on it, so the same-tick knockback hook softens it (mark-then-cut, like Heavy Hitter). */
+    private static final Map<Integer, Long> KNOCKBACK_MARK = new HashMap<>();
+
+    /** the ninja just landed a melee hit — mark the victim so the knockback hook cuts its knockback this tick. */
+    public static void onMeleeHit(LivingEntity victim) {
+        KNOCKBACK_MARK.put(victim.getId(), victim.level().getGameTime());
+    }
+
+    /** @return the knockback multiplier for a victim a ninja hit this tick (else 1.0); a melee hit fires two
+     *  knockback events, so this matches by tick rather than removing on first use. */
+    public static float knockbackMultiplier(LivingEntity victim) {
+        Long tick = KNOCKBACK_MARK.get(victim.getId());
+        if (tick == null) {
+            return 1.0F;
+        }
+        if (tick == victim.level().getGameTime()) {
+            return Config.NINJA_KNOCKBACK_MULT.get().floatValue();
+        }
+        KNOCKBACK_MARK.remove(victim.getId());
+        return 1.0F;
+    }
 
     public BlessingNinja() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.BLACK_DYE);

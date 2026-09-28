@@ -175,8 +175,9 @@ public final class CurseNarcolepsy extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
-        return java.util.Optional.of(isSleeping(target) ? "asleep" : "sleep on cooldown");
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                isSleeping(target) ? "witchmod.scry.narcolepsy.asleep" : "witchmod.scry.narcolepsy.cooldown"));
     }
 
     @Override

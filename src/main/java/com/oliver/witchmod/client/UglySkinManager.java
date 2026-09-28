@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import org.jetbrains.annotations.Nullable;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -77,19 +79,19 @@ public final class UglySkinManager {
             reload();
         }
 
-        Set<UUID> stillCursed = new HashSet<>();
+        Set<UUID> overridden = new HashSet<>();
         for (AbstractClientPlayer player : minecraft.level.players()) {
-            int roll = player.getData(WitchModAttachments.UGLY_SKIN);
-            if (roll < 0 || skins.isEmpty()) {
-                continue;
+            Supplier<PlayerSkin> desired = desiredSkin(minecraft, player);
+            if (desired != null) {
+                overridden.add(player.getUUID());
+                apply(minecraft, player, desired);
             }
-            stillCursed.add(player.getUUID());
-            apply(minecraft, player, skins.get(Math.floorMod(roll, skins.size())));
         }
 
-        // anyone we'd uglified who no longer is — cured, or simply out of range now — gets their face back.
+        // anyone we'd overridden who no longer should be — cured, disguise ended, or simply out of range —
+        // gets their real face back.
         ORIGINALS.keySet().removeIf(id -> {
-            if (stillCursed.contains(id)) {
+            if (overridden.contains(id)) {
                 return false;
             }
             restore(minecraft, id);
@@ -97,22 +99,50 @@ public final class UglySkinManager {
         });
     }
 
-    private static void apply(Minecraft minecraft, AbstractClientPlayer player, PlayerSkin ugly) {
+    /**
+     * the skin this player should render with, or null for their own. the ugly+disguise synergy takes priority:
+     * while it's active (DISGUISE_TYPE == 6) you look like a random OTHER player, or your normal self if alone —
+     * only a broken disguise (or plain Ugly) shows the ugly skin.
+     */
+    @Nullable
+    private static Supplier<PlayerSkin> desiredSkin(Minecraft minecraft, AbstractClientPlayer player) {
+        if (player.getData(WitchModAttachments.DISGUISE_TYPE) == 6) {
+            UUID target = DisguiseClient.playerDisguiseTargetId(player);
+            if (target == null) {
+                return null; // alone — show the real (non-ugly) self, so the ugly is hidden until you're hit
+            }
+            PlayerInfo t = minecraft.getConnection().getPlayerInfo(target);
+            return t == null ? null : t::getSkin;
+        }
+        int roll = player.getData(WitchModAttachments.UGLY_SKIN);
+        if (roll < 0 || skins.isEmpty()) {
+            // not Ugly — but the local player's Delusions curse may be misidentifying this real player as
+            // someone else (wrong skin + nametag). Lowest priority, so a genuine Ugly/disguise always wins.
+            UUID as = DelusionMisidentify.impersonatedBy(player.getUUID());
+            if (as != null) {
+                PlayerInfo info = minecraft.getConnection().getPlayerInfo(as);
+                return info == null ? null : info::getSkin;
+            }
+            return null;
+        }
+        PlayerSkin ugly = skins.get(Math.floorMod(roll, skins.size()));
+        return () -> ugly;
+    }
+
+    private static void apply(Minecraft minecraft, AbstractClientPlayer player, Supplier<PlayerSkin> desired) {
         PlayerInfo info = minecraft.getConnection().getPlayerInfo(player.getUUID());
         if (info == null) {
             return; // not in the tab list yet; we'll catch them next tick
         }
-        // ask the CURRENT PlayerInfo what it's actually showing rather than trusting our own bookkeeping.
-        // reconnecting builds a brand-new PlayerInfo, so a "have we done this player yet" flag would say yes
-        // and leave the fresh one untouched — which is exactly why the skin reverted on relog.
-        if (info.getSkin() == ugly) {
-            return; // already wearing this exact skin
-        }
         try {
-            @SuppressWarnings("unchecked")
-            Supplier<PlayerSkin> original = (Supplier<PlayerSkin>) SKIN_LOOKUP.get(info);
-            ORIGINALS.put(player.getUUID(), original);
-            SKIN_LOOKUP.set(info, (Supplier<PlayerSkin>) () -> ugly);
+            // stash the TRUE original the first time only (reconnecting builds a fresh PlayerInfo, so we key off
+            // whether WE hold an original for this uuid rather than trusting the live skin).
+            if (!ORIGINALS.containsKey(player.getUUID())) {
+                @SuppressWarnings("unchecked")
+                Supplier<PlayerSkin> original = (Supplier<PlayerSkin>) SKIN_LOOKUP.get(info);
+                ORIGINALS.put(player.getUUID(), original);
+            }
+            SKIN_LOOKUP.set(info, desired);
         } catch (Exception e) {
             WitchMod.LOGGER.warn("[Ugly] Could not swap the skin for {}.", player.getName().getString(), e);
         }

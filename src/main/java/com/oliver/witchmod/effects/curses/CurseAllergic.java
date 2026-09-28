@@ -76,8 +76,9 @@ public final class CurseAllergic extends Effect {
 
     /** the Scrying Mirror is the one thing that names your exact allergy instead of making you find out. */
     @Override
-    public Optional<String> scryingDetail(ServerPlayer target) {
-        return Optional.of(dietOf(target).displayName());
+    public Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
+        return Optional.of(net.minecraft.network.chat.Component.translatable(
+                "witchmod.scry.allergic." + dietOf(target).name().toLowerCase(java.util.Locale.ROOT)));
     }
 
     /** you only learn you're Allergic when something you ate first disagrees with you (Rule 2). */

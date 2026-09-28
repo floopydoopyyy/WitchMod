@@ -50,8 +50,8 @@ public final class BlessingThunder extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
-        return java.util.Optional.of("charge tier " + currentTier(target) + "/4");
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.thunder.tier", currentTier(target)));
     }
 
     @Override

@@ -1,0 +1,7 @@
+{
+  "type": "witchmod:jar_drop",
+  "conditions": [
+    { "condition": "neoforge:loot_table_id", "loot_table_id": "minecraft:chests/simple_dungeon" }
+  ],
+  "chest": "dungeon"
+}

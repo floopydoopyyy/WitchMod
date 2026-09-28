@@ -23,6 +23,10 @@ import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+
+import com.oliver.witchmod.Config;
+import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
  * confusion's doppelganger — an exact clone of the caster (skin + nametag) that wanders and fakes actions to
@@ -35,6 +39,9 @@ public final class CloneEntity extends PathfinderMob {
             SynchedEntityData.defineId(CloneEntity.class, EntityDataSerializers.STRING);
 
     private int life = 260;
+    @org.jetbrains.annotations.Nullable
+    private Vec3 flyTarget;   // bat-mode wander point
+    private int flyRepick;
 
     public CloneEntity(EntityType<? extends CloneEntity> type, Level level) {
         super(type, level);
@@ -90,9 +97,78 @@ public final class CloneEntity extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
-        if (!level().isClientSide && --life <= 0) {
+        if (level().isClientSide) {
+            return;
+        }
+        // wild-decoys: mirror the owner's disguise MOVEMENT — a bat clone flies, a fish clone flops.
+        int form = ownerForm();
+        if (form == 3) {
+            batFlight();
+        } else {
+            if (isNoGravity()) {
+                setNoGravity(false);
+            }
+            if (form == 7) {
+                fishFlop();
+            }
+        }
+        if (--life <= 0) {
             poof();
             discard();
+        }
+    }
+
+    /** the owner's current disguise type, or -1 (server-side lookup). */
+    private int ownerForm() {
+        UUID owner = getOwnerId().orElse(null);
+        Player p = owner == null ? null : level().getPlayerByUUID(owner);
+        return p == null ? -1 : p.getData(WitchModAttachments.DISGUISE_TYPE);
+    }
+
+    /** flit around the owner like a bat — a swarm of decoys in the air. */
+    private void batFlight() {
+        setNoGravity(true);
+        setTarget(null);
+        getNavigation().stop();
+        UUID owner = getOwnerId().orElse(null);
+        Player p = owner == null ? null : level().getPlayerByUUID(owner);
+        Vec3 anchor = p != null ? p.position() : position();
+        if (flyTarget == null || --flyRepick <= 0 || distanceToSqr(flyTarget) < 4.0) {
+            double ang = getRandom().nextDouble() * Math.PI * 2;
+            double r = 2.0 + getRandom().nextDouble() * 5.0;
+            flyTarget = new Vec3(anchor.x + Math.cos(ang) * r,
+                    anchor.y + 1.0 + getRandom().nextDouble() * 3.0, anchor.z + Math.sin(ang) * r);
+            flyRepick = 30 + getRandom().nextInt(40);
+        }
+        Vec3 dir = flyTarget.subtract(position());
+        if (dir.lengthSqr() > 1.0e-4) {
+            dir = dir.normalize();
+        }
+        double speed = Config.CONFUSION_BAT_FLY_SPEED.get();
+        Vec3 wanted = dir.scale(speed).add(0, Math.sin(tickCount * 0.3) * 0.02, 0);
+        setDeltaMovement(getDeltaMovement().scale(0.8).add(wanted.scale(0.2)));
+        Vec3 v = getDeltaMovement();
+        if (v.horizontalDistanceSqr() > 1.0e-4) {
+            float yaw = (float) (Math.atan2(v.z, v.x) * (180.0 / Math.PI)) - 90.0F;
+            setYRot(yaw);
+            yBodyRot = yaw;
+            yHeadRot = yaw;
+        }
+        hasImpulse = true;
+    }
+
+    /** flop about out of water like a landed fish (vanilla cadence — hops the instant it lands). */
+    private void fishFlop() {
+        if (isInWater() || !onGround()) {
+            return;
+        }
+        double power = Config.FISH_FLOP_POWER.get();
+        setDeltaMovement(getDeltaMovement().add((getRandom().nextFloat() * 2.0F - 1.0F) * 0.05, power,
+                (getRandom().nextFloat() * 2.0F - 1.0F) * 0.05));
+        hasImpulse = true;
+        if (level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            sl.playSound(null, blockPosition(), SoundEvents.COD_FLOP, SoundSource.NEUTRAL,
+                    0.7F, 0.9F + getRandom().nextFloat() * 0.2F);
         }
     }
 

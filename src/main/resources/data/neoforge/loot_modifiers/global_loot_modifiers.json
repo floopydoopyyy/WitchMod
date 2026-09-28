@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "entries": [
+    "witchmod:jar_ancient_city",
+    "witchmod:jar_shipwreck",
+    "witchmod:jar_dungeon",
+    "witchmod:jar_desert_pyramid",
+    "witchmod:jar_jungle_temple",
+    "witchmod:jar_igloo"
+  ]
+}

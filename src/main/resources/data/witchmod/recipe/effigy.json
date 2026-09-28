@@ -1,10 +1,29 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:effigy"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "P": { "item": "minecraft:cobbled_deepslate" },
-    "C": { "item": "witchmod:cursed_essence" },
-    "T": { "item": "minecraft:totem_of_undying" }
+    "P": {
+      "item": "minecraft:cobbled_deepslate"
+    },
+    "C": {
+      "item": "witchmod:cursed_essence"
+    },
+    "T": {
+      "item": "minecraft:totem_of_undying"
+    }
   },
-  "pattern": [ "PCP", "PTP", "PPP" ],
-  "result": { "id": "witchmod:effigy", "count": 1 }
+  "pattern": [
+    "PCP",
+    "PTP",
+    "PPP"
+  ],
+  "result": {
+    "id": "witchmod:effigy",
+    "count": 1
+  }
 }

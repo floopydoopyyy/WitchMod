@@ -77,6 +77,7 @@ public final class CloneRenderer extends MobRenderer<CloneEntity, PlayerModel<Cl
             case 3 -> EntityType.BAT;
             case 4 -> EntityType.SPIDER;
             case 5 -> EntityType.VILLAGER;
+            case 7 -> EntityType.COD;
             default -> EntityType.COW;
         };
         if (DECOY_MOBS.size() > 64) {
@@ -90,9 +91,6 @@ public final class CloneRenderer extends MobRenderer<CloneEntity, PlayerModel<Cl
             m = mob;
             DECOY_MOBS.put(clone.getUUID(), m);
         }
-        if (m instanceof net.minecraft.world.entity.ambient.Bat bat) {
-            bat.setResting(false);
-        }
         m.setYRot(yaw);
         m.yRotO = yaw;
         m.yBodyRot = yaw;
@@ -105,8 +103,28 @@ public final class CloneRenderer extends MobRenderer<CloneEntity, PlayerModel<Cl
         float dz = (float) (clone.getZ() - clone.zOld);
         m.walkAnimation.update(Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0F, 1.0F), 0.4F);
         m.tickCount = clone.tickCount;
+        if (m instanceof net.minecraft.world.entity.ambient.Bat bat) {
+            // drive the flap AnimationState (a dummy is never ticked, so it stays frozen otherwise).
+            bat.setResting(false);
+            bat.flyAnimationState.animateWhen(true, bat.tickCount);
+            bat.restAnimationState.stop();
+        }
+        boolean flop = m instanceof net.minecraft.world.entity.animal.AbstractFish && !clone.isInWater();
+        if (m instanceof net.minecraft.world.entity.animal.AbstractFish) {
+            DisguiseClient.mirrorWaterState(m, clone.isInWater()); // swim upright in water, flop on its side out
+        }
         EntityRenderer<? super Mob> renderer = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(m);
+        if (flop) {
+            float t = (clone.tickCount + pt) * 0.9F;
+            pose.pushPose();
+            pose.translate(0, 0.15, 0);
+            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(net.minecraft.util.Mth.sin(t) * 22.0F));
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(net.minecraft.util.Mth.cos(t * 1.3F) * 20.0F));
+        }
         renderMob(renderer, m, yaw, pt, pose, buffer, light);
+        if (flop) {
+            pose.popPose();
+        }
         return true;
     }
 

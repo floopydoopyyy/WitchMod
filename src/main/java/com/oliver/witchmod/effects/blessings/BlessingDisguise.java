@@ -37,8 +37,19 @@ public final class BlessingDisguise extends Effect {
     private static final int SPIDER = 4;
     /** the villager disguise type (Silver Tongue synergy). */
     private static final int VILLAGER = 5;
+    /** the random-player disguise type (Ugly synergy) — the highest-priority special form. */
+    private static final int PLAYER = 6;
+    /** the fish disguise type (any water effect) — swims in water, flops out of it. */
+    private static final int FISH = 7;
     /** cow is the base type 0 — the Cow synergy just forces it. */
     private static final int COW = 0;
+
+    /** effects that count as "water related" and turn the costume into a fish. */
+    private static final net.neoforged.neoforge.registries.DeferredHolder<?, ?>[] WATER_EFFECTS = {
+            com.oliver.witchmod.effects.Curses.BAD_SWIMMER, com.oliver.witchmod.effects.Curses.SIRENS_CALL,
+            com.oliver.witchmod.effects.Blessings.IRON_LUNG, com.oliver.witchmod.effects.Blessings.JESUS,
+            com.oliver.witchmod.effects.Blessings.OCEANS_BLESSING
+    };
     /** player -> base disguise type (0 cow / 1 sheep / 2 pig), stable for the whole blessing. */
     private static final Map<UUID, Integer> BASE = new HashMap<>();
     /** player -> game tick the "broken" window ends; while broken they show their real model. */
@@ -59,11 +70,13 @@ public final class BlessingDisguise extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         Integer base = BASE.get(target.getUUID());
         String mob = base == null ? "livestock" : (base == 1 ? "sheep" : base == 2 ? "pig" : "cow");
+        net.minecraft.network.chat.Component mobName = net.minecraft.network.chat.Component.translatable("witchmod.scry.mob." + mob);
         boolean active = target.getData(WitchModAttachments.DISGUISE_TYPE) >= 0;
-        return java.util.Optional.of(active ? "disguised as a " + mob : "disguise broken (a " + mob + ")");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                active ? "witchmod.scry.disguise.active" : "witchmod.scry.disguise.broken", mobName));
     }
 
     @Override
@@ -118,13 +131,15 @@ public final class BlessingDisguise extends Effect {
             return;
         }
 
-        // synergies re-skin the costume: Sanguine → bat (with flight), Spider → spider, Silver Tongue → villager,
-        // Cow → always a cow.
-        boolean bat = com.oliver.witchmod.synergy.Synergies.VAMPIRE_BAT.activeFor(target);
-        boolean spider = !bat && com.oliver.witchmod.synergy.Synergies.SPIDER_DISGUISE.activeFor(target);
-        boolean villager = !bat && !spider && com.oliver.witchmod.synergy.Synergies.SILVER_VILLAGER.activeFor(target);
-        boolean cow = !bat && !spider && !villager && com.oliver.witchmod.synergy.Synergies.COW_COSTUME.activeFor(target);
-        int shown = bat ? BAT : spider ? SPIDER : villager ? VILLAGER : cow ? COW : base;
+        // synergies re-skin the costume, in strict priority: Ugly → random player, Sanguine → bat (with flight),
+        // Silver Tongue → villager, Spider → spider, any water effect → fish, Cow → always a cow.
+        boolean player = com.oliver.witchmod.synergy.Synergies.UGLY_DISGUISE.activeFor(target);
+        boolean bat = !player && com.oliver.witchmod.synergy.Synergies.VAMPIRE_BAT.activeFor(target);
+        boolean villager = !player && !bat && com.oliver.witchmod.synergy.Synergies.SILVER_VILLAGER.activeFor(target);
+        boolean spider = !player && !bat && !villager && com.oliver.witchmod.synergy.Synergies.SPIDER_DISGUISE.activeFor(target);
+        boolean fish = !player && !bat && !villager && !spider && waterFishActive(target);
+        boolean cow = !player && !bat && !villager && !spider && !fish && com.oliver.witchmod.synergy.Synergies.COW_COSTUME.activeFor(target);
+        int shown = player ? PLAYER : bat ? BAT : villager ? VILLAGER : spider ? SPIDER : fish ? FISH : cow ? COW : base;
         // costume intact: restore it if it was broken and the window's elapsed, and keep hostiles docile.
         if (target.getData(WitchModAttachments.DISGUISE_TYPE) != shown) {
             target.setData(WitchModAttachments.DISGUISE_TYPE, shown);
@@ -133,9 +148,15 @@ public final class BlessingDisguise extends Effect {
         setBatFlight(target, bat);
         clearHostileAggro(target, radius * 4.0);
 
+        // a fish out of water flops about — actually BOUNCE the player like a landed cod (with its own flop sound).
+        if (shown == FISH) {
+            fishFlop(target);
+        }
+
         // the costume also SOUNDS right — occasional moos/baas/oinks/screeches/hisses/hmphs from where you stand.
+        // a player disguise stays silent (players don't moo); the fish's sound comes from its flop instead.
         long next = NEXT_SOUND.getOrDefault(id, 0L);
-        if (now >= next) {
+        if (now >= next && shown != PLAYER && shown != FISH) {
             NEXT_SOUND.put(id, now + 60 + target.getRandom().nextInt(120)); // ~3–9s
             net.minecraft.sounds.SoundEvent amb = switch (shown) {
                 case BAT -> net.minecraft.sounds.SoundEvents.BAT_AMBIENT;
@@ -148,6 +169,35 @@ public final class BlessingDisguise extends Effect {
             target.serverLevel().playSound(null, target.blockPosition(), amb,
                     net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 0.9F + target.getRandom().nextFloat() * 0.2F);
         }
+    }
+
+    /**
+     * flopping fish: while out of water and grounded, hop the player — same cadence as a vanilla fish
+     * (it flops the instant it lands, so it bounces continuously) with a small random horizontal flick.
+     */
+    private static void fishFlop(ServerPlayer target) {
+        if (target.isInWater() || !target.onGround() || target.getAbilities().flying) {
+            return;
+        }
+        double power = Config.FISH_FLOP_POWER.get();
+        target.setDeltaMovement(target.getDeltaMovement().add(
+                (target.getRandom().nextFloat() * 2.0F - 1.0F) * 0.05, power,
+                (target.getRandom().nextFloat() * 2.0F - 1.0F) * 0.05));
+        target.hurtMarked = true; // or the client never sees the launch
+        target.serverLevel().playSound(null, target.blockPosition(), net.minecraft.sounds.SoundEvents.COD_FLOP,
+                net.minecraft.sounds.SoundSource.NEUTRAL, 0.9F, 0.9F + target.getRandom().nextFloat() * 0.25F);
+    }
+
+    /** any water-related curse/blessing turns the costume into a fish (checked live so it follows the effect). */
+    @SuppressWarnings("unchecked")
+    private static boolean waterFishActive(ServerPlayer target) {
+        for (net.neoforged.neoforge.registries.DeferredHolder<?, ?> h : WATER_EFFECTS) {
+            if (com.oliver.witchmod.data.EffectManager.isActive(target,
+                    (net.minecraft.core.Holder<Effect>) h)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** grant/revoke the vampire-bat's creative-style flight (survival players only). */

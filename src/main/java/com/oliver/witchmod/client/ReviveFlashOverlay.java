@@ -45,6 +45,9 @@ public final class ReviveFlashOverlay implements LayeredDraw.Layer {
         // scale: bursts up fast, then eases larger. Alpha: full for the first half, then fades out.
         float scale = 3.0F + 9.0F * easeOut(Math.min(1.0F, progress * 2.0F));
         float alpha = progress < 0.5F ? 1.0F : 1.0F - (progress - 0.5F) / 0.5F;
+        if (com.oliver.witchmod.ClientConfig.reduceFlashing()) {
+            alpha *= 0.3F; // photosensitivity: soften the bright revive flash
+        }
         if (alpha <= 0.0F) {
             return;
         }

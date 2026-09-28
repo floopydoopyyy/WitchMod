@@ -1,10 +1,29 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:scrying_mirror"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "P": { "item": "minecraft:cobbled_deepslate" },
-    "C": { "item": "witchmod:cursed_essence" },
-    "D": { "item": "minecraft:diamond" }
+    "P": {
+      "item": "minecraft:cobbled_deepslate"
+    },
+    "C": {
+      "item": "witchmod:cursed_essence"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
   },
-  "pattern": [ "PCP", "PDP", "PCP" ],
-  "result": { "id": "witchmod:scrying_mirror", "count": 1 }
+  "pattern": [
+    "PCP",
+    "PDP",
+    "PCP"
+  ],
+  "result": {
+    "id": "witchmod:scrying_mirror",
+    "count": 1
+  }
 }

@@ -98,7 +98,7 @@ Foundational vanilla change: **budding amethyst is collectable via Silk Touch.**
 
 ## 3. Blocks
 
-### Bewitching Table / Altar — Recipe: Diamond, Cursed Essence, Wood
+### Bewitching Table / Altar — Recipe: Amethyst Shard ×2 (top corners), Red Wool (top mid), Cursed Essence ×2 (mid sides), Cobbled Deepslate ×4 (`ARA`/`CDC`/`DDD`)
 Slots: **Player Essence** (target; empty = self), **Sacrificial Item** (selects effect),
 **Cursed Essence** (currency/success), **Modifier** (optional).
 Failures → Neutral event, curse onto caster (Mirror backfire), or (rare, high-risk) the table
@@ -109,11 +109,11 @@ weighted toward lower-cost attachments (`REDSTONE_RANDOM_LOW_BIAS = 1.5` inverse
 ### Block of Cursed Essence — Recipe: 9 Cursed Essence
 Storage block; currency unit for the server-wide **Global bank**.
 
-### Ledger — Recipe: Wood, Compendium
+### Ledger — Recipe: Lectern (centre), Book (top mid), Cursed Essence ×7 (`CBC`/`CLC`/`CCC`)
 Lectern-style, read-only. Logs all nearby hex attempts sent/received, including blocked ones and
 whether they landed.
 
-### Warding Totem
+### Warding Totem — Recipe: Amethyst Shard ×2 (top corners), Block of Cursed Essence (top mid), Nether Star (centre), Cobbled Deepslate ×5 (`ACA`/`DND`/`DDD`)
 Radius shield: players inside repel all curses/blessings but receive no feedback on blocks.
 
 ### Purifying Water — Recipe: Water Bucket, Amethyst, Diamond, Cursed Essence (+more TBD)
@@ -126,10 +126,10 @@ Unique fluid; bathing rapidly burns down attachment timers
 
 | Item | Function | Recipe / Source |
 |---|---|---|
-| Cursed Essence | Currency | Smelt cursed items / Amethyst |
+| Cursed Essence | Currency | Smelt cursed items / Amethyst (furnace OR blast furnace) |
 | Player Essence | Targeting | Bottle on a player or their current bed |
 | Compendium | Discovery/rumour/tutorial/item-guide book UI, stored per world | Book + Cursed Essence |
-| Voodoo Doll | Bound to a named player; forwards curses cast while it's in inventory; fails if target dead/offline; has durability; still Ledger-logged | Wool, Wood, Player Essence |
+| Voodoo Doll | Bound to a named player; sympathetic interactions + a tracker + works as a Table target; has durability; still Ledger-logged. (Curse FORWARDING was removed 2026-09-22 — that's the Effigy's job now.) | White Wool, Stick, Cursed Essence (`WCS`/`CWC`/`SWC`); bound with Player Essence |
 | Needle | Right-click on a Doll in inventory → direct damage to bound target; consumes Doll durability | Iron Ingot, Iron Nugget |
 | Ward | Durability item (8) that BLOCKS any attachment cast by someone ELSE (self-casts pass); a coloured incoming-lash gets blocked with a shield clang, spending 1 durability. (Redefined from the old "deflect back to sender".) | Emerald, Cursed Essence, String |
 | Scrying Mirror | Reveals your own active attachments | Glass, Cursed Essence, Diamond |
@@ -141,13 +141,15 @@ Unique fluid; bathing rapidly burns down attachment timers
 | Cursed Jar | A Jar holding CURSES only (up to 3) — throwable splash (§4.1) | dynamic variant of Jar |
 | Blessed Jar | A Jar holding BLESSINGS only (up to 3) — throwable splash (§4.1) | dynamic variant of Jar |
 | Mixed Jar | A Jar holding ANY mix of curses/blessings (up to 3) — throwable splash (§4.1) | dynamic variant of Jar |
-| Amethyst Bell | AOE gambling block: ring to reshape fate of all nearby players (gift a batch to the empty, re-roll everyone else's by power); greys out inactive for 30 min after each ring | — |
+| Amethyst Bell | AOE gambling block: ring to reshape fate of all nearby players (gift a batch to the empty, re-roll everyone else's by power); greys out inactive for 30 min after each ring | Cobbled Deepslate ×3 (top), Amethyst Shard ×2 (mid sides) + a Bell (centre), Amethyst Shard (bottom mid) (`DDD`/`ABA`/` A `) |
+| Holy Hand Grenade | Thrown (or dispensed) invisible grenade — see §4.2. Fully cleanses + protects everyone in the blast and a wide shockwave, with a risk to you. Stacks to 16 | Loot only (rare special drop, ~1/100) |
 
 ### 4.1 Jars — dynamic throwable splash (✅ IMPLEMENTED)
 A jar is ONE dynamic item (`ItemJar`, shared logic in `JarContents`). The variant — **Cursed / Blessed / Mixed
 / empty Jar** — is DERIVED from its contents (`JarContents.itemFor`), so adding a blessing to a Cursed Jar
 turns the stack into a Mixed Jar; full at `JarContents.MAX` (3). Stored as the `CAPTURED_EFFECTS` data
-component (list of `CapturedEffect{effectId, remainingTicks}`); the tooltip lists the stored attachment names.
+component (list of `CapturedEffect{effectId, remainingTicks}`); the tooltip lists the stored attachment names,
+each coloured by kind — **curses purple, blessings gold** (2026-09-22) so a mixed jar reads at a glance.
 - **Filling — at the Bewitching Table.** A jar in the **target slot** (instead of a Player Essence) switches
   the ritual into FILL mode (`BewitchingTableRitual`): on success the rolled attachment is bottled into the
   jar (returned the correct, possibly-changed variant); a full jar is refused before ingredients are spent; a
@@ -167,6 +169,59 @@ component (list of `CapturedEffect{effectId, remainingTicks}`); the tooltip list
   `/bewitch essence player <player>` and `/bewitch essence uuid <uuid>` (name resolved from the server profile
   cache, or the UUID itself if never seen).
 - Config: `jarSplashRadius=5.0  lashRange=24.0  lashSpeed=0.9  lashExpiryTicks=200`.
+
+### 4.2 Holy Hand Grenade (✅ IMPLEMENTED)
+"You can't have a magic mod without the holy hand grenade." A rare special drop (see §18.1), stacks to 16,
+usable via dispensers. Right-click THROWS it (`HolyHandGrenadeItem` implements `ProjectileItem`, so the
+vanilla `ProjectileDispenseBehavior` handles dispensers for free) — it becomes an **invisible entity**
+(`HolyHandGrenadeEntity extends Projectile`, no-op `HolyGrenadeRenderer`). It is LOBBED (`grenadeThrowSpeed`
+0.6, low so it's a throw not a bullet) and clearly arcs DOWN (`grenadeGravity` 0.09) like a shooter-game
+grenade, with a **subtle, capped bounce** off floors (`grenadeBounce` 0.28, hard-capped by `grenadeMaxBounce`
+0.2 so a fast impact can never launch it — only a real fall > 0.2/tick hops at all) and walls
+(`grenadeWallBounce` 0.35), then rolls a bit with the block's own friction. ⚠ gravity is persisted into
+`deltaMovement` BEFORE `move()` (the ItemEntity pattern) so downward speed actually accumulates — moving by a
+local vector alone never accelerates, which made an earlier build fly dead flat. `grenadepin` + `grenadethrow`
+play on throw, and `grenadepin` plays AGAIN (softer, higher) the first time it hits the ground.
+- **Timeline (all config ticks):** `grenadeShimmerTicks` (30 = 1.5s) as just a shimmer of glowing motes →
+  the charge begins: it **sheds most momentum** (`grenadeChargeMomentumKeep` 0.12) + a `BEACON_ACTIVATE`
+  chime, the `holyhall` sound plays (1-in-`grenadeHallelujahRareOneIn` = 50 → `holyhallrare`, played at 0.5
+  volume vs 1.1 since that track is much louder), then over
+  `grenadeChargeTicks` (44 = 2.2s) it pulls the shimmer inward with pronounced motes descending from the
+  skies (blessed from above) → detonation. **All the shimmer/charge/ring FX are CLIENT-rendered from the
+  entity's own tick** (the invisible entity is still tracked + ticked client-side, like a snowball), so
+  nothing streams from the server; the one-shot explosion burst is a single `sendParticles`. After it
+  detonates the entity lingers `grenadeShockwaveVisualTicks` (18) purely to render the ring, then discards.
+- **Explosion:** `holyexplode` + a **visual-only `LightningBolt`** from the heavens (its unconditional
+  vanilla thunder is muted client-side within 8 blocks of a recent blast via `PlaySoundEvent`, tracked in
+  `HolyHandGrenadeEntity.CLIENT_BLASTS`) + a real `Level.explode` at `grenadeExplosionPower` (3.0, just
+  under TNT's 4.0), world damage gated on `grenadeBlockDamage` AND the mobGriefing gamerule
+  (`ExplosionInteraction.MOB` vs `NONE`). The blast deals the custom **`witchmod:holy`** damage type
+  (`WitchModDamageTypes.holy`, translatable death message `death.attack.witchmod.holy[.player]`) credited to
+  the THROWER (`getOwner()`), so kills attribute + name them. **Holy smite:** a `LivingIncomingDamageEvent`
+  hook deals ×`grenadeUndeadDamageMultiplier` (1.5) to undead and ALWAYS one-shots the EVIL-variant Rabbit
+  (Killer Bunny), no matter what. **Killer Bunny easter egg:** a `LivingDeathEvent` handler — when a holy blast
+  kills the Killer Bunny, the thrower (quietly skipped if no owner) says "Right. How many did we lose?" in chat
+  (the Monty Python payoff). Source entity = the grenade (so nobody's excluded from the blast). A
+  strong **impact camera-shake** (`grenadeShake{Ticks,Strength}`) hits everyone within `grenadeShakeRadius`
+  (14). Everyone within `grenadeExplosionCleanseRadius` (6.0) is INSTANTLY + fully cleansed
+  (`EffectManager.removeAll`) and PROTECTED for `grenadeExplosionProtectTicks` (600 = 30s).
+- **Shockwave (`grenadeShockwaveRadius` = 10.0):** an **expanding gold/holy ground RING** (just like the
+  amethyst bell — `renderShockwaveRing`, client-rendered, reaches full radius over
+  `grenadeShockwaveVisualTicks`) plus the bell-style "overtake" on players — engulfed by gold/holy motes over
+  `grenadeShockwaveTicks` (30 = 1.5s, client-rendered off the synced `GRENADE_CLEANSE_END`, mirroring the
+  bell consume) with a **gentle camera rattle** (reuses `GRENADE_SHAKE_END` at a small window, never stomping
+  the impact jolt), during which their effect timers race down (`EffectManager.reduceAllDurations` by
+  `grenadeShockwaveDrainPerTick` = 40/tick); at the end a pulse **purges every vanilla potion effect**
+  (`removeAllEffects`) on top of the mod-attachment cleanse, then protects for `grenadeShockwaveProtectTicks`
+  (200 = 10s) and re-applies a fresh Regeneration II for `grenadeShockwaveRegenTicks` (100 = 5s). Protected +
+  Regen also run during the overtake itself. Ticked from a static list on a `ServerTickEvent` (like jar
+  lashes), since the grenade entity is gone by then. The shockwave also **smites undead mobs** anywhere in
+  its reach for `grenadeShockwaveUndeadDamage` (8, holy) and **one-shots the Killer Bunny** (holy, credited to
+  the thrower — so a shockwave kill also fires the Monty Python line).
+- **Kills lashes:** while the entity is live it snuffs any jar lash within `grenadeLashKillRadius` (4.0) via
+  `JarEffects.killLashesNear`.
+- Sounds: `item.holy_grenade.pin/throw/hallelujah/hallelujah_rare/explode` ✅ SUPPLIED. Texture
+  `item/holygrenade.png` ✅ supplied.
 
 ---
 
@@ -258,9 +313,11 @@ Verified in bytecode: `LivingEntity.die` calls `onLivingDeath` (which fires `Liv
 but `dropAllDeathLoot` only at offset 164 — so an explosion fired straight from the death event goes off
 while the items **do not exist yet**, leaving the whole inventory sitting neatly on the floor. One tick
 later the drops are real entities and the blast destroys them like any other ground item.
+**A decent KNOCKUP (`explosiveKnockup`) is added on top of the blast's own knockback** — everything caught
+gets an extra upward launch scaled down by distance, so the death goes off with a satisfying pop.
 Discovered on death.
 ```
-explosivePower=4.0  explosiveCreatesFire=false  explosiveDelayTicks=1
+explosivePower=4.0  explosiveCreatesFire=false  explosiveDelayTicks=1  explosiveKnockup=0.7
 ```
 
 ### Super Explosive — TNT  ✅ REFINED
@@ -458,12 +515,21 @@ watched, then vanishes or sprints at you). NOT pickable/collidable — the swing
 (`DelusionManager.onAttack`). NO custom sounds (a bespoke sting would mark them as fake). The hard-won client
 gotchas (isControlledByLocalInstance, once-per-tick calculateEntityAnimation, head/body split, look-ahead
 jump) live in the class comments.
+**(2026-09-23) MISIDENTIFICATION (Oliver's addition):** on top of the fake players, REAL players around the
+victim now sometimes render as the WRONG online player — someone else's skin AND nametag — for a while, then
+look like themselves again. Victim-only client illusion (`client/DelusionMisidentify` holds the schedule +
+real→impersonated map, ticked from ClientCurseHandler while `DELUSIONS_SIGNAL != 0`). The skin swap rides on
+`UglySkinManager.desiredSkin` at lowest priority (so a genuine Ugly/disguise wins and the two never fight the
+reflective `PlayerInfo.skinLookup`); the nametag is overridden in `DisguiseClient.onNameTag`. Config
+`delusionsMisidentifyMax` / `delusionsMisidentifyInterval{Min,Max}` / `delusionsMisidentifyDuration{Min,Max}`.
 ```
 delusionsMaxConcurrent=2  delusionsSpawnIntervalMinTicks=1200  delusionsSpawnIntervalMaxTicks=3600
 delusionsSpawnRangeMin=12  delusionsSpawnRangeMax=28  delusionsLifetimeMaxTicks=1200
 delusionsDespawnDistance=48  delusionsStateSwapInterval=120
 delusionsRealisationSeenTicks=60  delusionsRealisationChancePercent=15  delusionsChargeChancePercent=40
 delusionsHitReach=4.0  delusionsViewConeDot=0.75  delusionsMirrorSelf=true  delusionsObserveDistance=4.0
+delusionsMisidentifyMax=2  delusionsMisidentifyIntervalMin=400  delusionsMisidentifyIntervalMax=1600
+delusionsMisidentifyDurationMin=200  delusionsMisidentifyDurationMax=600
 Sounds: ALL VANILLA, nothing pending. Vanish = ENDERMAN_TELEPORT pitched up (which also ties it to the
   Ender Pearl it's cast with); footsteps/mining use the real block's own step/hit/break sounds; punching
   uses the flat PLAYER_ATTACK_NODAMAGE whiff; teleporting uses ENDERMAN_TELEPORT at both ends.
@@ -804,6 +870,10 @@ The per-tick re-assert is load-bearing: exiting fullscreen makes vanilla RESTORE
 windowed size one frame AFTER the option is set, which overwrote the old one-shot maximise and left you
 staring at the desktop — re-asserting catches that. Fullscreen is refused via `options.fullscreen().set(false)`
 — vanilla's change callback does the toggle, so calling `toggleFullScreen()` as well double-toggles back.
+**(2026-09-23) Fullscreen is SAVED on cast and RESTORED on cure:** the client remembers `minorWasFullscreen`
+when the curse activates, and puts fullscreen back when it ends, so a victim who was fullscreen isn't left
+stuck windowed. (Screensaver already captures + restores its own `wasFullscreen` per episode, so it never
+leaves the victim in the wrong fullscreen state either.)
 
 **Titles come from a writable list**, `assets/witchmod/text/window_titles.json` — a plain JSON array of
 strings. **Note `assets/`, not `data/`**, the same call as the Loading Screen's tips and for the same
@@ -1007,8 +1077,9 @@ correct even when you were nearly full and vanilla clamped the gain.
 
 **Scrying Mirror interaction:** the mirror names your exact diet instead of leaving you to discover it by
 eating. Implemented generically — `Effect.scryingDetail(target)` is an overridable hook (empty by default)
-that the mirror appends to an effect's line, so any future attachment can expose instance detail the same
-way without the items package knowing about specific curses.
+returning an `Optional<Component>` (translatable, `witchmod.scry.*`) that the mirror appends to an effect's
+line, so any future attachment can expose instance detail the same way without the items package knowing
+about specific curses.
 
 ### Comic Relief — Lightning Rod  ✅ REFINED
 A reference to the genre of clip where someone is quietly having a bad time and the sky finishes the job.
@@ -2055,24 +2126,29 @@ the Afflicted status, `/bewitch event`) is deleted.
 
 Applied in the Table's Modifier slot. Deltas multiply onto base cost/duration/success/backfire.
 
+**⚠ The Compendium lang descriptions (`witchmod.compendium.mod.*.desc`) are the AUTHORITATIVE spec for what
+each modifier does** — the deltas here and in `Modifier.java` were reconciled to them 2026-09-23 (Oliver's
+call). If a desc doesn't say a modifier increases the cost, its cost delta is 0; if it says "reduces the
+cost", the delta is negative. Keep the enum consistent with the lang, not the other way round.
+
 | Modifier | Cost | Duration | Success | Backfire | Notes |
 |---|---|---|---|---|---|
-| Clock | +15% | fixed 45 min | — | — | overrides the random 35–60 min base roll; still IGNORED by duration-override curses (e.g. Moonwalker, which halves it) |
-| Netherstar | +50% | — | forced 100% (removes failure entirely) | — | |
+| Clock | — | fixed 45 min | — | — | overrides the random 35–60 min base roll; still IGNORED by duration-override curses (e.g. Moonwalker, which halves it). (2026-09-23: cost dropped +15%→0 to match its lang desc, which mentions no cost) |
+| Netherstar | **-50%** | +25% (a higher roll) | forced 100% (removes failure entirely) | — | (2026-09-23: reconciled to its lang desc — "significantly reduces the cost, removes failure, forces a higher duration roll". The +100 success delta with a 100% cap is what actually forces success past the 95% base curve.) |
 | Prismarine Shard | -15% | — | — | — | |
-| Dragon's Breath | +30% | splash copies at 1/4 duration | — | +10% | spreads to players near the CASTER |
-| Netherite Ingot | +40% | — | — | +10% | bypasses Ward/Jar; NOT Warding Totem |
+| Dragon's Breath | +30% | splash copies at **1/3** duration | — | +10% | spreads to players near the CASTER within `dragonsBreathRadius` (12, config), with a client-rendered expanding shockwave RING (like the grenade/bell — gold for a blessing, purple for a curse), via `WitchModNetwork.sendRitualShockwave` → `RitualFxClient` kind 3. (2026-09-23: the unmentioned -40% MAIN-duration nerf was removed, and the splash dose is now 1/3 to match "a third of the duration") |
+| Netherite Ingot | **+15%** | — | — | +10% | bypasses Ward/Jar; NOT Warding Totem. (2026-09-23: cost +40%→+15% to match its lang desc, "slightly increases the cost") |
 | Ink Sac | +35% | — | — | +5% | effect hidden until its discovery event fires; then shows with timer |
 | Glow Ink Sac | -10% | — | — | — | target told in chat exactly what they got |
-| Rabbit's Foot | +10% | — | — | -15% | |
+| Rabbit's Foot | — | — | — | -15% | (2026-09-23: cost +10%→0 — its lang desc explicitly says "does not effect the cost") |
 | Echo Shard | +10% | — | — | — | delays ONSET by 5–10 min (changed from delay-tell) |
 | Goat Horn | -5% | — | — | — | horn sound when the curse lands |
 | Sugar | -10% | -50% | +10% | — | |
-| Honeycomb | +20% | 25% of rolled duration | 100% IF attachment is not Major-tier+ | 0% (forced) | no effect on non-time-based events |
+| Honeycomb | +20% | 25% of rolled duration | 100% IF **power ≤ 80** | 0% (forced) | no effect on non-time-based events. (2026-09-23: duration -60%→-75% so it's really a quarter; success gate changed from tier≠MAJOR to powerLevel≤80 to match "power 80 and below") |
 | Quartz | -20% | — | — | — | only for Compendium-discovered spells |
-| Compass | +5% | fixed 40 min | — | — | overrides the random roll |
-| Recovery Compass | +15% | — | — | — | attachment does NOT persist after death (the exception to Rule 4) |
-| Eye of Ender ("Test the Waters") | +10% | — | — | — | pure diagnostic: when a cast is BLOCKED, chat-reports every protection the target carries (a held Ward / a Warding Totem's radius / bathing in Holy Water; falls back to "some other protection" for a raw `/effect protected`). Cross-slot with Low Gravity's Eye of Ender sacrificial item — separate slots, no clash. |
+| Compass | — | fixed 40 min | — | — | overrides the random roll. (2026-09-23: cost +5%→0 — its lang desc mentions no cost) |
+| Recovery Compass | **-15%** | — | — | — | attachment does NOT persist after death (the exception to Rule 4). (2026-09-23: cost +15%→-15% — its lang desc says "reduces the cost") |
+| Eye of Ender ("Test the Waters") | — | — | — | — | pure diagnostic: when a cast is BLOCKED, chat-reports every protection the target carries (a held Ward / a Warding Totem's radius / bathing in Holy Water; falls back to "some other protection" for a raw `/effect protected`). Cross-slot with Low Gravity's Eye of Ender sacrificial item — separate slots, no clash. (2026-09-23: cost +10%→0 — its lang desc mentions no cost) |
 
 REMOVED as modifiers (now sacrificial items / table mechanics): Gunpowder (→ Explosive curse),
 Milk Bucket (→ Butterfingers curse), Redstone Dust (→ random-attachment table mechanic).
@@ -2252,6 +2328,9 @@ real players. Count dropped 21 → 19.)
 CURSES
 witchmod:curse.unhygienic.flies           ✅ DONE — 3 ambient fly-buzz variants
 witchmod:curse.echoes.ping                ✅ DONE — fake notification chime (SINGLE file, no variants by design)
+witchmod:item.holy_grenade.pin/throw      ✅ SUPPLIED — pin-pull + throw whoosh, played on throw
+witchmod:item.holy_grenade.hallelujah     ✅ SUPPLIED — the halleluiah heralding the charge (+ .hallelujah_rare, 1/50)
+witchmod:item.holy_grenade.explode        ✅ SUPPLIED — the detonation
 witchmod:curse.gassy.fart_small           ✅ DONE — 4 everyday variants
 witchmod:curse.gassy.fart_large           ✅ DONE — the rare big one (single file by design)
 witchmod:curse.slippery.slide_whistle     ✅ DONE — 3 descending slide-whistle variants
@@ -2446,16 +2525,96 @@ before the other elements) and a "PRESS ANY KEY" prompt that flashes but does no
 dead, so it would be pure theatre, which is the joke.
 
 ## 14. Gamerules / Config
+
+**⚙ CONFIG LAYOUT (refactored 2026-09-23).** The old single flat `witchmod-server.toml` (1200+ un-sectioned
+keys — "a wall of keys") was SPLIT into several purpose-named, sub-sectioned files under `config/witchmod/`,
+registered in `WitchMod` via `registerConfig(SERVER, <spec>, "witchmod/<file>.toml")`:
+- **rules.toml** — server gamerules + the ritual success/backfire formula + discovery/cost knobs (RULES builder)
+- **curses.toml** — every per-curse balance knob (CURSES builder), one `[section]` per curse
+- **blessings.toml** — every per-blessing knob (BLESSINGS builder)
+- **modifiers.toml** — modifier knobs (MODIFIERS builder)
+- **items.toml** — item/block knobs (jar, grenade, voodoo, ward, bell, ledger, holy water …) + recipe toggles (ITEMS builder)
+- **synergies.toml** — cross-effect synergy knobs (SYNERGIES builder)
+- **client.toml** — the CLIENT config ({@link ClientConfig}); per-player visual/audio/accessibility prefs, NOT
+  synced from a server. Sections: `[screen]` (screen-fx sliders), `[particles]`, `[compendium]`, `[opt_outs]`
+  (curse opt-outs — the one thing here the server reads, see below), `[splitscreen]`.
+
+**✍ Where the shipped config comments live:** every `.comment("…")` string in `Config.java`/`ClientConfig.java`
+compiles into the generated `.toml` as its documentation and ships in the jar — edit them to write your own
+explanations. Each spec's FIRST `push()` carries a file-header comment (e.g. `RULES.comment(…).push("general")`)
+that becomes the top-of-file intro; per-field comments sit above each key.
+
+Implementation: `Config.java` keeps ALL fields under their ORIGINAL names (so every `Config.FOO` reference is
+unchanged — zero churn), but each field is built against one of several `ModConfigSpec.Builder`s, and
+`static { X.push("<attachment>"); } … static { X.pop(); }` blocks bracket each attachment's run into a
+labelled TOML `[section]`. `Config` exposes one `<BUILDER>_SPEC` per file. Server configs stay server-type
+(per-world, synced to clients). Categorising a knob into the "wrong" file is cosmetic-only (it still works).
+
 ```
-Grace Period      - new players cannot be targeted for a customisable window
-Curses            - on/off
-Blessings         - on/off
-Globals           - on/off
-Ward Durability   - wards can be made non-decaying so players can 'opt out'
-Backfires         - on/off
+Grace Period      - new players cannot be targeted for a customisable window        [rules.general]
+Curses / Blessings- on/off (cursesEnabled / blessingsEnabled)                        [rules.curses|.blessings]
+Ward Durability   - wards can be made non-decaying so players can 'opt out'          [items]
+Backfires         - on/off                                                           [rules.backfires]
+ritualNeverFails  - when true a Table cast ALWAYS succeeds (removes all fizzle/backfire); default false
+guaranteedIfFullyPaid - paying the FULL essence cost guarantees success (removes the residual ~5% fizzle at
+                    full pay); underpaying can still fail. default true.             [rules.general]
+discoverySystemEnabled - master switch for the discovery/Compendium rumour system (effects AND modifiers).
+                    off ⇒ nothing is ever discovered, no alerts, Compendium shows all as known. default on. [rules.general]
+globalCostMultiplier - global × on every ritual's essence cost (applied in ModifierCalculator.applyCost). default 1.0. [rules.general]
+disabledAttachments - list of curse/blessing ids that can NEVER be present (all in-world routes + infectious
+                    refuse them; enforced in EffectManager.apply + applyExact). disabledAttachmentsCommandBypass
+                    (default on) lets op /bewitch apply|dummy still apply them via ApplyOptions.withBypassDisabled().
+                    refusal message: witchmod.disabled.attachment.                    [rules.general]
+disabledModifiers - list of modifier ids refused in the Table's modifier slot (BewitchingTableRitual.
+                    refuseIfModifierDisabled + the command); NO command bypass. message: witchmod.disabled.modifier. [rules.general]
+disabledRecipes   - list of item ids whose crafting recipe is filtered out at load, via a config-backed datapack
+                    condition witchmod:recipe_enabled (RecipeEnabledCondition + WitchModConditions) on every mod
+                    recipe json. takes effect on world load / /reload.               [items.recipes]
+bannedItems       - list of ANY item ids (vanilla or modded) that are fully banned: can't be crafted or smelted
+                    (result voided, message witchmod.banned.item), and with forceClearBannedItems on they're also
+                    swept from inventories on a slow beat. Enforced in data/BannedItems (craft/smelt/tick events).
+                    Broader than disabledRecipes (which only filters this mod's own recipe jsons). [items.recipes]
+ignoreClientOptOuts - when false (default) the server HONOURS a player's client-config curse opt-outs (a cast of
+                    an opted-out effect is refused + refunded); true = ignore them, those curses always land. [rules.general]
+ritualDurationNoVariation - when true, every cast lasts exactly ritualMaxDurationTicks (no random roll between
+                    ritualMin/MaxDurationTicks). The 35–60 min window itself is editable via those two keys. [rules.ritual]
+jarChestDropsEnabled / jarMobDropsEnabled - split toggles under the jarDropsEnabled master: turn named-jar loot
+                    from CHESTS or from MOB kills on/off independently (witch essence still trickles).    [items.jar]
 Limit             - max simultaneous attachments per player (default 3)
 tntRainWorldDamage- false by default (TNT Rain world damage opt-in)
+starterDiscovery  - on first-ever login every player SILENTLY discovers a few starter effects so the Compendium
+                    isn't blank: starterDiscoveryEnabled (default on), starterDiscoveryCurses/Blessings (default 1
+                    each) picked at random within starterDiscoveryPowerMin..Max power (default 5..25). One-time,
+                    gated by the persisted STARTER_DISCOVERY_DONE attachment; also gated on discoverySystemEnabled.
 ```
+
+**⚙ CLIENT CONFIG (client.toml, {@link ClientConfig}) — added 2026-09-24.** Per-player, not synced; guarded
+accessors (`ClientConfig.foo()`) return sensible defaults before the spec loads.
+- **`[screen]` — screen-fx sliders (the accessibility priority):**
+  - `cameraShakeMultiplier` (0..1, default 1) — scales/mutes ALL screen shake at the one shared chokepoint
+    `ClientCurseHandler.applyShake` (Heavyweight/Dense/Flat Footed/Brute/Dweller/Gladiator/Voodoo/Bell/Grenade)
+    and Vertigo's camera sway (`applyVertigo`).
+  - `screenShaderIntensity` (0..1, default 1) — scales the colour effects: the Dweller desaturation
+    (`DreadAmount` uniform), Siren's magenta wash (`SirenShaderOverlay`), the Dweller chase red vignette. Does
+    NOT touch the world fog (that's the Dweller's core mechanic).
+  - `disableFullscreenShaders` (default false) — hard-off for the GPU post shaders (`ClientConfig.postShadersEnabled()`
+    gates the Dweller desaturation load in `tickDwellerShader` and the Bedrock `vibrant` load in `BedrockClientBugs`).
+  - `reduceFlashing` (default false) — photosensitivity: dampens the Dweller jumpscare white flash, the
+    Immortality/Last Stand revive flash (`ReviveFlashOverlay`), and holds the fake-BSOD glitch to a steady dim
+    (`BedrockClientBugs.onBsodGlitch`) instead of stuttering.
+- **`[particles]` `particleDensityMultiplier`** (0.1..1, default 1 = current) — thins the heaviest client-rendered
+  emitters via `ClientConfig.particleAllowed()` / `scaledParticleCount()` (Guardian trail+halo, Leader ring,
+  Farmer's Spirit ring, Spotlight pillar, Grenade cleanse). Not every particle — just the constant heavy ones.
+- **`[compendium]` `compendiumOpenToLastChapter`** (default off) — reopen the Compendium at the last chapter
+  viewed this session (`CompendiumScreen.lastChapter`).
+- **`[opt_outs]`** — booleans (Screensaver, Minor Inconvenience, Channels, Loading Screen, Narrator). Built into
+  an id list by `ClientConfig.optedOutEffectIds()`, reported to the server via the c2s `ClientOptOutPayload` on
+  join (`WitchModClient.onLoggingIn`) and on client-config reload. The server keeps it in `data/ClientOptOut`
+  (per-uuid, cleared on logout) and refuses an opted-out cast: **`EffectManager.apply`** blocks it universally
+  (any route), and **`BewitchingTableRitual.cast`** pre-checks BEFORE spending so essence is refunded; the caster
+  gets `witchmod.optout.refused`. Overridden by the server's `ignoreClientOptOuts`. NOTE opt-out is not bypassed
+  by the op-command disabled-bypass — only the server rule overrides it.
+- **`[splitscreen]` `splitscreenLivePov`** — the experimental live partner POV (unchanged).
 
 ## 15. Command Tree
 
@@ -2466,7 +2625,7 @@ the command source when `[targets]` is omitted, and shares one set of terse help
 
 ```
 # --- effect management (the hot path — kept top-level and short) ---
-/bewitch apply  {effect} [targets] [duration]     cast as YOU (you are the caster; a Ward/Totem lets a self-cast through)
+/bewitch apply  {effect} [targets] [duration] [modifier]   cast as YOU (a trailing modifier id applies its cast-side behaviours — Clock duration, Ink Sac hide, Dragon's Breath splash, ...; via BewitchingTableRitual.applyWithModifier)
 /bewitch dummy  {effect} [targets] [duration]     cast anonymously — caster "dummy" in the Ledger; a Ward/Totem BLOCKS it
 /bewitch remove {effect} [targets]                strip one effect (effect-first, matching apply; was reversed)
 /bewitch clear  [targets] [all|curses|blessings]  strip everything, or one category (default = all)
@@ -2624,7 +2783,8 @@ Super Explosive→Volatile=`volatile`, The Dweller→Haunted=`haunted` (entity `
       **magnetic_storm synergy (+Thunder):** during a thunderstorm under open sky, real lightning is periodically
       drawn onto you (`magnetStorm*`).
 - [x] Neutral Aggression — spec in §5.
-- [x] Dwarfism — spec in §5.
+- [x] Dwarfism — spec in §5. **size_crisis synergy (+Giant):** `onTick` delegates to `SizeCrisis.tick` while both
+      are active (both curses' `onRemove` call `SizeCrisis.clear`); see §18.2.
 - [x] Screensaver — spec in §5.
 - [x] Minor Inconvenience — spec in §5. Fix (2026-09-02): the maximise is now RE-ASSERTED each tick until the
       GLFW `MAXIMIZED` attribute sticks (guarded off while Screensaver bounces), because exiting fullscreen made
@@ -2640,6 +2800,8 @@ Super Explosive→Volatile=`volatile`, The Dweller→Haunted=`haunted` (entity `
       `ENTITY_INTERACTION_RANGE` ×2 — all transient + re-asserted each tick. Take 75% less / deal 80% more MELEE
       (damage event). STOMP: walking INTO something crushes it (`witchmod:stomp`, bypasses armour) + launch,
       per-victim cooldown. Base melee hits land heavy (`giantHitKnockback` + sweep/crit FX). 10 knobs.
+      **size_crisis synergy (+Dwarfism):** `onTick` delegates to `SizeCrisis.tick` and the giant traits gate on
+      `!SizeCrisis.isSmall`; see §18.2.
 - [x] Floor Is Lava — spec in §5.
 - [x] Heavyweight — ⚠ MERGED into **Dense** (retired). See Dense.
 - [x] Bad Swimmer — spec in §5.
@@ -2672,7 +2834,8 @@ Super Explosive→Volatile=`volatile`, The Dweller→Haunted=`haunted` (entity `
       pitching them in local chat (`data/witchmod/text/solicitor.json`, player-style `<Name> line`). Follows +
       teleports if it falls behind; tagged (`witchmod_solicitor`+`solowner_<uuid>`) so `CurseEventHandler` finds
       it. KILL it → a fresh one spawns instantly (`killed` line). COMPLETE a trade → it hides 1.5–10 min
-      (`sqrt(r)`-long). Persists across reload via a tag scan. 9 knobs.
+      (`sqrt(r)`-long). Persists across reload via a tag scan. 9 knobs. **angels_grudge synergy (+Guardian Angel):**
+      `CurseSolicitor.abduct` lets the angel kidnap + kill the trader on a long forced cooldown; see §18.2.
 - [x] The Snail — **Nautilus Shell.** CUSTOM ENTITY (`SnailEntity`, code-baked model/renderer): a tiny,
       immortal, AI-less snail the curse drives. It owns a VIRTUAL position advanced every tick (even unloaded)
       and only materialises within `snailMaterialiseRadius`. Chase speed = `snailBaseSpeedBlocksPerSecond` ×
@@ -2767,6 +2930,12 @@ _New prototype batch (2026-09-02). Some signed off; the rest ⏳ awaiting Oliver
 - [x] Body Swapping — **Chorus Fruit.** Every `bodySwapMin/MaxGapTicks` you swap places with a sort-of-nearby
       player (band `bodySwapMinDistance`..`bodySwapRadius`); the enderman pop plays AFTER the teleport at each
       arrival spot, so both recipients hear it. Debug `force @s` swaps you with the nearest VILLAGER.
+      **(2026-09-23) SPECIAL SWAPS:** `bodySwapSpecialChancePercent` (2%) of swaps become one of four —
+      **fake-out** (swap, then swap again `bodySwapFakeoutDelayTicks` later), **flicker** (over
+      `bodySwapFlickerDurationTicks` with ONE fixed target, a `bodySwapFlickerChancePercent` roll each
+      `bodySwapFlickerIntervalTicks`), **long-distance** (a partner from beyond the normal radius, out to
+      `bodySwapLongDistanceMax`), and **frenzy** (rotate everyone within the radius one spot along — a
+      derangement, so all shuffle). State (FLICKER/FAKEOUT_AT maps) cleared on removal.
 - [x] Left Handed — **Shears.** Client: flips the rendered main hand (forces the `mainHand` option, saved +
       restored), scrambles typed chat into letter spam (commands pass, so you can still cure it). Aim sway is
       now a PATTERNED sine weave (`leftHandedDriftDegrees` 2.5) that bites while aiming/USING anything (any
@@ -2836,7 +3005,15 @@ Steady Hands→Dexterous=`dexterous`.
 - [x] Bodyguard — spec in §6. Its death no longer breaks the blessing — a replacement is hired
       `bodyguardRespawnTicks` (6min) later (`fell`/`respawn` lines).
 - [x] Payday — spec in §6.
-- [x] Hype Man — spec in §6.
+- [x] Hype Man — spec in §6. **Rework:** more gameplay reactions — added `kill` (LivingDeathEvent), `hurt`
+      (LivingIncomingDamageEvent), `eat` (LivingEntityUseItemEvent.Finish on a food) on top of combat/pickup/loot/
+      building/nearby. A rarer **`downtime`** category (`hypemanDowntimeIntervalTicks`/`hypemanDowntimeThresholdTicks`)
+      fires random crowd chatter after a lull with no praise (works even alone, made-up name — `CROWDLESS` set).
+      **Laugh-track pairing:** a hype line also calls `BlessingEventHandler.triggerLaughTrack` when you carry Laugh
+      Track. **Compliment buff:** each praise has `hypemanBuffChance` to hand you a random wholesome potion effect
+      for `hypemanBuffMin..MaxSeconds` (10–60s) from the `BUFFS` pool. All new lines in the freely-editable
+      hypeman.json (`kill`/`hurt`/`eat`/`downtime`). **(2026-09-23) Power level raised 5 → 20** in
+      `witchmod-power-levels.json`.
 - [x] Workman — spec in §6.
 - [x] Pickpocket — spec in §6.
 - [x] Windfall — spec in §6.
@@ -2845,8 +3022,17 @@ Steady Hands→Dexterous=`dexterous`.
 - [x] Sixth Sense — spec in §6. The high-priority RARE-structure override (ancient city / end city / bastion /
       nether fortress / **stronghold** (moved here from the ordinary list) / buried treasure — checked first
       each sense, gold text, longer cooldown, dimension-aware via `witchmod:rare_*` structure tags).
+      **(2026-09-23) The action-bar hints are now fully TRANSLATABLE** — the templates, the 8 compass directions,
+      the structure names and the rare-biome names are all `witchmod.sixth_sense.*` lang keys (composed as
+      nested translatable args), organised in the lang file rather than built from literal English.
 - [x] Iron Stomach — spec in §6. Bad foods (rotten flesh/raw chicken/pufferfish/poisonous potato/spider eye)
       give no penalty + bonus hunger/saturation; signed off alongside Sixth Sense.
+      **(2026-09-23) EXTRA edibles:** a cast-iron gut can now right-click-eat normally-inedible things for a
+      fixed hunger amount (curated `EXTRA_FOODS` map): glistering melon slice + fermented spider eye ~6, nether
+      wart 4, sugar cane / mushrooms 2, egg / sugar / cocoa beans 1 — a glistering melon slice ALSO grants
+      Regeneration `ironStomachMelonRegenLevel` (V) for `ironStomachMelonRegenSeconds` (3s). Eaten via a
+      right-click in `BlessingEventHandler.onIronStomachExtraEat` (planting cane/cocoa/wart on a block is
+      unaffected — only the air right-click eats); saturation = hunger × `ironStomachExtraSaturation`.
 - [x] Iron Lung — spec in §6.
 - [x] Anchor — spec in §6. VERY subtle 'braced' feedback when a shove is resisted — a quiet `CHAIN_HIT` tink
       (vol 0.18) + a few `CRIT` sparks at the feet.
@@ -2943,6 +3129,11 @@ Steady Hands→Dexterous=`dexterous`.
       `twitch_chat.json` (30+ categories), viewer count, hype bar/train, subs (cashed out at stream end for
       emeralds), badges, emote images/gifs, dead-chat phase. An internal entertainment SCORE fed by many actions
       drives it. Persists through death. ~35 knobs.
+      **(2026-09-23) All in-game TEXT moved to json.** The previously-hardcoded strings — the end-of-stream
+      payout lines, the composed "useful info" values (player/structure/chest/mob templates), the 8 compass
+      directions and the structure names — now live in `twitch_chat.json` (new keys `stream_end*`, `useful_*`,
+      `directions`), pulled via `TwitchChat.at(category, index)` with light code fallbacks. The overlay's
+      `LIVE`/`OFFLINE?`/`subs` header labels became translatable `witchmod.chat.*` lang keys.
 - [x] Coyote (renamed from Civilisation; id `coyote`) — spec in §6. Walk-off coyote jump + edge magnetism onto
       a landable ledge ahead. (The tried landing "ledge catch" was removed — it felt bad.)
 - [x] Low Gravity — **Eye of Ender.** `GRAVITY` ×`lowGravityGravityMultiplier` (0.55) + `JUMP_STRENGTH` ×1.6
@@ -2978,13 +3169,20 @@ Steady Hands→Dexterous=`dexterous`.
       **spider_disguise synergy (+Disguise):** the disguise renders as a spider (`DISGUISE_TYPE` 4).
 - [x] Ninja — **Black Dye.** `MOVEMENT_SPEED`+`ATTACK_SPEED` modifiers, a client mid-air DOUBLE JUMP off synced
       `NINJA_ACTIVE` (smoke FX), a swing woosh, sprint smoke trail. Attributes self-heal.
+      **(2026-09-23) Soft hits:** your melee knockback is cut to `ninjaKnockbackMultiplier` (0.34 = −66%) so
+      victims barely stagger — same mark-then-cut pattern as Heavy Hitter (`onNinjaAttack` marks, `onNinjaKnockback`
+      scales). DISREGARDED (no reduction) if you also carry a knockback-BOOSTING effect (Heavy Hitter / Main
+      Character), so the two don't fight.
 - [x] Backstabbing — **Nether Brick.** A MELEE hit from BEHIND multiplies FINAL damage
       ×`backstabDamageMultiplier` (1.6) with reduced knockback. Rear arc far more generous for mobs
       (`backstabMobDot`) than players (`backstabPlayerDot`).
 - [x] Prop Hunt — **Flower Pot.** Crouch + stand still `propHuntStillTicks` → disguise as the block below
       (synced `PROPHUNT_BLOCK`/`PROPHUNT_ANCHOR`; client cancels player render, draws that block for everyone).
-      Persists through walking; crouch re-anchors/re-samples; a real action pops it. See the **concealment**
-      synergy (+Disguise) in §18.2 for the prop→animal→player cascade.
+      Persists through walking; a real ACTION (swing/mine/use) pops it. **Crouch now only disguises you when you
+      have NO active disguise** — once you're a block, re-crouching just grid-aligns the anchor and does NOT
+      re-sample the block underfoot, so you keep whatever prop you became instead of being bound to the block
+      you happen to be standing over. See the **concealment** synergy (+Disguise) in §18.2 for the
+      prop→animal→player cascade.
 - [x] Blessing of Speed — **Sugar.** Its OWN `MOVEMENT_SPEED` +60% ONLY while sprinting (stacks with Speed
       potions/Ninja) + a spark trail. FOV zoom trimmed to ~30% of the natural sprint zoom (`onSpeedFov`).
       Discovers on first SPRINT. 1 knob.
@@ -3049,16 +3247,23 @@ Steady Hands→Dexterous=`dexterous`.
       flaps not T-poses) with free flight (`abilities.mayfly`, survival only), lost the instant the disguise
       breaks/ends. Flight GLIDES: holding sprint adds a forward push (`flightElytraSprintSpeed`) + FOV zoom
       (`flightElytraFov`) — client `DisguiseClient`.
-      **spider_disguise synergy (+Spider):** the costume becomes a SPIDER (`DISGUISE_TYPE` 4); bat wins if both.
+      **spider_disguise synergy (+Spider):** the costume becomes a SPIDER (`DISGUISE_TYPE` 4).
       **cow_costume synergy (+Cow):** forced to a cow (type 0). **silver_villager synergy (+Silver Tongue):** a
-      VILLAGER (type 5) + a `silverVillagerRefundChancePercent` trade refund. Form priority bat > spider > villager > cow > base.
+      VILLAGER (type 5) + a `silverVillagerRefundChancePercent` trade refund. **ugly_disguise synergy (+Ugly):** a
+      random online player (type 6, skin+nametag) or your normal self if alone. **fish (any water effect):** a COD
+      (type 7) that swims/flops. Special-form priority: **Player > Bat > Villager > Spider > Fish** (then cow, then
+      base) — see §18.2 for ugly_disguise + the water-fish list.
       **concealment synergy (+Prop Hunt):** prop takes priority, and a hit/proximity cascades prop→animal→player
       (`concealCascade`) with a brief unrendered puff-of-smoke flash (`CONCEAL_FLASH_END`, client render cancel) each step.
 - [x] Confusion — **Rabbit Hide.** Throws off exact clones of yourself (`CloneEntity`, 1-HP, owner skin +
-      nametag, wanders/swings/looks around) — up to `confusionMaxClones`, rarely when there's an audience.
-      Nearby hostiles auto-aggro onto clones; a clone POPS to dust on any hit (no damage event). Dust streams
-      from you to each new clone. 3 knobs. **wild_decoys synergy (+Disguise):** `CloneRenderer` reads the owner's
-      synced form and draws each clone as the prop block / disguise mob (and vanishes with the owner's conceal flash).
+      nametag, wanders/swings/looks around) — up to `confusionMaxClones` (now **10**), rarely when there's an
+      audience. Nearby hostiles auto-aggro onto clones; a clone POPS to dust on any hit (no damage event). Dust
+      streams from you to each new clone. **Attack burst:** being hit (any source, `onOwnerHurt` off
+      LivingIncomingDamageEvent) forces `confusionAttackSpawnCount` (2) clones out over
+      `confusionAttackSpawnWindowTicks` (2s), BYPASSING the audience/rarity gate (still capped by the max) — so a
+      fight always throws up decoys. **wild_decoys synergy (+Disguise):** `CloneRenderer` reads the owner's synced
+      form and draws each clone as the prop block / disguise mob, AND the clones take on that form's MOVEMENT — a
+      bat clone flits around you (a swarm), a fish clone flops (see §18.2). Vanishes with the owner's conceal flash.
 _New blessing batch (2026-09-02) — built, compiles + boots clean; ⏳ awaiting Oliver's in-game test._
 - [x] Leader — **Golden Helmet.** OTHER players within `leaderRadius` (never you) get Regeneration +
       Resistance (`leaderRegenAmplifier`/`leaderResistanceAmplifier`), re-applied each tick, with subtle
@@ -3124,7 +3329,8 @@ _New blessing batch (2026-09-02) — built, compiles + boots clean; ⏳ awaiting
         fall → PHYSICALLY scoops you up via `startRiding` and flies you to the nearest hazard-free landing;
         SKIPPED if you already survive falls — Twinkletoes / Flight / Spider / Slow Falling), Air
         save (Water Breathing + refill when drowning), **Cleanse** (circles you, purges 1–2 HARMFUL potion
-        effects), **Heal** (below HALF health → flies a fast five-point STAR around you knitting `guardianHealRate`
+        effects — but NOT the mod's own mechanic markers `dehydration`/`cursed`, which drive their own HUD/systems
+        and only flicker if cleansed; `cleansable()`), **Heal** (below HALF health → flies a fast five-point STAR around you knitting `guardianHealRate`
         hp/s; a HIT cancels it for 2s), Phantom purge, Curse purge (`guardianCursePurgeChance`), **Hunger** (below
         40% food → tops you up + brief saturation), Fishing (hovers bobber + hurries bite, STACKS w/ Angler),
         Arrow retrieval, Restock (floor items you ALREADY carry drift back), Mining (hard block/run → Haste II),
@@ -3165,6 +3371,9 @@ _New blessing batch (2026-09-02) — built, compiles + boots clean; ⏳ awaiting
         `witchmod:blessing.guardian.zap` ✅ SUPPLIED. ✅ SIGNED OFF (Oliver may still add "more events").
         Deliberately NOT done: a custom angel MODEL/renderer (kept the vanilla Allay + halo shimmer — a bigger
         art/entity job if Oliver wants it). "More events to come" (Oliver).
+        **guarded_ally synergy (+Bodyguard):** under attack the angel frenzies the bodyguard (soft version on the
+        angel's death). **angels_grudge synergy (+Solicitor):** the angel can't purge the solicitor but hunts,
+        kidnaps + kills its trader after a hidden irritation timer, forcing a 5-min cooldown. Both in §18.2.
 - [x] Photosynthesis — **Sunflower.** In direct daylight you slowly regen + gain hunger; standing in WATER
       while sunlit makes it stronger (Regen II). The sunny opposite of Basement Dweller. 1 knob.
 
@@ -3185,16 +3394,34 @@ below are current implementation status.)
       (offline-aware) + online/offline line. Per-UUID COLOUR (client item-model property `witchmod:essence_colour`
       → one of 16 recolour textures). Three JAR gestures (`PlayerEssenceEventHandler`): crouch+look-down = own ·
       right-click a "clean" player = theirs (a cursed/blessed target does the Jar's capture instead) · right-click
-      a BED = its spawn-owner, offline-aware via `BedSpawnRegistry`.
+      a BED = its spawn-owner, offline-aware via `BedSpawnRegistry`. **An UNBOUND Player Essence (only ever pulled
+      from the creative menu) binds itself to a RANDOM online player on `inventoryTick`** (pool includes the
+      holder; defaults to the holder when alone) — so a creative-grabbed essence is always usable.
 - [x] Compendium — custom `CompendiumScreen`: a two-page book with a Chapters sidebar (Curses/Blessings/
       Modifiers/Items/Blocks/Rituals), one entry per page (name, category, sacrificial-item icon, 0–100 power
       pips read from `PowerLevels`, scrollable description; recipe/durability for items/blocks pulled live from
       the RecipeManager). Undiscovered = RUMOUR pages (hidden item, aged parchment, `.rumour` hint). Discovery
       synced via `DISCOVERED_EFFECTS`/`DISCOVERED_MODIFIERS`. Descriptions/rumours/intros are editable
       `witchmod.compendium.*` lang keys (placeholders for now — Oliver writes the real copy).
-- [x] Voodoo Doll — spec in §4. PASSIVE redirect: while a bound doll is in your inventory, any CURSE you cast
-      at the Table is forwarded onto the doll's target instead (1 durability; `voodooDollDurability` 12; offline/
-      dead → no forward). Bind = Player Essence off-hand + use the doll (or a `VoodooBindRecipe` in the grid).
+      **(2026-09-22):** MODIFIERS now use the rumour system too — an undiscovered modifier shows the `?` glyph
+      (was always its real icon) and "Rumoured Modifier"; force-discover via `/bewitch discovery add modifier
+      <id>`. The **Holy Hand Grenade is HIDDEN** from the Items chapter (rare loot, not advertised). The 3
+      filled-jar variants (Cursed/Blessed/Mixed) are folded into ONE combined **"Filled Jars"** entry pinned to
+      the END of the Items chapter (`witchmod.compendium.filled_jars.name/.desc`; the 3 individual desc keys were
+      dropped). **(2026-09-23) The two "special ritual exemptions" are documented too**, appended at the very end
+      of the Items chapter with their own text and no "not craftable" footer (`Entry.hideRecipeNote`): a combined
+      **"Gamble Coins"** entry (`witchmod.compendium.coins.*`) whose big icon CYCLES through the 3 coin textures
+      (the 3 coins are excluded from the normal item loop), and a **Redstone Dust** entry
+      (`witchmod.compendium.redstone_ritual.*`) explaining the random-attachment Table mechanic. Both are always
+      shown (items carry no rumour state).
+      **(2026-09-23) UI clipping fixes:** long entry titles (e.g. "Block of Cursed Essence") are now SCALED to
+      fit the page width instead of running off the side; the holy-water "how it's made" note sizes its footer
+      to its wrapped line count so it no longer spills out the bottom (pushing the scrollable description up);
+      and the smelt-recipe footer height was bumped 46→54 so the "smelt" label doesn't clip the frame.
+- [x] Voodoo Doll — spec in §4. **(2026-09-22) The passive Table curse-FORWARDING was REMOVED** (the Effigy
+      already forwards curses, so it was redundant) — the doll no longer redirects your Table casts; the
+      `witchmod.ritual.voodoo_forward/_unavailable/_crumbles` lang keys + the command-cast hint were dropped.
+      Bind = Player Essence off-hand + use the doll (or a `VoodooBindRecipe` in the grid).
       Sympathetic interactions (all `/bewitch debug voodoo`-able): needle stab (armour-SCALING `witchmod:voodoo`
       dmg), throw + fishing-rod (real fling/yank of the victim), squeeze (ramping choke), feed (off-hand food),
       lightning (real bolt), water/rain, freeze (powder snow), inventory pin, shake (Nausea), potion-cloud,
@@ -3211,20 +3438,38 @@ below are current implementation status.)
       `isMagicProtected` short-circuits, but a held ward → `onWardBlock` (spends durability + lash) unless Netherite
       `bypassWard`; a non-ward Protected (totem/holy water) → the unbypassable fizzle. Ward wears out per block →
       the Protected icon fades with it.
-- [x] Scrying Mirror — right-click self, or a player, to reveal active curses/blessings as a styled
-      `ScryingOverlay` panel (name + seconds-left + `scryingDetail` specifics), and instantly DISCOVERS what it
-      reveals. `scryingDetail` implemented on ~25 effects (some flavour via `@`-prefixed lang keys). **UI restyle
-      (2026-09-08):** the `ScryingOverlay` panel now uses the Compendium's parchment palette (brown frame + cream
-      page + ink text) to match the other UIs; long names are ellipsis-CLIPPED (leaving room for the timer) and
-      long detail lines WRAP (`font.split`) with the panel sized to the real content height, so nothing trails off
-      the edge any more. **Recipe = 3× cobbled deepslate columns L/R, diamond centre, cursed essence above+below it.**
+- [x] Scrying Mirror — **HOLD-to-use (2026-09-20).** Hold right-click to peer into the effects on YOU, or on
+      the player you're LOOKING at (subject resolved by a look-raycast, so self and others share one path;
+      `interactLivingEntity` just PASSes so a click on a player falls through to `use()`). `UseAnim.NONE` — a
+      spyglass pose clipped horribly in third person and blocked the panel, so no special pose. Peering **slows
+      you significantly** (Slowness `scryingSlownessAmplifier`, refreshed each use-tick so it fades right after you
+      lower it) and throws off **extra arcane motes** — spawned CLIENT-side in `onUseTick` (each client renders
+      its own for anyone it sees peering, so nobody can flood the server with particles). The panel reveals
+      **INSTANTLY** on the click (`scry` in `use()`), then re-reads every `scryingRefreshTicks` so timers stay LIVE
+      while held; discovery + the chime fire only on that first reveal. **With no attachments it still responds** —
+      an empty result panel reading "No afflictions present." with a lower-pitched chime. `scryingDetail`
+      implemented on ~25 effects (some flavour via `@`-prefixed lang keys). **Overlay (`ScryingOverlay`):** a
+      TRANSLUCENT glassy panel (indigo gradient body, thin purple frame, lavender "✦ Scrying: <name>" header) —
+      simplified; names ellipsis-CLIP, detail lines WRAP, panel sized to content. Lifetime keyed to the local
+      player still holding the mirror: stays while you peer, **removed `LINGER_TICKS` (10) after you lower it**,
+      fading out; a fresh hold clears the previous target's data (`hasData` flag) until the new reveal arrives.
+      **(2026-09-22) The peering SLOW now lifts INSTANTLY on release** (`releaseUsing` removes only our own
+      Slowness) while the UI still lingers the ~0.5s. **All `scryingDetail` specifics are now TRANSLATABLE** —
+      `Effect.scryingDetail` returns an `Optional<Component>` (was a raw String), each effect returns
+      `Component.translatable("witchmod.scry.<id>.<state>", args…)`, and `ScryEntry.detail` is sent as a
+      Component (codec moved to `RegistryFriendlyByteBuf` + `ComponentSerialization`). All ~26 detail strings
+      live in the lang file's Scrying-Mirror section now, not embedded in the classes.
+      **Recipe = 3× cobbled deepslate columns L/R, diamond centre, cursed essence above+below it.**
 - [x] Effigy — short SEQUENCE (`SpellSequences.effigy`): on a PLAYER, lifts your curses off, streams a
       colour-coded ribbon across, lands them on the victim (durations preserved) with `spell_glint`+`lash_spawn`.
       **(2026-09-11) The debug villager path was REMOVED** — it only forwards onto players now. **Recipe = a
       Totem of Undying surrounded by cobbled deepslate with cursed essence above the centre totem.**
 - [x] Cursed / Blessed / Executioner's Coin — `ItemGambleCoin` + `SpellSequences.coin`: rolls first
       (`CoinGamble.roll`), plays `coin_flip`, BREAKS into 1–3 colour-coded puffs, then applies to the user a
-      beat later. Table-cast coin path (`castCoin`) unchanged. **Recipes (2026-09-08): Blessed = iron block
+      beat later. Table-cast coin path (`castCoin`). **(2026-09-22) You can now BOTTLE a coin** — a JAR in the
+      Table target slot + a coin sacrificial fills the jar with the coin's roll (up to `JarContents.MAX`, only
+      what fits; a full jar is refused; a failed roll hands the jar back unchanged), to nudge players toward the
+      ritual system. The old `coin_jar` "can't bottle a coin" refusal was removed. **Recipes (2026-09-08): Blessed = iron block
       surrounded by cursed essence · Cursed = gold block surrounded by cursed essence · Executioner's = any
       copper block (incl. all waxed/weathered variants) surrounded by cursed essence** — so Blessed/Executioner's
       are now craftable, not loot-only.
@@ -3237,7 +3482,9 @@ below are current implementation status.)
       in a player's inventory (`ItemJar.inventoryTick`) — so a jar pulled from the creative menu becomes a real
       "jar of X" and is throwable (the plain empty JAR is left alone — it's the essence tool).
 - [x] Amethyst Bell — **REWORKED 2026-09-09 into an AOE multiplayer gambling block** (ring FX overhauled
-      2026-09-11). Right-click RINGS it: the bell swings (`blockEvent`), a dramatic toll rolls, a bright central
+      2026-09-11). **(2026-09-23) placement axis SWAPPED** in `getStateForPlacement` — the bell now hangs
+      perpendicular to the way you're facing (it was rotated 90° wrong).
+      Right-click RINGS it: the bell swings (`blockEvent`), a dramatic toll rolls, a bright central
       burst fires (NO fireworks), and an **expanding pink shockwave** ripples out along the ground (animated over
       16 ticks in `AmethystBellBlockEntity.tick`). Each player within `AOE_RADIUS` (8) hears the golden-apple-to-
       a-zombie-villager toll (`ZOMBIE_VILLAGER_CURE`) and their **fate is DECIDED at ring time**
@@ -3276,6 +3523,9 @@ below are current implementation status.)
       reuses the ritual's `ritualMin/MaxDurationTicks`. Desaturated texture supplied by Oliver.
 - [x] Recovery Compass (modifier) — removed from the creative tab (it's backed by the vanilla item). Still
       usable as a modifier.
+- [x] Holy Hand Grenade — NEW (added mid-refinement, 2026-09-19). Full spec + config in §4.2; a rare special
+      drop (§18.1). Built + compiles clean; ⏳ awaiting Oliver's in-game test (throw feel/roll, blast + shockwave
+      radii, particle "go all out" pass).
 
 **BLOCKS (Section 3)** — start only after every item above is checked off.
 - [x] Bewitching Table (**displays as "Ritual Table"**) — ✅ SIGNED OFF 2026-09-11 (Oliver still owns the
@@ -3301,16 +3551,30 @@ below are current implementation status.)
       (`witchmod.ritual.*` lang keys — every table/coin/backfire message), and the caster gets **hit feedback**:
       on a land, "succeeds — X on Y! (lasts ~N min)"; on a block, "Blocked — Y is protected"; on grace/disabled,
       "won't take on Y". **Eye of Ender modifier ("Test the Waters")** chat-reports what shielded a blocked cast
-      (`reportProtections` → Ward / Warding Totem / Holy Water). NEXT: Oliver edits textures + in-game tuning of the FX.
+      (`reportProtections` → Ward / Warding Totem / Holy Water).
+      **(2026-09-23) UI: simplified slot tooltips + a Compendium link button.** Hovering ANY ritual slot (filled
+      or empty) now shows just its ROLE — **Target / Cursed Essence / Sacrificial Item / Modifier** (translatable
+      `witchmod.ritual.slot.*`, via a `renderTooltip` override), instead of the held item's full tooltip or the
+      old verbose labels. A small **book button** sits just outside the panel's right edge (`CompendiumLinkButton`,
+      editable texture `textures/gui/container/compendium_button.png` — placeholder book supplied) that opens the
+      Compendium straight to the **Rituals** chapter (`CompendiumScreen.openAt(CHAPTER_RITUALS)`).
+      NEXT: Oliver edits textures + in-game tuning of the FX.
 - [x] Block of Cursed Essence — ✅ SIGNED OFF 2026-09-11. A 9× Cursed Essence storage block; also accepted in
       the Ritual Table essence slot worth 9 each (`BewitchingTableRitual.essenceValue`), craftable both ways
       (`cursed_essence_block.json` / `cursed_essence_from_block.json`). NOTE: §3's "Global bank currency unit"
       description is STALE — globals were cut; it's now just storage + bulk essence.
-- [x] Ledger — right-click opens a custom scrollable `LedgerScreen` (parchment, newest-first) of nearby ritual
-      activity (caster→target, effect+modifier, result, "Xm ago"; scribbled Paper casts obfuscated), range
-      `Config.LEDGER_RANGE` (24). Every successful cast pulses ENCHANT particles into nearby Ledgers
-      (`LedgerFeedback`) + `ledger.write`. DIRECTIONAL (a `FACING` block); renders a 3D purple book on top like a
-      lectern (`LedgerBlockEntity`+`LedgerRenderer`). Reskinned onto editable `block/ledger_*` textures.
+- [x] Ledger — right-click opens a custom scrollable `LedgerScreen` (parchment, newest-first) of ritual
+      activity, range `Config.LEDGER_RANGE`. DIRECTIONAL (a `FACING` block); renders a 3D purple book on top like
+      a lectern (`LedgerBlockEntity`+`LedgerRenderer`). Reskinned onto editable `block/ledger_*` textures.
+      **(2026-09-22) PERSISTENT per-ledger log rework:** each Ledger keeps its OWN small ring of recent casts
+      in its BLOCK ENTITY NBT (`LedgerBlockEntity` `Row` list), so it survives world reload and NEVER clears with
+      time. Capped at `ledgerMaxEntries` (3, config — oldest dropped for a new one). Range DOUBLED (`ledgerRange`
+      24→48). **Event-driven, no per-tick scanning:** `LedgerLog.log` (the single funnel for every logged cast,
+      incl. blocked/failed) pushes the entry via `LedgerFeedback.record` into every registered ledger within
+      range of where it happened; ledgers are tracked in the in-memory `LEDGERS` registry (place/open/break +
+      re-registered on `ChunkEvent.Load`, like the Warding Totem) so no world scan is needed. The old global
+      in-memory `LedgerLog` store (`entriesNear`/`recent`/`ENTRIES`) was removed; the screen reads the opened
+      ledger's own persisted rows. `LedgerFeedback.pulse` (the ENCHANT-into-book FX on a success) is unchanged.
 - [x] Warding Totem — a slim themed amethyst obelisk (blackstone/deepslate + a crowning amethyst crystal spike
       crown + ragged core band; editable textures; right-click toggles `enabled` on/off). Applies the global
       **Protected** MobEffect to players within `Config.WARDING_TOTEM_RANGE` (32) of an ENABLED totem; the gate
@@ -3325,8 +3589,17 @@ below are current implementation status.)
       PNGs + star sparkles, signed off); minimal flow (`levelDecreasePerBlock` 4), lowest-priority (won't
       replace foreign fluids), no infinite source, no drowning; in the vanilla water tag (real swim physics).
       Bathing (`HolyWaterHandler`): shine particles + burns down attachment timers (`PURIFY_DRAIN_TICKS_PER_TICK`,
-      synced so the on-screen timer shrinks) + is a SANCTUARY (applies Protected). Hurts undead; cleanses filled
-      jars + bound voodoo dolls (`HolyWaterItems`). Cauldrons: a `PURIFYING_WATER_CAULDRON` (bucket in/out); an
+      synced so the on-screen timer shrinks) + is a SANCTUARY (applies Protected). **The drain RAMPS the longer you
+      soak** (`purifyRampTicks` 400 = 20s): a per-player `SOAK_TICKS` counter (reset on leaving the water) scales
+      the base drain from `purifyRampMinMult` (0.5×) up to `purifyRampMaxMult` (3×). **(2026-09-23) a SECOND ramp**
+      (`purifyRamp2Ticks` 200 = a further 10s) then climbs the multiplier from the peak to DOUBLE it (3×→6×), so
+      a long soak really races (`HolyWaterHandler.soakMultiplier`). Hurts undead with the
+      **`witchmod:holy` damage type, no attribution** (`PurifyingWaterBlock.entityInside` → so the shared holy
+      hook smites them ×1.5 and one-shots a Killer Bunny that wades in); cleanses filled
+      jars + bound voodoo dolls (`HolyWaterItems`). **(2026-09-23) Dunking a filled jar** (right-click it at holy
+      water) empties it with an added glug + dissolving-mote cue (`cleanseJarFeedback`) and a swing; **crouching
+      while doing so THROWS the jar as normal instead** (the handler bails on shift+jar so `ItemJar.use` runs).
+      Cauldrons: a `PURIFYING_WATER_CAULDRON` (bucket in/out); an
       amethyst shard in a WATER cauldron consecrates it (stacking `PURIFY_SHARD_CHANCE`). Bucket tooltip
       (`item.witchmod.purifying_water_bucket.desc` — "washes away any curse or blessing"); **fully-submerged
       visibility is much clearer than ordinary water** (`onRenderFog` pushes the fog planes out when the camera's
@@ -3356,6 +3629,10 @@ _(Section-header counts are the class totals; none ticked yet.)_
 #### network  (1)
 - [x] WitchModNetwork — comments → house style; every packet doc now says c2s/s2c + intent; noted c2s payloads are re-checked server-side.
 
+#### recipe  (2) — config-backed datapack condition (added 2026-09-23, house style)
+- [x] RecipeEnabledCondition — an ICondition on every mod recipe json; loads the recipe only while its output id isn't in disabledRecipes.
+- [x] WitchModConditions — registers the condition MapCodec to NeoForgeRegistries.Keys.CONDITION_CODECS.
+
 #### mixin  (2)
 - [x] ListenerMixin — blurb trimmed to house style.
 - [x] ShieldRaiseMixin — blurb trimmed to house style.
@@ -3370,6 +3647,8 @@ _(Section-header counts are the class totals; none ticked yet.)_
 _Comment/blurb → house style; all CLAUDE/section/Phase/master-spec refs purged. text-list loaders condensed to one-line blurbs. Effect + EffectManager + Modifier + WitchModAttachments blurbs/refs fully rewritten; the dense registry/one-liner docs (WitchModSounds, WitchModDamageTypes, etc.) leading-lowercased. Compiles clean._
 - [x] ActiveEffectInstance
 - [x] ActiveEffects
+- [x] BannedItems — NEW (2026-09-24): server enforcement for the bannedItems config (block craft/smelt + optional inventory sweep).
+- [x] ClientOptOut — NEW (2026-09-24): per-uuid store of a player's client curse opt-outs; EffectManager consults blocks().
 - [x] BedSpawnRegistry
 - [x] BodyguardLines
 - [x] CapturedEffect
@@ -3781,8 +4060,16 @@ duration at drop time. Rarity is internal — NOT shown in the tooltip.
 - **Chest drops:** a Global Loot Modifier (`JarLootModifier` + the `witchmod:loot_modifiers/*.json` bound to
   each chest's loot table by `neoforge:loot_table_id`) with a config "one in N" per chest type
   (`jarChest*OneIn` — ancient city likeliest). `WitchModLootModifiers` registers the serializer.
-- **Mob drops:** `JarDropHandler` (`LivingDropsEvent`, gated on a recent player hit) — witches
-  `jarWitchDropOneIn` (200), other undead `jarUndeadDropOneIn` (2000), via `isInvertedHealAndHarm`.
+- **Mob drops:** `JarDropHandler` (`LivingDropsEvent`). A slain **witch** always trickles Cursed Essence —
+  `witchEssenceRolls` (2) independent rolls at `witchEssenceRollChancePercent` (33) => 0–2, ungated (farmable,
+  the everyday "the mod exists" reminder). The rare **SPECIAL** drop is,
+  in order: a **Holy Hand Grenade** at 1-in-`grenadeSpecialDropOneIn` (100, checked FIRST — see §4.2), else
+  `specialDropCoinChancePercent` (40) of the time one of the 3 coins (Cursed/Blessed/Executioner's), else a
+  prefilled jar: witches `jarWitchDropOneIn` (50), other undead `jarUndeadDropOneIn` (850), via
+  `isInvertedHealAndHarm`. **Gated so it can't clog mob farms:** by default (`specialDropRequirePlayerKill`)
+  it only rolls when a PLAYER lands the killing blow (`getSource().getEntity() instanceof Player`); set that
+  off for the old "recently hit by a player" rule. `jarDropsEnabled=false` turns ALL special drops off
+  entirely (witch essence still trickles). The witch-essence drop itself stays ungated (farmable).
 - **Command:** `/bewitch give namedjar <id>` (tab-completed) for testing/creative. Master toggle
   `jarDropsEnabled`.
 - **Collecting any jar discovers its contents:** `JarCollectHandler` (`ItemEntityPickupEvent.Post`) marks
@@ -3831,7 +4118,12 @@ Add a synergy in `Synergies`, then have one (or both) effects query it. Current 
   `farmersSpiritDriveGrowthMultiplier` (the base growth exists without Drive; Drive just multiplies it).
 - **vampire_bat** — Sanguine + Disguise → while disguised the costume becomes a BAT (`DISGUISE_TYPE` 3) and you get
   free creative-style flight (server grants `abilities.mayfly`). Flight is revoked the instant the disguise breaks
-  or either effect ends; you CANNOT sprint-fly (client clears sprint while bat-flying).
+  or either effect ends. The bat flies **SLOWLY** (`batFlySpeed` 0.03, vs vanilla 0.05) and **can't sprint-fly on
+  its own** — `DisguiseClient.tickBatFlightSpeed` sets the fly speed client-side and clears sprint while bat-flying.
+  **Pairs with the Flight blessing:** hold Flight too and you unlock a fast sprint-dash (`batFlightSprintSpeed`,
+  vanilla doubles it in air) that DOESN'T drain Flight's bar (`BlessingFlight.onTick` keeps it full while
+  bat-flying and `FlightClient` yields its own rise push to the creative flight), with a **red vampire dust
+  trail** + FOV zoom while sprint-flying (none when flying normally, so the disguise still holds).
 - **stuck_fingers** — Butterfingers + Sticky → a would-be fumble is CAUGHT: the arm does the swing animation and
   `CurseSticky.squelch` plays, but nothing leaves your hands. An effective counter.
 - **smiting** — Comic Relief + Thunder → Comic Relief's killing bolt becomes a rapid barrage of `comicReliefSmiteBolts`
@@ -3847,10 +4139,30 @@ Add a synergy in `Synergies`, then have one (or both) effects query it. Current 
   hook + `onTick` proximity both cascade; a deliberate ACTION still reveals you fully (no flash).
 - **spider_disguise** — Spider + Disguise → the disguise becomes a SPIDER (`DISGUISE_TYPE` 4) instead of livestock
   (bat wins if Sanguine is also on you). Purely the costume+ambient; Spider's own wall-climb does the rest.
+- **ugly_disguise** — Ugly + Disguise → the disguise becomes a **random OTHER online player** (`DISGUISE_TYPE` 6),
+  skin + nametag and all. The target is picked deterministically from the sorted online list (`DisguiseClient.
+  playerDisguiseTargetId`, `uuidHash % size`, excluding self) so every client agrees, and it re-evaluates as
+  players join/leave. If **nobody else is online** the disguise instead shows your NORMAL self (the Ugly skin is
+  suppressed) — and a hit (which breaks the disguise → `DISGUISE_TYPE` -1) reveals the ugly skin, the funny bit.
+  The skin swap is centralised in `UglySkinManager.desiredSkin` (it owns the reflective `PlayerInfo.skinLookup`
+  override, so the player-disguise and plain Ugly never fight over it); the nametag is overridden in
+  `DisguiseClient.onNameTag` (`RenderNameTagEvent`); the player render is left to vanilla (not a dummy mob).
+- **fish disguise (water)** — Disguise + ANY water-related effect (Bad Swimmer, Siren's Call, Iron Lung, Jesus,
+  Ocean's Blessing — the `WATER_EFFECTS` list in `BlessingDisguise`, checked live) → the costume becomes a COD
+  (`DISGUISE_TYPE` 7). `DisguiseClient` mirrors the player's water state onto the dummy cod (reflected
+  `wasTouchingWater`) so `CodRenderer` swims it upright in water and lays it on its side out of water; the bat's
+  `AnimationState` is likewise driven so it actually flaps. **Out of water you FLOP with vanilla fish cadence** —
+  `fishFlop` hops the player the instant they land (`fishFlopPower` 0.4, same as a vanilla fish), so you bounce
+  continuously, with a lively render wobble + `COD_FLOP` each hop. Not a formal pairwise `Synergy` — it's a set
+  check so "any water effect" qualifies. **Special-disguise priority: Player > Bat > Villager > Spider > Fish**
+  (then cow, then base).
 - **wild_decoys** — Confusion + Disguise → the clones COPY your current form: `CloneRenderer` reads the owner's
   synced `PROPHUNT_BLOCK` / `DISGUISE_TYPE` / `CONCEAL_FLASH_END` and draws each decoy as the prop block or the
-  disguise mob, reverting to the player look the instant your form breaks, and vanishing while you flash-hide. No
-  new sync (all derived from the owner's existing synced disguise state).
+  disguise mob (bat flap driven, cod water-state mirrored + flop wobble, `case 7` COD added), reverting to the
+  player look the instant your form breaks, and vanishing while you flash-hide. **The clones also MOVE like the
+  form** — `CloneEntity.tick` reads the owner's `DISGUISE_TYPE` server-side and, for a **bat** flits around you in
+  3-D (`confusionBatFlySpeed`, noGravity, cleared navigation → a swarm of bat-decoys) and for a **fish** flops
+  with vanilla cadence out of water (`fishFlopPower`). No new sync (derived from the owner's existing synced state).
 - **streamer_brain** — Yap + Chat → `yapStreamerChancePercent` of Yap's ambient outbursts are swapped for a "talking
   to chat" line from the yap.json `events.streamer` list.
 - **thieving_shadow** — Pickpocket + Unseen → pickpocket chance ×`pickpocketUnseenMultiplier` when behind a mark.
@@ -3874,6 +4186,30 @@ Add a synergy in `Synergies`, then have one (or both) effects query it. Current 
 - **frenzy** — Berserker + Violence → Violence's impulsive swing chance + cap ×`violenceFrenzyChanceMultiplier`,
   and each landed hit banks 2 berserker stacks (free, since Violence never misses).
 - **parry_frenzy** — Berserker + Gladiator → a successful parry banks `berserkerGladiatorParryStacks` (3) stacks.
+- **size_crisis** — Giant + Dwarfism → the two curses can't agree on a size, so you flicker between huge and tiny
+  on a random timer, wearing whichever curse's traits you're currently sized as. Implemented in
+  `effects/curses/SizeCrisis`: while both are active it OWNS the size — `CurseGiant`/`CurseDwarfism` delegate
+  their `onTick` to `SizeCrisis.tick` (guarded once-per-game-tick via a `LAST_TICK` map so the two curses don't
+  double-drive it), and either curse's `onRemove` calls `SizeCrisis.clear` so removing one strips the crisis
+  modifiers and lets the survivor resume its own size. The crisis owns a single SCALE/HEALTH/REACH modifier set
+  (its own ids) and strips the curses' own modifiers each apply so nothing double-stacks. Flips at a random gap
+  (`sizeCrisisMin/MaxGapTicks`) with a POOF + explode/squish; **shrinking on top of a ridden player/villager
+  crushes them** (`witchmod:stomp`, `sizeCrisisCrushDamage`). No speed/attack penalty in either form; the giant
+  reach is kept but the EXTRA is halved while small (`sizeCrisisSmallReachMult`). `SizeCrisis.isSmall` gates the
+  giant's damage/melee traits (in `CurseEventHandler`) so you only crush/deal-more while actually big.
+- **guarded_ally** — Guardian Angel + Bodyguard → when you're **under attack** the angel super-buffs the
+  bodyguard into a FULL frenzy (Strength/Speed/Resistance/Regen for `guardedAllyStrongSeconds` at
+  `guardedAllyStrongAmplifier`, drawn sword, a war cry from the `frenzy` bodyguard.json key), fired from
+  `BlessingGuardianAngel.onOwnerAttacked`; when the **angel dies** (`onAllayKilled`) it leaves a SOFTER frenzy
+  (`guardedAllySoft*` — buffs only, no war cry, since he already reacts in the companionship banter).
+  `BodyguardEntity.frenzy(boolean strong)` applies it, cooldown-gated by `guardedAllyCooldownTicks` so a run of
+  hits can't re-buff every tick. The angel finds the bodyguard via `BodyguardEntity.canonicalFor`.
+- **angels_grudge** — Guardian Angel + Solicitor → the angel can **no longer purge the solicitor** (it's excluded
+  from `purgeOneCurse` while the synergy is live); instead a hidden irritation timer
+  (`angelsGrudgeIrritationMin/MaxTicks`, per-`State` `solicitorStrikeAt`) fills, then the angel hunts the trader
+  down, kidnaps + kills it (`CurseSolicitor.abduct`) and forces the solicitor onto `angelsGrudgeCooldownTicks`
+  (5 min) of lying low. The trader gets one last protest — a `banished` line from solicitor.json — as it's hauled
+  off. If the trader is already hiding when the timer fires it retries shortly.
 
 Berserker itself was bumped: explicit `berserkerMaxStacks` ceiling (14), higher `berserkerMaxReduction` (0.80),
 rolling ember particles scaling with stacks, a gain-burst on each stack, and a smoke+fizzle on reset.
@@ -3904,6 +4240,9 @@ already coexist (the Bodyguard only treats players/villagers as intruders, so th
   `onBodyguardAnchorHit` → `escalateToAttacking(attacker, true)`) and now pursues a genuine attacker on the
   longer `bodyguardThreatLeashRange` (vs the normal `bodyguardLeashRange` it uses for mere intruders), so the
   aggro actually sticks instead of standing down the moment they back off.
+- **Struggle dialogue** — when it blink-teleports back to you `bodyguardStruggleTeleports` times within
+  `bodyguardStruggleWindowTicks` (usually because you're airborne and it can't keep up), it grumbles a `struggle`
+  line from bodyguard.json (`noteStruggle`, cooldown `bodyguardStruggleCooldownTicks`).
 - The sunglasses model box was nudged off the face (z −4.6 → −4.9) so it no longer clips in.
 
 ---

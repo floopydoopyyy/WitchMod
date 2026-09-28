@@ -67,15 +67,17 @@ public final class CurseStickDrift extends Effect {
 
     /** the Scrying Mirror names the fault: which stick, and roughly which way it pulls. */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         int mode = target.getData(WitchModAttachments.STICK_DRIFT_MODE);
         if (mode < 0) {
             return java.util.Optional.empty();
         }
         float angle = target.getData(WitchModAttachments.STICK_DRIFT_ANGLE);
-        String[] dirs = {"east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"};
+        String[] dirs = {"e", "se", "s", "sw", "w", "nw", "n", "ne"};
         int oct = Math.floorMod(Math.round(angle / (Mth.TWO_PI / 8)), 8);
-        return java.util.Optional.of((mode == 0 ? "camera" : "movement") + " drift, pulling " + dirs[oct]);
+        net.minecraft.network.chat.Component dir = net.minecraft.network.chat.Component.translatable("witchmod.scry.dir." + dirs[oct]);
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                mode == 0 ? "witchmod.scry.stick_drift.camera" : "witchmod.scry.stick_drift.movement", dir));
     }
 
     @Override

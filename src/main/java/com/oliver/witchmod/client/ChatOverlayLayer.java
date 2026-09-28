@@ -144,11 +144,11 @@ public final class ChatOverlayLayer implements LayeredDraw.Layer {
         g.fill(x - 3, y - 3, x + PANEL_WIDTH, y + panelHeight, 0xD21A0F2B);
         g.fill(x - 3, y - 3, x + PANEL_WIDTH, y - 2, 0x66FFFFFF); // top hairline
 
-        // --- Header: LIVE dot, viewer count, subs.
+        // --- Header: LIVE dot, viewer count, subs. Labels are translatable (witchmod.chat.*) so the text lives in lang.
         MutableComponent header = Component.literal(dead ? "○ " : "● ").withColor(dead ? 0x6B6B6B : 0xFF3B3B)
-                .append(Component.literal(dead ? "OFFLINE?" : "LIVE").withColor(dead ? 0x8A8A8A : 0xFFFFFF))
+                .append(Component.translatable(dead ? "witchmod.chat.offline" : "witchmod.chat.live").withColor(dead ? 0x8A8A8A : 0xFFFFFF))
                 .append(Component.literal("  👁 " + formatCount(viewers)).withColor(0xE0D4F5))
-                .append(Component.literal("  " + formatCount(subs) + " subs").withColor(0xB79CE8));
+                .append(Component.literal("  ").append(Component.translatable("witchmod.chat.subs", formatCount(subs))).withColor(0xB79CE8));
         g.drawString(font, header, x, y, 0xFFFFFF);
 
         // --- Hype bar.

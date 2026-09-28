@@ -66,7 +66,16 @@ public final class WitchModDamageTypes {
     public static final ResourceKey<DamageType> GUARDIAN_ZAP = ResourceKey.create(Registries.DAMAGE_TYPE,
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "guardian_zap"));
 
+    /** holy Hand Grenade: the cleansing detonation. Attributed to the thrower so kills name them. */
+    public static final ResourceKey<DamageType> HOLY = ResourceKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "holy"));
+
     private WitchModDamageTypes() {}
+
+    /** the grenade's blast, credited to the thrower (may be null for a dispenser). */
+    public static DamageSource holy(Level level, net.minecraft.world.entity.Entity thrower) {
+        return level.damageSources().source(HOLY, thrower);
+    }
 
     /** the guardian's zap, credited to the owner (causing entity) with no direct entity → no knockback. */
     public static DamageSource guardianZap(Level level, net.minecraft.world.entity.Entity owner) {

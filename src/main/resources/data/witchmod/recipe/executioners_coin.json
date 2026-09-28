@@ -1,18 +1,49 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:executioners_coin"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "C": { "item": "witchmod:cursed_essence" },
+    "C": {
+      "item": "witchmod:cursed_essence"
+    },
     "B": [
-      { "item": "minecraft:copper_block" },
-      { "item": "minecraft:exposed_copper" },
-      { "item": "minecraft:weathered_copper" },
-      { "item": "minecraft:oxidized_copper" },
-      { "item": "minecraft:waxed_copper_block" },
-      { "item": "minecraft:waxed_exposed_copper" },
-      { "item": "minecraft:waxed_weathered_copper" },
-      { "item": "minecraft:waxed_oxidized_copper" }
+      {
+        "item": "minecraft:copper_block"
+      },
+      {
+        "item": "minecraft:exposed_copper"
+      },
+      {
+        "item": "minecraft:weathered_copper"
+      },
+      {
+        "item": "minecraft:oxidized_copper"
+      },
+      {
+        "item": "minecraft:waxed_copper_block"
+      },
+      {
+        "item": "minecraft:waxed_exposed_copper"
+      },
+      {
+        "item": "minecraft:waxed_weathered_copper"
+      },
+      {
+        "item": "minecraft:waxed_oxidized_copper"
+      }
     ]
   },
-  "pattern": [ "CCC", "CBC", "CCC" ],
-  "result": { "id": "witchmod:executioners_coin", "count": 1 }
+  "pattern": [
+    "CCC",
+    "CBC",
+    "CCC"
+  ],
+  "result": {
+    "id": "witchmod:executioners_coin",
+    "count": 1
+  }
 }

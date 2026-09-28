@@ -1,9 +1,26 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:cursed_coin"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "C": { "item": "witchmod:cursed_essence" },
-    "G": { "item": "minecraft:gold_block" }
+    "C": {
+      "item": "witchmod:cursed_essence"
+    },
+    "G": {
+      "item": "minecraft:gold_block"
+    }
   },
-  "pattern": [ "CCC", "CGC", "CCC" ],
-  "result": { "id": "witchmod:cursed_coin", "count": 1 }
+  "pattern": [
+    "CCC",
+    "CGC",
+    "CCC"
+  ],
+  "result": {
+    "id": "witchmod:cursed_coin",
+    "count": 1
+  }
 }

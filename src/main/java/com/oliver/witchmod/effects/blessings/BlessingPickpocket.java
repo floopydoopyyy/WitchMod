@@ -38,11 +38,12 @@ public final class BlessingPickpocket extends Effect {
 
     /** you find out you've got light fingers the first time you actually lift something (Rule 2). */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         double r = Config.PICKPOCKET_RADIUS.get();
         boolean near = !target.serverLevel().getEntitiesOfClass(ServerPlayer.class,
                 target.getBoundingBox().inflate(r + 1), p -> p != target).isEmpty();
-        return java.util.Optional.of(near ? "a mark is in reach" : "no one to pick");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                near ? "witchmod.scry.pickpocket.mark" : "witchmod.scry.pickpocket.none"));
     }
 
     @Override

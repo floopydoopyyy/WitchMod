@@ -1,0 +1,107 @@
+{
+  "_comment": "synergy to make companion attachments talk to each other.",
+
+  "stray_bodyguard": [
+    "Keep an eye on that peddler.",
+    "I hate salesmen.",
+    "How broke can you be?",
+    "Trader thinks he's slick. He's not.",
+    "I know that peddler isn't earning my paycheck.",
+    "Move along, peddler.",
+    "For once, I just want a silent job.",
+    "Please fire me, I can't stand being near IT anymore!",
+    "I promise you I'm trying my best to get rid of him.",
+    "Oh, just kill him, won't you?",
+    "I highly recommend strong action for folks like these, {player}."
+  ],
+
+  "stray_solicitor": [
+    "Sunglasses? My satchel is worth more.",
+    "Muscles for hire, no personality included.",
+    "This guy thinks he's tough",
+    "Relax, tough guy, they want me here.",
+    "Nice fake Rays.",
+    "You dress tough, but you aren't.",
+    "You look like you need some new equipment.",
+    "I see you glaring.",
+    "I promise you, the second you die, I'll put those sunglasses on sale."
+  ],
+
+  "argue_bodyguard": [
+    ["Move along, peddler.", "I'm conducting business, get out of my way."],
+    ["Last warning. Step back from {player}.", "Or what?"],
+    ["Nobody's buying. Leave.", "Everybody's buying!"]
+  ],
+
+  "argue_solicitor": [
+    ["Special price, my friend, just for you!", "BE QUIET."],
+    ["You're bad for my sales.", "Good."],
+    ["I thought you knew the art of the deal. I guessed wrong.", "Don't care, didn't ask."]
+  ],
+
+  "stray_solicitor_guardian": [
+    "Hey, little one...  wanna buy a torch?",
+    "Now THAT is someone with value.",
+    "An angel? I knew my preaching was worth it!"
+  ],
+
+  "stray_bodyguard_guardian": [
+    "I like you, silent and does the job well.",
+    "We make a good team, angel.",
+    "Nice of the sky to send backup.",
+    "I hope I work with you more angel.",
+    "You are surprisingly good at your job.",
+    "Wonder what our client needs us for.",
+    "Where did you even come from? To be fair where did I come from?"
+  ],
+
+  "full_house_bodyguard": [
+    "It's getting crowded, {player}.",
+    "I've been hired for a circus job.",
+    "I liked it better when it was just me and the job.",
+    "Are you all supposed to be here?"
+  ],
+
+  "full_house_solicitor": [
+    "A bodyguard AND an angel? {player}, you've got money to burn.",
+    "So much company! Now hear me out.",
+    "Tough crowd.",
+    "Now ONE of you HAS to be a fellow businessperson.",
+    "Come on, anyone?"
+  ],
+
+  "solicitor_died": [
+    "Do you people ever go away?!",
+    "I hope that hurt.",
+    "WOW ANOTHER ONE",
+    "Back so soon?",
+    "please kill his entire extended family...",
+    "Who's next?",
+    "Now I have you all to myself..."
+  ],
+
+  "bodyguard_died": [
+    "Finally! Now we can get down to business.",
+    "Was that the guy I payed?",
+    "Your bodyguard fell, {player}. I, however, remain.",
+    "Now that you don't have to pay him, could I interest you in my wares?",
+    "No extended family?",
+    "Thank goodness!"
+  ],
+
+  "guardian_died_bodyguard": [
+    "That does not bode well.",
+    "NO",
+    "That's a shame.",
+    "I will remember you, angel.",
+    "Right, someone's dying.",
+    "An undeserved casualty."
+  ],
+
+  "guardian_died_solicitor": [
+    "The angel's gone? I can be your angel, for a fee.",
+    "That wasn't me, I swear!",
+    "Casualty of business, I'm afraid.",
+    "See I'm still alive, that shows I'm the most loyal!"
+  ]
+}

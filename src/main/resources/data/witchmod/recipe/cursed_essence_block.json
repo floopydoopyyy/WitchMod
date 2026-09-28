@@ -1,12 +1,23 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:cursed_essence_block"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "C": { "item": "witchmod:cursed_essence" }
+    "C": {
+      "item": "witchmod:cursed_essence"
+    }
   },
   "pattern": [
     "CCC",
     "CCC",
     "CCC"
   ],
-  "result": { "id": "witchmod:cursed_essence_block", "count": 1 }
+  "result": {
+    "id": "witchmod:cursed_essence_block",
+    "count": 1
+  }
 }

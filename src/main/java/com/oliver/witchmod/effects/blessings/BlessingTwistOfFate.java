@@ -35,14 +35,14 @@ public final class BlessingTwistOfFate extends Effect {
     }
 
     @Override
-    public Optional<String> scryingDetail(ServerPlayer target) {
+    public Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         long now = target.level().getGameTime();
         if (now < NEXT_ALLOWED.getOrDefault(target.getUUID(), 0L)) {
-            return Optional.of("dodge on cooldown");
+            return Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.twist.cooldown"));
         }
         double chance = Math.min(Config.TWIST_MAX_CHANCE.get(),
                 Config.TWIST_NEGATE_CHANCE.get() + PITY.getOrDefault(target.getUUID(), 0.0));
-        return Optional.of("dodge chance " + Math.round(chance * 100) + "%");
+        return Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.twist.chance", Math.round(chance * 100)));
     }
 
     @Override

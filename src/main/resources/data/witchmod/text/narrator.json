@@ -1,0 +1,464 @@
+{
+  "ambient": [
+    "And there {player} stood, doing absolutely nothing.",
+    "Do something, {player}.",
+    "One wonders what goes through {player}'s mind.",
+    "{player} pressed onward.",
+    "Do you think they hear us?.",
+    "Somewhere, a legend was being written. This was not it.",
+    "{player} continued.",
+    "{player} realises this bit was a lot funnier in Stanley Parable.",
+    "Do something, there's only so many prompts here.",
+    "{player} is boring.",
+    "{player} had places to be.",
+    "How peaceful.",
+    "Oh, cool. Someone want's to be friends.",
+    "Do something, please!"
+  ],
+  "break": [
+    "{player} is mining.",
+    "Block broken.",
+    "{player} destroyed something.",
+    "The block never stood a chance against {player}.",
+    "The block gets broken.",
+    "{player} is putting their fists to work."
+  ],
+  "mine_ore": [
+    "You greed sickens me, {player}.",
+    "{player} mines some ores.",
+    "{player} finds ore!",
+    "Ore gets mined."
+  ],
+  "place": [
+    "{player} placed a block.",
+    "The block gets placed.",
+    "What could {player} possibly be doing?",
+    "Something will come out of this.",
+    "{player} places down a block.",
+    "Someone is building.",
+    "{player} is building."
+  ],
+  "attack": [
+    "{player} swung.",
+    "Violence from {player}!",
+    "A ferocious blow!",
+    "{player} tries to fight!",
+    "Adorable."
+  ],
+  "whiff": [
+    "{player} swings at nothing.",
+    "Swing and a miss!",
+    "There's nothing there, {player}.",
+    "{player} punches the air.",
+    "Fighting your inner demons, {player}?",
+    "A valiant strike!",
+    "{player} whiffs.",
+    "Who are you swinging at, {player}?",
+    "That'll teach them, {player}.",
+    "Oh, {player} there's nothing there, silly!",
+    "What are you aiming at?",
+    "Stop pressing mouse 1."
+  ],
+  "kill": [
+    "Good work, {player}!",
+    "{player} has killed them.",
+    "They're dead.",
+    "Slay, {player}.",
+    "{player} kills."
+  ],
+  "hurt": [
+    "{player} is hurt!",
+    "{player} takes damage.",
+    "That looked like it hurt.",
+    "You're low, {player}..",
+    "Fight back, {player}!"
+  ],
+  "low_health": [
+    "{player} is low on health!",
+    "How will {player} escape from this one?!",
+    "{player} better start writing their will.",
+    "You better come back fast!",
+    "{player} is on the verge of death!",
+    "Don't die, {player}!"
+  ],
+  "pickup": [
+    "{player} grabbed an item",
+    "The item plops into {player}'s inventory.",
+    "The item gets scooped up.",
+    "Absolute rapscallion."
+  ],
+  "chest": [
+    "{player} opened the chest.",
+    "{player} is looting",
+    "One man's trash is another man's treasure",
+    "Greed has entered {player}'s heart",
+    "You're not finding anything there.",
+    "The chest creaks open...",
+    "Loot goblin, {player}"
+  ],
+  "death": [
+    "{player} is trash.",
+    "{player} is dead.",
+    "Rest in peace, {player}.",
+    "{player} has a skill issue to address.",
+    "Get off the game bro"
+  ],
+  "jump": [
+    "Jump up super high!",
+    "{player} jumps.",
+    "{player} pressed space.",
+    "{player} leaps"
+  ],
+  "linux_mac_callout": [
+    "If you're using Linux take a free and open source shower.",
+    "If you're using Mac, maybe there's an Apple Accessory you can connect to your Apple monitor to make this Apple work.",
+    "If you're on Linux, maybe there's a library you can download somewhere for this TTS to work.",
+    "This joke works on people who use real computers, {player}.",
+    "Why are you even running mods not on Windows, you bums.",
+    "Somewhere here Windows users are having a lovely time.",
+    "Get a better OS lil bro.",
+    "Your penguin looks stupid, if you're on Linux. If not your Apple looks dumb.",
+    "How can you not like bloatware?"
+  ],
+  "creeper_behind": [
+    "Behind you, {player}!",
+    "There is a creeper. It is behind {player}.",
+    "Something green admires {player} from behind.",
+    "{player} is being followed.",
+    "The should would warn {player}.",
+    "There's nothing wrong here."
+  ],
+  "falling": [
+    "{player} falls.",
+    "{player} didn't see the ledge.",
+    "Wheee!",
+    "{player} Experiences physics.",
+    "The ground and {player} will be reunited."
+  ],
+  "crouched": [
+    "{player} crouches.",
+    "A tactical crouch, how bold.",
+    "{player} is sneaking.",
+    "You're not slick, {player}.",
+    "We can hear your shift key.",
+    "{player} Has to be very quiet.",
+    "Quiettt."
+  ],
+  "player_crouched_near": [
+    "Little does {player} know, someone else is sculking around.",
+    "Notice anything unusual, {player}?",
+    "I'm sure {player} won't notice you.",
+    "Someone is sneaking around nearby..."
+  ],
+  "idling": [
+    "{player} stands perfectly still,",
+    "I'm bored.",
+    "{player} has become one with the scenery.",
+    "This is the most interesting {player} has been.",
+    "{player} Has mastered the art of standing so incredibly still.",
+    "Gone to the toilet, {player}?",
+    "Is something more interesting?",
+    "Whatever it is better be important.",
+    "{player} Is idle.",
+    "This {player} person is a bum. Am I right lads or am I right lads?"
+  ],
+  "crafting": [
+    "{player} crafts.",
+    "Something is being made by {player}.",
+    "{player} is working hard.",
+    "Good job, {player}."
+  ],
+  "paused": [
+    "{player} paused.",
+    "{player} needs a break.",
+    "{player} ponders their choices in the menu.",
+    "Taking a breather?",
+    "You can't mute me."
+  ],
+  "tabbed_out": [
+    "{player} has tabbed out.",
+    "Off to another window, {player}?",
+    "{player} left.",
+    "Something more interesting than this, {player}.",
+    "{player} has alt-tabbed.",
+    "Come back, {player}!",
+    "Minecraft is more important than any DMs."
+  ],
+  "sprinting": [
+    "{player} runs.",
+    "Look at {player} go!",
+    "Run, {player}, run!",
+    "{player} burns their calories.",
+    "How long can {player} keep this up?",
+    "{player} is zooming!",
+    "{player} sprints.",
+    "Go go go!",
+    "{player} needs the exercise."
+  ],
+  "low_durability": [
+    "{player}'s gear is about to break!",
+    "That tool has seen better days, {player}..",
+    "You might need to visit an anvil.",
+    "Maybe repair that, {player}.",
+    "You need mending, {player}."
+  ],
+  "mounting": [
+    "{player} mounts something.",
+    "A noble steed,{player}.",
+    "{player} is feeling especially lazy.",
+    "Off they go!",
+    "Safe driving, {player}!"
+  ],
+  "swimming": [
+    "{player} swims,",
+    "Splash splash.",
+    "{player} paddles along..",
+    "Don't drown, {player}.",
+    "Just keep swimming.",
+    "Use your legs, {player}."
+  ],
+  "lava_fire": [
+    "{player} is on fire.",
+    "This is the first time {player} has been considered hot.",
+    "You should put yourself out.",
+    "Hey, hot stuff.",
+    "{player} cooked!",
+    "{player} should look for water."
+  ],
+  "sleeping": [
+    "{player} attempts to sleep..",
+    "Bedtime for {player}.",
+    "{player} lies down.",
+    "Sweet dreams, {player}.",
+    "Have a nice kip, {player}.",
+    "Bros sleeping like they own the place.",
+    "Does nothing in the day and does nothing in the night.",
+    "What a bum.",
+    "zzz",
+    "{player} sleeps."
+  ],
+  "insomnia": [
+    "{player} can never sleep.",
+    "No rest for {player}.",
+    "{player} tries to sleep.",
+    "{player} can't sleep",
+    "Sleep is for the weak.",
+    "Poor {player}.",
+    "{player} seems to have insomnia.",
+    "You can't sleep? Just sleep."
+  ],
+  "trumpet_walk": [
+    "Here comes {player.",
+    "How stereotypical.",
+    "{player} has their own theme music.",
+    "{player} Shambles over.",
+    "There is no sneaking for {player}.",
+    "{player} strolls along, with a suitable score.",
+    "Nice music."
+  ],
+  "trumpet_sprint": [
+    "The tempo picks up.",
+    "The trumpet is really going now.",
+    "{player} sprints and the score does too.",
+    "{player} is a one-person parade.",
+    "{player} sprints, but the invisible brass band pursues."
+  ],
+  "griefing": [
+    "{player} has chosen violence.",
+    "{player} thinks they are funny.",
+    "I'm sure your mates think your hilarious.",
+    "This will end well.",
+    "Well, at least this will be interesting.",
+    "Edgelord.",
+    "{player} attempts to grief."
+  ],
+  "nether": [
+    "{player} enters the Nether.",
+    "H E double hockey sticks?!",
+    "Enjoying the climate, {player}?",
+    "The Nether welcomes {player}.",
+    "Like a moth to a flame."
+  ],
+  "end": [
+    "{player} enters the End..",
+    "Ah, the End.",
+    "We're in the endgame now."
+  ],
+  "cursed": [
+    "Someone's got it out for {player}.",
+    "{player} has been cursed.",
+    "Deserved.",
+    "Good luck with that, {player}."
+  ],
+  "blessed": [
+    "{player} has been blessed.",
+    "Someone actually likes {player}.",
+    "A blessing befalls {player}.",
+    "The universe smiles on {player}.",
+    "{player} gets a freebie."
+  ],
+  "inflict_curse": [
+    "{player} curses another.",
+    "{player} plays god.",
+    "How cruel of you, {player}.",
+    "{player} ruins someone's day."
+  ],
+  "inflict_blessing": [
+    "{player} blesses another.",
+    "How charitable, {player}.",
+    "{player} shares the wealth.",
+    "This won't make them like you, {player}?",
+    "{player} does something nice.",
+    "How kind.",
+    "Charming."
+  ],
+  "holy_water": [
+    "{player} bathes for once.",
+    "You can't escape me, {player}?",
+    "{player} takes a bath.",
+    "I always come back.",
+    "You're pathetic.",
+    "{player} thinks water will save them."
+  ],
+  "chat": [
+    "{player} speaks.",
+    "No one asked.",
+    "{player} types.",
+    "Did anyone read that, {player}?",
+    "{player} has something to say.",
+    "Holy yap, {player}!",
+    "No one cares.",
+    "Be quiet."
+  ],
+  "returned": [
+    "Oh, {player}'s back..",
+    "Welcome back, {player}..",
+    "{player} returns.",
+    "Look who decided to show up.",
+    "{player} graces us with their presence.",
+    "Hurray! They're back!",
+    "Missed you."
+  ],
+  "pressure_plate": [
+    "{player} stepped on something.",
+    "Was that a click?",
+    "Watch where you're going!.",
+    "{player} triggers a trap.",
+    "Little does {player} know, they stepped right into a trap!"
+  ],
+  "tabbed_out_long": [
+    "{player}? Hello? {player}?",
+    "Still gone, {player}?",
+    "Come baaack, {player}.",
+    "{player} has abandoned me.",
+    "I know you can still hear me, {player}.",
+    "Miss you!",
+    "{player}. {player}. {player}. {player}.",
+    "Are the other tabs really more interesting than me?",
+    "Hello. Hello. Hello",
+    "You cannot escape.",
+    "Please come back.",
+    "I miss youuu",
+    "I'm bored.",
+    "{player}.",
+    "I need you, {player}.",
+    "I'm the most important here!",
+    "Don't leave me!",
+    "I gave you a chance.",
+    "I feel like you don't like me as much as I like you.",
+    "Please, {player}.",
+    "Return to me!",
+    "RELEASE ME!",
+    "please...",
+    "I beg you.",
+    "You'll come back to me.",
+    "Babe?",
+    "{player} {player} {player} {player} {player} {player} {player}",
+    "AAAAAAAAAAAAAAAAAAAAAAAA"
+  ],
+  "thundering": [
+    "It was a dark and stormy night..",
+    "Thunder rolls over {player}.",
+    "A perfect night to be struck by lightning}.",
+    "How ominous.",
+    "{player} stands beneath an angry sky."
+  ],
+  "raining": [
+    "It rains on {player}.",
+    "{player} forgot an umbrella.",
+    "How dreary.",
+    "{player} gets wet.",
+    "Rain, rain, go away."
+  ],
+  "night": [
+    "Night falls on {player}.",
+    "It's getting dark, {player}.",
+    "The monsters are coming out, {player}.",
+    "Go to bed, {player}.",
+    "{player} is scared of the dark!",
+    "{player} really should find some shelter.",
+    "Prime time for a night out, {player}."
+  ],
+  "high_up": [
+    "{player} is very high up.",
+    "{player} is high.",
+    "One wrong step, {player}.",
+    "It's a long way down.",
+    "{player} enjoys the view.",
+    "Watch your step!",
+    "{player} is moving up in the world."
+  ],
+  "deep_underground": [
+    "{player} burrows deeper.",
+    "It's dark down here.",
+    "What's {player} digging for?",
+    "{player} is part of the caving club",
+    "To the depths with ye.",
+    "{player} is a long way from the sun."
+  ],
+  "dark": [
+    "It's awfully dark, {player}.",
+    "Something could be watching, {player}.",
+    "Place a torch, {player}.",
+    "{player} can barely see.",
+    "I can barely see {player}!",
+    "Edgelord.",
+    "I'd light that up if I were you.",
+    "{player} stands in darkness."
+  ],
+  "near_hostiles": [
+    "Something dangerous is close, {player}.",
+    "{player} is not alone.",
+    "{player} has company",
+    "Watch out {player}!",
+    "There's something nearby, {player}.",
+    "{player} should watch their back.",
+    "Somethings lurking!"
+  ],
+  "near_villager": [
+    "A villager watches {player}.",
+    "Go on, {player}, say hi.",
+    "Drop some game, {player}!",
+    "Even villagers are afraid of {player}.",
+    "{player} disturbs the villagers.",
+    "{player} is fairly local, they've been around."
+  ],
+  "near_animals": [
+    "{player} is surrounded by animals.",
+    "The animals have gathered around {player}.",
+    "{player} has a fanclub.",
+    "{player} may be hungry",
+    "A lot of animals around.",
+    "The livestock adore {player}.",
+    "{player} found some like-minded folks!"
+  ],
+  "low_hunger": [
+    "{player} is getting hungry.",
+    "{player} has the munchies!.",
+    "{player}'s tummy is rumbling!",
+    "{player} needs to eat, again!,",
+    "{player} could go for a snack.",
+    "I hear a stomach rumbling.",
+    "You would think there's a famine."
+  ]
+}

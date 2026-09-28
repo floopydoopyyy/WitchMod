@@ -533,5 +533,25 @@
       { "name": "witchmod:curse/hiccups/hic5", "stream": false },
       { "name": "witchmod:curse/hiccups/hic6", "stream": false }
     ]
+  },
+  "item.holy_grenade.pin": {
+    "subtitle": "witchmod.subtitle.holy_grenade.pin",
+    "sounds": [ { "name": "witchmod:item/grenade/pin", "stream": false } ]
+  },
+  "item.holy_grenade.throw": {
+    "subtitle": "witchmod.subtitle.holy_grenade.throw",
+    "sounds": [ { "name": "witchmod:item/grenade/throw", "stream": false } ]
+  },
+  "item.holy_grenade.hallelujah": {
+    "subtitle": "witchmod.subtitle.holy_grenade.hallelujah",
+    "sounds": [ { "name": "witchmod:item/grenade/hallelujah", "stream": false } ]
+  },
+  "item.holy_grenade.hallelujah_rare": {
+    "subtitle": "witchmod.subtitle.holy_grenade.hallelujah",
+    "sounds": [ { "name": "witchmod:item/grenade/hallelujah_rare", "stream": false } ]
+  },
+  "item.holy_grenade.explode": {
+    "subtitle": "witchmod.subtitle.holy_grenade.explode",
+    "sounds": [ { "name": "witchmod:item/grenade/explode", "stream": false } ]
   }
 }

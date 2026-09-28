@@ -16,12 +16,12 @@ import net.minecraft.world.level.Level;
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.ActiveEffectInstance;
+import com.oliver.witchmod.data.ClientOptOut;
 import com.oliver.witchmod.data.CoinGamble;
 import com.oliver.witchmod.data.DelayedCasts;
 import com.oliver.witchmod.data.DiscoveryManager;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
-import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.LedgerLog;
 import com.oliver.witchmod.data.Modifier;
@@ -47,15 +47,14 @@ import com.oliver.witchmod.network.WitchModNetwork;
  * attachment's baseCost-derived strength.
  */
 public final class BewitchingTableRitual {
-    /** amethyst Shard: cost cut when the target already carries a same-category effect. */
+    /** amethyst Shard: cost cut PER same-category effect the target already carries, capped — so it "increases if more present". */
     private static final float AMETHYST_DISCOUNT = 0.30F;
+    private static final float AMETHYST_MAX_DISCOUNT = 0.75F;
     /** netherite Ingot: chance a cast bypasses the Ward (Warding Totem still applies). */
     private static final float NETHERITE_BYPASS_CHANCE = 0.80F;
     /** echo Shard: the onset is delayed by a random 5–10 minutes. */
     private static final int ECHO_DELAY_MIN_TICKS = 5 * 60 * 20;
     private static final int ECHO_DELAY_MAX_TICKS = 10 * 60 * 20;
-    /** dragon's Breath: radius around the CASTER that catches a quarter-duration splash. */
-    private static final double DRAGONS_BREATH_RADIUS = 6.0;
     /** redstone-dust random pick: weight = 1 / cost^bias, so cheaper attachments are favoured. */
     private static final double REDSTONE_RANDOM_LOW_BIAS = 1.5;
 
@@ -108,6 +107,9 @@ public final class BewitchingTableRitual {
         }
         Modifier modifier = modifierStack.isEmpty() ? null
                 : ModifierItems.findModifier(modifierStack.getItem()).orElse(null);
+        if (refuseIfModifierDisabled(caster, modifier)) {
+            return;
+        }
 
         // quartz: only works on spells the caster has already discovered.
         if (modifier != null && modifier.discoveredEffectsOnly()
@@ -154,27 +156,13 @@ public final class BewitchingTableRitual {
             }
         }
 
-        // voodoo Doll: a CURSE cast at the table while you hold a bound doll is FORWARDED onto the doll's target
-        // (redirect, not copy). Table-only by design; command casts get a note instead (see BewitchCommand).
-        ItemStack forwardingDoll = ItemStack.EMPTY;
-        if (!fillingJar && effect.value().category() == EffectCategory.CURSE) {
-            ItemStack doll = com.oliver.witchmod.items.ItemVoodooDoll.findBoundDoll(caster);
-            if (!doll.isEmpty()) {
-                PlayerEssenceData dollBound = doll.get(WitchModDataComponents.BOUND_PLAYER);
-                ServerPlayer dollTarget = dollBound == null ? null
-                        : caster.getServer().getPlayerList().getPlayer(dollBound.playerId());
-                if (dollTarget != null && dollTarget.isAlive()) {
-                    target = dollTarget;
-                    forwardingDoll = doll;
-                    caster.displayClientMessage(Component.translatable(
-                            "witchmod.ritual.voodoo_forward", dollBound.playerName())
-                            .withStyle(ChatFormatting.LIGHT_PURPLE), true);
-                } else {
-                    caster.displayClientMessage(Component.translatable(
-                            "witchmod.ritual.voodoo_unavailable")
-                            .withStyle(ChatFormatting.GRAY), true);
-                }
-            }
+        // opt-out pre-check: if the target opted out of this effect (and the server honours opt-outs), refuse
+        // BEFORE spending any ingredients — a clean refund — and quietly tell the caster. (jar-fills target your
+        // own jar, not a person, so they're exempt.)
+        if (!fillingJar && ClientOptOut.blocks(target, effect.key().location())) {
+            caster.displayClientMessage(Component.translatable("witchmod.optout.refused",
+                    target.getName().getString()).withStyle(ChatFormatting.RED), true);
+            return;
         }
 
         int rawBaseCost = effectCost(effect); // ⚠ PLACEHOLDER tier proxy (see ModifierCalculator.applyTierBackfire)
@@ -183,10 +171,14 @@ public final class BewitchingTableRitual {
             // casting on an already-affected target costs more
             baseCost = Math.round(baseCost * (1 + Config.ESCALATING_COST_PERCENT.get() / 100F));
         }
-        // amethyst Shard: a follow-up of the SAME category on an already-affected target is cheaper.
-        if (!fillingJar && modifier != null && modifier.discountsSameCategory()
-                && EffectManager.hasActiveOfCategory(target, effect.value().category())) {
-            baseCost = Math.round(baseCost * (1 - AMETHYST_DISCOUNT));
+        // amethyst Shard: a follow-up of the SAME category on an already-affected target is cheaper, and the
+        // discount grows with how many same-category effects they already carry (capped).
+        if (!fillingJar && modifier != null && modifier.discountsSameCategory()) {
+            int sameCategory = EffectManager.countActiveOfCategory(target, effect.value().category());
+            if (sameCategory > 0) {
+                float discount = Math.min(AMETHYST_MAX_DISCOUNT, AMETHYST_DISCOUNT * sameCategory);
+                baseCost = Math.round(baseCost * (1 - discount));
+            }
         }
         int adjustedCost = ModifierCalculator.applyCost(baseCost, modifier);
         // only ever SPEND what's needed for the best odds (essence == cost gives the 95% cap); the rest is
@@ -198,8 +190,11 @@ public final class BewitchingTableRitual {
         }
         float successChance = ModifierCalculator.applySuccessChance(
                 ModifierCalculator.baseSuccessChance(essenceSpent, adjustedCost), modifier);
-        // honeycomb: guaranteed success unless the attachment is Major-tier or above.
-        if (modifier == Modifier.HONEYCOMB && effect.value().tier() != EffectCostTier.MAJOR) {
+        // honeycomb: guaranteed success for power 80 and below (desc), higher-power effects resist it.
+        if (modifier == Modifier.HONEYCOMB && effect.value().powerLevel() <= 80) {
+            successChance = 1.0F;
+        }
+        if (Config.RITUAL_NEVER_FAILS.get()) {
             successChance = 1.0F;
         }
         float backfireChance = ModifierCalculator.applyBackfireChance(
@@ -315,13 +310,6 @@ public final class BewitchingTableRitual {
             WitchMod.LOGGER.info("[ritual] {} APPLIED to {} for {} ticks (cast by {})",
                     effectId, target.getName().getString(), durationTicks, caster.getName().getString());
             LedgerLog.log(Optional.of(caster.getName().getString()), target.getName().getString(), effectId, "success", level.getGameTime(), scribbled, eventPos, modifierName);
-            // A successful FORWARD spends a point of the doll's durability (breaks at zero) + logs the redirect.
-            if (!forwardingDoll.isEmpty()) {
-                forwardingDoll.hurtAndBreak(1, level, caster, it -> caster.displayClientMessage(
-                        Component.translatable("witchmod.ritual.voodoo_crumbles").withStyle(ChatFormatting.GRAY), true));
-                LedgerLog.log(Optional.of(caster.getName().getString()), target.getName().getString(),
-                        effectId, "doll_forward", level.getGameTime(), scribbled, eventPos, modifierName);
-            }
             // feedback: it LANDED — name the effect, whom it hit, and roughly how long it will last.
             caster.displayClientMessage(Component.translatable("witchmod.ritual.success",
                             effectDisplayName(effect), target.getName().getString(), durationPhrase(durationTicks))
@@ -424,16 +412,27 @@ public final class BewitchingTableRitual {
         }
         Modifier modifier = modifierStack.isEmpty() ? null
                 : ModifierItems.findModifier(modifierStack.getItem()).orElse(null);
+        if (refuseIfModifierDisabled(caster, modifier)) {
+            return;
+        }
 
-        // target: a Player Essence / bound Voodoo Doll (returned, not consumed), or empty = the caster. Jars refused.
+        // target: a Player Essence / bound Voodoo Doll (returned, not consumed), a Jar (bottle the roll), or
+        // empty = the caster.
         ItemStack targetStack = table.getItem(BewitchingTableBlockEntity.SLOT_PLAYER_ESSENCE);
         ServerPlayer target = caster;
         ItemStack dollInSlot = ItemStack.EMPTY;
+        boolean fillingJar = false;
+        ItemStack jarToFill = ItemStack.EMPTY;
         if (!targetStack.isEmpty()) {
             if (targetStack.getItem() instanceof ItemJar) {
-                caster.displayClientMessage(Component.translatable("witchmod.ritual.coin_jar").withStyle(ChatFormatting.RED), true);
-                return;
-            }
+                if (JarContents.isFull(targetStack)) {
+                    caster.displayClientMessage(Component.translatable("witchmod.ritual.jar_full").withStyle(ChatFormatting.RED), true);
+                    return;
+                }
+                fillingJar = true;
+                jarToFill = targetStack.copy();
+                jarToFill.setCount(1);
+            } else {
             boolean isDoll = targetStack.getItem() instanceof com.oliver.witchmod.items.ItemVoodooDoll
                     && targetStack.has(WitchModDataComponents.BOUND_PLAYER);
             if (!isDoll && targetStack.getItem() != WitchModItems.PLAYER_ESSENCE.get()) {
@@ -450,6 +449,7 @@ public final class BewitchingTableRitual {
             if (isDoll) {
                 dollInSlot = targetStack.copy();
                 dollInSlot.setCount(1);
+            }
             }
         }
 
@@ -478,10 +478,36 @@ public final class BewitchingTableRitual {
         refundEssence(caster, essenceWasBlock, essenceAvailable - essenceSpent);
         float successChance = ModifierCalculator.applySuccessChance(
                 ModifierCalculator.baseSuccessChance(essenceSpent, adjustedCost), modifier);
+        if (Config.RITUAL_NEVER_FAILS.get()) {
+            successChance = 1.0F;
+        }
         int durationTicks = ModifierCalculator.applyDuration(rollBaseDuration(caster.getRandom()), modifier, caster.getRandom());
         ResourceLocation coinId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(coinItemFor(coinType));
 
         if (caster.getRandom().nextFloat() < successChance) {
+            // jar target: bottle the coin's roll instead of applying it to anyone.
+            if (fillingJar) {
+                List<Holder.Reference<Effect>> rolled = CoinGamble.roll(coinType, caster.getRandom());
+                if (rolled.isEmpty()) {
+                    giveOrDrop(caster, jarToFill);
+                    outcomeFx(level, pos, Outcome.FIZZLE);
+                    caster.displayClientMessage(Component.translatable("witchmod.ritual.coin_nothing").withStyle(ChatFormatting.RED), true);
+                    return;
+                }
+                ItemStack filled = jarToFill;
+                for (Holder.Reference<Effect> h : rolled) {
+                    if (JarContents.isFull(filled)) {
+                        break; // only take what fits
+                    }
+                    filled = JarContents.withAdded(filled, h.key().location(), durationTicks);
+                    DiscoveryManager.markEffectDiscovered(caster, h.key().location());
+                }
+                giveOrDrop(caster, filled);
+                caster.displayClientMessage(Component.translatable("witchmod.ritual.jar_bottled").withStyle(ChatFormatting.AQUA), true);
+                outcomeFx(level, pos, Outcome.JAR_FILLED);
+                LedgerLog.log(Optional.of(caster.getName().getString()), "jar", coinId, "jar_filled", level.getGameTime(), scribbled, eventPos, modifierName);
+                return;
+            }
             List<Holder.Reference<Effect>> got = CoinGamble.gamble(target, coinType, durationTicks, caster, caster.getRandom());
             if (got.isEmpty()) {
                 outcomeFx(level, pos, Outcome.FIZZLE);
@@ -511,7 +537,10 @@ public final class BewitchingTableRitual {
             return;
         }
 
-        // A failed coin just clatters flat — no backfire.
+        // A failed coin just clatters flat — no backfire. A jar being filled is handed back untouched.
+        if (fillingJar) {
+            giveOrDrop(caster, jarToFill);
+        }
         outcomeFx(level, pos, Outcome.FIZZLE);
         WitchModNetwork.sendRitualFx(level, pos, 1, false, false, ItemStack.EMPTY, null);
         caster.displayClientMessage(Component.translatable("witchmod.ritual.coin_flat").withStyle(ChatFormatting.RED), true);
@@ -524,6 +553,54 @@ public final class BewitchingTableRitual {
             case BLESSED -> WitchModItems.BLESSED_COIN.get();
             case EXECUTIONER -> WitchModItems.EXECUTIONERS_COIN.get();
         };
+    }
+
+    /**
+     * apply an effect to {@code target} carrying a Table MODIFIER's cast-side behaviours — duration override,
+     * hide/disguise display, Ward bypass, Echo Shard delayed onset, Infectious spread, and the Goat Horn / Glow
+     * Ink / Dragon's Breath / Recovery Compass after-effects. Used by the {@code /bewitch apply … <modifier>}
+     * command path, where there's no essence, so cost/success/backfire don't apply and the cast always lands.
+     * With a null modifier it's just a plain apply. Returns whether the effect landed.
+     */
+    public static boolean applyWithModifier(ServerLevel level, ServerPlayer target, Holder.Reference<Effect> effect,
+                                            int durationTicks, ServerPlayer caster, Modifier modifier, boolean bypassDisabled) {
+        EffectManager.ApplyOptions base = bypassDisabled
+                ? EffectManager.ApplyOptions.DEFAULT.withBypassDisabled() : EffectManager.ApplyOptions.DEFAULT;
+        if (modifier == null) {
+            return EffectManager.apply(target, effect, durationTicks, caster, base);
+        }
+        net.minecraft.util.RandomSource rng = (caster != null ? caster : target).getRandom();
+        if (caster != null) {
+            DiscoveryManager.markModifierDiscovered(caster, modifier);
+        }
+        int duration = ModifierCalculator.applyDuration(durationTicks, modifier, rng);
+        boolean blessing = effect.value().category() == EffectCategory.BLESSING;
+        boolean bypassWard = modifier.bypassesWardAndJar() && rng.nextFloat() < NETHERITE_BYPASS_CHANCE;
+        int display = modifier.hidesStartTell() ? ActiveEffectInstance.DISPLAY_HIDDEN
+                : modifier.disguisesCategory() ? ActiveEffectInstance.DISPLAY_DISGUISED
+                : ActiveEffectInstance.DISPLAY_NORMAL;
+        EffectManager.ApplyOptions opts = new EffectManager.ApplyOptions(bypassWard, display, false, bypassDisabled);
+        if (modifier.delaysTell()) { // Echo Shard — cast lands later with its full onset
+            int delay = ECHO_DELAY_MIN_TICKS + rng.nextInt(ECHO_DELAY_MAX_TICKS - ECHO_DELAY_MIN_TICKS + 1);
+            DelayedCasts.schedule(target, effect, duration, caster, opts, delay);
+            return true;
+        }
+        boolean landed = EffectManager.apply(target, effect, duration, caster, opts);
+        if (landed) {
+            applyInfectious(level, target, modifier, caster, duration);
+            applyModifierAftereffects(level, target, modifier, caster, effect, duration, blessing);
+        }
+        return landed;
+    }
+
+    /** table modifier gate: if the modifier is config-disabled, tell the caster and refuse. @return true if refused. */
+    private static boolean refuseIfModifierDisabled(ServerPlayer caster, Modifier modifier) {
+        if (modifier != null && Config.isModifierDisabled(modifier.id())) {
+            caster.displayClientMessage(Component.translatable("witchmod.disabled.modifier",
+                    DiscoveryManager.titleCase(modifier.id())).withStyle(ChatFormatting.RED), true);
+            return true;
+        }
+        return false;
     }
 
     /** slime Ball / Slime Block modifiers: also plant the hidden Infectious / Very Infectious attachment. */
@@ -556,16 +633,17 @@ public final class BewitchingTableRitual {
                     .append(Component.literal(effectDisplayName(effect) + "!").withStyle(ChatFormatting.BOLD)), false);
             DiscoveryManager.markEffectDiscovered(target, effect.key().location());
         }
-        if (modifier.splashToNearby()) { // Dragon's Breath — a quarter-dose splashes onto OTHERS near the caster
-            int splashDur = Math.max(1, durationTicks / 4);
+        if (modifier.splashToNearby() && caster != null) { // Dragon's Breath — a third-dose splashes onto OTHERS near the caster
+            double radius = Config.DRAGONS_BREATH_RADIUS.get();
+            int splashDur = Math.max(1, durationTicks / 3);
             for (ServerPlayer nearby : level.getEntitiesOfClass(ServerPlayer.class,
-                    caster.getBoundingBox().inflate(DRAGONS_BREATH_RADIUS))) {
+                    caster.getBoundingBox().inflate(radius))) {
                 if (nearby != caster && nearby != target) {
                     EffectManager.apply(nearby, effect, splashDur, caster);
                 }
             }
-            level.sendParticles(net.minecraft.core.particles.ParticleTypes.DRAGON_BREATH,
-                    caster.getX(), caster.getY() + 1.0, caster.getZ(), 50, DRAGONS_BREATH_RADIUS / 2, 0.7, DRAGONS_BREATH_RADIUS / 2, 0.02);
+            // a client-rendered expanding ring (like the grenade/bell) out to the splash radius, coloured by kind.
+            WitchModNetwork.sendRitualShockwave(level, caster.blockPosition(), (int) Math.round(radius), blessing);
         }
         if (modifier == Modifier.RECOVERY_COMPASS) { // this attachment does NOT persist past death
             java.util.Set<ResourceLocation> np = target.getData(com.oliver.witchmod.data.WitchModAttachments.NON_PERSISTENT_EFFECTS);
@@ -657,10 +735,14 @@ public final class BewitchingTableRitual {
         }
     }
 
-    /** A random base duration in the 35–60 min window; the Clock modifier later overrides it to a fixed 45. */
+    /** A random base duration in the configured window; the Clock modifier later overrides it to a fixed 45.
+     *  With ritualDurationNoVariation on, it's always the max (no random spread). */
     private static int rollBaseDuration(net.minecraft.util.RandomSource rng) {
         int min = Config.RITUAL_MIN_DURATION_TICKS.get();
         int max = Math.max(min, Config.RITUAL_MAX_DURATION_TICKS.get());
+        if (Config.ritualDurationNoVariation()) {
+            return max;
+        }
         return min + rng.nextInt(max - min + 1);
     }
 

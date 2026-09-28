@@ -5,8 +5,10 @@ import java.util.List;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import com.oliver.witchmod.Config;
@@ -66,11 +68,31 @@ public final class CurseExplosive extends Effect {
                 return false;
             }
             // the dying player stays the source so the kill is attributed to them, not to thin air.
+            float power = Config.EXPLOSIVE_POWER.get().floatValue();
             blast.level().explode(blast.player(), blast.pos().x, blast.pos().y, blast.pos().z,
-                    Config.EXPLOSIVE_POWER.get().floatValue(),
-                    Config.EXPLOSIVE_CREATES_FIRE.get(),
+                    power, Config.EXPLOSIVE_CREATES_FIRE.get(),
                     Level.ExplosionInteraction.MOB); // MOB = vanilla's own mobGriefing gate
+            knockup(blast.level(), blast.pos(), power);
             return true;
         });
+    }
+
+    /** launches everything caught in the blast upward, scaled down by distance — a decent airborne kick. */
+    private static void knockup(ServerLevel level, Vec3 centre, float power) {
+        double knockup = Config.EXPLOSIVE_KNOCKUP.get();
+        if (knockup <= 0.0) {
+            return;
+        }
+        double radius = power * 2.0; // vanilla's own knockback reach for a blast of this power
+        AABB box = new AABB(centre.x - radius, centre.y - radius, centre.z - radius,
+                centre.x + radius, centre.y + radius, centre.z + radius);
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box)) {
+            double falloff = 1.0 - Math.sqrt(e.distanceToSqr(centre)) / radius;
+            if (falloff <= 0.0) {
+                continue;
+            }
+            e.setDeltaMovement(e.getDeltaMovement().add(0.0, knockup * falloff, 0.0));
+            e.hurtMarked = true; // or the velocity never reaches the client
+        }
     }
 }

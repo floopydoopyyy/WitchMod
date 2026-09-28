@@ -1,7 +1,17 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:cursed_essence"
+    }
+  ],
   "type": "minecraft:smelting",
-  "ingredient": { "item": "minecraft:amethyst_shard" },
-  "result": { "id": "witchmod:cursed_essence" },
+  "ingredient": {
+    "item": "minecraft:amethyst_shard"
+  },
+  "result": {
+    "id": "witchmod:cursed_essence"
+  },
   "experience": 0.5,
   "cookingtime": 200
 }

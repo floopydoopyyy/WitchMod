@@ -73,6 +73,25 @@ public class WitchModClient {
         event.registerReloadListener((ResourceManagerReloadListener) manager -> UglySkinManager.reload());
     }
 
+    /** report this client's curse opt-outs to the server the moment we join, so it can honour them. */
+    @SubscribeEvent
+    static void onLoggingIn(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        try {
+            com.oliver.witchmod.network.WitchModNetwork.sendOptOuts(ClientConfig.optedOutEffectIds());
+        } catch (Throwable ignored) {
+            // channel not ready yet is harmless — the server just keeps the defaults until a reload re-sends
+        }
+    }
+
+    /** re-send opt-outs when the client config is edited in-session (via the config screen), so changes apply live. */
+    @SubscribeEvent
+    static void onConfigReload(net.neoforged.fml.event.config.ModConfigEvent.Reloading event) {
+        if (event.getConfig().getSpec() == ClientConfig.SPEC
+                && net.minecraft.client.Minecraft.getInstance().getConnection() != null) {
+            com.oliver.witchmod.network.WitchModNetwork.sendOptOuts(ClientConfig.optedOutEffectIds());
+        }
+    }
+
     /** custom particle factories. */
     @SubscribeEvent
     static void onRegisterParticleProviders(net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent event) {
@@ -101,6 +120,8 @@ public class WitchModClient {
         event.registerEntityRenderer(WitchModEntities.CLONE.get(), com.oliver.witchmod.client.CloneRenderer::new);
         event.registerEntityRenderer(WitchModEntities.JAR_THROW.get(),
                 ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(ctx));
+        event.registerEntityRenderer(WitchModEntities.HOLY_HAND_GRENADE.get(),
+                com.oliver.witchmod.client.HolyGrenadeRenderer::new);
         event.registerBlockEntityRenderer(com.oliver.witchmod.blocks.WitchModBlockEntities.LEDGER.get(),
                 com.oliver.witchmod.client.LedgerRenderer::new);
         event.registerBlockEntityRenderer(com.oliver.witchmod.blocks.WitchModBlockEntities.AMETHYST_BELL.get(),

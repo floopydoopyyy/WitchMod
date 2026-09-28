@@ -50,25 +50,26 @@ public final class BlessingSixthSense extends Effect {
     /** player -> ticks until the next sense. */
     private static final Map<UUID, Integer> NEXT = new HashMap<>();
 
-    private record Sense(TagKey<Structure> tag, String name) {}
+    /** {@code nameKey} is a translatable lang key for the sensed thing's name (organised under witchmod.sixth_sense.*). */
+    private record Sense(TagKey<Structure> tag, String nameKey) {}
 
     /** ordinary structures — common enough to be flavour, on the normal cadence. */
     private static final List<Sense> STRUCTURES = List.of(
-            new Sense(StructureTags.VILLAGE, "a village"),
-            new Sense(StructureTags.MINESHAFT, "a mineshaft"),
-            new Sense(StructureTags.SHIPWRECK, "a shipwreck"),
-            new Sense(StructureTags.RUINED_PORTAL, "a ruined portal"),
-            new Sense(StructureTags.OCEAN_RUIN, "ocean ruins"),
-            new Sense(StructureTags.ON_TRIAL_CHAMBERS_MAPS, "a trial chamber"));
+            new Sense(StructureTags.VILLAGE, "witchmod.sixth_sense.structure.village"),
+            new Sense(StructureTags.MINESHAFT, "witchmod.sixth_sense.structure.mineshaft"),
+            new Sense(StructureTags.SHIPWRECK, "witchmod.sixth_sense.structure.shipwreck"),
+            new Sense(StructureTags.RUINED_PORTAL, "witchmod.sixth_sense.structure.ruined_portal"),
+            new Sense(StructureTags.OCEAN_RUIN, "witchmod.sixth_sense.structure.ocean_ruins"),
+            new Sense(StructureTags.ON_TRIAL_CHAMBERS_MAPS, "witchmod.sixth_sense.structure.trial_chamber"));
 
     /** rare, high-value structures — the override list, each its own witchmod tag so it can be named. */
     private static final List<Sense> RARE_STRUCTURES = List.of(
-            new Sense(rareTag("rare_ancient_city"), "an ancient city"),
-            new Sense(rareTag("rare_end_city"), "an end city"),
-            new Sense(rareTag("rare_bastion_remnant"), "a bastion remnant"),
-            new Sense(rareTag("rare_fortress"), "a nether fortress"),
-            new Sense(rareTag("rare_stronghold"), "a stronghold"),
-            new Sense(rareTag("rare_buried_treasure"), "buried treasure"));
+            new Sense(rareTag("rare_ancient_city"), "witchmod.sixth_sense.structure.ancient_city"),
+            new Sense(rareTag("rare_end_city"), "witchmod.sixth_sense.structure.end_city"),
+            new Sense(rareTag("rare_bastion_remnant"), "witchmod.sixth_sense.structure.bastion_remnant"),
+            new Sense(rareTag("rare_fortress"), "witchmod.sixth_sense.structure.nether_fortress"),
+            new Sense(rareTag("rare_stronghold"), "witchmod.sixth_sense.structure.stronghold"),
+            new Sense(rareTag("rare_buried_treasure"), "witchmod.sixth_sense.structure.buried_treasure"));
 
     private static final List<ResourceKey<Biome>> RARE_BIOMES = List.of(
             Biomes.MUSHROOM_FIELDS, Biomes.ICE_SPIKES, Biomes.FLOWER_FOREST, Biomes.CHERRY_GROVE,
@@ -85,9 +86,11 @@ public final class BlessingSixthSense extends Effect {
 
     /** you find out the first time an insight surfaces (Rule 2). */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         int next = NEXT.getOrDefault(target.getUUID(), 0);
-        return java.util.Optional.of(next <= 20 ? "a sense is ready" : "sense recharging (" + (next / 20) + "s)");
+        return java.util.Optional.of(next <= 20
+                ? net.minecraft.network.chat.Component.translatable("witchmod.scry.sixth_sense.ready")
+                : net.minecraft.network.chat.Component.translatable("witchmod.scry.sixth_sense.recharging", next / 20));
     }
 
     @Override
@@ -178,16 +181,16 @@ public final class BlessingSixthSense extends Effect {
             if (d < bestDist) {
                 bestDist = d;
                 bestPos = pos;
-                bestName = sense.name();
+                bestName = sense.nameKey();
             }
         }
         if (bestPos == null) {
             return null;
         }
-        String dir = direction(self.getX(), self.getZ(), bestPos.getX(), bestPos.getZ());
         int dist = (int) Math.sqrt(bestDist);
-        return Component.literal("Your sixth sense stirs — " + bestName + " to the " + dir + ", ~" + dist + " blocks")
-.withStyle(ChatFormatting.GOLD);
+        return Component.translatable("witchmod.sixth_sense.rare", Component.translatable(bestName),
+                dirComponent(self.getX(), self.getZ(), bestPos.getX(), bestPos.getZ()), dist)
+                .withStyle(ChatFormatting.GOLD);
     }
 
     @Nullable
@@ -205,8 +208,8 @@ public final class BlessingSixthSense extends Effect {
         if (nearest == null) {
             return null;
         }
-        String dir = direction(self.getX(), self.getZ(), nearest.getX(), nearest.getZ());
-        return hint("You sense " + nearest.getGameProfile().getName() + " to the " + dir + ", ~" + (int) Math.sqrt(best) + " blocks");
+        return hint(Component.literal(nearest.getGameProfile().getName()),
+                dirComponent(self.getX(), self.getZ(), nearest.getX(), nearest.getZ()), (int) Math.sqrt(best));
     }
 
     @Nullable
@@ -217,9 +220,9 @@ public final class BlessingSixthSense extends Effect {
         if (pos == null) {
             return null;
         }
-        String dir = direction(self.getX(), self.getZ(), pos.getX(), pos.getZ());
         int dist = (int) Math.sqrt(distSqr2d(self.getX(), self.getZ(), pos.getX(), pos.getZ()));
-        return hint("You sense " + sense.name() + " to the " + dir + ", ~" + dist + " blocks");
+        return hint(Component.translatable(sense.nameKey()),
+                dirComponent(self.getX(), self.getZ(), pos.getX(), pos.getZ()), dist);
     }
 
     @Nullable
@@ -231,14 +234,17 @@ public final class BlessingSixthSense extends Effect {
             return null;
         }
         BlockPos pos = found.getFirst();
-        String name = found.getSecond().unwrapKey().map(k -> prettify(k.location().getPath())).orElse("a rare biome");
-        String dir = direction(self.getX(), self.getZ(), pos.getX(), pos.getZ());
+        // only RARE_BIOMES match, so the found biome has a witchmod.sixth_sense.biome.<path> key; fall back to a generic one.
+        Component name = found.getSecond().unwrapKey()
+                .map(k -> (Component) Component.translatable("witchmod.sixth_sense.biome." + k.location().getPath()))
+                .orElse(Component.translatable("witchmod.sixth_sense.biome.unknown"));
         int dist = (int) Math.sqrt(distSqr2d(self.getX(), self.getZ(), pos.getX(), pos.getZ()));
-        return hint("You sense " + name + " to the " + dir + ", ~" + dist + " blocks");
+        return hint(name, dirComponent(self.getX(), self.getZ(), pos.getX(), pos.getZ()), dist);
     }
 
-    private static Component hint(String text) {
-        return Component.literal(text).withStyle(ChatFormatting.AQUA);
+    /** "You sense &lt;thing&gt; to the &lt;dir&gt;, ~&lt;dist&gt; blocks" — the ordinary action-bar insight. */
+    private static Component hint(Component thing, Component dir, int dist) {
+        return Component.translatable("witchmod.sixth_sense.hint", thing, dir, dist).withStyle(ChatFormatting.AQUA);
     }
 
     private static double distSqr2d(double x1, double z1, double x2, double z2) {
@@ -247,30 +253,20 @@ public final class BlessingSixthSense extends Effect {
         return dx * dx + dz * dz;
     }
 
-    /** 8-point compass bearing from (x1,z1) to (x2,z2). */
-    private static String direction(double x1, double z1, double x2, double z2) {
+    /** the translatable 8-point compass bearing from (x1,z1) to (x2,z2), keyed under witchmod.sixth_sense.dir.*. */
+    private static Component dirComponent(double x1, double z1, double x2, double z2) {
         double angle = Mth.atan2(x2 - x1, -(z2 - z1)); // 0 = north (−Z), clockwise
         int octant = (int) Math.round(angle / (Math.PI / 4.0)) & 7;
-        return switch (octant) {
+        String key = switch (octant) {
             case 0 -> "north";
-            case 1 -> "north-east";
+            case 1 -> "north_east";
             case 2 -> "east";
-            case 3 -> "south-east";
+            case 3 -> "south_east";
             case 4 -> "south";
-            case 5 -> "south-west";
+            case 5 -> "south_west";
             case 6 -> "west";
-            default -> "north-west";
+            default -> "north_west";
         };
-    }
-
-    private static String prettify(String path) {
-        String[] parts = path.split("_");
-        StringBuilder sb = new StringBuilder();
-        for (String p : parts) {
-            if (!p.isEmpty()) {
-                sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1)).append(' ');
-            }
-        }
-        return sb.toString().trim();
+        return Component.translatable("witchmod.sixth_sense.dir." + key);
     }
 }

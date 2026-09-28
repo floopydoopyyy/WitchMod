@@ -61,6 +61,20 @@ public final class BlessingFlight extends Effect {
     public void onTick(ServerPlayer target, int ticksRemaining) {
         UUID id = target.getUUID();
         long now = target.level().getGameTime();
+        // paired with a bat disguise: you fly creatively and freely — the bar never drains, and sprint-flying
+        // leaves a red vampire trail (none when flying normally, so the disguise still holds).
+        if (target.getData(WitchModAttachments.DISGUISE_TYPE) == 3 && target.getAbilities().flying) {
+            target.setData(WitchModAttachments.FLIGHT_ENERGY, 1.0F);
+            target.setData(WitchModAttachments.FLIGHT_ACTIVE, 1);
+            DEPLETED.remove(id);
+            MODE.remove(id);
+            if (target.isSprinting()) {
+                net.minecraft.server.level.ServerLevel level = target.serverLevel();
+                var red = new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.8F, 0.02F, 0.05F), 1.2F);
+                level.sendParticles(red, target.getX(), target.getY() + 0.9, target.getZ(), 6, 0.22, 0.3, 0.22, 0.0);
+            }
+            return;
+        }
         boolean lockedOut = now < target.getData(WitchModAttachments.FLIGHT_LOCKOUT_END);
         boolean depleted = DEPLETED.contains(id);
         float energy = target.getData(WitchModAttachments.FLIGHT_ENERGY);
