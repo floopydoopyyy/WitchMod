@@ -1,7 +1,18 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:cursed_essence"
+    }
+  ],
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "witchmod:cursed_essence_block" }
+    {
+      "item": "witchmod:cursed_essence_block"
+    }
   ],
-  "result": { "id": "witchmod:cursed_essence", "count": 9 }
+  "result": {
+    "id": "witchmod:cursed_essence",
+    "count": 9
+  }
 }

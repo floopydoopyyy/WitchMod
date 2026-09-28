@@ -41,13 +41,13 @@ public final class BlessingPropHunt extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         int id = target.getData(WitchModAttachments.PROPHUNT_BLOCK);
         if (id < 0) {
-            return java.util.Optional.of("not disguised");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.prop_hunt.none"));
         }
-        return java.util.Optional.of("disguised as "
-                + net.minecraft.world.level.block.Block.stateById(id).getBlock().getName().getString());
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.prop_hunt.active",
+                net.minecraft.world.level.block.Block.stateById(id).getBlock().getName()));
     }
 
     @Override

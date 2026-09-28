@@ -37,6 +37,9 @@ import com.oliver.witchmod.entities.WitchModEntities;
 public final class BlessingConfusion extends Effect {
     private static final Map<UUID, Integer> TIMER = new HashMap<>();
     private static final Map<UUID, List<Integer>> CLONES = new HashMap<>();
+    /** forced-spawn state from being attacked: how many clones still owed, and the tick the next one is due. */
+    private static final Map<UUID, Integer> PENDING = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_FORCED = new HashMap<>();
 
     public BlessingConfusion() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.RABBIT_HIDE);
@@ -58,6 +61,25 @@ public final class BlessingConfusion extends Effect {
             }
         }
         TIMER.remove(target.getUUID());
+        PENDING.remove(target.getUUID());
+        NEXT_FORCED.remove(target.getUUID());
+    }
+
+    @Override
+    public @Nullable String debugForce(ServerPlayer target, @Nullable String arg) {
+        onOwnerHurt(target);
+        return "forced a confusion clone burst.";
+    }
+
+    /** being hit (by any means) forces out a burst of decoys over the next window, ignoring the audience gate. */
+    public static void onOwnerHurt(ServerPlayer target) {
+        int count = Config.CONFUSION_ATTACK_SPAWN_COUNT.get();
+        if (count <= 0) {
+            return;
+        }
+        UUID id = target.getUUID();
+        PENDING.merge(id, count, Integer::sum);
+        NEXT_FORCED.putIfAbsent(id, target.level().getGameTime());
     }
 
     @Override
@@ -78,6 +100,27 @@ public final class BlessingConfusion extends Effect {
             confuseHostiles(target, ids);
         }
 
+        // forced attack-spawns: spread a burst over the window, bypassing the audience gate.
+        Integer pending = PENDING.get(id);
+        if (pending != null && pending > 0) {
+            long now = level.getGameTime();
+            if (now >= NEXT_FORCED.getOrDefault(id, 0L)) {
+                if (ids.size() < Config.CONFUSION_MAX_CLONES.get()) {
+                    spawnOne(target, ids);
+                }
+                int left = pending - 1;
+                if (left <= 0) {
+                    PENDING.remove(id);
+                    NEXT_FORCED.remove(id);
+                } else {
+                    PENDING.put(id, left);
+                    int window = Math.max(1, Config.CONFUSION_ATTACK_SPAWN_WINDOW_TICKS.get());
+                    int gap = Math.max(1, window / Config.CONFUSION_ATTACK_SPAWN_COUNT.get());
+                    NEXT_FORCED.put(id, now + gap);
+                }
+            }
+        }
+
         int timer = TIMER.getOrDefault(id, Config.CONFUSION_INTERVAL_TICKS.get());
         if (--timer > 0) {
             TIMER.put(id, timer);
@@ -95,6 +138,12 @@ public final class BlessingConfusion extends Effect {
         if (!hasAudience(target) && rng.nextInt(6) != 0) {
             return; // nobody to fool → only very rarely bother
         }
+        spawnOne(target, ids);
+    }
+
+    /** actually emit one doppelganger next to you (caller has checked the max). */
+    private void spawnOne(ServerPlayer target, List<Integer> ids) {
+        RandomSource rng = target.getRandom();
         ServerLevel level = target.serverLevel();
         CloneEntity clone = WitchModEntities.CLONE.get().create(level);
         if (clone == null) {

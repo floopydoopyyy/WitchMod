@@ -1,13 +1,29 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:voodoo_doll"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "key": {
-    "W": { "item": "minecraft:white_wool" },
-    "S": { "item": "minecraft:stick" }
+    "W": {
+      "item": "minecraft:white_wool"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "C": {
+      "item": "witchmod:cursed_essence"
+    }
   },
   "pattern": [
-    "WWW",
-    "WSW",
-    "WWW"
+    "WCS",
+    "CWC",
+    "SWC"
   ],
-  "result": { "id": "witchmod:voodoo_doll", "count": 1 }
+  "result": {
+    "id": "witchmod:voodoo_doll",
+    "count": 1
+  }
 }

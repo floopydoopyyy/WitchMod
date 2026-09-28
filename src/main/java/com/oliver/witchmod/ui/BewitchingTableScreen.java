@@ -74,6 +74,15 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
     }
 
     @Override
+    protected void init() {
+        super.init();
+        // a book button just outside the panel's right edge → opens the Compendium's Rituals how-to.
+        addRenderableWidget(new CompendiumLinkButton(this.leftPos + this.imageWidth + 4, this.topPos + 22,
+                b -> com.oliver.witchmod.client.CompendiumScreen.openAt(
+                        com.oliver.witchmod.client.CompendiumScreen.CHAPTER_RITUALS)));
+    }
+
+    @Override
     protected void containerTick() {
         super.containerTick();
         clientTick++;
@@ -102,9 +111,16 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
-        if (this.hoveredSlot instanceof RitualSlot ritualSlot && !ritualSlot.hasItem()) {
-            guiGraphics.renderTooltip(this.font, Component.literal(labelFor(ritualSlot.kind())), mouseX, mouseY);
+    }
+
+    /** ritual slots show just their ROLE (Target / Cursed Essence / Sacrificial Item / Modifier), not the held item's full tooltip. */
+    @Override
+    protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        if (this.hoveredSlot instanceof RitualSlot ritualSlot) {
+            guiGraphics.renderTooltip(this.font, labelFor(ritualSlot.kind()), mouseX, mouseY);
+            return;
         }
+        super.renderTooltip(guiGraphics, mouseX, mouseY);
     }
 
     @Override
@@ -288,13 +304,14 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         return new RitualSnapshot(true, false, blessing, successChance, backfireChance);
     }
 
-    private static String labelFor(RitualSlot.Kind kind) {
-        return switch (kind) {
-            case PLAYER_ESSENCE -> "Player Essence / Jar (target - empty = self)";
-            case CURSED_ESSENCE -> "Cursed Essence (stack size = essence spent)";
-            case SACRIFICIAL_ITEM -> "Sacrificial Item (selects the effect)";
-            case MODIFIER -> "Modifier (optional)";
+    private static Component labelFor(RitualSlot.Kind kind) {
+        String key = switch (kind) {
+            case PLAYER_ESSENCE -> "witchmod.ritual.slot.target";
+            case CURSED_ESSENCE -> "witchmod.ritual.slot.cursed_essence";
+            case SACRIFICIAL_ITEM -> "witchmod.ritual.slot.sacrificial_item";
+            case MODIFIER -> "witchmod.ritual.slot.modifier";
         };
+        return Component.translatable(key);
     }
 
     private record RitualSnapshot(boolean hasEffect, boolean random, boolean blessing, float successChance, float backfireChance) {

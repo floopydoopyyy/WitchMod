@@ -5,7 +5,8 @@
     "We are gathered here today under no forced circumstances.",
     "Welcome all to this hilarious gag!",
     "Love is in the air...",
-    "Two souls, one aisle and lots of love!"
+    "Two souls, one aisle and lots of love!",
+    "I don't know how to open stuff like this! Let's just get started!"
   ],
   "vows": [
     "Do you, {v}, take {s} to be your awfully wedded partner?",
@@ -17,8 +18,8 @@
   "pronounce": [
     "By the power vested in me, I now pronounce you married!",
     "You may now kiss {s}. \u2764",
-    "It's official - now go crazy!",
-    "I now pronounce you player and {s}. Lovers for life!",
+    "It's official!",
+    "I now pronounce you, {v} and {s}. Lovers for life!",
     "The paperwork's done, have fun with {s}."
   ],
   "objections": [
@@ -33,26 +34,29 @@
     "I flew across the SERVER for this!",
     "We shared ONE minecart. ONE!",
     "I still have the friendship bracelet!!",
-    "Don't do this. Not with THEM.",
-    "I logged on for this. I NEVER log on.",
-    "You promised me the netherite!"
+    "Don't do this!",
+    "If you kiss, it's over!",
+    "You promised me netherite!"
   ],
   "objected": [
-    "\u00a7eThe wedding is OFF! {s} bolted down the aisle!",
-    "\u00a7eIt's chaos! {v} left {s} at the altar!",
-    "\u00a7eThe ceremony collapses into pure drama!",
-    "\u00a7e{s} runs off sobbing. The wedding is RUINED."
+    "\u00a7eThe wedding is OFF! {s} ran away!",
+    "\u00a7e{v} left {s}!",
+    "\u00a7eThe ceremony collapses!!",
+    "\u00a7e{s} runs off!",
+    "\u00a7e{s} changed their mind!",
+    "\u00a7e{s} loves someone else!",
+    "\u00a7e{s} was a catfish!"
   ],
   "kiss": [
-    "\u00a7d\u2764 They kissed! {v} & {s} are married! \u2764",
-    "\u00a7d{v} and {s} are now happily wed. Adorkable!",
-    "\u00a7dIt's official - {v} & {s}, together forever!",
-    "\u00a7dThey actually kissed?! What the heck?"
+    "\u00a7d\u2764 They kissed!\u2764",
+    "\u00a7d{v} and {s} are now happily wed.",
+    "\u00a7d{v} & {s}, together forever!",
+    "\u00a7dThey actually kissed?! Ewwww"
   ],
   "bolt": [
-    "\u00a7e{s} just peed themself and ran from the aisle!",
-    "\u00a7e{s} took one look at {v} and legged it!",
-    "\u00a7eThe wedding is OFF - {s} had second thoughts!",
+    "\u00a7e{s} just peed themself and ran!",
+    "\u00a7e{s} took one look at {v} and decided they don't wanna do this anymore.",
+    "\u00a7e{s} had second thoughts.",
     "\u00a7e{s} does not want to devote their life to {v}."
   ]
 }

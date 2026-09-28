@@ -112,12 +112,13 @@ public final class CurseSolicitor extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         if (ACTIVE.containsKey(target.getUUID())) {
-            return java.util.Optional.of("solicitor is hounding you");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.solicitor.hounding"));
         }
-        return java.util.Optional.of(target.level().getGameTime() < HIDDEN_UNTIL.getOrDefault(target.getUUID(), 0L)
-                ? "solicitor lying low" : "solicitor incoming");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                target.level().getGameTime() < HIDDEN_UNTIL.getOrDefault(target.getUUID(), 0L)
+                        ? "witchmod.scry.solicitor.hiding" : "witchmod.scry.solicitor.incoming"));
     }
 
     // --- Called from CurseEventHandler -------------------------------------------------------------------
@@ -145,6 +146,19 @@ public final class CurseSolicitor extends Effect {
     public static void onKilled(ServerPlayer victim) {
         ACTIVE.remove(victim.getUUID());
         summon(victim, "killed");
+    }
+
+    /** angel's grudge: the guardian angel kidnaps + kills the trader, forcing the solicitor onto a long cooldown. */
+    public static void abduct(ServerPlayer victim, long cooldownTicks) {
+        UUID id = victim.getUUID();
+        WanderingTrader trader = getTrader(victim);
+        if (trader != null && trader.isAlive()) {
+            pitch(trader, victim, "banished"); // one last protest as the angel hauls it off
+            trader.discard();
+        }
+        ACTIVE.remove(id);
+        NEXT_CHAT.remove(id);
+        HIDDEN_UNTIL.put(id, victim.level().getGameTime() + cooldownTicks);
     }
 
     /** the victim actually completed a trade — the salesman slinks off for a good while (biased long). */

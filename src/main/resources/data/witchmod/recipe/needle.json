@@ -1,8 +1,21 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:needle"
+    }
+  ],
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    { "item": "minecraft:iron_ingot" },
-    { "item": "minecraft:iron_nugget" }
+    {
+      "item": "minecraft:iron_ingot"
+    },
+    {
+      "item": "minecraft:iron_nugget"
+    }
   ],
-  "result": { "id": "witchmod:needle", "count": 1 }
+  "result": {
+    "id": "witchmod:needle",
+    "count": 1
+  }
 }

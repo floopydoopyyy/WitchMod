@@ -59,6 +59,10 @@ public final class WitchModItems {
     public static final DeferredItem<ItemJar> MIXED_JAR = ITEMS.register("mixed_jar",
             () -> new ItemJar(new Item.Properties().stacksTo(1)));
 
+    /** the Holy Hand Grenade — a rare special drop, thrown to fully cleanse (with a risk to everyone near). */
+    public static final DeferredItem<HolyHandGrenadeItem> HOLY_HAND_GRENADE = ITEMS.register("holy_hand_grenade",
+            () -> new HolyHandGrenadeItem(new Item.Properties().stacksTo(16)));
+
     private WitchModItems() {}
 
     public static void register(net.neoforged.bus.api.IEventBus modEventBus) {

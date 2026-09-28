@@ -75,6 +75,7 @@ public final class CompendiumScreen extends Screen {
 
     private static final class Entry {
         ItemStack icon;
+        List<ItemStack> iconCycle = List.of();  // if non-empty, the big icon cycles through these (e.g. the 3 coins)
         String name;
         int kind;             // 0 curse, 1 bless, 2 item, 3 block, 4 modifier
         boolean discovered;   // effects
@@ -84,6 +85,7 @@ public final class CompendiumScreen extends Screen {
         List<RecipeView> recipes = List.of();
         int recipeShown;
         boolean intro;        // a chapter's introductory page: title + paragraphs, no icon/power/recipe
+        boolean hideRecipeNote;  // suppress the "— not craftable —" footer (special ritual entries explain it in the text)
         String titleKey, textKey;
 
         boolean effect() {
@@ -120,8 +122,26 @@ public final class CompendiumScreen extends Screen {
         super(Component.translatable("witchmod.compendium.title"));
     }
 
+    /** the Rituals chapter index (last chapter) — see {@link #chapterNames}. */
+    public static final int CHAPTER_RITUALS = 5;
+
+    /** the chapter last viewed this session — reopened first when compendiumOpenToLastChapter is on. */
+    private static int lastChapter = 0;
+
     public static void open() {
-        Minecraft.getInstance().setScreen(new CompendiumScreen());
+        CompendiumScreen screen = new CompendiumScreen();
+        if (com.oliver.witchmod.ClientConfig.openToLastChapter()) {
+            screen.chapter = lastChapter;
+        }
+        Minecraft.getInstance().setScreen(screen);
+    }
+
+    /** open the Compendium straight to a chapter (e.g. the Rituals how-to from the ritual table's guide button). */
+    public static void openAt(int chapter) {
+        CompendiumScreen screen = new CompendiumScreen();
+        screen.chapter = chapter;
+        lastChapter = chapter;
+        Minecraft.getInstance().setScreen(screen);
     }
 
     private static int accentOf(int kind) {
@@ -138,6 +158,8 @@ public final class CompendiumScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
+        // when the discovery system is off, everything reads as already known (no rumour pages).
+        boolean discoveryOff = !com.oliver.witchmod.Config.discoveryEnabled();
         Set<ResourceLocation> discovered = mc.player != null
                 ? mc.player.getData(WitchModAttachments.DISCOVERED_EFFECTS) : Set.of();
 
@@ -154,7 +176,7 @@ public final class CompendiumScreen extends Screen {
             entry.name = DiscoveryManager.titleCase(path);
             entry.kind = e.category() == EffectCategory.CURSE ? 0 : 1;
             entry.power = e.powerLevel();
-            entry.discovered = discovered.contains(id);
+            entry.discovered = discoveryOff || discovered.contains(id);
             entry.descKey = "witchmod.compendium." + path + ".desc";
             entry.rumourKey = "witchmod.compendium." + path + ".rumour";
             (entry.kind == 0 ? curses : blessings).add(entry);
@@ -188,11 +210,20 @@ public final class CompendiumScreen extends Screen {
                 ce.sort((a, b) -> Boolean.compare(b.smelting(), a.smelting()));
             }
         }
+        // hidden from the compendium (a rare loot drop we don't want to advertise), the 3 filled jar variants
+        // (folded into one "Filled Jars" entry), and the 3 gamble coins (folded into one "Coins" entry with a
+        // cycling icon) — all appended at the end of the items section below.
+        Set<Item> hiddenItems = Set.of(com.oliver.witchmod.items.WitchModItems.HOLY_HAND_GRENADE.get());
+        Set<Item> filledJars = Set.of(com.oliver.witchmod.items.WitchModItems.CURSED_JAR.get(),
+                com.oliver.witchmod.items.WitchModItems.BLESSED_JAR.get(), com.oliver.witchmod.items.WitchModItems.MIXED_JAR.get());
+        Set<Item> coins = Set.of(com.oliver.witchmod.items.WitchModItems.CURSED_COIN.get(),
+                com.oliver.witchmod.items.WitchModItems.BLESSED_COIN.get(), com.oliver.witchmod.items.WitchModItems.EXECUTIONERS_COIN.get());
         List<Entry> items = new ArrayList<>();
         List<Entry> blocks = new ArrayList<>();
         for (Item item : BuiltInRegistries.ITEM) {
             ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-            if (!id.getNamespace().equals(WitchMod.MODID) || id.getPath().startsWith("example")) {
+            if (!id.getNamespace().equals(WitchMod.MODID) || id.getPath().startsWith("example")
+                    || hiddenItems.contains(item) || filledJars.contains(item) || coins.contains(item)) {
                 continue;
             }
             Entry entry = new Entry();
@@ -207,6 +238,33 @@ public final class CompendiumScreen extends Screen {
         Comparator<Entry> byName = Comparator.comparing(e -> e.name);
         items.sort(byName);
         blocks.sort(byName);
+        // the combined Filled Jars entry, then the two "special ritual exemption" entries (Coins + Redstone
+        // Dust), all pinned to the END of the items list and always shown (no rumour state on items).
+        Entry jars = new Entry();
+        jars.icon = new ItemStack(com.oliver.witchmod.items.WitchModItems.CURSED_JAR.get());
+        jars.name = Component.translatable("witchmod.compendium.filled_jars.name").getString();
+        jars.kind = 2;
+        jars.descKey = "witchmod.compendium.filled_jars.desc";
+        items.add(jars);
+
+        Entry coinEntry = new Entry();
+        coinEntry.iconCycle = List.of(new ItemStack(com.oliver.witchmod.items.WitchModItems.CURSED_COIN.get()),
+                new ItemStack(com.oliver.witchmod.items.WitchModItems.BLESSED_COIN.get()),
+                new ItemStack(com.oliver.witchmod.items.WitchModItems.EXECUTIONERS_COIN.get()));
+        coinEntry.icon = coinEntry.iconCycle.get(0);
+        coinEntry.name = Component.translatable("witchmod.compendium.coins.name").getString();
+        coinEntry.kind = 2;
+        coinEntry.descKey = "witchmod.compendium.coins.desc";
+        coinEntry.hideRecipeNote = true;
+        items.add(coinEntry);
+
+        Entry redstone = new Entry();
+        redstone.icon = new ItemStack(net.minecraft.world.item.Items.REDSTONE);
+        redstone.name = Component.translatable("witchmod.compendium.redstone_ritual.name").getString();
+        redstone.kind = 2;
+        redstone.descKey = "witchmod.compendium.redstone_ritual.desc";
+        redstone.hideRecipeNote = true;
+        items.add(redstone);
 
         // modifiers — always show the item name + icon; the description stays a rumour until the player has
         // cast a ritual using that modifier (its own discovery track, DISCOVERED_MODIFIERS).
@@ -218,7 +276,7 @@ public final class CompendiumScreen extends Screen {
             entry.icon = new ItemStack(ModifierItems.itemFor(m));
             entry.name = entry.icon.getHoverName().getString();
             entry.kind = 4;
-            entry.discovered = discMods.contains(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, m.id()));
+            entry.discovered = discoveryOff || discMods.contains(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, m.id()));
             entry.descKey = "witchmod.compendium.mod." + m.id() + ".desc";
             entry.rumourKey = "witchmod.compendium.mod." + m.id() + ".rumour";
             modifiers.add(entry);
@@ -387,10 +445,9 @@ public final class CompendiumScreen extends Screen {
 
     private void drawSide(GuiGraphics g, Font font, Entry e, int slot, int x, int top, int w, int bottom) {
         maxScroll[slot] = 0;
-        // A modifier's icon is ALWAYS shown (only its description is a rumour); an effect's icon is hidden
-        // behind the rumour glyph until discovered. Intro pages are never rumours.
-        boolean rumourGlyph = e != null && !e.intro && e.effect() && !e.discovered;
+        // effects AND modifiers hide behind the rumour glyph (question-mark) until discovered; intro pages never do.
         boolean rumour = e != null && !e.intro && (e.effect() || e.kind == 4) && !e.discovered;
+        boolean rumourGlyph = rumour;
         g.fill(x - 1, top - 1, x + w + 1, bottom + 1, PAGE_EDGE);
         g.fill(x, top, x + w, bottom, rumour ? PAGE_RUMOUR : PAGE);
         if (e == null) {
@@ -404,7 +461,18 @@ public final class CompendiumScreen extends Screen {
         int cx = x + w / 2;
 
         Component name = Component.literal(e.name).withStyle(s -> s.withBold(true));
-        g.drawString(font, name, cx - font.width(name) / 2, top + 6, accent, false);
+        // long titles (e.g. "Block of Cursed Essence") would run off the page — scale the title down to fit.
+        int nameW = font.width(name);
+        float nameScale = Math.min(1.0F, (w - 8.0F) / Math.max(1, nameW));
+        if (nameScale < 1.0F) {
+            g.pose().pushPose();
+            g.pose().translate(cx, top + 6, 0);
+            g.pose().scale(nameScale, nameScale, 1.0F);
+            g.drawString(font, name, -nameW / 2, 0, accent, false);
+            g.pose().popPose();
+        } else {
+            g.drawString(font, name, cx - nameW / 2, top + 6, accent, false);
+        }
         String cat = category(e, rumour);
         g.drawString(font, Component.literal(cat), cx - font.width(cat) / 2, top + 17, INK_SOFT, false);
         g.fill(x + 10, top + 28, x + w - 10, top + 29, 0x33000000 | (accent & 0xFFFFFF));
@@ -417,12 +485,15 @@ public final class CompendiumScreen extends Screen {
         if (rumourGlyph) {
             g.blit(RUMOUR_TEX, boxX, boxY, 32, 32, 0.0F, 0.0F, 16, 16, 16, 16);
         } else {
+            // a cycling icon (the combined coins entry) rotates through its stacks ~once a second; else the fixed icon.
+            ItemStack icon = e.iconCycle.isEmpty() ? e.icon
+                    : e.iconCycle.get((int) (net.minecraft.Util.getMillis() / 900L % e.iconCycle.size()));
             g.pose().pushPose();
             g.pose().translate(boxX, boxY, 0);
             g.pose().scale(2.0F, 2.0F, 1.0F);
-            g.renderItem(e.icon, 0, 0);
+            g.renderItem(icon, 0, 0);
             g.pose().popPose();
-            hovers.add(new Hover(boxX, boxY, 32, 32, e.icon));
+            hovers.add(new Hover(boxX, boxY, 32, 32, icon));
         }
 
         if (e.kind == 4) {
@@ -440,7 +511,7 @@ public final class CompendiumScreen extends Screen {
             case 1 -> (rumour ? "Rumoured " : "") + "Blessing";
             case 2 -> "Item";
             case 3 -> "Block";
-            default -> "Modifier";
+            default -> (rumour ? "Rumoured " : "") + "Modifier";
         };
     }
 
@@ -502,23 +573,30 @@ public final class CompendiumScreen extends Screen {
         // and the description scrolls in the space between — so long documentation reads all the way through.
         RecipeView rv = hasRecipe ? e.recipes.get(e.recipeShown % e.recipes.size()) : null;
         boolean holyWater = e.icon.getItem() == com.oliver.witchmod.blocks.WitchModFluids.PURIFYING_WATER_BUCKET.get();
-        int footerH = !hasRecipe ? (holyWater ? 30 : 14) : (rv.smelting() ? 46 : 70);
+        // holy water's "how it's made" note is a big one — size its footer to the wrapped line count so it sits
+        // fully inside the page rather than spilling out the bottom, pushing the scrollable description up.
+        List<FormattedCharSequence> holyNote = holyWater
+                ? font.split(Component.translatable("witchmod.compendium.holy_water.recipe_note"), w - 16) : null;
+        int footerH = !hasRecipe
+                ? (holyWater ? holyNote.size() * 10 + 6 : (e.hideRecipeNote ? 0 : 14))
+                : (rv.smelting() ? 54 : 70);  // smelt bumped 46→54 so the "smelt" label doesn't clip the frame
         int footerTop = bottom - footerH;
 
         List<FormattedCharSequence> lines = font.split(Component.translatable(e.descKey), w - 14);
         drawScrollingText(g, font, slot, lines, x + 6, divY + 6, w - 14, footerTop - 4, INK);
-        g.fill(x + 10, footerTop - 3, x + w - 10, footerTop - 2, 0x18000000);
+        if (footerH > 0) {
+            g.fill(x + 10, footerTop - 3, x + w - 10, footerTop - 2, 0x18000000);
+        }
 
         if (!hasRecipe) {
             if (holyWater) {
                 // holy water isn't crafted — tell people how it's actually made.
-                List<FormattedCharSequence> nl = font.split(Component.translatable("witchmod.compendium.holy_water.recipe_note"), w - 16);
                 int ny = footerTop + 2;
-                for (FormattedCharSequence seq : nl) {
+                for (FormattedCharSequence seq : holyNote) {
                     g.drawString(font, seq, cx - font.width(seq) / 2, ny, INK_SOFT, false);
                     ny += 10;
                 }
-            } else {
+            } else if (!e.hideRecipeNote) {
                 String note = "— not craftable —";
                 g.drawString(font, Component.literal(note), cx - font.width(note) / 2, footerTop + 2, INK_SOFT, false);
             }
@@ -679,6 +757,7 @@ public final class CompendiumScreen extends Screen {
             for (int c = 0; c < chapterNames.length; c++) {
                 if (mouseX >= sbLeft + 8 && mouseX <= sbRight - 8 && mouseY >= chapterBtnY[c] && mouseY <= chapterBtnY[c] + 20) {
                     chapter = c;
+                    lastChapter = c;
                     page = 0;
                     resetScroll();
                     click();

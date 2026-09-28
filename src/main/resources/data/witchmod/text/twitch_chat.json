@@ -1,37 +1,37 @@
 {
-  "_comment": "Chat blessing (Purple Wool). Fake Twitch chat, keyed by context. {player}=streamer name, {value}=context (subscriber/donation/raider/useful info). Fully editable + /reload-able. Emotes are plain text on purpose (KEKW, Pog, LULW...) — that's how twitch chat reads.",
+  "_comment": "idk man im sad enough to code a minecraft mod but not watch streams this took too much time im heading to bed",
 
   "dead": [
     "is this thing on?", "chat is DEAD", "hello? anybody?", "hop off lil bro",
-    "tumbleweed 🌾", "did the stream crash", "so quiet in here", "one guy watching (me)",
+    "tumbleweed", "did the stream crash", "so quiet in here", "one guy watching (me)",
     "L","LLLLLLLL", "L {player}", "wake me up when something happens", "L stream ngl",
     "crickets", "i'm the only one here", "this is painful to watch", "do LITERALLY anything",
     "the algorithm forgot about {player}", "negative viewers", "bro is streaming to himself",
     "zzzzz", "zzzzzzzzzzzz", "unraidable content", "we've flatlined", "{player} please",
-    "buffering?", "even the bots left", "content drought", "dead", "wake up",
-    "leaving", "bye", "cya", "someone check if {player} is breathing",
-    "10 minutes no kills fell asleep", "not even a lurker fr", "dead chat", "and the crowd goes mild"
+    "buffering?", "even the bots left", "content drought", "dead", "wake up", "please clipfarm or something",
+    "leaving", "bye", "cya", "someone check if {player} is breathing", "DO SOMETHING", "riveting gameplay",
+    "10 minutes no kills fell asleep", "not even a lurker fr", "dead chat", "and the crowd goes mild", "man."
   ],
 
   "revive": [
     "oh?? people showing up", "chat is WAKING UP", "wait it's getting good", "here we go here we go",
-    "the tide is turning", "viewers climbing", "okay NOW we're talking", "resurrection arc fr",
-    "chat is ALIVE again PogChamp", "the comeback is real", "we're so back", "pulse detected",
-    "and just like that the stream is saved", "finally SOMETHING", "he found a heartbeat",
-    "phoenix rising ahh stream", "welcome back to life chat", "FINALLY"
+    "the tide is turning", "viewers climbing", "okay NOW we're talking", "resurrection", "wots this about then",
+    "chat is ALIVE again PogChamp", "the comeback is real", "we're so back", "pulse detected", "POGGERS",
+    "and just like that the stream is saved", "finally SOMETHING", "he found a heartbeat", "here first",
+    "phoenix rising ahh stream", "welcome back to life chat", "FINALLY", "took it long enough", "heyyyy guys"
   ],
 
   "generic": [
     "yo", "hi chat", "first time watching, this is fire", "how long has stream been live?",
     "what texture pack is this", "the vibes are immaculate rn", "chat is chatting", "ur texture pack sucks",
     "W stream", "ratio", "yo", "new chatter here!", "real ones know", "Those who know", "greetings.", "please", "...",
-    "just got here what did i miss", "peak content", "so true", "this is the one", "winston", "rp anyone?",
-    "streamer is actually them", "certified {player} moment", "og chat remembers", "any girls here?", "goner game",
-    "unspoken rizz", "he's so back", "we are so back", "chat do we clip that", "brb", "afk", "this fanbase sucks",
-    "aura", "the algorithm blessed us today", "yapping and i'm here for it", "kappa", "larp", "is that a Jojo reference",
-    "streamer said", "no shot", "BUZZWORDS", "timblywimblywoo", "filler text", "xD", "asjdoemwkdl", "clipfarming?",
-    "Non NPCs here?", "game name?", "minecraft.", "pls sub to me", "can i have mod?", "you, sir have won the internet today",
-    "a stream in a game, how meta!"
+    "just got here what did i miss", "peak content", "so true", "this is the one", "winston", "rp anyone?", "those who know",
+    "streamer is actually them", "certified {player} moment", "og chat remembers", "any girls here?", "goner game", "haha", "whens ur next con?",
+    "unspoken rizz", "he's so back", "we are so back", "chat do we clip that", "brb", "afk", "this fanbase sucks", "leng", "W stream",
+    "aura", "the algorithm blessed us today", "yapping and i'm here for it", "kappa", "larp", "is that a Jojo reference", "L stream",
+    "streamer said", "no shot", "BUZZWORDS", "timblywimblywoo", "filler text", "xD", "asjdoemwkdl", "clipfarming?", "this chat is not funny",
+    "Non NPCs here?", "game name?", "minecraft.", "pls sub to me", "can i have mod?", "you, sir have won the internet today", "bloat", "do these guys shut up",
+    "a stream in a game, how meta!", "this mod is poo", "this joke isnt funny", "hsdeuifofnw", "2", "oh", "fr", "im a bun im a bun im a tasty tasty bun"
   ],
 
   "lurk": [
@@ -62,7 +62,7 @@
     "HYPE TRAIN CHOO CHOO", "THE TRAIN HAS NO BRAKES", "everybody get on the train",
     "hype train level going CRAZY", "we're not stopping now", "conductor {player} take us home",
     "all aboard", "the momentum is unreal", "this is a certified hood classic", "WHAT ISHAPPENING",
-    "hopefully chat is moving fast enough for me to personally complain about writing all these myself", "choo choo"
+    "hopefully chat is moving fast enough for me to personally complain about writing all these myself", "choo choo", "idrk what a hype train is icl"
   ],
 
   "combat_pvp": [
@@ -87,158 +87,168 @@
   "combat_pve": [
     "get that mob", "monster hunter {player}", "hit the crit", "back up back up",
     "watch the creeper", "mob diff", "never stood a chance", "sweep them", "KILLKILLKILL",
-    "clean the area streamer", "aggro management 5Head", "don't take chip damage", "waste of time",
+    "GOWON LAD", "aggro management 5Head", "yeah get him!", "waste of time",
     "fighting for their life", "kite it", "yes slay", "hit your shots kid", "RAWR", "{player} a bully"
   ],
 
   "kill": [
-    "one shot POG", "add it to the count", "mob deleted", "gg little guy", "clapped",
-    "another victim", "he ate that mob for breakfast", "cleared", "free xp",
-    "streamer said 'you're on my land'", "bonk", "delete", "that thing had a family"
+    "NICE", "add it to the count", "mob deleted", "gg little guy", "clapped", "noice",
+    "another victim", "ate that", "cleared", "free xp", "nice one", "clean", "executed", "diff",
+    "streamer said 'ur dead'", "bonk", "delete", "that thing had a family", "DEADD", "Lladdiad da"
   ],
 
   "death": [
-    "F", "FFFFFFF", "FFFFFFFF", "FF", "ff", "LMAOOO", "they DIED", "not like this", "womp womp", "GG go next",
-    "go again", "who wrote this arc", "skill issue respectfully", "skissue", "F in the chat", "you stink",
-    "hello, anyone home?", "unlucky king", "the copium ran out", "something stinks", "unlucky {player} lad",
-    "fraudwatch", "NOOO", "clip IT", "HAHAHAHAHAH", "ROFLCOPTER", "LOOOOOOOOOOOOOOOOOOOOOOL", "bahahaha", "1 nil",
-    "hardcore mode? in this economy?", "he's malding rn", "911 what's your emergency"
+    "F", "FFFFFFF", "FFFFFFFF", "FF", "ff", "LMAOOO", "they DIED", "not like this", "womp womp", "GG go next", "why did you stream this",
+    "go again", "who wrote this arc", "skill issue respectfully", "skissue", "F in the chat", "you stink", "ur buns",
+    "hello, anyone home?", "unlucky king", "the copium ran out", "something stinks", "unlucky {player} lad", "what was that?!?!",
+    "fraudwatch", "NOOO", "clip IT", "HAHAHAHAHAH", "ROFLCOPTER", "LOOOOOOOOOOOOOOOOOOOOOOL", "bahahaha", "1 nil", "Bad player",
+    "hardcore mode? in this economy?", "he's malding rn", "911 what's your emergency", "なぜこれを翻訳しているのですか"
   ],
 
   "clutch": [
-    "HALF HEART GAMEPLAY", "CLUTCH OR KICK and he CLUTCHED", "MY HEART", "one hp WIZARD",
-    "the reads on this man", "how is he still alive", "clenched cheeks moment",
-    "chat i can't watch", "he had it the whole time (he did not)", "GOATED escape",
-    "monkaS -> PogChamp pipeline", "adrenaline overload", "put THAT in a museum",
-    "9 lives ahh streamer", "survived on vibes alone"
+    "HALF HEART", "CLUTCHHHHHH", "MY HEART", "one hp",
+    "SO CLOSE", "how are they still alive", "clenched cheeks", "intense gameplay",
+    "i can't watch", "he had it the whole time", "GOATED escape", "WOOOOOOOOOOOO",
+    "POGG", "adrenaline", "put THAT in a museum", "CLIPPED", "my chair is sweaty",
+    "OOOOOOOOH", "survived?!", "SO CLOSE", "HOW DID THEY DO THAT", "かわいい"
   ],
 
   "damage": [
-    "ouch", "that had to hurt", "take the hit like a champ", "健康は？ (hp check)",
-    "chat he's chunking", "eat your golden apples PLEASE", "block up king", "rip armor durability",
-    "that's gonna leave a mark", "healthbar looking scary", "somebody heal him"
+    "ouch", "that had to hurt", "take it like a champ", "健康は", "hp check", "that look like it hurt",
+    "chat they're losing", "HEAL", "block it!!!", "rip", "DONT DIE", "he's not getting away with that",
+    "that's gonna leave a mark", "healthbar looking scary", "somebody heal him", "PARRY IT", "brifo", "He kikokikona hoʻopiha kēia."
   ],
 
   "fall": [
-    "GRAVITY CHECK", "he FORGOT how to minecraft", "the ground said no", "fall damage diff",
-    "who put that cliff there", "not the fall damage 😭", "learn to water bucket clutch",
-    "splat", "physics: 1 streamer: 0", "he really speedran the descent", "icarus ahh"
+    "GRAVITY", "how did you not see that?", "the ground", "can they recover?", "haha", "you fell", "cwmpoist ti.",
+    "who put that there", "not the fall damage", "learn to water bucket clutch", "lol", "nice fall",
+    "splat", "did you pay attention in physics", "hay bales reduce fall damage btw", "not elegant at all"
   ],
 
   "crit": [
-    "CRIT", "sparkly hit POG", "critical damage let's gooo", "the jump crit tech",
-    "he knows the combos", "sweaty crit gameplay", "extra damage nice", "he's optimizing"
+    "CRIT", "NICE HIT", "critical damage let's gooo", "the jump crit tech", "MECHANICS", "sweat", "biggg hitssss", "NICE", "技術",
+    "they know the combos", "sweaty crit gameplay", "extra damage nice", "optimizing", "that's why I stopped playing Minecraft, too many sweats"
   ],
 
   "fail": [
-    "BRUH", "not like that 😭", "what was the plan there", "he had ONE job", "misinput copium",
-    "streamer fumbled the bag", "chat did anyone see nothing? good", "we don't talk about that",
-    "certified fail moment", "delete the vod", "L but we still here", "that's going in the bloopers",
-    "skill issue (loving)", "he's not like us he's worse"
+    "BRUH", "not like that", "what was the plan there", "ONE job", "misinput", "copium",
+    "fumbled the bag", "did anyone see anything?", "you wanna talk about it", "L",
+    "certified fail", "delete the vod", "why am i still watching", "UR DOG",
+    "skill issue", "oh that was bad", "ROFL", "BAHA"
   ],
 
   "mining": [
-    "strip mining asmr", "dig dig dig", "the mines calling him", "vein miner would go crazy",
-    "tunneling", "grindset", "fortune pickaxe when", "cobblestone empire", "Find something!",
-    "chat we mining", "the dedication to the grind", "watch the lava", "torch placement 5Head",
-    "now this is what Minecraft is ALL ABOUT"
+    "strip mining", "dig dig dig", "the mines calling him", "vein miner would go crazy", "they yearn for the mines",
+    "tunneling", "grindset", "fortune pickaxe when", "cobblestone empire", "Find something!", "yawn",
+    "chat we mining", "the dedication", "dont dig straight down", "torch placement", "JUST KEEP MINING",
+    "now this is what Minecraft is ALL ABOUT", "find somethinggggg", "breakbreakbreak", "so slow"
   ],
 
   "diamond": [
-  "DIAMONDS OHHHHHHHH", "WE'RE RICH", "diamond luck insane", "woah",
-    "chat drop a Pog for the diamonds", "netherite arc incoming", "he found the good stuff",
-    "share some with chat", "ore diff", "good rng", "fortune paying off", "do not waste that on a diamond hoe.",
-    "Don't spend it all in one place!"
+  "DIAMONDS OHHHHHHHH", "WE'RE RICH", "diamond luck insane", "woah", "erm diamonds arent that rare anymore guys", "overreaction much",
+    "chat drop a Pog for the diamonds", "netherite incoming", "he found the good stuff", "no one reacts like this for netherite",
+    "share some with chat", "ore diff", "good rng", "fortune paying off", "do not waste that on a *diamond* hoe.", "oh sick",
+    "Don't spend it all in one place!", "lucky", "NICE", "YES", "oh thats good", "i got a stack of diamonds in 1 hour, this is nothing"
   ],
 
   "building": [
-    "the build is coming together", "architecture streamer", "they're cooking!!!",
-    "chat rate the build /10", "MInecraft interior design", "symmetry PogU", "the vision is real",
-    "he's a builder now", "this belongs on the subreddit", "block placement clean", "creative in survival", "PEAK",
+    "the build is coming together", "architecture", "they're cooking!!!", "good builds", "bro IS Grian", "???",
+    "chat rate the build /10", "design!", "symmetry PogU", "the vision is real", "i think i saw this online", "i wish i could build like that",
+    "builder now", "this belongs on the subreddit", "block placement clean", "creative in survival", "PEAK", "you are such a visionary",
     "lame build", "bro is not grain", "eh its ok", "Synnergy!", "What a build", "questionable", "Theyre a builder !",
-    "less talk more build", "interesting", "Pintrest build?", "NO TUTORIAL NEEDED"
+    "less talk more build", "interesting", "Pintrest build?", "NO TUTORIAL NEEDED", "eh ive seen better", "its coming together"
   ],
 
   "eat": [
-    "mukbang stream", "he's so hungry", "eat up king", "asmr eating", "yummers",
-    "hunger management gameplay", "nom nom", "chat is he gonna share", "golden carrot enjoyer",
-    "the saturation on that meal", "food streamer arc", "fatty"
+    "mukbang stream", "they're so hungry", "eat up king", "asmr eating", "yummers",  "did that taste good", "EATING POG",
+    "hunger management", "nom nom", "chat is he gonna share", "golden carrot enjoyer", "save some for the rest of us",
+    "the saturation on that meal", "food streamer arc", "fatty", "ATE AND LEFT NO CRUMBS", "eating? already?", "im hungry rn"
   ],
 
   "fish": [
-    "FISHING STREAM POG", "gone fishing", "what did he catch", "afk fishing? in front of ME?",
-    "the patience of a saint", "reel it in", "big catch energy", "treasure incoming maybe",
-    "chill fishing arc respect", "he's built different (bored)", "catch of the day?", "LONG SEASON REFERENCE",
-    "what in tarnation", "flopper!", "manifesting riches galore.", "you find this fine?", "Get the blessing for this"
+    "FISHING STREAM POG", "gone fishing", "what did he catch", "afk fishing? in front of ME?", "just afk it bro", "feesh", "this is chill",
+    "the patience of a saint", "reel it in", "big catch energy", "treasure incoming maybe", "i hate fishing", "did u know there's blessings that can help with this",
+    "chill fishing arc respect", "he's built different (bored)", "catch of the day?", "LONG SEASON REFERENCE", "no way this counts as score",
+    "what in tarnation", "flopper!", "manifesting riches galore.", "you find this fine?", "Get the blessing for this", "IM SO ENGAGED RIGHT NOW"
   ],
 
   "tame": [
-    "NEW PET POG", "name it chat", "he's got a companion now", "protect that animal at all costs",
-    "the loyalty", "man's best friend", "adopt don't shop", "pet cam when", "aww",
-    "that thing better not die on stream", "give it a good name"
+    "NEW PET POG", "name it chat", "got a companion now", "protect that animal at all costs", "NEW PET", "awwe", "YAY NEW PET",
+    "the loyalty", "man's best friend", "adopt don't shop", "pet cam when", "aww", "cewt", "nice", "sell merch rn", "can i name it",
+    "that thing better not die on stream", "give it a good name", "i hope this doesnt cause any bad events in the future", "call it timble"
   ],
 
   "trade": [
-    "villager economy arc", "haggling gameplay", "emeralds go brrr", "small business supporter",
-    "he's cooking the trades", "librarian roll gambling", "mending book when",
-    "the villager is getting robbed respectfully", "trade diff", "capitalism W"
+    "villager economy arc", "haggling gameplay", "emeralds go brrr", "small business supporter", "eh alright deal", "cool. now kill it.", "W trades",
+    "he's cooking the trades", "gambling", "mending book when", "you actually took that trade?!?!", "nice trade", "the art of the deal", "in this economy?",
+    "the villager is getting robbed respectfully", "trade diff", "capitalism W", "get that mod", "cute trades", "there's blessings for these trades", "dude nice"
   ],
 
   "explore": [
-    "adventure arc", "where are we going", "new biome POG", "he's lost isn't he",
-    "the exploration is peak", "chat do you know the way", "getting his steps in",
-    "tourist streamer", "log your coords king", "we vibing and walking", "scenic route"
+    "adventure arc", "where are we going", "new biome POG", "they're lost arent they", "where you going bro", "wanderer", "Where to?", "gunna have some thunder thighs at the end of this",
+    "the exploration is peak", "on a stroll", "getting his steps in", "cute biome", "off you plop", "yea u need the steps", "wanderer wandering",
+    "tourist", "log your coords", "we vibing", "scenic route", "wow exploration", "find anything?", "im on my wayyy im on my wayyy", "keep on walking aint no stopping"
   ],
 
   "idle": [
-    "hello?", "is he afk", "chat it's so quiet", "did stream freeze", "do something {player} 😭",
-    "boring arc", "i'm falling asleep", "unlurk challenge (impossible)", "the yap has stopped",
-    "someone poke the streamer", "viewers dropping fast", "content? hello??",
-    "we need action", "this is the flattest part of the vod", "zzzzz", "raid a bigger streamer"
+    "hello?", "is he afk", "chat it's so quiet", "did stream freeze", "do something {player}", "COME BACK I NEED U", "dont leave", "did they say how long they will be",
+    "boring", "i'm falling asleep", "unlurk challenge", "why", "NO DONT SLEEP", "where are you??!!", "???", "streamers gone lets do stuff", "im leaving", "i prefer hot tub streams",
+    "someone poke them", "viewers dropping fast", "content? hello??", "im watching someone else", "have a nice toilet break!", "afk?",
+    "we need action", "dead stream", "zzzzz", "raid a bigger streamer", "even streamers bored", "dinner time?", "where did they go"
   ],
 
   "sleep": [
-    "he's SLEEPING on stream 😴", "wake up {player} you're losing subs", "ASMR nap stream arc",
-    "bro really hit the hay mid-broadcast", "zzzzz... this the content?", "sleep stream speedrun",
-    "goodnight sweet prince i guess", "who's gonna tell him the vod is still recording",
-    "peak gameplay: unconscious", "chat we've been babysitting a sleeping man for 3 minutes",
-    "streamer went AFK to dreamland", "counting sheep > counting viewers apparently",
-    "he's dreaming about the subs he's losing rn", "snore = new stream sound alert",
-    "i came for content and got a lullaby", "someone set an alarm for this man",
-    "the most boring boss fight: the bed", "wake me up when he wakes up", "nap diff",
-    "streamer.exe entered sleep mode 💤"
+    "SLEEPING ON STREAM?!?!", "wake up {player} you're losing subs", "ASMR nap", "sorry im not in the mood to watch someone sleep", "lazy", "loafing", "your snores are cute",
+    "bro really hit the hay mid-broadcast", "zzzzz", "this the content?", "sleep stream", "do people actually watch sleep streams?", "get uppppppp", "rest easy", "chill stream. i like it",
+    "goodnight sweetie i guess", "who's gonna tell him the vod is still recording", "STREAMER LEFT STREAM ON AND WENT TO BED?!?!", "wake up", "z?", "did you just fart in your sleep ?"
   ],
 
   "first_time": [
-    "streamer just realized chat exists", "he can SEE us", "wave to {player} chat", "he heard that",
-    "the fourth wall is gone", "hi {player} 👋", "acknowledge us king"
+    "streamer just realized chat exists", "they can SEE us", "wave to {player} chat", "they heard that", "hellooo", "hi", "hgi",
+    "the fourth wall is gone", "hi {player}", "acknowledge us king/queen", "OH SO WE ARE REAL", "finally something", "are we real?",
+    "finally acting like a streamer.", "I feel known", "heyhey", "say hi!", "yooooo"
   ],
 
   "sub": [
-    "{value} just subscribed! PogChamp", "welcome to the club {value}!", "{value} subbed, W",
-    "thank you for the sub {value} 💜", "{value} is now a real one", "sub hype! ty {value}",
-    "{value} subscribed for the 3rd month, loyalty!", "{value} with the sub POG",
-    "new sub alert 🔔 {value}", "{value} joined the {player} army", "prime sub gang ty {value}",
-    "{value} subbed mid-fight, dedication"
+    "{value} just subscribed!", "welcome to the club {value}!", "{value} subbed, W", "{value} is now one of us one of us", "{value} just subbed!",
+    "thank you for the sub {value}", "{value} is now a real one", "sub hype! ty {value}", "thanks for the money, {value}",
+    "{value} subscribed for the 3rd month!", "{value} is enchanted with loyalty!", "{value} gave us some of they're hard earned cash!",
+    "new sub alert {value}", "{value} joined the {player} army"
   ],
 
   "donation": [
-    "{value} donated! 💸", "{value} dropped some bits, ty!", "big money {value} PogU",
-    "{value} with the donation, legend", "cha-ching 💰 ty {value}", "{value} paying the server bills",
-    "{value} donated to see {player} suffer", "generous king {value}", "bits incoming from {value}",
+    "{value} donated!", "{value} dropped some bits", "Thanks for the money, {value}!", "Cheers, {value}!",
+    "{value} with the donation!!!", "ty {value}", "{value} paying the server bills", "{value} paying for our gambling addiction!",
+    "{value} donated money to {player}", "generous king {value}", "bits incoming from {value}", "{value} is a kind soul!",
     "{value} said keep the change"
   ],
 
   "raid": [
-    "RAID from {value}! welcome raiders", "{value} brought the whole army 🚨", "raiders welcome!! POG",
-    "{value} raid POGGERS", "new people from {value}'s stream, hi!", "the {value} raid is HERE",
-    "{value} sent reinforcements", "raid hype 🎉 ty {value}", "welcome {value} chat, grab a seat"
+    "RAID from {value}! welcome!", "{value} brought out the whole ocean!", "raiders welcome!!", "{value) im a big fan!!!", "nice {value}!", "COOL {value} RAID", "hi raiders!!!",
+    "{value} raid POGGERS", "new people from {value}'s stream, hi!", "the {value} raid is HERE", "{value} POG RAID", "{value} revival!", "{value} RAID HYPE {value} RAID HYPE",
+    "{value} sent reinforcements", "raid hype ty {value}", "welcome {value} chat, grab a seat", "{value} thanks!!!", "WOOOO {value} RAIDDD", "welcome !", "ugh more people",
+    "chat is chatting!", "ACTUALLY REVIVED", "hi im new", "oh ik you"
   ],
 
   "useful": [
-    "yo streamer, {value}", "chat fact: {value}", "not to backseat but {value}", "psst... {value}",
-    "reminder king: {value}", "5Head tip: {value}", "did you know {value}", "hey {player}, {value}",
-    "spoiler-free hint: {value}", "the wiki says {value}", "trust me bro: {value}",
-    "for the plot: {value}"
-  ]
+    "yo, {value}", "fun fact: {value}", "not to backseat but {value}", "psst... {value}", "heyhey {value}", "not to cheat but {value}",
+    "i saw a {value}", "5Head tip: {value}", "did you know {value}", "hey {player}, {value}", "useful info if you read this! {value}",
+    "hint: {value}", "the wiki says {value}", "trust me bro: {value}", "spoiler alert: {value}"
+  ],
+
+  "_comment_useful_values": "The {value} the 'useful' lines wrap. First entry of each is used; {name}/{dir}/{dist}/{structure}/{mob} are filled in.",
+  "useful_player": ["{name} is {dir}, ~{dist} blocks away"],
+  "useful_structure": ["there's {structure} {dir}, ~{dist} blocks out"],
+  "useful_chest": ["there's a chest {dir}, ~{dist} blocks"],
+  "useful_mob": ["a {mob} is lurking {dir}"],
+  "useful_structure_village": ["a village"],
+  "useful_structure_mineshaft": ["a mineshaft"],
+
+  "_comment_directions": "8-point compass fragments, in octant order N, NE, E, SE, S, SW, W, NW — indexed, not random.",
+  "directions": ["to the north", "to the north-east", "to the east", "to the south-east", "to the south", "to the south-west", "to the west", "to the north-west"],
+
+  "_comment_stream_end": "the end-of-stream payout messages ({subs}/{emeralds} filled in; colours are applied in code).",
+  "stream_end_none": ["Stream over — 0 subs. Better luck next time. Sadge"],
+  "stream_end": ["🎉 Stream over! {subs} subs → {emeralds}"],
+  "stream_end_emeralds": ["{count} emerald", "{count} emeralds"]
 }

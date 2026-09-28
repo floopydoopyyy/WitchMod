@@ -43,10 +43,10 @@ public final class BlessingBerserker extends Effect {
 
     /** discovered the first time a landed hit builds the frenzy. */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         int stacks = STACKS.getOrDefault(target.getUUID(), 0);
         double red = Math.min(Config.BERSERKER_MAX_REDUCTION.get(), stacks * Config.BERSERKER_REDUCTION_PER_HIT.get());
-        return java.util.Optional.of(String.format("%.0f%% faster swings (%d hits)", red * 100, stacks));
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.berserker", Math.round(red * 100), stacks));
     }
 
     @Override

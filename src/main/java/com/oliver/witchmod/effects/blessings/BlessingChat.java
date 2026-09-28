@@ -480,20 +480,26 @@ public final class BlessingChat extends Effect {
             }
         }
         return nearest == null ? null
-                : name(nearest) + " is " + direction(self, nearest.getX(), nearest.getZ())
-                        + ", ~" + (int) Math.sqrt(best) + " blocks away";
+                : fillTemplate("useful_player", "{name}", name(nearest),
+                        "{dir}", direction(self, nearest.getX(), nearest.getZ()),
+                        "{dist}", Integer.toString((int) Math.sqrt(best)));
     }
 
     @Nullable
     private static String nearestStructure(ServerLevel level, ServerPlayer self) {
-        var tag = self.getRandom().nextBoolean() ? StructureTags.VILLAGE : StructureTags.MINESHAFT;
-        String structureName = tag == StructureTags.VILLAGE ? "a village" : "a mineshaft";
+        boolean village = self.getRandom().nextBoolean();
+        var tag = village ? StructureTags.VILLAGE : StructureTags.MINESHAFT;
+        String structureName = TwitchChat.at(village ? "useful_structure_village" : "useful_structure_mineshaft", 0);
+        if (structureName == null) {
+            return null;
+        }
         BlockPos pos = level.findNearestMapStructure(tag, self.blockPosition(), Config.CHAT_STRUCTURE_RADIUS_CHUNKS.get(), false);
         if (pos == null) {
             return null;
         }
         int dist = (int) Math.sqrt(dist2d(self.getX(), self.getZ(), pos.getX(), pos.getZ()));
-        return "there's " + structureName + " " + direction(self, pos.getX(), pos.getZ()) + ", ~" + dist + " blocks out";
+        return fillTemplate("useful_structure", "{structure}", structureName,
+                "{dir}", direction(self, pos.getX(), pos.getZ()), "{dist}", Integer.toString(dist));
     }
 
     @Nullable
@@ -518,7 +524,8 @@ public final class BlessingChat extends Effect {
             }
         }
         return best == null ? null
-                : "there's a chest " + direction(self, best.getX(), best.getZ()) + ", ~" + (int) Math.sqrt(bestSqr) + " blocks";
+                : fillTemplate("useful_chest", "{dir}", direction(self, best.getX(), best.getZ()),
+                        "{dist}", Integer.toString((int) Math.sqrt(bestSqr)));
     }
 
     @Nullable
@@ -533,8 +540,8 @@ public final class BlessingChat extends Effect {
             }
         }
         return nearest == null ? null
-                : "a " + nearest.getType().getDescription().getString() + " is lurking "
-                        + direction(self, nearest.getX(), nearest.getZ());
+                : fillTemplate("useful_mob", "{mob}", nearest.getType().getDescription().getString(),
+                        "{dir}", direction(self, nearest.getX(), nearest.getZ()));
     }
 
     // --- Rewards -------------------------------------------------------------------------------------------
@@ -542,15 +549,30 @@ public final class BlessingChat extends Effect {
     private static void payoutSubs(ServerPlayer player) {
         int subs = player.getData(WitchModAttachments.CHAT_SUBS);
         if (subs <= 0) {
-            player.sendSystemMessage(Component.literal("Stream over — 0 subs. Better luck next time. Sadge").withColor(0xB79CE8));
+            String none = TwitchChat.at("stream_end_none", 0);
+            if (none != null) {
+                player.sendSystemMessage(Component.literal(none).withColor(0xB79CE8));
+            }
             return;
         }
         // emeralds are the ONLY reward, and deliberately modest.
         int emeralds = subs / Config.CHAT_SUBS_PER_EMERALD.get();
         giveOrDrop(player, new ItemStack(Items.EMERALD, emeralds));
-        player.sendSystemMessage(Component.literal("🎉 Stream over! " + subs + " subs → ")
-.withColor(0x9147FF)
-.append(Component.literal(emeralds + " emerald" + (emeralds == 1 ? "" : "s")).withColor(0xE6DCF5)));
+        String emeraldText = TwitchChat.at("stream_end_emeralds", emeralds == 1 ? 0 : 1);
+        emeraldText = emeraldText == null ? emeralds + (emeralds == 1 ? " emerald" : " emeralds")
+                : emeraldText.replace("{count}", Integer.toString(emeralds));
+        String template = TwitchChat.at("stream_end", 0);
+        if (template == null) {
+            return;
+        }
+        // split around {emeralds} so the count keeps its own colour (two-tone kept; text lives in the json).
+        String[] parts = template.replace("{subs}", Integer.toString(subs)).split("\\{emeralds\\}", 2);
+        net.minecraft.network.chat.MutableComponent msg = Component.literal(parts[0]).withColor(0x9147FF)
+                .append(Component.literal(emeraldText).withColor(0xE6DCF5));
+        if (parts.length > 1) {
+            msg.append(Component.literal(parts[1]).withColor(0x9147FF));
+        }
+        player.sendSystemMessage(msg);
     }
 
     private static void giveOrDrop(ServerPlayer player, ItemStack stack) {
@@ -570,17 +592,27 @@ public final class BlessingChat extends Effect {
         return dx * dx + dz * dz;
     }
 
+    /** 8-point compass fragment from twitch_chat.json (indexed by octant), with a code fallback. */
     private static String direction(ServerPlayer self, double x, double z) {
         double angle = Mth.atan2(x - self.getX(), -(z - self.getZ()));
-        return switch ((int) Math.round(angle / (Math.PI / 4.0)) & 7) {
-            case 0 -> "to the north";
-            case 1 -> "to the north-east";
-            case 2 -> "to the east";
-            case 3 -> "to the south-east";
-            case 4 -> "to the south";
-            case 5 -> "to the south-west";
-            case 6 -> "to the west";
-            default -> "to the north-west";
-        };
+        int octant = (int) Math.round(angle / (Math.PI / 4.0)) & 7;
+        String fromJson = TwitchChat.at("directions", octant);
+        return fromJson != null ? fromJson : DIR_FALLBACK[octant];
+    }
+
+    private static final String[] DIR_FALLBACK = {"to the north", "to the north-east", "to the east",
+            "to the south-east", "to the south", "to the south-west", "to the west", "to the north-west"};
+
+    /** fill a single-entry template from {@code category} with {@code key,value} pairs; null if the template's absent. */
+    @Nullable
+    private static String fillTemplate(String category, String... keyValues) {
+        String template = TwitchChat.at(category, 0);
+        if (template == null) {
+            return null;
+        }
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            template = template.replace(keyValues[i], keyValues[i + 1]);
+        }
+        return template;
     }
 }

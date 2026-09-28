@@ -61,14 +61,14 @@ public final class BlessingLastStand extends Effect {
     }
 
     @Override
-    public Optional<String> scryingDetail(ServerPlayer target) {
+    public Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         long now = target.serverLevel().getGameTime();
         int left = Math.max(0, Config.LASTSTAND_MAX_USES.get() - target.getData(WitchModAttachments.LAST_STAND_USES));
         long cdEnd = target.getData(WitchModAttachments.LAST_STAND_COOLDOWN_END);
         if (now < cdEnd) {
-            return Optional.of("recharging " + ((cdEnd - now) / 20) + "s — " + left + " revive(s) left");
+            return Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.last_stand.recharging", (cdEnd - now) / 20, left));
         }
-        return Optional.of("ready — " + left + " revive(s) left");
+        return Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.last_stand.ready", left));
     }
 
     /** true while the post-revive invulnerability window is open (checked independently of the blessing being active). */

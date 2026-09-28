@@ -1,4 +1,30 @@
-{ "type": "minecraft:crafting_shaped", "category": "misc",
-  "key": { "A": { "item": "minecraft:amethyst_shard" }, "G": { "item": "minecraft:gold_ingot" } },
-  "pattern": ["AAA", "AGA", " A "],
-  "result": { "id": "witchmod:amethyst_bell", "count": 1 } }
+{
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:amethyst_bell"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "D": {
+      "item": "minecraft:cobbled_deepslate"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "B": {
+      "item": "minecraft:bell"
+    }
+  },
+  "pattern": [
+    "DDD",
+    "ABA",
+    " A "
+  ],
+  "result": {
+    "id": "witchmod:amethyst_bell",
+    "count": 1
+  }
+}

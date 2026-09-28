@@ -102,7 +102,11 @@ public final class ItemJar extends Item {
         tooltip.add(Component.translatable("item.witchmod.jar.filled", captured.size(), JarContents.MAX)
                 .withStyle(ChatFormatting.GRAY));
         for (CapturedEffect e : captured) {
-            tooltip.add(Component.literal(" • " + prettyName(e.effectId())).withStyle(ChatFormatting.GRAY));
+            // curses purple, blessings gold, so the mix reads at a glance.
+            boolean blessing = com.oliver.witchmod.data.WitchModRegistries.EFFECT_REGISTRY.getOptional(e.effectId())
+                    .map(fx -> fx.category() == com.oliver.witchmod.data.EffectCategory.BLESSING).orElse(false);
+            tooltip.add(Component.literal(" • " + prettyName(e.effectId()))
+                    .withStyle(blessing ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE));
         }
     }
 

@@ -54,12 +54,13 @@ public final class BlessingPayday extends Effect {
 
     /** you find out when the Tax Man actually turns up and pays out (Rule 2), not when it's cast. */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         Watch w = WATCHES.get(target.getUUID());
         if (w == null) {
-            return java.util.Optional.of("payday pending");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.payday.pending"));
         }
-        return java.util.Optional.of(w.delivered ? "paid" : "delivery en route");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                w.delivered ? "witchmod.scry.payday.paid" : "witchmod.scry.payday.enroute"));
     }
 
     @Override

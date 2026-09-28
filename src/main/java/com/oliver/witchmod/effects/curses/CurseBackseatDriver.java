@@ -62,13 +62,14 @@ public final class CurseBackseatDriver extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         long now = target.level().getGameTime();
         if (now < target.getData(WitchModAttachments.BACKSEAT_EPISODE_END)) {
-            return java.util.Optional.of("someone else is driving");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.backseat.driving"));
         }
-        return java.util.Optional.of(now < target.getData(WitchModAttachments.BACKSEAT_NEXT_ALLOWED)
-                ? "takeover on cooldown" : "takeover ready");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                now < target.getData(WitchModAttachments.BACKSEAT_NEXT_ALLOWED)
+                        ? "witchmod.scry.backseat.cooldown" : "witchmod.scry.backseat.ready"));
     }
 
     @Override

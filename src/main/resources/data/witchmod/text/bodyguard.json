@@ -101,5 +101,33 @@
     ["I'm back.", "I'm ready."],
     "Am I the same guy or a new one? Who knows?",
     "Now I'm mad."
+  ],
+  "_comment_struggle": "struggle = when repeatedly teleporting",
+  "struggle": [
+    "Experiencing some technical difficulties.",
+    ["Wait.", "You're impossible to guard."],
+    "I can't protect this",
+    "Slow DOWN",
+    "I did not sign up for this.",
+    "You're gonna give me a heart attack.",
+    "I feel sick.",
+    ["Where are you GOING?!", "Come back!"],
+    "Irritating.",
+    "Wait up!",
+    "Every single time with you people...",
+    "BOSS"
+  ],
+  "_comment_frenzy": "frenzy = the guardian angel buffs .",
+  "frenzy": [
+    "RAWRRR",
+    ["DIE", "DIEDIEDIE"],
+    "LET'S GET TO WORK",
+    "TO BATTLE",
+    ["Feel that?", "CUS I DO"],
+    "DIVINE INTERVENTION",
+    "HAHAHA",
+    "COME ON THEN",
+    "BRING IT",
+    "WHO WANTS IT?!"
   ]
 }

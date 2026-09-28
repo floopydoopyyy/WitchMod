@@ -1,0 +1,587 @@
+{
+  "__comment": "GRAY candles near the four corners of the Ritual Table top, EXACT vanilla candle geometry+UVs (sides [0,8,2,12] = 4px tall, 2px shorter than vanilla; top [0,6,2,8]; crossed wick [0,5,1,6]). Composited via the multipart blockstate only when capped=false.",
+  "parent": "block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "candle": "minecraft:block/gray_candle",
+    "particle": "minecraft:block/gray_candle"
+  },
+  "elements": [
+    {
+      "name": "candle_2_2",
+      "from": [
+        2,
+        16,
+        2
+      ],
+      "to": [
+        4,
+        20,
+        4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "east": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "west": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "up": {
+          "uv": [
+            0,
+            6,
+            2,
+            8
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_2_2_p",
+      "from": [
+        2.5,
+        20,
+        3
+      ],
+      "to": [
+        3.5,
+        21,
+        3
+      ],
+      "rotation": {
+        "angle": 45,
+        "axis": "y",
+        "origin": [
+          3,
+          20,
+          3
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_2_2_n",
+      "from": [
+        2.5,
+        20,
+        3
+      ],
+      "to": [
+        3.5,
+        21,
+        3
+      ],
+      "rotation": {
+        "angle": -45,
+        "axis": "y",
+        "origin": [
+          3,
+          20,
+          3
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "candle_12_3",
+      "from": [
+        12,
+        16,
+        3
+      ],
+      "to": [
+        14,
+        20,
+        5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "east": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "west": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "up": {
+          "uv": [
+            0,
+            6,
+            2,
+            8
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_12_3_p",
+      "from": [
+        12.5,
+        20,
+        4
+      ],
+      "to": [
+        13.5,
+        21,
+        4
+      ],
+      "rotation": {
+        "angle": 45,
+        "axis": "y",
+        "origin": [
+          13,
+          20,
+          4
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_12_3_n",
+      "from": [
+        12.5,
+        20,
+        4
+      ],
+      "to": [
+        13.5,
+        21,
+        4
+      ],
+      "rotation": {
+        "angle": -45,
+        "axis": "y",
+        "origin": [
+          13,
+          20,
+          4
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "candle_2_12",
+      "from": [
+        2,
+        16,
+        12
+      ],
+      "to": [
+        4,
+        20,
+        14
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "east": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "west": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "up": {
+          "uv": [
+            0,
+            6,
+            2,
+            8
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_2_12_p",
+      "from": [
+        2.5,
+        20,
+        13
+      ],
+      "to": [
+        3.5,
+        21,
+        13
+      ],
+      "rotation": {
+        "angle": 45,
+        "axis": "y",
+        "origin": [
+          3,
+          20,
+          13
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_2_12_n",
+      "from": [
+        2.5,
+        20,
+        13
+      ],
+      "to": [
+        3.5,
+        21,
+        13
+      ],
+      "rotation": {
+        "angle": -45,
+        "axis": "y",
+        "origin": [
+          3,
+          20,
+          13
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "candle_11_11",
+      "from": [
+        11,
+        16,
+        11
+      ],
+      "to": [
+        13,
+        20,
+        13
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "east": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "west": {
+          "uv": [
+            0,
+            8,
+            2,
+            12
+          ],
+          "texture": "#candle"
+        },
+        "up": {
+          "uv": [
+            0,
+            6,
+            2,
+            8
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_11_11_p",
+      "from": [
+        11.5,
+        20,
+        12
+      ],
+      "to": [
+        12.5,
+        21,
+        12
+      ],
+      "rotation": {
+        "angle": 45,
+        "axis": "y",
+        "origin": [
+          12,
+          20,
+          12
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    },
+    {
+      "name": "wick_11_11_n",
+      "from": [
+        11.5,
+        20,
+        12
+      ],
+      "to": [
+        12.5,
+        21,
+        12
+      ],
+      "rotation": {
+        "angle": -45,
+        "axis": "y",
+        "origin": [
+          12,
+          20,
+          12
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        },
+        "south": {
+          "uv": [
+            0,
+            5,
+            1,
+            6
+          ],
+          "texture": "#candle"
+        }
+      }
+    }
+  ]
+}

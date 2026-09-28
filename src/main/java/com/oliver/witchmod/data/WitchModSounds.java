@@ -164,6 +164,18 @@ public final class WitchModSounds {
     /** unseen: the cloak "vanish" — a reversed spell-fail. */
     public static final Supplier<SoundEvent> UNSEEN_CLOAK = register("blessing.unseen.cloak");
 
+    // --- Holy Hand Grenade ------------------------------------------------------------------------------
+    /** the pin being pulled — played as it's thrown. */
+    public static final Supplier<SoundEvent> GRENADE_PIN = register("item.holy_grenade.pin");
+    /** the throw whoosh — played as it's thrown. */
+    public static final Supplier<SoundEvent> GRENADE_THROW = register("item.holy_grenade.throw");
+    /** the halleluiah that heralds the charge-up. */
+    public static final Supplier<SoundEvent> GRENADE_HALLELUJAH = register("item.holy_grenade.hallelujah");
+    /** the rare (1/50) halleluiah that replaces the usual one. */
+    public static final Supplier<SoundEvent> GRENADE_HALLELUJAH_RARE = register("item.holy_grenade.hallelujah_rare");
+    /** the detonation. */
+    public static final Supplier<SoundEvent> GRENADE_EXPLODE = register("item.holy_grenade.explode");
+
     /** hiccups: the involuntary hic (7 variants so a fit doesn't sound copy-pasted). */
     public static final Supplier<SoundEvent> HICCUPS_HICCUP = register("curse.hiccups.hiccup");
 

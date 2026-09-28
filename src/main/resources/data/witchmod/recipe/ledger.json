@@ -1,8 +1,29 @@
 {
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [
-    { "item": "minecraft:oak_planks" },
-    { "item": "witchmod:compendium" }
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:ledger"
+    }
   ],
-  "result": { "id": "witchmod:ledger", "count": 1 }
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "item": "witchmod:cursed_essence"
+    },
+    "B": {
+      "item": "minecraft:book"
+    },
+    "L": {
+      "item": "minecraft:lectern"
+    }
+  },
+  "pattern": [
+    "CBC",
+    "CLC",
+    "CCC"
+  ],
+  "result": {
+    "id": "witchmod:ledger",
+    "count": 1
+  }
 }

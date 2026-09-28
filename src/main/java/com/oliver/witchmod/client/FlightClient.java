@@ -50,6 +50,16 @@ public final class FlightClient {
             fullIdleTicks = 0;
             return;
         }
+        // a bat disguise flies creatively (abilities.flying) — Flight yields to it (DisguiseClient owns the
+        // speed, the server keeps the bar full), so we don't fight it with our own rise/glide push.
+        if (player.getAbilities().flying) {
+            if (lastMode != 0) {
+                PacketDistributor.sendToServer(new WitchModNetwork.FlightRisePayload(0));
+                lastMode = 0;
+            }
+            risingTicks = 0;
+            return;
+        }
         long now = player.level().getGameTime();
         boolean locked = now < player.getData(WitchModAttachments.FLIGHT_LOCKOUT_END);
         float energy = player.getData(WitchModAttachments.FLIGHT_ENERGY);

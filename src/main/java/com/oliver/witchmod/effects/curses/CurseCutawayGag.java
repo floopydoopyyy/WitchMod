@@ -95,12 +95,13 @@ public final class CurseCutawayGag extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         if (target.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
-            return java.util.Optional.of("cutting away now");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.cutaway.now"));
         }
         Long cd = COOLDOWN_END.get(target.getUUID());
-        return java.util.Optional.of(cd != null && target.level().getGameTime() < cd ? "gag on cooldown" : "gag can trigger");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                cd != null && target.level().getGameTime() < cd ? "witchmod.scry.cutaway.cooldown" : "witchmod.scry.cutaway.ready"));
     }
 
     @Override

@@ -4,8 +4,12 @@ import java.util.List;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.loading.FMLEnvironment;
 
@@ -43,6 +47,18 @@ public final class PlayerEssenceItem extends BoundPlayerItem {
                         : Component.translatable("item.witchmod.player_essence.offline").withStyle(ChatFormatting.RED));
             }
         }
+    }
+
+    /** an UNBOUND essence (only ever pulled from the creative menu) binds itself to a random online player —
+     *  the pool includes the holder, defaulting to them when they're alone. */
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
+        if (level.isClientSide() || stack.has(WitchModDataComponents.BOUND_PLAYER) || !(entity instanceof ServerPlayer holder)) {
+            return;
+        }
+        List<ServerPlayer> online = holder.server.getPlayerList().getPlayers();
+        Player chosen = online.isEmpty() ? holder : online.get(holder.getRandom().nextInt(online.size()));
+        stack.set(WitchModDataComponents.BOUND_PLAYER, new PlayerEssenceData(chosen.getUUID(), chosen.getName().getString()));
     }
 
     @Override

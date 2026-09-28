@@ -28,7 +28,6 @@ public final class ItemCompendium extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("item.witchmod.compendium.desc1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.witchmod.compendium.desc2").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("item.witchmod.compendium.desc2").withStyle(ChatFormatting.GRAY));
     }
 }

@@ -230,9 +230,10 @@ public final class CurseTheDweller extends Effect {
      * sub-event to force. with no arg, forces a manifestation.
      */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         int tier = target.getData(WitchModAttachments.DWELLER_ACTIVE); // 0..3 (3 = chase); -1 while dormant
-        return java.util.Optional.of("@witchmod.scry.dweller.tier" + Math.max(0, Math.min(3, tier)));
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                "witchmod.scry.dweller.tier" + Math.max(0, Math.min(3, tier))));
     }
 
     @Override

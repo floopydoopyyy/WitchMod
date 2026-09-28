@@ -48,8 +48,9 @@ public final class CursePacing extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         boolean midMoment = target.getData(com.oliver.witchmod.data.WitchModAttachments.PACING_END_TICK) > target.level().getGameTime();
-        return java.util.Optional.of(midMoment ? "a dramatic moment now" : "moment on cooldown");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                midMoment ? "witchmod.scry.pacing.now" : "witchmod.scry.pacing.cooldown"));
     }
 }

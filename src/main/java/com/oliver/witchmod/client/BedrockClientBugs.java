@@ -386,6 +386,12 @@ public final class BedrockClientBugs {
         if (!bsodGlitchPhase) {
             return;
         }
+        // photosensitivity: hold a steady dim instead of the stutter so there's no flashing.
+        if (com.oliver.witchmod.ClientConfig.reduceFlashing()) {
+            GuiGraphics gg = event.getGuiGraphics();
+            gg.fill(0, 0, gg.guiWidth(), gg.guiHeight(), 0x60000000);
+            return;
+        }
         // ~90ms buckets, black ~1/3 of the time → reads as freeze/stutter rather than a rapid flash.
         if ((System.currentTimeMillis() / 90L) % 3L == 0L) {
             GuiGraphics g = event.getGuiGraphics();
@@ -401,7 +407,9 @@ public final class BedrockClientBugs {
 
     private static void tickVibrant(Minecraft mc, LocalPlayer player) {
         long end = player.getData(WitchModAttachments.BEDROCK_TEXTURE_FLICKER);
-        boolean want = mc.level != null && end != Long.MIN_VALUE && mc.level.getGameTime() < end;
+        // client preference: the saturation-boost post shader can be hard-disabled.
+        boolean want = mc.level != null && end != Long.MIN_VALUE && mc.level.getGameTime() < end
+                && com.oliver.witchmod.ClientConfig.postShadersEnabled();
         if (want && !vibrantActive && !vibrantFailed) {
             try {
                 mc.gameRenderer.loadEffect(VIBRANT_SHADER);

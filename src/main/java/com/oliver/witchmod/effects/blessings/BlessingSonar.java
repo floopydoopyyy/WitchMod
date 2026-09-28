@@ -81,12 +81,12 @@ public final class BlessingSonar extends Effect {
 
     /** time to the next pulse, shown in the Scrying Mirror. */
     @Override
-    public Optional<String> scryingDetail(ServerPlayer target) {
+    public Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         if (CHARGE.containsKey(target.getUUID())) {
-            return Optional.of("§bpulse charging...");
+            return Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.sonar.charging"));
         }
         int t = TIMER.getOrDefault(target.getUUID(), Config.SONAR_INTERVAL_TICKS.get());
-        return Optional.of("§bnext pulse in " + Math.max(0, t / 20) + "s");
+        return Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.sonar.next", Math.max(0, t / 20)));
     }
 
     @Override

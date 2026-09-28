@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FlowingFluid;
 
 import com.oliver.witchmod.Config;
+import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.data.WitchModSounds;
 
 /**
@@ -45,7 +46,8 @@ public final class PurifyingWaterBlock extends LiquidBlock {
         if (level.isClientSide() || !(entity instanceof LivingEntity living) || !living.getType().is(EntityTypeTags.UNDEAD)) {
             return;
         }
-        if (living.hurt(level.damageSources().magic(), (float) (double) Config.PURIFY_UNDEAD_DAMAGE.get())
+        // the holy damage type (no attribution) — the shared holy hook then smites undead + one-shots the Killer Bunny.
+        if (living.hurt(WitchModDamageTypes.holy(level, null), (float) (double) Config.PURIFY_UNDEAD_DAMAGE.get())
                 && level instanceof ServerLevel sl) {
             sl.sendParticles(ParticleTypes.END_ROD, living.getX(), living.getY() + living.getBbHeight() * 0.5, living.getZ(),
                     3, 0.2, 0.3, 0.2, 0.01);

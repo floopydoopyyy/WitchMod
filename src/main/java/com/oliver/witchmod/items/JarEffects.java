@@ -99,6 +99,25 @@ public final class JarEffects {
         }
     }
 
+    /** the holy hand grenade snuffs any lash that strays near it while it's live — a bit of anti-magic aura. */
+    public static void killLashesNear(ServerLevel level, Vec3 pos, double radius) {
+        if (LASHES.isEmpty()) {
+            return;
+        }
+        double r2 = radius * radius;
+        Iterator<Lash> it = LASHES.iterator();
+        while (it.hasNext()) {
+            Lash lash = it.next();
+            if (lash.level == level && lash.pos.distanceToSqr(pos) <= r2) {
+                for (ParticleOptions p : palette(lash.kind)) {
+                    level.sendParticles(p, lash.pos.x, lash.pos.y, lash.pos.z, 6, 0.15, 0.15, 0.15, 0.02);
+                }
+                level.sendParticles(ParticleTypes.END_ROD, lash.pos.x, lash.pos.y, lash.pos.z, 8, 0.2, 0.2, 0.2, 0.02);
+                it.remove();
+            }
+        }
+    }
+
     private static void tickLashes() {
         double speed = Config.LASH_SPEED.get();
         double range = Config.LASH_RANGE.get();

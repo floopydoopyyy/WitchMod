@@ -79,6 +79,13 @@ public final class WitchModAttachments {
                     .copyOnDeath()
                     .build());
 
+    /** {@code 1} once the one-time starter curse/blessing discoveries have been granted on first login — see {@link DiscoveryManager#grantStarterDiscoveries}. */
+    public static final Supplier<AttachmentType<Integer>> STARTER_DISCOVERY_DONE = ATTACHMENT_TYPES.register("starter_discovery_done",
+            () -> AttachmentType.builder(() -> 0)
+                    .serialize(Codec.INT)
+                    .copyOnDeath()
+                    .build());
+
     /**
      * Thirst points for the Thirst Meter curse: {@code -1} = curse not active (bar hidden),
      * {@code 0..THIRST_MAX} = active. Auto-synced to the client so the HUD overlay can read it directly —
@@ -598,6 +605,16 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Integer>> AMETHYST_CONSUME_FIZZLE = ATTACHMENT_TYPES.register("amethyst_consume_fizzle",
             () -> AttachmentType.builder(() -> 0).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
+    /** holy Hand Grenade shockwave: game-tick the shimmer "overtake" ends on a hit player (0 = none). Synced to
+     *  trackers so every client renders the ramp itself — the server sends no overtake particles. */
+    public static final Supplier<AttachmentType<Long>> GRENADE_CLEANSE_END = ATTACHMENT_TYPES.register("grenade_cleanse_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
+    /** holy Hand Grenade: game-tick a camera jolt ends — a strong one on the detonation, a gentle rattle during
+     *  the shockwave overtake. Synced; read in {@code ComputeCameraAngles} alongside the other shakes. */
+    public static final Supplier<AttachmentType<Long>> GRENADE_SHAKE_END = ATTACHMENT_TYPES.register("grenade_shake_end",
+            () -> AttachmentType.builder(() -> 0L).serialize(Codec.LONG).sync(ByteBufCodecs.VAR_LONG).build());
+
     /**
      * Nightowl: {@code -1} inactive, {@code 1} active. SYNCED — the client needs it to strip fog everywhere and
      * force full-bright gamma (both are client-render concerns it can't derive from {@code ACTIVE_EFFECTS},
@@ -793,8 +810,9 @@ public final class WitchModAttachments {
     public static final Supplier<AttachmentType<Integer>> THUNDER_TIER = ATTACHMENT_TYPES.register("thunder_tier",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
 
-    // --- Blessing of Disguise: the mob the player is CURRENTLY rendered as (-1 = real player, 0 cow / 1 sheep
-    // / 2 pig); the server flips it to -1 while the disguise is "broken". ---
+    // --- Blessing of Disguise: the form the player is CURRENTLY rendered as (-1 = real player, 0 cow / 1 sheep
+    // / 2 pig / 3 bat / 4 spider / 5 villager / 6 random player (ugly synergy) / 7 fish (water synergy)); the
+    // server flips it to -1 while the disguise is "broken". ---
     public static final Supplier<AttachmentType<Integer>> DISGUISE_TYPE = ATTACHMENT_TYPES.register("disguise_type",
             () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
 

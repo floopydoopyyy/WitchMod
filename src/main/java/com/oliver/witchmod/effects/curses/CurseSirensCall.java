@@ -101,14 +101,14 @@ public final class CurseSirensCall extends Effect {
 
     /** the Scrying Mirror gives editable FLAVOUR for the yearning level (lang keys, resolved on the client). */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         Float longing = LONGING.get(target.getUUID());
         if (longing == null) {
             return java.util.Optional.empty();
         }
         double pct = longing / Config.SIREN_LONGING_MAX.get();
         String band = pct < 0.28 ? "calm" : pct < 0.6 ? "aching" : pct < 0.88 ? "pulling" : "marching";
-        return java.util.Optional.of("@witchmod.scry.siren." + band);
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable("witchmod.scry.siren." + band));
     }
 
     @Override

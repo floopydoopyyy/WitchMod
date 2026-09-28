@@ -34,9 +34,9 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.data.WitchModDataComponents;
 
 /**
- * voodoo doll bound to a named player — what you do to the doll happens to them. passive: while held, any
- * curse you cast at the table forwards onto its target. active: off-hand essence rebinds, off-hand food feeds,
- * hold-use squeezes. see {@link ItemNeedle} (jab), {@link VoodooDollHazards}, and the toss/lightning handlers.
+ * voodoo doll bound to a named player — what you do to the doll happens to them. off-hand essence rebinds,
+ * off-hand food feeds, hold-use squeezes; a bound doll also works as a Table target. see {@link ItemNeedle}
+ * (jab), {@link VoodooDollHazards}, and the toss/lightning handlers. (curse forwarding is the Effigy's job.)
  */
 public final class ItemVoodooDoll extends BoundPlayerItem {
     public ItemVoodooDoll(Properties properties) {

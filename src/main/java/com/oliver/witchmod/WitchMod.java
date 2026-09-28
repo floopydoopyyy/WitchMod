@@ -73,6 +73,7 @@ public class WitchMod {
                 output.accept(WitchModItems.WARD.get());
                 output.accept(WitchModItems.SCRYING_MIRROR.get());
                 output.accept(WitchModItems.EFFIGY.get());
+                output.accept(WitchModItems.HOLY_HAND_GRENADE.get());
                 output.accept(WitchModItems.CURSED_COIN.get());
                 output.accept(WitchModItems.BLESSED_COIN.get());
                 output.accept(WitchModItems.EXECUTIONERS_COIN.get());
@@ -112,6 +113,7 @@ public class WitchMod {
         WitchModBlockEntities.register(modEventBus);
         WitchModMenus.register(modEventBus);
         com.oliver.witchmod.loot.WitchModLootModifiers.register(modEventBus);
+        com.oliver.witchmod.recipe.WitchModConditions.register(modEventBus);
 
         // force the curse/blessing holders to class-load so their register entries exist before RegisterEvent
         Curses.bootstrap();
@@ -126,14 +128,22 @@ public class WitchMod {
         modEventBus.addListener(com.oliver.witchmod.network.WitchModNetwork::onRegisterPayloads);
 
         // SERVER, not COMMON: these values decide cast resolution the client must agree with, and server
-        // configs are per-world + auto-synced to clients on join (so the table's live odds preview matches)
-        modContainer.registerConfig(ModConfig.Type.SERVER, Config.SPEC);
-        modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
+        // configs are per-world + auto-synced to clients on join (so the table's live odds preview matches).
+        // split into several purpose-named files under config/witchmod/ so it isn't one giant wall of keys.
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.RULES_SPEC, "witchmod/rules.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.CURSES_SPEC, "witchmod/curses.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.BLESSINGS_SPEC, "witchmod/blessings.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.MODIFIERS_SPEC, "witchmod/modifiers.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.ITEMS_SPEC, "witchmod/items.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.SYNERGIES_SPEC, "witchmod/synergies.toml");
+        modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC, "witchmod/client.toml");
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
         // cauldron interaction maps are shared mutable state — touch them on the main thread
         event.enqueueWork(com.oliver.witchmod.blocks.HolyWaterCauldron::registerInteractions);
+        // dispenser behaviour map is likewise shared mutable state
+        event.enqueueWork(com.oliver.witchmod.items.HolyHandGrenadeItem::registerDispenserBehavior);
         // read/merge the power-levels file now the effect registry is frozen
         event.enqueueWork(com.oliver.witchmod.data.PowerLevels::load);
     }

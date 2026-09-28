@@ -1,0 +1,8 @@
+{
+  "__comment": "Disabled Warding Totem — identical geometry to warding_totem, but ALL amethyst (the crown crystals #gem and the core band #core) is greyed to dead versions to show it isn't warding.",
+  "parent": "witchmod:block/warding_totem",
+  "textures": {
+    "gem": "witchmod:block/warding_totem_gem_off",
+    "core": "witchmod:block/warding_totem_core_off"
+  }
+}

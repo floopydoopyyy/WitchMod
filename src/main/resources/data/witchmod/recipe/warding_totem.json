@@ -1,4 +1,33 @@
-{ "type": "minecraft:crafting_shaped", "category": "misc",
-  "key": { "Q": { "item": "minecraft:quartz" }, "D": { "item": "minecraft:diamond" }, "E": { "item": "witchmod:cursed_essence" } },
-  "pattern": ["QDQ", "QEQ", "QQQ"],
-  "result": { "id": "witchmod:warding_totem", "count": 1 } }
+{
+  "neoforge:conditions": [
+    {
+      "type": "witchmod:recipe_enabled",
+      "recipe": "witchmod:warding_totem"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "witchmod:cursed_essence_block"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "N": {
+      "item": "minecraft:nether_star"
+    },
+    "D": {
+      "item": "minecraft:cobbled_deepslate"
+    }
+  },
+  "pattern": [
+    "ACA",
+    "DND",
+    "DDD"
+  ],
+  "result": {
+    "id": "witchmod:warding_totem",
+    "count": 1
+  }
+}

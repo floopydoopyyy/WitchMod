@@ -148,6 +148,13 @@ public final class WitchModNetwork {
         }
     }
 
+    /** a client-rendered expanding shockwave ring (Dragon's Breath) at {@code center}; radius rides in the delay field. */
+    public static void sendRitualShockwave(ServerLevel level, net.minecraft.core.BlockPos center, int radius, boolean blessing) {
+        RitualFxPayload payload = new RitualFxPayload(3, blessing ? 1 : 0, center,
+                net.minecraft.world.item.ItemStack.EMPTY, -1, radius);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingChunk(level, new net.minecraft.world.level.ChunkPos(center), payload);
+    }
+
     /** send ritual fx to everyone tracking the table, plus the hit player (who sees the incoming lash). */
     public static void sendRitualFx(ServerLevel level, net.minecraft.core.BlockPos table, int kind, boolean blessing,
                                     boolean purple, net.minecraft.world.item.ItemStack item, @org.jetbrains.annotations.Nullable ServerPlayer target) {
@@ -215,6 +222,25 @@ public final class WitchModNetwork {
         }
     }
 
+    /** c2s: the client's curse opt-out list (built from its client config), reported on join / config reload. */
+    public record ClientOptOutPayload(java.util.List<String> ids) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<ClientOptOutPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "client_opt_out"));
+        public static final StreamCodec<ByteBuf, ClientOptOutPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list()), ClientOptOutPayload::ids,
+                ClientOptOutPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** client → server: report this client's curse opt-outs (called on join and whenever the client config reloads). */
+    public static void sendOptOuts(java.util.List<String> ids) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new ClientOptOutPayload(ids));
+    }
+
     /** c2s: splitscreen — whether this client has a sign editor open (freezes the shared screen). */
     public record SplitscreenSignPayload(boolean editing) implements CustomPacketPayload {
         public static final CustomPacketPayload.Type<SplitscreenSignPayload> TYPE =
@@ -256,13 +282,13 @@ public final class WitchModNetwork {
         }
     }
 
-    /** one revealed attachment for the scrying mirror overlay. kind: 0 curse / 1 blessing. */
-    public record ScryEntry(String name, int kind, int seconds, String detail) {
-        public static final StreamCodec<ByteBuf, ScryEntry> STREAM_CODEC = StreamCodec.composite(
+    /** one revealed attachment for the scrying mirror overlay. kind: 0 curse / 1 blessing; detail is a translatable component. */
+    public record ScryEntry(String name, int kind, int seconds, net.minecraft.network.chat.Component detail) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, ScryEntry> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.STRING_UTF8, ScryEntry::name,
                 ByteBufCodecs.VAR_INT, ScryEntry::kind,
                 ByteBufCodecs.VAR_INT, ScryEntry::seconds,
-                ByteBufCodecs.STRING_UTF8, ScryEntry::detail,
+                net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC, ScryEntry::detail,
                 ScryEntry::new);
     }
 
@@ -270,7 +296,7 @@ public final class WitchModNetwork {
     public record ScryPayload(String title, java.util.List<ScryEntry> entries) implements CustomPacketPayload {
         public static final CustomPacketPayload.Type<ScryPayload> TYPE =
                 new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "scry"));
-        public static final StreamCodec<ByteBuf, ScryPayload> STREAM_CODEC = StreamCodec.composite(
+        public static final StreamCodec<RegistryFriendlyByteBuf, ScryPayload> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.STRING_UTF8, ScryPayload::title,
                 ScryEntry.STREAM_CODEC.apply(ByteBufCodecs.list()), ScryPayload::entries,
                 ScryPayload::new);
@@ -385,6 +411,13 @@ public final class WitchModNetwork {
                                 SoundSource.PLAYERS, 0.9F, 0.9F + level.random.nextFloat() * 0.3F);
                         level.sendParticles(ParticleTypes.ITEM_SLIME, payload.x, payload.y + 0.2, payload.z,
                                 8, 0.3, 0.2, 0.3, 0.02);
+                    }
+                }));
+        registrar.playToServer(ClientOptOutPayload.TYPE, ClientOptOutPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    // a preference, not an action — just record what the client reports (matched by id/path later).
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.data.ClientOptOut.set(player.getUUID(), payload.ids());
                     }
                 }));
         registrar.playToServer(SplitscreenSignPayload.TYPE, SplitscreenSignPayload.STREAM_CODEC,

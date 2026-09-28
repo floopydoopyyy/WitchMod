@@ -7,7 +7,7 @@ import java.util.OptionalInt;
  * deltas on top of the base cost/success/backfire curves ({@link ModifierCalculator} combines them).
  */
 public enum Modifier {
-    CLOCK(15, 0, 0, 0) {
+    CLOCK(0, 0, 0, 0) {
         // guarantees exactly 45 minutes, overriding the random 35–60 base roll (like Compass's fixed 40).
         @Override
         public OptionalInt fixedDurationTicks() {
@@ -25,16 +25,18 @@ public enum Modifier {
             return true;
         }
     },
-    COMPASS(5, 0, 0, 0) {
+    COMPASS(0, 0, 0, 0) {
         @Override
         public OptionalInt fixedDurationTicks() {
             return OptionalInt.of(40 * 60 * 20);
         }
     },
-    NETHERSTAR(50, 0, 0, 0) {
+    // desc: significantly reduces the cost, removes the chance of failure, and forces a higher duration roll.
+    // the +100 success delta with a 100% cap is what actually forces success (the base curve tops out at 95%).
+    NETHERSTAR(-50, 25, 100, 0) {
         @Override
         public OptionalInt successCapPercent() {
-            return OptionalInt.of(99);
+            return OptionalInt.of(100);
         }
     },
     PRISMARINE_SHARD(-15, 0, 0, 0),
@@ -44,13 +46,13 @@ public enum Modifier {
             return true;
         }
     },
-    DRAGONS_BREATH(30, -40, 0, 10) {
+    DRAGONS_BREATH(30, 0, 0, 10) {
         @Override
         public boolean splashToNearby() {
             return true;
         }
     },
-    NETHERITE_INGOT(40, 0, 0, 10) {
+    NETHERITE_INGOT(15, 0, 0, 10) {
         @Override
         public boolean bypassesWardAndJar() {
             return true;
@@ -68,7 +70,7 @@ public enum Modifier {
             return true;
         }
     },
-    RABBITS_FOOT(10, 0, 0, -15),
+    RABBITS_FOOT(0, 0, 0, -15),
     ECHO_SHARD(10, 0, 0, 0) {
         @Override
         public boolean delaysTell() {
@@ -81,8 +83,8 @@ public enum Modifier {
             return true;
         }
     },
-    SUGAR(-10, -50, 0, 0),
-    HONEYCOMB(20, -60, 0, 0) {
+    SUGAR(-10, -50, 10, 0),
+    HONEYCOMB(20, -75, 0, 0) {
         @Override
         public boolean forcesBackfireZero() {
             return true;
@@ -121,13 +123,13 @@ public enum Modifier {
     // gunpowder, redstone dust, and milk bucket are no longer modifiers — they
     // are now sacrificial items / table mechanics instead (Gunpowder → Explosive curse, Milk Bucket →
     // butterfingers curse, Redstone Dust → the random-attachment table mechanic in BewitchingTableRitual).
-    RECOVERY_COMPASS(15, 0, 0, 0) {
+    RECOVERY_COMPASS(-15, 0, 0, 0) {
         @Override
         public boolean reappliesShortenedEffectOnCure() {
             return true;
         }
     },
-    EYE_OF_ENDER(10, 0, 0, 0) {
+    EYE_OF_ENDER(0, 0, 0, 0) {
         @Override
         public boolean reportsBlocks() {
             return true;

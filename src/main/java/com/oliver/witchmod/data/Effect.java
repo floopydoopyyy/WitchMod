@@ -81,8 +81,8 @@ public abstract class Effect {
     /** called once per tick while active; periodic effects check {@code ticksRemaining} here. */
     public void onTick(ServerPlayer target, int ticksRemaining) {}
 
-    /** instance detail the scrying mirror reveals (e.g. allergic's diet); empty by default (name + timer only). */
-    public Optional<String> scryingDetail(ServerPlayer target) {
+    /** instance detail the scrying mirror reveals (e.g. allergic's diet), as a translatable component; empty by default. */
+    public Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         return Optional.empty();
     }
 

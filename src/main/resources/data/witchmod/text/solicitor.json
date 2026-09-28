@@ -101,5 +101,15 @@
     "This will NOT be gambled!",
     "Thank you! I'm going to double it.",
     "That's my night payed for, cheers."
+  ],
+
+  "banished": [
+    "Where am I?",
+    "You can't do this!",
+    "NO",
+    "This is harassment!",
+    "It's cold...",
+    "I can't see!",
+    "You haven't seen the last of these deals!"
   ]
 }

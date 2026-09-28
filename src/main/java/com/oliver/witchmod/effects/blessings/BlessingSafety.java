@@ -46,9 +46,10 @@ public final class BlessingSafety extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         Long cd = COOLDOWN.get(target.getUUID());
-        return java.util.Optional.of(cd != null && target.level().getGameTime() < cd ? "on cooldown" : "ready");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                cd != null && target.level().getGameTime() < cd ? "witchmod.scry.safety.cooldown" : "witchmod.scry.safety.ready"));
     }
 
     @Override

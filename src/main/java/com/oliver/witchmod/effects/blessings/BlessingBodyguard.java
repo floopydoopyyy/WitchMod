@@ -90,13 +90,16 @@ public final class BlessingBodyguard extends Effect {
     }
 
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         BodyguardEntity bg = get(target);
         if (bg == null) {
-            return java.util.Optional.of(RESPAWN_AT.containsKey(target.getUUID()) ? "replacement incoming" : "no guard present");
+            return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                    RESPAWN_AT.containsKey(target.getUUID()) ? "witchmod.scry.bodyguard.replacement" : "witchmod.scry.bodyguard.absent"));
         }
         net.minecraft.world.entity.LivingEntity focus = bg.getTarget();
-        return java.util.Optional.of(focus != null ? "on duty — marked " + focus.getName().getString() : "on duty");
+        return java.util.Optional.of(focus != null
+                ? net.minecraft.network.chat.Component.translatable("witchmod.scry.bodyguard.marked", focus.getName())
+                : net.minecraft.network.chat.Component.translatable("witchmod.scry.bodyguard.on_duty"));
     }
 
     @Override

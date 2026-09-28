@@ -23,6 +23,16 @@ public final class WitchModEntities {
                     .updateInterval(10)
                     .build("jar_throw"));
 
+    /** the Holy Hand Grenade: invisible, gravity-bound, rolls where thrown. frequent updates so the roll reads
+     *  smoothly; MobCategory.MISC so nothing spawns it naturally. */
+    public static final DeferredHolder<EntityType<?>, EntityType<HolyHandGrenadeEntity>> HOLY_HAND_GRENADE =
+            ENTITY_TYPES.register("holy_hand_grenade", () -> EntityType.Builder
+                    .<HolyHandGrenadeEntity>of(HolyHandGrenadeEntity::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(8)
+                    .updateInterval(2)
+                    .build("holy_hand_grenade"));
+
     /**
      * The Tax Man. {@code MobCategory.MISC} so natural spawning never touches him — he is only ever placed
      * deliberately by the Taxes curse — and player-sized so the humanoid model fits.

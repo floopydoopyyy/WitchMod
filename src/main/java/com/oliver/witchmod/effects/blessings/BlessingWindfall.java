@@ -78,9 +78,10 @@ public final class BlessingWindfall extends Effect {
 
     /** you find out the first time you actually spot something drift by (Rule 2), not when it's cast. */
     @Override
-    public java.util.Optional<String> scryingDetail(ServerPlayer target) {
+    public java.util.Optional<net.minecraft.network.chat.Component> scryingDetail(ServerPlayer target) {
         int next = NEXT.getOrDefault(target.getUUID(), 0);
-        return java.util.Optional.of(next <= 20 ? "windfall imminent" : "windfall on cooldown");
+        return java.util.Optional.of(net.minecraft.network.chat.Component.translatable(
+                next <= 20 ? "witchmod.scry.windfall.imminent" : "witchmod.scry.windfall.cooldown"));
     }
 
     @Override
