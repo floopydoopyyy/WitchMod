@@ -119,6 +119,15 @@ public final class BewitchingTableRitual {
             return;
         }
 
+        // secret attachments: without the knowledge (every other effect of its kind discovered) the first try is
+        // only a warning, with nothing spent; every later try is a guaranteed backfire.
+        boolean unknowing = !com.oliver.witchmod.data.SpecialAttachments.unlockedFor(caster, effect.value());
+        if (unknowing && com.oliver.witchmod.data.SpecialAttachments.firstAttempt(caster, effect.key().location())) {
+            caster.displayClientMessage(Component.translatable("witchmod.ritual.special_unknown")
+                    .withStyle(ChatFormatting.DARK_PURPLE), true);
+            return;
+        }
+
         // the target slot takes EITHER a Player Essence (cast at a player) OR a jar (bottle the effect into it,
         // rather than hitting anyone). A jar in the slot switches the ritual into "fill" mode.
         ItemStack playerEssenceStack = table.getItem(BewitchingTableBlockEntity.SLOT_PLAYER_ESSENCE);
@@ -208,6 +217,10 @@ public final class BewitchingTableRitual {
         if (!Config.BACKFIRES_ENABLED.get()) {
             // that probability mass falls through to the fizzle branch below instead.
             backfireChance = 0F;
+        }
+        if (unknowing) {
+            successChance = 0F;
+            backfireChance = Config.BACKFIRES_ENABLED.get() ? 1F : 0F;
         }
         int durationTicks = ModifierCalculator.applyDuration(rollBaseDuration(caster.getRandom()), modifier, caster.getRandom());
 
@@ -343,7 +356,12 @@ public final class BewitchingTableRitual {
         // backfires are disabled. The FX/sound now match the outcome: a firework BANG on a backfire, a quick
         // FIZZLE when nothing happens.
         if (caster.getRandom().nextFloat() < backfireChance) {
-            String kind = doBackfire(level, pos, caster, effect, rawBaseCost, durationTicks);
+            if (unknowing) {
+                caster.sendSystemMessage(Component.translatable("witchmod.ritual.special_backfire")
+                        .withStyle(ChatFormatting.DARK_PURPLE));
+            }
+            // an unknowing caster never has the secret mirrored onto themselves.
+            String kind = doBackfire(level, pos, caster, effect, rawBaseCost, durationTicks, !unknowing);
             // purple when the attachment mirrors onto the caster; messy red otherwise. Client-rendered.
             outcomeFx(level, pos, Outcome.BACKFIRE);
             WitchModNetwork.sendRitualFx(level, pos, 2, false, kind.equals("backfire_mirror"), ItemStack.EMPTY, null);
@@ -628,7 +646,7 @@ public final class BewitchingTableRitual {
                     net.minecraft.sounds.SoundSource.PLAYERS, 3.0F, 0.6F);
         }
         if (modifier.revealsEffectToTarget()) { // Glow Ink Sac — the target is told exactly what they got
-            target.displayClientMessage(Component.literal("You've been " + (blessing ? "blessed" : "cursed") + " with ")
+            target.displayClientMessage(Component.translatable(blessing ? "witchmod.message.revealed.blessed" : "witchmod.message.revealed.cursed")
                     .withStyle(blessing ? ChatFormatting.GREEN : ChatFormatting.LIGHT_PURPLE)
                     .append(Component.literal(effectDisplayName(effect) + "!").withStyle(ChatFormatting.BOLD)), false);
             DiscoveryManager.markEffectDiscovered(target, effect.key().location());
@@ -665,18 +683,7 @@ public final class BewitchingTableRitual {
     }
 
     private static String effectDisplayName(Holder.Reference<Effect> effect) {
-        String[] words = effect.key().location().getPath().split("_");
-        StringBuilder sb = new StringBuilder();
-        for (String w : words) {
-            if (w.isEmpty()) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append(' ');
-            }
-            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));
-        }
-        return sb.toString();
+        return DiscoveryManager.titleCase(effect.key().location().getPath());
     }
 
     /** a config cost override wins over the effect's code-defined default. */
@@ -688,7 +695,7 @@ public final class BewitchingTableRitual {
     /** picks a random curse/blessing weighted by inverse cost, so cheaper ones are more likely (the redstone mechanic). */
     private static Holder.Reference<Effect> pickRandomLowBiased(ServerPlayer caster) {
         List<Holder.Reference<Effect>> all = WitchModRegistries.EFFECT_REGISTRY.holders()
-                .filter(holder -> holder.value().selectable()).toList();
+                .filter(holder -> com.oliver.witchmod.data.SpecialAttachments.inRandomPools(holder.value())).toList();
         double totalWeight = 0.0;
         for (Holder.Reference<Effect> holder : all) {
             totalWeight += weightFor(holder);
@@ -796,14 +803,14 @@ public final class BewitchingTableRitual {
      * attachment's baseCost-derived strength. returns a short ledger key for the chosen outcome.
      */
     private static String doBackfire(ServerLevel level, BlockPos pos, ServerPlayer caster,
-                                     Holder.Reference<Effect> effect, int rawBaseCost, int durationTicks) {
+                                     Holder.Reference<Effect> effect, int rawBaseCost, int durationTicks, boolean allowMirror) {
         // 0..1 strength from baseCost, mapped between the two config anchor costs
         int lo = Config.BACKFIRE_STRENGTH_COST_MIN.get();
         int hi = Math.max(lo + 1, Config.BACKFIRE_STRENGTH_COST_MAX.get());
         float strength = net.minecraft.util.Mth.clamp((float) (rawBaseCost - lo) / (hi - lo), 0F, 1F);
 
         // weighted pick among the six outcomes (explosion rarer since it's the most destructive).
-        int[] weights = {1, 3, 2, 3, 2, 3};
+        int[] weights = {1, allowMirror ? 3 : 0, 2, 3, 2, 3};
         int total = 0;
         for (int w : weights) {
             total += w;
@@ -867,6 +874,7 @@ public final class BewitchingTableRitual {
         sheep.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5,
                 level.random.nextFloat() * 360F, 0F);
         sheep.setCustomName(Component.literal("Woolliam"));
+        sheep.addTag("witchmod_character"); // one of the mod's characters (the puppeteer leaves him alone)
         sheep.setCustomNameVisible(true);
         sheep.setPersistenceRequired();
         level.addFreshEntity(sheep);
@@ -887,7 +895,7 @@ public final class BewitchingTableRitual {
 
     private static Holder.Reference<Effect> pickRandomCurseLowBiased(ServerPlayer caster) {
         List<Holder.Reference<Effect>> curses = WitchModRegistries.EFFECT_REGISTRY.holders()
-                .filter(holder -> holder.value().selectable())
+                .filter(holder -> com.oliver.witchmod.data.SpecialAttachments.inRandomPools(holder.value()))
                 .filter(holder -> holder.value().category() == EffectCategory.CURSE)
                 .toList();
         if (curses.isEmpty()) {

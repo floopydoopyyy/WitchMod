@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.blessings;
 
 import net.minecraft.core.NonNullList;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -55,6 +54,12 @@ public final class BlessingPickpocket extends Effect {
     public String debugForce(ServerPlayer target, String arg) {
         for (ServerPlayer p : target.serverLevel().getEntitiesOfClass(ServerPlayer.class,
                 target.getBoundingBox().inflate(8.0), p -> p != target && p.isAlive())) {
+            if ("snack".equals(arg)) {
+                // forces the snack thief steal even without munchies/gluttony, for testing
+                return PickpocketSnack.steal(target, p)
+                        ? "snatched and ate a food from " + p.getName().getString()
+                        : p.getName().getString() + " has no food you can eat right now";
+            }
             attemptSteal(target, p);
             return "attempted to pickpocket " + p.getName().getString();
         }
@@ -62,16 +67,31 @@ public final class BlessingPickpocket extends Effect {
     }
 
     @Override
+    public java.util.List<String> debugArgs() {
+        return java.util.List.of("snack");
+    }
+
+    @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
+        PickpocketSnack.tick(target); // snack thief synergy runs on its own clock
         if (!EffectUtil.every(ticksRemaining, Config.PICKPOCKET_CHECK_INTERVAL.get())) {
             return;
         }
-        ServerLevel level = target.serverLevel();
-        double radius = Config.PICKPOCKET_RADIUS.get();
-        for (ServerPlayer victim : level.getPlayers(p -> p != target && p.isAlive()
-                && !p.isSpectator() && !p.isCreative() && p.distanceToSqr(target) <= radius * radius)) {
+        for (ServerPlayer victim : marksNear(target)) {
             attemptSteal(target, victim);
         }
+    }
+
+    @Override
+    public void onRemove(ServerPlayer target) {
+        PickpocketSnack.clear(target);
+    }
+
+    /** players close enough to lift from. */
+    static java.util.List<ServerPlayer> marksNear(ServerPlayer thief) {
+        double radius = Config.PICKPOCKET_RADIUS.get();
+        return thief.serverLevel().getPlayers(p -> p != thief && p.isAlive()
+                && !p.isSpectator() && !p.isCreative() && p.distanceToSqr(thief) <= radius * radius);
     }
 
     private static void attemptSteal(ServerPlayer thief, ServerPlayer victim) {

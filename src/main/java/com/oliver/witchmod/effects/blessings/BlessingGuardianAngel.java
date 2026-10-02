@@ -1768,7 +1768,8 @@ public final class BlessingGuardianAngel extends Effect {
         int total = 0;
         for (Holder.Reference<Effect> h : WitchModRegistries.EFFECT_REGISTRY.holders().toList()) {
             Effect e = h.value();
-            if (e.category() != EffectCategory.BLESSING || e == this || EffectManager.isActive(owner, h)) {
+            if (e.category() != EffectCategory.BLESSING || e == this || EffectManager.isActive(owner, h)
+                    || !com.oliver.witchmod.data.SpecialAttachments.inRandomPools(e)) {
                 continue;
             }
             int w = Math.max(1, 101 - e.powerLevel()); // low power → high weight

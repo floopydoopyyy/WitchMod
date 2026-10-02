@@ -132,6 +132,7 @@ public final class BlessingAngler extends Effect {
             var sheep = EntityType.SHEEP.create(level);
             if (sheep != null) {
                 sheep.setCustomName(Component.literal("Woolliam"));
+                sheep.addTag("witchmod_character"); // one of the mod's characters (the puppeteer leaves him alone)
                 sheep.setCustomNameVisible(true);
             }
             entity = sheep;

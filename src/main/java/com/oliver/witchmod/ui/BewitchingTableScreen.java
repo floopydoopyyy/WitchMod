@@ -78,8 +78,8 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         super.init();
         // a book button just outside the panel's right edge → opens the Compendium's Rituals how-to.
         addRenderableWidget(new CompendiumLinkButton(this.leftPos + this.imageWidth + 4, this.topPos + 22,
-                b -> com.oliver.witchmod.client.CompendiumScreen.openAt(
-                        com.oliver.witchmod.client.CompendiumScreen.CHAPTER_RITUALS)));
+                b -> com.oliver.witchmod.client.CompendiumScreen.openFromTable(
+                        com.oliver.witchmod.client.CompendiumScreen.CHAPTER_RITUALS, this)));
     }
 
     @Override
@@ -300,6 +300,12 @@ public final class BewitchingTableScreen extends AbstractContainerScreen<Bewitch
         float backfireChance = ModifierCalculator.applyBackfireChance(
                 ModifierCalculator.baseBackfireChance(essenceSpent, adjustedCost), modifier);
         backfireChance = ModifierCalculator.applyTierBackfire(backfireChance, effect.value().baseCost());
+        // a secret you don't yet know enough to cast: the bar tells the truth (no success, all backfire).
+        if (this.minecraft != null && this.minecraft.player != null
+                && !com.oliver.witchmod.data.SpecialAttachments.unlockedFor(this.minecraft.player, effect.value())) {
+            successChance = 0F;
+            backfireChance = 1F;
+        }
         boolean blessing = effect.value().category() == EffectCategory.BLESSING;
         return new RitualSnapshot(true, false, blessing, successChance, backfireChance);
     }

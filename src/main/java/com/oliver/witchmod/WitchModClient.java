@@ -118,6 +118,8 @@ public class WitchModClient {
         event.registerEntityRenderer(WitchModEntities.WATCHER_EYES.get(), com.oliver.witchmod.client.WatcherEyesRenderer::new);
         event.registerEntityRenderer(WitchModEntities.DREAM.get(), com.oliver.witchmod.client.DreamRenderer::new);
         event.registerEntityRenderer(WitchModEntities.CLONE.get(), com.oliver.witchmod.client.CloneRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.SHADOW.get(), com.oliver.witchmod.client.ShadowRenderer::new);
+        event.registerEntityRenderer(WitchModEntities.EXPLOSIVE_EGG.get(), net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
         event.registerEntityRenderer(WitchModEntities.JAR_THROW.get(),
                 ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(ctx));
         event.registerEntityRenderer(WitchModEntities.HOLY_HAND_GRENADE.get(),
@@ -142,6 +144,17 @@ public class WitchModClient {
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "thirst_bar"), new ThirstHudLayer());
         event.registerAbove(VanillaGuiLayers.FOOD_LEVEL,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "chat_overlay"), new ChatOverlayLayer());
+        // puppeteer: the puppet's hearts in place of yours, and the console-style controls panel
+        event.registerAbove(VanillaGuiLayers.PLAYER_HEALTH,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_hearts"), new com.oliver.witchmod.client.PuppetHud.Hearts());
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_controls"), new com.oliver.witchmod.client.PuppetHud.Controls());
+        // allergic reaction: green dead hearts after the health bar, and the green screen-edge haze
+        event.registerAbove(VanillaGuiLayers.PLAYER_HEALTH,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "allergic_hearts"), new com.oliver.witchmod.client.AllergicHeartsLayer());
+        event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "shadow_dread"), new com.oliver.witchmod.client.ShadowDreadOverlay());
+        event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "allergic_screen"), new com.oliver.witchmod.client.AllergicScreenOverlay());
         // gladiator parry gauge, near the crosshair
         event.registerAbove(VanillaGuiLayers.CROSSHAIR,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "gladiator_parry"), new GladiatorParryLayer());

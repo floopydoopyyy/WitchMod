@@ -285,7 +285,7 @@ public final class HolyHandGrenadeEntity extends Projectile {
         if (event.getSource().getEntity() instanceof ServerPlayer owner && owner.getServer() != null) {
             owner.getServer().getPlayerList().broadcastSystemMessage(
                     net.minecraft.network.chat.Component.translatable("chat.type.text", owner.getDisplayName(),
-                            net.minecraft.network.chat.Component.literal("Right. How many did we lose?")), false);
+                            net.minecraft.network.chat.Component.translatable("witchmod.holy_hand_grenade.lost")), false);
         }
     }
 

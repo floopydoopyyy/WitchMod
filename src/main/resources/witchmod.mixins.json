@@ -4,10 +4,30 @@
   "package": "com.oliver.witchmod.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "ShieldRaiseMixin"
+    "ShieldRaiseMixin",
+    "CreeperAccessor",
+    "SheepAccessor",
+    "GuardianAccessor",
+    "HoglinAccessor",
+    "ZoglinAccessor",
+    "IronGolemAccessor",
+    "RabbitAccessor",
+    "EntityBurrowMixin",
+    "PlayerBurrowMixin",
+    "EnderManAccessor",
+    "AbstractHorseAccessor",
+    "BlazeAccessor",
+    "EntitySwimMixin",
+    "GoatAccessor",
+    "EntityCamelSeatMixin",
+    "SpellcasterIllagerAccessor"
   ],
   "client": [
-    "ListenerMixin"
+    "ListenerMixin",
+    "EntityTintMixin",
+    "AllergyArmTintMixin",
+    "LocalPlayerPushMixin",
+    "MinecraftGlowMixin"
   ],
   "injectors": {
     "defaultRequire": 1

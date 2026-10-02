@@ -53,6 +53,19 @@ public abstract class Effect {
         return true;
     }
 
+    /**
+     * a secret attachment: hidden from the compendium, random rolls and casting until the caster has discovered
+     * every other effect of its category (see {@link SpecialAttachments}). ignored when specials are un-gated.
+     */
+    public boolean special() {
+        return false;
+    }
+
+    /** whether pandora's box / cornucopia may roll this into their rotation. */
+    public boolean inRotations() {
+        return true;
+    }
+
     /** pips the compendium draws for the 0..100 power scale. */
     public static final int POWER_PIPS = 5;
 

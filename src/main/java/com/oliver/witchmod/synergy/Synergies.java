@@ -140,6 +140,31 @@ public final class Synergies {
             Blessings.PICKPOCKET, Blessings.DISGUISE,
             "pickpocket rate x3 when behind someone while disguised as a prop/entity");
 
+    /** a hungry thief eats on the job: steals a victim's food and scoffs it on the spot. */
+    public static final Synergy SNACK_THIEF = register("snack_thief",
+            Blessings.PICKPOCKET, Curses.MUNCHIES,
+            "pickpocket can also steal and instantly eat a nearby player's food — hungrier = more often");
+
+    /** same snack thief, driven by gluttony's appetite instead. */
+    public static final Synergy SNACK_THIEF_GLUTTON = register("snack_thief_glutton",
+            Blessings.PICKPOCKET, Curses.GLUTTONY,
+            "pickpocket can also steal and instantly eat a nearby player's food — hungrier = more often");
+
+    /** an allergic reaction upsets the stomach: farts, more often the worse the tier. */
+    public static final Synergy ALLERGIC_GAS = register("allergic_gas",
+            Curses.ALLERGIC, Curses.GASSY,
+            "allergic reactions shake farts loose, more often (and bigger) the higher the tier");
+
+    /** an allergic reaction sets off hiccups, more often the worse the tier. */
+    public static final Synergy ALLERGIC_HICCUPS = register("allergic_hiccups",
+            Curses.ALLERGIC, Curses.HICCUPS,
+            "allergic reactions set off hiccups, more often the higher the tier");
+
+    /** a creeper puppet worn by someone with comic relief is a CHARGED creeper — double the boom. */
+    public static final Synergy CHARGED_PUPPET = register("charged_puppet",
+            Blessings.PUPPETEER, Curses.COMIC_RELIEF,
+            "a creeper you possess is charged while comic relief is active (double explosion)");
+
     /** the cow committee: with a disguise you're always, definitively, a cow. */
     public static final Synergy COW_COSTUME = register("cow_costume",
             Blessings.COW, Blessings.DISGUISE,

@@ -364,10 +364,10 @@ public final class ItemVoodooDoll extends BoundPlayerItem {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         PlayerEssenceData bound = stack.get(WitchModDataComponents.BOUND_PLAYER);
         if (bound == null) {
-            tooltip.add(Component.literal("Unbound — bind to a player with a Player Essence").withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.add(Component.translatable("witchmod.tooltip.unbound_doll").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        tooltip.add(Component.literal("Bound to: " + bound.playerName()).withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("witchmod.tooltip.bound_to", bound.playerName()).withStyle(ChatFormatting.GRAY));
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
             Boolean online = EssenceTooltipClient.isOnline(bound.playerId());
             if (online != null) {

@@ -19,5 +19,6 @@ public final class WitchModEntityAttributes {
         event.put(WitchModEntities.WATCHER_EYES.get(), WatcherEyesEntity.createAttributes().build());
         event.put(WitchModEntities.DREAM.get(), DreamEntity.createAttributes().build());
         event.put(WitchModEntities.CLONE.get(), CloneEntity.createAttributes().build());
+        event.put(WitchModEntities.SHADOW.get(), ShadowEntity.createAttributes().build());
     }
 }

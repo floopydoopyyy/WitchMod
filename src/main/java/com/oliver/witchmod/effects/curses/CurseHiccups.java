@@ -91,6 +91,11 @@ public final class CurseHiccups extends Effect {
         }
     }
 
+    /** fire a single hiccup on demand — used by the allergic reaction synergy. */
+    public static void externalHiccup(ServerPlayer target) {
+        hiccup(target, target.serverLevel(), target.getRandom());
+    }
+
     /** one hiccup: a little hop, a brief input freeze, and the hic sound. */
     private static void hiccup(ServerPlayer target, ServerLevel level, RandomSource rng) {
         Vec3 v = target.getDeltaMovement();

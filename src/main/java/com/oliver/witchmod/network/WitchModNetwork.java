@@ -236,6 +236,91 @@ public final class WitchModNetwork {
         }
     }
 
+    /** c2s: puppeteer — a right-click on thin air with an empty hand (vanilla never tells the server about those). */
+    public record PuppetActionPayload() implements CustomPacketPayload {
+        public static final PuppetActionPayload INSTANCE = new PuppetActionPayload();
+        public static final CustomPacketPayload.Type<PuppetActionPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_action"));
+        public static final StreamCodec<ByteBuf, PuppetActionPayload> STREAM_CODEC = StreamCodec.unit(INSTANCE);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public static void sendPuppetAction() {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(PuppetActionPayload.INSTANCE);
+    }
+
+    /** c2s: puppeteer (creeper) — whether right-click is being held, i.e. the fuse is lit. sent on change. */
+    public record PuppetFusePayload(boolean holding) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<PuppetFusePayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_fuse"));
+        public static final StreamCodec<ByteBuf, PuppetFusePayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.BOOL, PuppetFusePayload::holding, PuppetFusePayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** c2s: puppeteer (ghast) — the attack button is being held / was let go (its charged volley). */
+    public record PuppetAttackHoldPayload(boolean holding) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<PuppetAttackHoldPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_attack_hold"));
+        public static final StreamCodec<ByteBuf, PuppetAttackHoldPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.BOOL, PuppetAttackHoldPayload::holding, PuppetAttackHoldPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** c2s: puppeteer (fox) — the drop key: let go of what's in its mouth. */
+    public record PuppetDropPayload() implements CustomPacketPayload {
+        public static final PuppetDropPayload INSTANCE = new PuppetDropPayload();
+        public static final CustomPacketPayload.Type<PuppetDropPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_drop"));
+        public static final StreamCodec<ByteBuf, PuppetDropPayload> STREAM_CODEC = StreamCodec.unit(INSTANCE);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public static void sendPuppetDrop() {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(PuppetDropPayload.INSTANCE);
+    }
+
+    public static void sendPuppetAttackHold(boolean holding) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new PuppetAttackHoldPayload(holding));
+    }
+
+    /** c2s: puppeteer (spider) — the attack button was swung (a swing at thin air never reaches the server). */
+    public record PuppetSwingPayload() implements CustomPacketPayload {
+        public static final PuppetSwingPayload INSTANCE = new PuppetSwingPayload();
+        public static final CustomPacketPayload.Type<PuppetSwingPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_swing"));
+        public static final StreamCodec<ByteBuf, PuppetSwingPayload> STREAM_CODEC = StreamCodec.unit(INSTANCE);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public static void sendPuppetSwing() {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(PuppetSwingPayload.INSTANCE);
+    }
+
+    public static void sendPuppetFuse(boolean holding) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new PuppetFusePayload(holding));
+    }
+
     /** client → server: report this client's curse opt-outs (called on join and whenever the client config reloads). */
     public static void sendOptOuts(java.util.List<String> ids) {
         net.neoforged.neoforge.network.PacketDistributor.sendToServer(new ClientOptOutPayload(ids));
@@ -411,6 +496,36 @@ public final class WitchModNetwork {
                                 SoundSource.PLAYERS, 0.9F, 0.9F + level.random.nextFloat() * 0.3F);
                         level.sendParticles(ParticleTypes.ITEM_SLIME, payload.x, payload.y + 0.2, payload.z,
                                 8, 0.3, 0.2, 0.3, 0.02);
+                    }
+                }));
+        registrar.playToServer(PuppetSwingPayload.TYPE, PuppetSwingPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.onSwing(player);
+                    }
+                }));
+        registrar.playToServer(PuppetDropPayload.TYPE, PuppetDropPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.foxDrop(player);
+                    }
+                }));
+        registrar.playToServer(PuppetAttackHoldPayload.TYPE, PuppetAttackHoldPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.setAttackHeld(player, payload.holding());
+                    }
+                }));
+        registrar.playToServer(PuppetFusePayload.TYPE, PuppetFusePayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.setHeld(player, payload.holding());
+                    }
+                }));
+        registrar.playToServer(PuppetActionPayload.TYPE, PuppetActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.onRightClickAir(player);
                     }
                 }));
         registrar.playToServer(ClientOptOutPayload.TYPE, ClientOptOutPayload.STREAM_CODEC,

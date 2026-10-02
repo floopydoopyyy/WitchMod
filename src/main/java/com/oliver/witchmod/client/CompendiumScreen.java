@@ -79,6 +79,7 @@ public final class CompendiumScreen extends Screen {
         String name;
         int kind;             // 0 curse, 1 bless, 2 item, 3 block, 4 modifier
         boolean discovered;   // effects
+        boolean special;      // a secret attachment (never counted in chapter progress)
         int power;            // effects
         String descKey, rumourKey;
         int durability;       // item/block
@@ -108,6 +109,14 @@ public final class CompendiumScreen extends Screen {
     private int leftArrowX, rightArrowX, arrowY;
     private int panelLeft;
 
+    // search: a non-empty query swaps the page list for matches across every chapter.
+    private net.minecraft.client.gui.components.EditBox search;
+    private String query = "";
+    private final List<Entry> results = new ArrayList<>();
+    // per-chapter discovery progress (total 0 = chapter has nothing to discover, or discovery is off).
+    private final int[] progressDone = new int[chapterNames.length];
+    private final int[] progressTotal = new int[chapterNames.length];
+
     // per-page-slot scroll state (0 = left page, 1 = right page) so long descriptions can be read in full
     // while the recipe/power stay fixed. Rebuilt each frame by drawScrollingText.
     private static final int LINE_H = 10;
@@ -136,12 +145,47 @@ public final class CompendiumScreen extends Screen {
         Minecraft.getInstance().setScreen(screen);
     }
 
-    /** open the Compendium straight to a chapter (e.g. the Rituals how-to from the ritual table's guide button). */
+    /** open the Compendium straight to a chapter. */
     public static void openAt(int chapter) {
         CompendiumScreen screen = new CompendiumScreen();
         screen.chapter = chapter;
         lastChapter = chapter;
         Minecraft.getInstance().setScreen(screen);
+    }
+
+    /**
+     * opened from the ritual table's guide button: the corner button becomes a back arrow to that table screen.
+     * the table's menu stays open underneath, so returning is just re-showing its screen.
+     */
+    public static void openFromTable(int chapter, net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> table) {
+        CompendiumScreen screen = new CompendiumScreen();
+        screen.chapter = chapter;
+        screen.returnTo = table;
+        lastChapter = chapter;
+        Minecraft.getInstance().setScreen(screen);
+    }
+
+    /** the ritual table screen to go back to, when opened from one. */
+    private net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> returnTo;
+
+    private void back() {
+        Minecraft mc = Minecraft.getInstance();
+        if (returnTo != null && mc.player != null && mc.player.containerMenu == returnTo.getMenu()) {
+            mc.setScreen(returnTo);
+        } else {
+            onClose();
+        }
+    }
+
+    /** esc still closes everything. from the table, close its menu properly too, rather than leaving it open server-side. */
+    @Override
+    public void onClose() {
+        Minecraft mc = Minecraft.getInstance();
+        if (returnTo != null && mc.player != null && mc.player.containerMenu == returnTo.getMenu()) {
+            mc.player.closeContainer();
+        } else {
+            super.onClose();
+        }
     }
 
     private static int accentOf(int kind) {
@@ -158,6 +202,12 @@ public final class CompendiumScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
+        boolean fromTable = returnTo != null;
+        addRenderableWidget(com.oliver.witchmod.ui.PanelCornerButton.at(this.width,
+                (this.width - PANEL_W) / 2, (this.height - PANEL_H) / 2, PANEL_W, 3,
+                fromTable ? com.oliver.witchmod.ui.PanelCornerButton.BACK : com.oliver.witchmod.ui.PanelCornerButton.CLOSE,
+                Component.translatable(fromTable ? "witchmod.gui.back_to_table" : "witchmod.gui.close"),
+                b -> back()));
         // when the discovery system is off, everything reads as already known (no rumour pages).
         boolean discoveryOff = !com.oliver.witchmod.Config.discoveryEnabled();
         Set<ResourceLocation> discovered = mc.player != null
@@ -170,12 +220,16 @@ public final class CompendiumScreen extends Screen {
             if (id == null || !e.selectable()) {
                 continue; // internal attachments (Infectious state) aren't shown as curses
             }
+            if (e.special() && (mc.player == null || !com.oliver.witchmod.data.SpecialAttachments.unlockedFor(mc.player, e))) {
+                continue; // a secret stays completely hidden until its chapter is complete
+            }
             String path = id.getPath();
             Entry entry = new Entry();
             entry.icon = new ItemStack(e.sacrificialItem());
             entry.name = DiscoveryManager.titleCase(path);
             entry.kind = e.category() == EffectCategory.CURSE ? 0 : 1;
             entry.power = e.powerLevel();
+            entry.special = e.special();
             entry.discovered = discoveryOff || discovered.contains(id);
             entry.descKey = "witchmod.compendium." + path + ".desc";
             entry.rumourKey = "witchmod.compendium." + path + ".rumour";
@@ -241,7 +295,10 @@ public final class CompendiumScreen extends Screen {
         // the combined Filled Jars entry, then the two "special ritual exemption" entries (Coins + Redstone
         // Dust), all pinned to the END of the items list and always shown (no rumour state on items).
         Entry jars = new Entry();
-        jars.icon = new ItemStack(com.oliver.witchmod.items.WitchModItems.CURSED_JAR.get());
+        jars.iconCycle = List.of(new ItemStack(com.oliver.witchmod.items.WitchModItems.BLESSED_JAR.get()),
+                new ItemStack(com.oliver.witchmod.items.WitchModItems.CURSED_JAR.get()),
+                new ItemStack(com.oliver.witchmod.items.WitchModItems.MIXED_JAR.get()));
+        jars.icon = jars.iconCycle.get(0);
         jars.name = Component.translatable("witchmod.compendium.filled_jars.name").getString();
         jars.kind = 2;
         jars.descKey = "witchmod.compendium.filled_jars.desc";
@@ -308,6 +365,63 @@ public final class CompendiumScreen extends Screen {
             rituals.add(e);
         }
         chapters.add(rituals);
+
+        for (int c = 0; c < chapters.size(); c++) {
+            progressDone[c] = 0;
+            progressTotal[c] = 0;
+            if (discoveryOff) {
+                continue;
+            }
+            for (Entry entry : chapters.get(c)) {
+                if (!entry.intro && !entry.special && (entry.effect() || entry.kind == 4)) {
+                    progressTotal[c]++;
+                    if (entry.discovered) {
+                        progressDone[c]++;
+                    }
+                }
+            }
+        }
+
+        // search box along the bottom of the sidebar, under the chapter buttons.
+        int left = (this.width - PANEL_W) / 2;
+        int top = (this.height - PANEL_H) / 2;
+        search = new net.minecraft.client.gui.components.EditBox(this.font, left + 8, top + PANEL_H - 44,
+                SIDEBAR_W - 16, 14, Component.translatable("witchmod.compendium.search"));
+        search.setHint(Component.translatable("witchmod.compendium.search").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        search.setMaxLength(40);
+        search.setValue(query);
+        search.setResponder(this::onSearch);
+        addRenderableWidget(search);
+        onSearch(search.getValue());
+    }
+
+    /** rebuilds the results for a new query. matches entry names, and ritual page titles; intro pages are skipped. */
+    private void onSearch(String value) {
+        String q = value.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean changed = !q.equals(query);
+        query = q;
+        results.clear();
+        if (!q.isEmpty()) {
+            for (List<Entry> list : chapters) {
+                for (Entry e : list) {
+                    String name = e.intro
+                            ? (e.kind == 5 ? Component.translatable(e.titleKey).getString() : null)
+                            : e.name;
+                    if (name != null && name.toLowerCase(java.util.Locale.ROOT).contains(q)) {
+                        results.add(e);
+                    }
+                }
+            }
+        }
+        if (changed) {
+            page = 0;
+            resetScroll();
+        }
+    }
+
+    /** the pages currently being browsed: search results while searching, else the open chapter. */
+    private List<Entry> currentList() {
+        return query.isEmpty() ? chapters.get(chapter) : results;
     }
 
     private static Entry introEntry(int kind, String chapterId) {
@@ -359,7 +473,7 @@ public final class CompendiumScreen extends Screen {
     }
 
     private int pageCount() {
-        int n = chapters.get(chapter).size();
+        int n = currentList().size();
         return Math.max(1, (n + PER_SPREAD - 1) / PER_SPREAD);
     }
 
@@ -389,19 +503,35 @@ public final class CompendiumScreen extends Screen {
         int sbLeft = left;
         int sbRight = left + SIDEBAR_W;
         g.fill(sbLeft, top, sbRight, top + PANEL_H, SIDEBAR);
-        g.drawString(font, Component.literal("CHAPTERS").withStyle(s -> s.withBold(true)), sbLeft + 12, top + 12, 0xFFE9D9B0, false);
+        g.drawString(font, Component.translatable("witchmod.compendium.chapters").withStyle(s -> s.withBold(true)), sbLeft + 12, top + 12, 0xFFE9D9B0, false);
         g.fill(sbLeft + 10, top + 24, sbRight - 10, top + 25, 0x40FFFFFF);
         for (int c = 0; c < chapterNames.length; c++) {
             int by = top + 34 + c * 24;
             chapterBtnY[c] = by;
-            boolean sel = c == chapter;
+            boolean sel = c == chapter && query.isEmpty();
             int accent = accentOf(c);
             boolean hover = mouseX >= sbLeft + 8 && mouseX <= sbRight - 8 && mouseY >= by && mouseY <= by + 20;
             g.fill(sbLeft + 8, by, sbRight - 8, by + 20, sel ? (0x55000000 | (accent & 0xFFFFFF)) : (hover ? 0x33FFFFFF : 0x22000000));
             g.fill(sbLeft + 8, by, sbLeft + 11, by + 20, accent);
-            g.drawString(font, Component.literal(chapterNames[c]), sbLeft + 16, by + 6, sel ? accent : 0xFFD8CBA8, false);
+            g.drawString(font, Component.literal(chapterNames[c]), sbLeft + 16, by + 5, sel ? accent : 0xFFD8CBA8, false);
+            if (progressTotal[c] > 0) {
+                // thin discovery bar along the bottom of the chapter button.
+                int barL = sbLeft + 14;
+                int barR = sbRight - 11;
+                g.fill(barL, by + 16, barR, by + 18, 0x55000000);
+                int filled = Math.round((barR - barL) * progressDone[c] / (float) progressTotal[c]);
+                g.fill(barL, by + 16, barL + filled, by + 18, progressDone[c] == progressTotal[c] ? 0xFFE9D9B0 : accent);
+            }
         }
-        g.drawString(font, Component.literal(chapters.get(chapter).size() + " entries"), sbLeft + 12, top + PANEL_H - 18, INK_SOFT, false);
+        String footer;
+        if (!query.isEmpty()) {
+            footer = Component.translatable("witchmod.compendium.results", results.size()).getString();
+        } else if (progressTotal[chapter] > 0) {
+            footer = Component.translatable("witchmod.compendium.progress", progressDone[chapter], progressTotal[chapter]).getString();
+        } else {
+            footer = Component.translatable("witchmod.compendium.entries", chapters.get(chapter).size()).getString();
+        }
+        g.drawString(font, Component.literal(footer), sbLeft + 12, top + PANEL_H - 18, INK_SOFT, false);
 
         // pages.
         int pagesLeft = sbRight + 6;
@@ -411,11 +541,15 @@ public final class CompendiumScreen extends Screen {
         int pageW = (pagesRight - pagesLeft - SPINE_GAP) / 2;
         int rightPageX = pagesLeft + pageW + SPINE_GAP;
 
-        List<Entry> list = chapters.get(chapter);
+        List<Entry> list = currentList();
         for (int i = 0; i < PER_SPREAD; i++) {
             int idx = page * PER_SPREAD + i;
             int px = i == 0 ? pagesLeft : rightPageX;
             drawSide(g, font, idx < list.size() ? list.get(idx) : null, i, px, pagesTop, pageW, pagesBottom);
+        }
+        if (list.isEmpty() && !query.isEmpty()) {
+            Component none = Component.translatable("witchmod.compendium.no_results");
+            g.drawString(font, none, pagesLeft + pageW / 2 - font.width(none) / 2, pagesTop + 20, INK_SOFT, false);
         }
         int spineX = pagesLeft + pageW + SPINE_GAP / 2 - 2;
         g.fill(spineX, pagesTop, spineX + 4, pagesBottom, SPINE);
@@ -507,8 +641,8 @@ public final class CompendiumScreen extends Screen {
 
     private String category(Entry e, boolean rumour) {
         return switch (e.kind) {
-            case 0 -> (rumour ? "Rumoured " : "") + "Curse";
-            case 1 -> (rumour ? "Rumoured " : "") + "Blessing";
+            case 0 -> (rumour ? "Rumoured " : "") + (e.special ? "Secret " : "") + "Curse";
+            case 1 -> (rumour ? "Rumoured " : "") + (e.special ? "Secret " : "") + "Blessing";
             case 2 -> "Item";
             case 3 -> "Block";
             default -> (rumour ? "Rumoured " : "") + "Modifier";
@@ -543,8 +677,8 @@ public final class CompendiumScreen extends Screen {
 
     private void drawEffectBody(GuiGraphics g, Font font, Entry e, boolean rumour, int slot, int x, int w, int cx, int boxY, int bottom) {
         Component cast = rumour
-                ? Component.literal("Cast with: ???").withStyle(net.minecraft.ChatFormatting.DARK_GRAY)
-                : Component.literal("Cast with: ").withStyle(net.minecraft.ChatFormatting.DARK_GRAY)
+                ? Component.translatable("witchmod.compendium.cast_with", "???").withStyle(net.minecraft.ChatFormatting.DARK_GRAY)
+                : Component.translatable("witchmod.compendium.cast_with", "").withStyle(net.minecraft.ChatFormatting.DARK_GRAY)
                         .append(e.icon.getHoverName().copy().withStyle(net.minecraft.ChatFormatting.BLACK));
         g.drawString(font, cast, cx - font.width(cast) / 2, boxY + 40, rumour ? INK_SOFT : INK, false);
 
@@ -688,7 +822,7 @@ public final class CompendiumScreen extends Screen {
             hovers.add(new Hover(gx, midY, 16, 16, rv.input()));
         }
         g.drawString(font, Component.literal("➜"), gx + 20, midY + 4, INK, false);
-        g.drawString(font, Component.literal("smelt").withStyle(s -> s.withItalic(true)), gx + 8, midY + 20, 0xFFC06010, false);
+        g.drawString(font, Component.translatable("witchmod.compendium.smelt").withStyle(s -> s.withItalic(true)), gx + 8, midY + 20, 0xFFC06010, false);
         drawResult(g, gx + 42, midY, rv.result());
     }
 
@@ -760,6 +894,10 @@ public final class CompendiumScreen extends Screen {
                     lastChapter = c;
                     page = 0;
                     resetScroll();
+                    if (!query.isEmpty()) {
+                        search.setValue(""); // picking a chapter leaves the search
+                    }
+                    setFocused(null);
                     click();
                     return true;
                 }
@@ -782,6 +920,10 @@ public final class CompendiumScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        // while typing, arrows move the text cursor instead of turning pages; esc still closes.
+        if (search != null && search.isFocused() && key != 256) {
+            return super.keyPressed(key, scan, mods);
+        }
         if (key == 263 && page > 0) {
             page--;
             resetScroll();

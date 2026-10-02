@@ -91,6 +91,24 @@ public final class WitchModEntities {
                     .clientTrackingRange(16)
                     .build("clone"));
 
+    /** the shadow curse's delayed copy of its victim. Never spawns naturally; fast updates so the replay is smooth. */
+    /** puppeteer (chicken): the charged egg that explodes on impact. */
+    public static final DeferredHolder<EntityType<?>, EntityType<ExplosiveEggEntity>> EXPLOSIVE_EGG =
+            ENTITY_TYPES.register("explosive_egg", () -> EntityType.Builder
+                    .<ExplosiveEggEntity>of(ExplosiveEggEntity::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build("explosive_egg"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<ShadowEntity>> SHADOW =
+            ENTITY_TYPES.register("shadow", () -> EntityType.Builder
+                    .of(ShadowEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build("shadow"));
+
     /** the Dweller's "watchers" — disembodied glowing eyes in the dark. Tiny, never spawns naturally. */
     public static final DeferredHolder<EntityType<?>, EntityType<WatcherEyesEntity>> WATCHER_EYES =
             ENTITY_TYPES.register("watcher_eyes", () -> EntityType.Builder

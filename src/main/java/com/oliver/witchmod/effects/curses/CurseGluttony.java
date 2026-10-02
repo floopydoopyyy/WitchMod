@@ -76,7 +76,9 @@ public final class CurseGluttony extends Effect {
         // the SCALE modifier is TRANSIENT, so a world reload drops it while the curse itself persists —
         // you'd come back the wrong size. onApply never re-runs, so re-apply it here if it's gone.
         AttributeInstance scale = target.getAttribute(Attributes.SCALE);
-        if (scale != null && !scale.hasModifier(SCALE_MODIFIER_ID)) {
+        if (scale != null && com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(target)) {
+            scale.removeModifier(SCALE_MODIFIER_ID); // a puppet keeps the mob's size; the reserve still works
+        } else if (scale != null && !scale.hasModifier(SCALE_MODIFIER_ID)) {
             scale.addOrUpdateTransientModifier(new AttributeModifier(SCALE_MODIFIER_ID,
                     Config.GLUTTONY_MODEL_SCALE_BONUS.get(), AttributeModifier.Operation.ADD_VALUE));
         }

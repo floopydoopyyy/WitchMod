@@ -33,7 +33,7 @@ public final class DreamEntity extends PathfinderMob {
 
     public DreamEntity(EntityType<? extends DreamEntity> type, Level level) {
         super(type, level);
-        setCustomName(Component.literal("Dream"));
+        setCustomName(Component.translatable("witchmod.name.dream"));
         setCustomNameVisible(true);
         setPersistenceRequired();
     }

@@ -117,6 +117,14 @@ public final class WitchModDamageTypes {
         return level.damageSources().source(BOWLING);
     }
 
+    /** shadow: caught by your own shadow. bypasses armour. */
+    public static final ResourceKey<DamageType> SHADOW = ResourceKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "shadow"));
+
+    public static DamageSource shadow(Level level) {
+        return level.damageSources().source(SHADOW);
+    }
+
     public static DamageSource dehydration(Level level) {
         return level.damageSources().source(DEHYDRATION);
     }

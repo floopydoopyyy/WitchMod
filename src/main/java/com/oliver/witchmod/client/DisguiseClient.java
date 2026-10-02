@@ -147,18 +147,35 @@ public final class DisguiseClient {
      * bat disguise flies SLOWLY and can't sprint-fly on its own — the Flight blessing is what unlocks a fast
      * sprint dash. movement is client-authoritative, so the fly speed + sprint gate live here on the local player.
      */
+    /** the sprint key is held (or sprint is still latched from last tick) — i.e. vanilla will sprint-fly next tick. */
+    private static boolean sprintKeyHeld(Minecraft mc) {
+        return mc.options.keySprint.isDown() || (mc.player != null && mc.player.isSprinting());
+    }
+
     private static void tickBatFlightSpeed(Minecraft mc) {
         var p = mc.player;
-        if (p != null && p.getData(WitchModAttachments.DISGUISE_TYPE) == 3 && p.getAbilities().flying
+        if (p != null && (p.getData(WitchModAttachments.DISGUISE_TYPE) == 3 || PuppeteerClient.isFlyingPuppet(p)) && p.getAbilities().flying
                 && !p.isCreative() && !p.isSpectator()) {
             boolean hasFlight = p.getData(WitchModAttachments.FLIGHT_ACTIVE) >= 1;
-            if (!hasFlight && p.isSprinting()) {
-                p.setSprinting(false); // no sprint-fly without the Flight blessing
+            // a slow flier (ghast, blaze, breeze) can NEVER sprint-fly — the Flight blessing only nudges its speed. the
+            // quick ones (bat, phantom) get the blessing's sprint dash, as the bat disguise does.
+            boolean slowFlier = PuppeteerClient.isSlowFlier(p);
+            boolean canSprint = hasFlight && !slowFlier;
+            if (!canSprint && p.isSprinting()) {
+                p.setSprinting(false);
             }
-            boolean sprintFly = hasFlight && p.isSprinting();
-            p.getAbilities().setFlyingSpeed((float) (double) (sprintFly
-                    ? com.oliver.witchmod.Config.BAT_FLIGHT_SPRINT_SPEED.get()
-                    : com.oliver.witchmod.Config.BAT_FLY_SPEED.get()));
+            boolean sprintFly = canSprint && p.isSprinting();
+            // the bat disguise / bat puppet use the bat's speeds; each other flying puppet has its own (and winding up a
+            // shot slows it right down).
+            Double own = PuppeteerClient.flySpeed(p, slowFlier ? hasFlight : sprintFly);
+            float speed = (float) (double) (own != null ? own : sprintFly
+                    ? com.oliver.witchmod.Config.BAT_FLIGHT_SPRINT_SPEED.get() : com.oliver.witchmod.Config.BAT_FLY_SPEED.get());
+            // vanilla re-asserts sprint at the start of the next tick (held key / double-tap) and DOUBLES fly speed for
+            // it, so clearing the flag alone still let one sprinting tick through each time — halve the base to cancel it.
+            if (!canSprint && sprintKeyHeld(mc)) {
+                speed *= 0.5F;
+            }
+            p.getAbilities().setFlyingSpeed(speed);
             batSpeedApplied = true;
         } else if (batSpeedApplied) {
             if (p != null) {
@@ -171,7 +188,7 @@ public final class DisguiseClient {
     @SubscribeEvent
     static void onBatFov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
         // the sprint-fly FOV zoom only kicks in when the Flight blessing has unlocked the bat's fast dash.
-        if (event.getPlayer().getData(WitchModAttachments.DISGUISE_TYPE) == 3
+        if ((event.getPlayer().getData(WitchModAttachments.DISGUISE_TYPE) == 3 || PuppeteerClient.isFlyingPuppet(event.getPlayer()))
                 && event.getPlayer().getData(WitchModAttachments.FLIGHT_ACTIVE) >= 1
                 && event.getPlayer().getAbilities().flying && event.getPlayer().isSprinting()) {
             event.setNewFovModifier(event.getNewFovModifier() * com.oliver.witchmod.Config.FLIGHT_ELYTRA_FOV.get().floatValue());

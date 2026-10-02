@@ -75,7 +75,7 @@ public final class CoinGamble {
         List<Holder.Reference<Effect>> all = WitchModRegistries.EFFECT_REGISTRY.holders().toList();
         List<Holder.Reference<Effect>> pool = new ArrayList<>();
         for (Holder.Reference<Effect> h : all) {
-            if (!h.value().selectable()) {
+            if (!com.oliver.witchmod.data.SpecialAttachments.inRandomPools(h.value())) {
                 continue; // internal attachments (e.g. the Infectious state) are never rolled
             }
             EffectCategory cat = h.value().category();

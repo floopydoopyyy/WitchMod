@@ -158,7 +158,7 @@ public final class AmethystBellEffects {
     @Nullable
     private static Holder.Reference<Effect> pickByPower(EffectCategory cat, int target, @Nullable ResourceLocation exclude, RandomSource rng) {
         List<Holder.Reference<Effect>> pool = WitchModRegistries.EFFECT_REGISTRY.holders()
-                .filter(h -> h.value().selectable())
+                .filter(h -> com.oliver.witchmod.data.SpecialAttachments.inRandomPools(h.value()))
                 .filter(h -> h.value().category() == cat)
                 .filter(h -> exclude == null || !h.key().location().equals(exclude))
                 .toList();

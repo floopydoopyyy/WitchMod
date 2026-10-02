@@ -77,16 +77,16 @@ public final class DiscoveryManager {
         }
         player.setData(WitchModAttachments.DISCOVERED_MODIFIERS, discovered);
         Component name = new net.minecraft.world.item.ItemStack(ModifierItems.itemFor(modifier)).getHoverName();
-        player.displayClientMessage(Component.literal("Modifier discovered: ").withStyle(ChatFormatting.DARK_AQUA)
+        player.displayClientMessage(Component.translatable("witchmod.message.discovered_modifier").withStyle(ChatFormatting.DARK_AQUA)
                 .append(name.copy().withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" — your Compendium has been updated.").withStyle(ChatFormatting.GRAY)), false);
+                .append(Component.translatable("witchmod.message.compendium_updated").withStyle(ChatFormatting.GRAY)), false);
         return true;
     }
 
     private static void alert(ServerPlayer player, ResourceLocation id) {
-        player.displayClientMessage(Component.literal("Discovered: ").withStyle(ChatFormatting.DARK_PURPLE)
+        player.displayClientMessage(Component.translatable("witchmod.message.discovered").withStyle(ChatFormatting.DARK_PURPLE)
                 .append(Component.literal(titleCase(id.getPath())).withStyle(ChatFormatting.LIGHT_PURPLE))
-                .append(Component.literal(" — your Compendium has been updated.").withStyle(ChatFormatting.GRAY)), false);
+                .append(Component.translatable("witchmod.message.compendium_updated").withStyle(ChatFormatting.GRAY)), false);
     }
 
     /**
@@ -113,7 +113,7 @@ public final class DiscoveryManager {
         List<ResourceLocation> pool = new ArrayList<>();
         for (Effect e : WitchModRegistries.EFFECT_REGISTRY) {
             ResourceLocation id = WitchModRegistries.EFFECT_REGISTRY.getKey(e);
-            if (id == null || !e.selectable() || e.category() != category
+            if (id == null || !e.selectable() || e.special() || e.category() != category
                     || e.powerLevel() < min || e.powerLevel() > max) {
                 continue;
             }
@@ -125,10 +125,20 @@ public final class DiscoveryManager {
         }
     }
 
+    /** ids whose display name can't be derived from snake case (punctuation). */
+    private static final java.util.Map<String, String> NAME_OVERRIDES = java.util.Map.of("pandoras_box", "Pandora's Box");
+
     public static String titleCase(String snakeCase) {
+        String override = NAME_OVERRIDES.get(snakeCase);
+        if (override != null) {
+            return override;
+        }
         String[] parts = snakeCase.split("_");
         StringBuilder result = new StringBuilder();
         for (String part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
             if (result.length() > 0) {
                 result.append(' ');
             }

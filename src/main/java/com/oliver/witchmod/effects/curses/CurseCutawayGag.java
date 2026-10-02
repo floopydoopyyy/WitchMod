@@ -695,7 +695,7 @@ public final class CurseCutawayGag extends Effect {
         Vec3 offAt = victim.position().add(aisle.scale(1.25)).add(perp.scale(1.8));
         var officiant = EntityType.VILLAGER.spawn(level, BlockPos.containing(offAt), MobSpawnType.EVENT);
         if (officiant != null) {
-            officiant.setCustomName(Component.literal("Officiant"));
+            officiant.setCustomName(Component.translatable("witchmod.name.officiant"));
             officiant.setInvulnerable(true);
             officiant.setNoAi(true);
             officiant.setPos(offAt.x, victim.getY(), offAt.z);
@@ -1379,7 +1379,7 @@ public final class CurseCutawayGag extends Effect {
             case ANNOYING_MUSIC -> {
                 // positional loop at the victim (id 2), stopped when the cutaway ends (endCutaway clears CUTAWAY_LOOP).
                 watcher.setData(WitchModAttachments.CUTAWAY_LOOP, 2);
-                // NOTE: dedicated "annoying music" track pending — the client loops a Loading-Screen hold track for now.
+                // loops the loading screen's goofy track (a dedicated track was dropped).
             }
             case BOUNCY -> {
                 if (victim instanceof ServerPlayer p) {
@@ -1777,6 +1777,7 @@ public final class CurseCutawayGag extends Effect {
             // just the custom name — NOT setCustomNameVisible(true), which forces the always-on tag that reads
             // wrong (vanilla named mobs only show the tag when you look at them).
             sheep.setCustomName(Component.literal("Woolliam"));
+            sheep.addTag("witchmod_character"); // one of the mod's characters (the puppeteer leaves him alone)
         }
         return sheep != null ? sheep : new Sheep(EntityType.SHEEP, level); // never null in practice
     }

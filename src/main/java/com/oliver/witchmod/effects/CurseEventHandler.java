@@ -340,6 +340,7 @@ public final class CurseEventHandler {
     static void onGiantAttack(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer giant
                 && EffectManager.isActive(giant, Curses.GIANT)
+                && !com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(giant)
                 && !com.oliver.witchmod.effects.curses.SizeCrisis.isSmall(giant)) {
             CurseGiant.onMeleeHit(giant, event.getTarget());
         }
@@ -398,6 +399,7 @@ public final class CurseEventHandler {
         // take 75% less from ANY source (only while actually big — a size-crisis dwarf takes it normally).
         if (event.getEntity() instanceof ServerPlayer victim
                 && EffectManager.isActive(victim, Curses.GIANT)
+                && !com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(victim)
                 && !com.oliver.witchmod.effects.curses.SizeCrisis.isSmall(victim)) {
             event.setAmount(CurseGiant.onDamageTaken(event.getAmount()));
         }
@@ -405,6 +407,7 @@ public final class CurseEventHandler {
         if (event.getSource().getEntity() instanceof ServerPlayer attacker
                 && CurseGiant.isMelee(event.getSource().getDirectEntity(), attacker)
                 && EffectManager.isActive(attacker, Curses.GIANT)
+                && !com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(attacker)
                 && !com.oliver.witchmod.effects.curses.SizeCrisis.isSmall(attacker)) {
             event.setAmount(CurseGiant.onMeleeDealt(event.getAmount()));
         }
@@ -514,6 +517,16 @@ public final class CurseEventHandler {
         // bedrock Moment (Ghost Blocks): a block you place may briefly appear then reject itself.
         if (event.getEntity() instanceof ServerPlayer player && EffectManager.isActive(player, Curses.BEDROCK_MOMENT)) {
             com.oliver.witchmod.effects.curses.bedrock.CurseBedrockMoment.onBlockPlaced(player, event.getPos());
+        }
+    }
+
+    /** pests: a melee hit that actually lands on a mob can shake silverfish out of it. */
+    @SubscribeEvent
+    static void onPestsMobHit(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post event) {
+        if (event.getSource().getDirectEntity() instanceof ServerPlayer player
+                && event.getEntity() instanceof net.minecraft.world.entity.Mob mob
+                && event.getNewDamage() > 0.0F && EffectManager.isActive(player, Curses.PESTS)) {
+            CursePests.onMobHit(player, mob);
         }
     }
 
@@ -815,11 +828,13 @@ public final class CurseEventHandler {
         }
         float[] beforeEating = PRE_EAT_FOOD.remove(player.getUUID());
         FoodProperties food = stack.get(DataComponents.FOOD);
+        boolean allergen = EffectManager.isActive(player, Curses.ALLERGIC)
+                && CurseAllergic.isForbidden(CurseAllergic.dietOf(player), stack);
 
         // gluttony: the two rows are ONE bar, so nutrition vanilla couldn't fit (because the lower half was
         // already full) spills UP into the extra row instead of being wasted. Saturation is then docked, so
-        // meals never stick and you have to keep grazing.
-        if (food != null && beforeEating != null && EffectManager.isActive(player, Curses.GLUTTONY)) {
+        // meals never stick and you have to keep grazing. (an allergen gives nothing to spill.)
+        if (food != null && beforeEating != null && !allergen && EffectManager.isActive(player, Curses.GLUTTONY)) {
             int gained = player.getFoodData().getFoodLevel() - (int) beforeEating[0];
             CurseGluttony.feed(player, food.nutrition() - gained);
 
@@ -841,19 +856,9 @@ public final class CurseEventHandler {
             Curses.MUNCHIES.value().markDiscoveredByVictim(player); // discover on the first meal
         }
 
-        // allergic: react badly to anything the rolled diet forbids. This event fires AFTER vanilla applied
-        // the food/potion, so we punish, strip any beneficial potion effects, and claw back the nutrition.
-        if (EffectManager.isActive(player, Curses.ALLERGIC)) {
-            CurseAllergic.Diet diet = CurseAllergic.dietOf(player);
-            if (CurseAllergic.isForbidden(diet, stack)) {
-                CurseAllergic.reactBadly(player);
-                CurseAllergic.stripBeneficialEffects(player, stack);
-                if (beforeEating != null) {
-                    CurseAllergic.reduceGain(player, (int) beforeEating[0], beforeEating[1]);
-                }
-                // rule 2: the victim discovers Allergic on their first bad reaction, not when it landed.
-                Curses.ALLERGIC.get().markDiscoveredByVictim(player);
-            }
+        // allergic: fires after vanilla applied the food/potion, so claw the benefit back and react.
+        if (allergen) {
+            CurseAllergic.onAteAllergen(player, stack, beforeEating);
         }
     }
 

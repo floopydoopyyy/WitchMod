@@ -77,7 +77,7 @@ public final class TaxManEntity extends Mob {
         setInvulnerable(true);
         setPersistenceRequired();
         setCustomNameVisible(true);
-        setCustomName(Component.literal("Tax Man"));
+        setCustomName(Component.translatable("witchmod.name.tax_man"));
     }
 
     public static AttributeSupplier.Builder createAttributes() {

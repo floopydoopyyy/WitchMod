@@ -103,7 +103,7 @@ public final class BodyguardEntity extends PathfinderMob {
     public BodyguardEntity(EntityType<? extends BodyguardEntity> type, Level level) {
         super(type, level);
         setCanPickUpLoot(false);
-        setCustomName(Component.literal("Bodyguard"));
+        setCustomName(Component.translatable("entity.witchmod.bodyguard"));
         setCustomNameVisible(true);
         equipArmour();
     }
