@@ -16,7 +16,7 @@ public final class OrganisedButton extends Button {
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/gui/organised_button.png");
 
     public OrganisedButton(int x, int y, OnPress onPress) {
-        super(x, y, 16, 16, Component.literal("Organised stash"), onPress, DEFAULT_NARRATION);
+        super(x, y, 16, 16, Component.translatable("witchmod.gui.organised_stash"), onPress, DEFAULT_NARRATION);
     }
 
     @Override

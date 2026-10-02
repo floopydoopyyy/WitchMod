@@ -24,7 +24,7 @@ public final class MarketplaceAdScreen extends Screen {
     private final ResourceLocation texture;
 
     public MarketplaceAdScreen(int adIndex) {
-        super(Component.literal("Marketplace"));
+        super(Component.translatable("witchmod.gui.marketplace"));
         this.texture = ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "textures/gui/marketplace/ad_" + adIndex + ".png");
     }
 

@@ -126,7 +126,7 @@ public final class PlayerEssenceEventHandler {
             }
         }
         if (owners.isEmpty()) {
-            user.displayClientMessage(Component.literal("No one's spawn is set at this bed.").withStyle(ChatFormatting.GRAY), true);
+            user.displayClientMessage(Component.translatable("witchmod.player_essence.no_spawn").withStyle(ChatFormatting.GRAY), true);
             return;
         }
         PlayerEssenceData chosen = owners.get(user.getRandom().nextInt(owners.size())); // random if several share it

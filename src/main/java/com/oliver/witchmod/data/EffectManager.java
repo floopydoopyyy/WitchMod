@@ -169,7 +169,10 @@ public final class EffectManager {
         // and Infectious is exempt (modifier). Nothing can push a player past the limit.
         int cap = Config.MAX_ACTIVE_EFFECTS_PER_PLAYER.get();
         EffectCategory category = effect.value().category();
-        if (!isCapExempt(id) && active.get(id).isEmpty() && countActiveOfCategory(target, category) >= cap) {
+        // an effect only held by a pandora's box / cornucopia rotation counts as a NEW slot for a real cast.
+        boolean rouletteHeld = com.oliver.witchmod.effects.EffectRoulette.owns(target, id);
+        if (!isCapExempt(target, id) && (active.get(id).isEmpty() || rouletteHeld)
+                && countActiveOfCategory(target, category) >= cap) {
             if (caster != null) {
                 caster.displayClientMessage(Component.literal(target.getName().getString()
                         + " already has the maximum " + cap + " "
@@ -187,6 +190,10 @@ public final class EffectManager {
                 : active.get(id).flatMap(ActiveEffectInstance::caster);
         active.put(id, new ActiveEffectInstance(effectiveDuration, casterId, opts.display()));
         target.setData(WitchModAttachments.ACTIVE_EFFECTS, active);
+        if (rouletteHeld) {
+            // struck for real: it's one effect now, owned by the cast — the rotation won't remove it.
+            com.oliver.witchmod.effects.EffectRoulette.release(target, id);
+        }
         // size the effect's own vanilla sub-effects to the kept (never-shortened) duration.
         effect.value().onApply(target, caster, effectiveDuration);
         StatusEffectSync.sync(target);
@@ -283,17 +290,29 @@ public final class EffectManager {
                 .orElse(false);
     }
 
-    /** total curses+blessings active on {@code target} — the per-player cap check. */
+    /** total curses+blessings active on {@code target} (not counting a pandora's box / cornucopia's rotation). */
     public static int activeCount(ServerPlayer target) {
-        return target.getExistingData(WitchModAttachments.ACTIVE_EFFECTS)
-                .map(ActiveEffects::size)
-                .orElse(0);
+        ActiveEffects active = target.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
+        if (active == null) {
+            return 0;
+        }
+        int n = 0;
+        for (ResourceLocation id : active.activeIds()) {
+            if (!com.oliver.witchmod.effects.EffectRoulette.owns(target, id)) {
+                n++;
+            }
+        }
+        return n;
     }
 
-    /** infectious is a modifier internally classed as a curse — exempt from (and uncounted by) the hard cap. */
-    private static boolean isCapExempt(ResourceLocation id) {
+    /**
+     * exempt from (and uncounted by) the hard cap: infectious (a modifier internally classed as a curse), and
+     * anything a pandora's box / cornucopia is holding — the whole point of those is going past the limit.
+     */
+    private static boolean isCapExempt(ServerPlayer target, ResourceLocation id) {
         String p = id.getPath();
-        return p.equals("infectious") || p.equals("very_infectious");
+        return p.equals("infectious") || p.equals("very_infectious")
+                || com.oliver.witchmod.effects.EffectRoulette.owns(target, id);
     }
 
     /** count active NON-exempt effects of {@code category} (drives the absolute 3-per-category cap). */
@@ -304,7 +323,7 @@ public final class EffectManager {
         }
         int n = 0;
         for (ResourceLocation id : active.activeIds()) {
-            if (!isCapExempt(id) && WitchModRegistries.EFFECT_REGISTRY.getOptional(id)
+            if (!isCapExempt(target, id) && WitchModRegistries.EFFECT_REGISTRY.getOptional(id)
                     .map(e -> e.category() == category).orElse(false)) {
                 n++;
             }

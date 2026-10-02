@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.monster.Silverfish;
 import net.minecraft.world.item.Items;
@@ -16,8 +17,8 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 
 /**
- * every block you break has something living in it. A decent chance per block mined —
- * ANY block, not just stone — that 1–3 silverfish pour out of the gap and come straight for you.
+ * every block you break (and every mob you hit) has something living in it. A decent chance per block mined —
+ * ANY block, not just stone — or per melee hit on a mob, that 1–3 silverfish pour out and come straight for you.
  *
  * <p><b>The nearby ceiling isn't balance, it's a safety guard.</b> Silverfish call MORE silverfish out of
  * surrounding stone when they're hit, so a curse that adds them on every few blocks mined can snowball into
@@ -42,14 +43,28 @@ public final class CursePests extends Effect {
 
     /** hook for breaking a block — see {@code CurseEventHandler}. */
     public static void onBlockMined(ServerPlayer player, BlockPos pos) {
-        double chance = Config.PESTS_CHANCE.get();
+        if (roll(player, Config.PESTS_CHANCE.get())) {
+            spawn(player, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        }
+    }
+
+    /** hook for landing a melee hit on a mob: they crawl out of it instead. silverfish don't breed more silverfish. */
+    public static void onMobHit(ServerPlayer player, Mob mob) {
+        if (!(mob instanceof Silverfish) && roll(player, Config.PESTS_MOB_HIT_CHANCE.get())) {
+            spawn(player, mob.getX(), mob.getY(), mob.getZ());
+        }
+    }
+
+    private static boolean roll(ServerPlayer player, double chance) {
         if (com.oliver.witchmod.synergy.Synergies.VIRAL_INFESTATION.activeFor(player)) {
             chance *= Config.PESTS_POPULARITY_MULTIPLIER.get(); // popularity's crowd draws far more of them out
         }
-        if (player.getRandom().nextInt(100) >= chance) {
-            return;
-        }
+        return player.getRandom().nextInt(100) < chance;
+    }
+
+    private static void spawn(ServerPlayer player, double x, double y, double z) {
         ServerLevel level = player.serverLevel();
+        BlockPos pos = BlockPos.containing(x, y, z);
 
         double radius = Config.PESTS_NEARBY_RADIUS.get();
         AABB around = new AABB(pos).inflate(radius);
@@ -67,8 +82,7 @@ public final class CursePests extends Effect {
             if (silverfish == null) {
                 continue;
             }
-            silverfish.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
-                    player.getRandom().nextFloat() * 360.0F, 0.0F);
+            silverfish.moveTo(x, y, z, player.getRandom().nextFloat() * 360.0F, 0.0F);
             silverfish.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.TRIGGERED, null);
             silverfish.setTarget(player); // they know exactly whose fault this is
             level.addFreshEntity(silverfish);

@@ -37,6 +37,10 @@ public final class WitchModMobEffects {
     public static final DeferredHolder<MobEffect, MobEffect> UNSEEN =
             MOB_EFFECTS.register("unseen", () -> new SimpleMobEffect(MobEffectCategory.BENEFICIAL, 0x37374F));
 
+    /** allergic's tiered reaction (amplifier 0..2). real behaviour lives in the effect class; see CurseAllergic. */
+    public static final DeferredHolder<MobEffect, MobEffect> ALLERGIC_REACTION =
+            MOB_EFFECTS.register("allergic_reaction", com.oliver.witchmod.effects.curses.AllergicReaction::new);
+
     private WitchModMobEffects() {}
 
     public static void register(IEventBus modEventBus) {

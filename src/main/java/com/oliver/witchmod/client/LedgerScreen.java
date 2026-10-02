@@ -41,7 +41,7 @@ public final class LedgerScreen extends Screen {
     private int listTop, listBottom, listLeft, listRight;
 
     private LedgerScreen(int range, List<Row> rows) {
-        super(Component.literal("The Ledger"));
+        super(Component.translatable("witchmod.gui.ledger"));
         this.range = range;
         this.rows = rows;
     }
@@ -51,6 +51,14 @@ public final class LedgerScreen extends Screen {
                 .map(e -> new Row(e.caster(), e.target(), e.effect(), e.modifier(), e.result(), e.scribbled()))
                 .toArray(Row[]::new);
         Minecraft.getInstance().setScreen(new LedgerScreen(range, List.of(rows)));
+    }
+
+    @Override
+    protected void init() {
+        addRenderableWidget(com.oliver.witchmod.ui.PanelCornerButton.at(this.width,
+                (this.width - PANEL_W) / 2, (this.height - PANEL_H) / 2, PANEL_W, 3,
+                com.oliver.witchmod.ui.PanelCornerButton.CLOSE, Component.translatable("witchmod.gui.close"),
+                b -> onClose()));
     }
 
     @Override
@@ -76,7 +84,7 @@ public final class LedgerScreen extends Screen {
         g.fill(left, top, left + PANEL_W, top + PANEL_H, PAGE);
 
         // header.
-        Component title = Component.literal("The Ledger").withStyle(s -> s.withBold(true));
+        Component title = Component.translatable("witchmod.gui.ledger").withStyle(s -> s.withBold(true));
         g.drawString(font, title, left + PANEL_W / 2 - font.width(title) / 2, top + 8, PURPLE, false);
         String sub = "recent activity within " + range + " blocks";
         g.drawString(font, Component.literal(sub), left + PANEL_W / 2 - font.width(sub) / 2, top + 19, INK_SOFT, false);
@@ -122,9 +130,9 @@ public final class LedgerScreen extends Screen {
 
     private void drawRow(GuiGraphics g, Font font, Row row, int x, int y, int w) {
         if (row.scribbled()) {
-            g.drawString(font, Component.literal("someone did something to someone")
+            g.drawString(font, Component.translatable("witchmod.gui.ledger.scribble")
                     .withStyle(ChatFormatting.OBFUSCATED, ChatFormatting.DARK_GRAY), x, y, 0xFF555555, false);
-            g.drawString(font, Component.literal("(scribbled out)").withStyle(ChatFormatting.ITALIC), x, y + 10, INK_SOFT, false);
+            g.drawString(font, Component.translatable("witchmod.gui.ledger.scribbled").withStyle(ChatFormatting.ITALIC), x, y + 10, INK_SOFT, false);
             g.fill(x, y + ROW_H - 3, x + w, y + ROW_H - 2, 0x11000000);
             return;
         }

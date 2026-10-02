@@ -22,9 +22,9 @@ public class BoundPlayerItem extends Item {
         super.appendHoverText(stack, context, tooltip, flag);
         PlayerEssenceData bound = stack.get(WitchModDataComponents.BOUND_PLAYER);
         if (bound != null) {
-            tooltip.add(Component.literal("Bound to: " + bound.playerName()).withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable("witchmod.tooltip.bound_to", bound.playerName()).withStyle(ChatFormatting.GRAY));
         } else {
-            tooltip.add(Component.literal("Unbound").withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.add(Component.translatable("witchmod.tooltip.unbound").withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 }

@@ -58,6 +58,12 @@ public final class CurseDwarfism extends Effect {
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
+        // a puppet wears the mob's body, not yours — the shrink waits until you step out.
+        if (com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(target)) {
+            clearModifiers(target);
+            SizeCrisis.clear(target);
+            return;
+        }
         // size-crisis synergy (with Giant): the oscillator owns the size while both are active.
         if (com.oliver.witchmod.synergy.Synergies.SIZE_CRISIS.activeFor(target)) {
             SizeCrisis.tick(target);

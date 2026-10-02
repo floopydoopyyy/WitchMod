@@ -221,7 +221,7 @@ public final class ClientCurseHandler {
         boolean jumpPressed = jumpDown && !spiderJumpWasDown; // rising edge
         spiderJumpWasDown = jumpDown;
 
-        if (player.getData(WitchModAttachments.SPIDER_ACTIVE) < 0
+        if ((player.getData(WitchModAttachments.SPIDER_ACTIVE) < 0 && !PuppeteerClient.isSpiderPuppet(player))
                 || player.onGround() || player.isInWater() || player.getAbilities().flying
                 || !spiderNearWall(player)) {
             spiderAttached = false; // on the ground / off the wall — must re-attach before jumping off
@@ -1364,7 +1364,7 @@ public final class ClientCurseHandler {
                 b -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(
                         new com.oliver.witchmod.network.WitchModNetwork.OpenOrganisedPayload()));
         button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                net.minecraft.network.chat.Component.literal("Organised stash")));
+                net.minecraft.network.chat.Component.translatable("witchmod.gui.organised_stash")));
         event.addListener(button);
     }
 

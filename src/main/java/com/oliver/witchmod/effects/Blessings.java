@@ -94,6 +94,10 @@ public final class Blessings {
     public static final DeferredHolder<Effect, BlessingBloodhound> BLOODHOUND = register("bloodhound", BlessingBloodhound::new);
     public static final DeferredHolder<Effect, BlessingGuardianAngel> GUARDIAN_ANGEL = register("guardian_angel", BlessingGuardianAngel::new);
 
+    // secret attachments — hidden until every other blessing is discovered (see SpecialAttachments).
+    public static final DeferredHolder<Effect, BlessingCornucopia> CORNUCOPIA = register("cornucopia", BlessingCornucopia::new);
+    public static final DeferredHolder<Effect, BlessingPuppeteer> PUPPETEER = register("puppeteer", BlessingPuppeteer::new);
+
     private Blessings() {}
 
     private static <T extends Effect> DeferredHolder<Effect, T> register(String name, java.util.function.Supplier<T> factory) {

@@ -38,12 +38,13 @@ public final class ExecutionersCoinEventHandler {
 
         List<Holder.Reference<Effect>> curses = WitchModRegistries.EFFECT_REGISTRY.holders()
                 .filter(holder -> holder.value().category() == EffectCategory.CURSE)
+                .filter(holder -> com.oliver.witchmod.data.SpecialAttachments.inRandomPools(holder.value()))
                 .toList();
         if (!curses.isEmpty()) {
             Holder.Reference<Effect> curse = curses.get(player.getRandom().nextInt(curses.size()));
             EffectManager.apply(player, curse, 45 * 60 * 20, null);
         }
-        player.displayClientMessage(Component.literal("The Executioner's Coin spares you — at a price."), false);
+        player.displayClientMessage(Component.translatable("witchmod.executioners_coin.spared"), false);
     }
 
     private static ItemStack findCoin(ServerPlayer player) {

@@ -48,7 +48,7 @@ public final class ItemEffigy extends Item {
 
         ActiveEffects active = caster.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);
         if (active == null || active.isEmpty()) {
-            caster.displayClientMessage(Component.literal("You have no curses to forward."), true);
+            caster.displayClientMessage(Component.translatable("witchmod.effigy.no_curses"), true);
             return InteractionResult.FAIL;
         }
 
@@ -65,7 +65,7 @@ public final class ItemEffigy extends Item {
             });
         }
         if (curses.isEmpty()) {
-            caster.displayClientMessage(Component.literal("You have no curses to forward."), true);
+            caster.displayClientMessage(Component.translatable("witchmod.effigy.no_curses"), true);
             return InteractionResult.FAIL;
         }
 

@@ -62,6 +62,13 @@ public final class Config {
                     "refused, the caster is quietly told, and any essence is refunded. Set true to IGNORE all client",
                     "opt-outs, so those curses always land regardless of the target's preference.")
             .define("ignoreClientOptOuts", false);
+    public static final ModConfigSpec.BooleanValue SPECIAL_ATTACHMENTS_GATED = RULES
+            .comment("The secret attachments (Pandora's Box, Shadow, Cornucopia, Puppeteer). When true (the default) each",
+                    "stays hidden from the Compendium and from every random roll until a player has discovered every",
+                    "other effect of its kind (all curses / all blessings). A caster without that knowledge is warned on",
+                    "their first attempt, and every later attempt BACKFIRES. Set false to treat them like any other",
+                    "attachment: visible as rumours, rollable, and castable by anyone.")
+            .define("specialAttachmentsGated", true);
     static { RULES.pop(); }
 
     // ── recipe toggles (items.toml [recipes]) ──
@@ -304,23 +311,138 @@ public final class Config {
     // per-attachment balancing constants
 
     static { CURSES.comment("witchmod — curses.toml: per-curse balance knobs, one [section] per curse.").push("allergic"); }
-    public static final ModConfigSpec.IntValue ALLERGIC_BLINDNESS_SECONDS = CURSES
-            .comment("Allergic: how long the blindness lasts after eating a food your rolled diet forbids.")
-            .defineInRange("allergicBlindnessSeconds", 8, 0, 600);
+    // -- diet: picked from the overworld time of day when the curse lands --
+    public static final ModConfigSpec.IntValue ALLERGIC_CARNIVORE_START = CURSES
+            .comment("Allergic: time of day (0..23999, 0 = sunrise, 6000 = noon, 12000 = sunset, 18000 = midnight) from",
+                    "which a cast gives the CARNIVORE diet (allergic to plants). Each diet runs from its start until",
+                    "the next diet's start, wrapping round midnight.")
+            .defineInRange("allergicCarnivoreStartTime", 0, 0, 23999);
+    public static final ModConfigSpec.IntValue ALLERGIC_VEGETARIAN_START = CURSES
+            .comment("Allergic: time of day from which a cast gives the VEGETARIAN diet (allergic to meat).")
+            .defineInRange("allergicVegetarianStartTime", 8000, 0, 23999);
+    public static final ModConfigSpec.IntValue ALLERGIC_CLEAN_EATER_START = CURSES
+            .comment("Allergic: time of day from which a cast gives the CLEAN EATER diet (allergic to magic food and potions).")
+            .defineInRange("allergicCleanEaterStartTime", 16000, 0, 23999);
+    public static final ModConfigSpec.IntValue ALLERGIC_CAST_MESSAGE_DELAY = CURSES
+            .comment("Allergic: ticks after the curse lands before the caster's action bar names the allergy (so it",
+                    "doesn't instantly overwrite the ritual's own success message).")
+            .defineInRange("allergicCastMessageDelayTicks", 40, 0, 200);
 
-    public static final ModConfigSpec.IntValue ALLERGIC_POISON_SECONDS = CURSES
-            .comment("Allergic: how long the poison lasts after eating a forbidden food.")
-            .defineInRange("allergicPoisonSeconds", 6, 0, 600);
-
-    public static final ModConfigSpec.IntValue ALLERGIC_POISON_LEVEL = CURSES
-            .comment("Allergic: poison level (1 = Poison I) applied after eating a forbidden food.")
-            .defineInRange("allergicPoisonLevel", 1, 1, 10);
-
+    // -- eating an allergen --
     public static final ModConfigSpec.IntValue ALLERGIC_NUTRITION_PERCENT = CURSES
-            .comment("Allergic: percent of the hunger AND saturation a forbidden food actually gives you",
-                    "(50 = half). Applied by measuring the real gain and taking the rest back, so it stays",
-                    "correct even when you were nearly full.")
-            .defineInRange("allergicNutritionPercent", 50, 0, 100);
+            .comment("Allergic: percent of the hunger AND saturation a forbidden food actually gives you (0 = nothing).",
+                    "Beneficial food/potion effects are always stripped.")
+            .defineInRange("allergicNutritionPercent", 10, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_EAT_TIER = CURSES
+            .comment("Allergic: reaction tier (1..3) caused by eating or drinking a forbidden item.")
+            .defineInRange("allergicEatTier", 3, 1, 3);
+    public static final ModConfigSpec.IntValue ALLERGIC_EAT_SECONDS = CURSES
+            .comment("Allergic: how long that eating reaction lasts (seconds).")
+            .defineInRange("allergicEatSeconds", 30, 1, 600);
+
+    // -- exposure scanning --
+    public static final ModConfigSpec.IntValue ALLERGIC_CHECK_INTERVAL = CURSES
+            .comment("Allergic: ticks between exposure scans (10 = twice a second).")
+            .defineInRange("allergicCheckIntervalTicks", 10, 1, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_BLOCK_RADIUS = CURSES
+            .comment("Allergic: how close (blocks) an allergen BLOCK must be to set you off.")
+            .defineInRange("allergicBlockRadius", 3, 1, 8);
+    public static final ModConfigSpec.IntValue ALLERGIC_BLOCK_SECONDS = CURSES
+            .comment("Allergic: an allergen block only ever causes a TIER 1 reaction, lasting this long (topped up while near).")
+            .defineInRange("allergicBlockSeconds", 5, 1, 120);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLERGIC_VEGETARIAN_BLOCKS = CURSES
+            .comment("Allergic: blocks that set off a VEGETARIAN. Block ids, or #tags.")
+            .defineListAllowEmpty("allergicVegetarianBlocks", List.of("minecraft:hay_block", "minecraft:smoker"),
+                    () -> "", Config::validateId);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLERGIC_CARNIVORE_BLOCKS = CURSES
+            .comment("Allergic: blocks that set off a CARNIVORE. Block ids, or #tags.")
+            .defineListAllowEmpty("allergicCarnivoreBlocks", List.of("#minecraft:crops", "#minecraft:flowers",
+                    "minecraft:beehive", "minecraft:bee_nest"), () -> "", Config::validateId);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLERGIC_CLEAN_EATER_BLOCKS = CURSES
+            .comment("Allergic: blocks that set off a CLEAN EATER. Block ids, or #tags.")
+            .defineListAllowEmpty("allergicCleanEaterBlocks", List.of("minecraft:brewing_stand", "minecraft:enchanting_table",
+                    "witchmod:bewitching_table", "minecraft:lapis_block", "witchmod:cursed_essence_block"),
+                    () -> "", Config::validateId);
+    public static final ModConfigSpec.DoubleValue ALLERGIC_MOB_RADIUS = CURSES
+            .comment("Allergic: how close (blocks) a hazardous mob, player or dropped item must be to set you off.")
+            .defineInRange("allergicMobRadius", 5.0, 1.0, 16.0);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLERGIC_VEGETARIAN_MOBS = CURSES
+            .comment("Allergic: entity types that set off a VEGETARIAN. Entity ids, or #tags. (Empty by default — for",
+                    "vegetarians it's the meat itself: dropped meat and meat in inventories.)")
+            .defineListAllowEmpty("allergicVegetarianMobs", List.of(), () -> "", Config::validateId);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLERGIC_CARNIVORE_MOBS = CURSES
+            .comment("Allergic: entity types that set off a CARNIVORE. Entity ids, or #tags.")
+            .defineListAllowEmpty("allergicCarnivoreMobs", List.of("minecraft:bee"), () -> "", Config::validateId);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLERGIC_CLEAN_EATER_MOBS = CURSES
+            .comment("Allergic: entity types that set off a CLEAN EATER. Entity ids, or #tags.")
+            .defineListAllowEmpty("allergicCleanEaterMobs", List.of("minecraft:witch", "#minecraft:illager"),
+                    () -> "", Config::validateId);
+    public static final ModConfigSpec.BooleanValue ALLERGIC_ITEMS_ARE_HAZARDS = CURSES
+            .comment("Allergic: forbidden items on the ground or in a nearby player's inventory count as hazardous mobs.")
+            .define("allergicItemsAreHazards", true);
+    public static final ModConfigSpec.BooleanValue ALLERGIC_OWN_INVENTORY = CURSES
+            .comment("Allergic: carrying a forbidden item in your OWN inventory counts as a hazard too.")
+            .define("allergicOwnInventoryCounts", true);
+    public static final ModConfigSpec.BooleanValue ALLERGIC_CARNIVORE_FEARS_VEGETARIANS = CURSES
+            .comment("Allergic: other players with the Vegetarian allergy count as hazards for a Carnivore.")
+            .define("allergicCarnivoreVegetarianPlayers", true);
+    public static final ModConfigSpec.BooleanValue ALLERGIC_CLEAN_EATER_FEARS_BUFFS = CURSES
+            .comment("Allergic: other players with a positive potion effect (not this mod's blessing markers) count as",
+                    "hazards for a Clean Eater.")
+            .define("allergicCleanEaterBuffedPlayers", true);
+
+    // -- mob exposure build-up: tier 1 on contact, tier 2 after a while, tier 3 after a while longer --
+    public static final ModConfigSpec.IntValue ALLERGIC_MOB_TIER1_SECONDS = CURSES
+            .comment("Allergic: a hazardous mob nearby causes tier 1 for this long (topped up while near).")
+            .defineInRange("allergicMobTier1Seconds", 8, 1, 120);
+    public static final ModConfigSpec.IntValue ALLERGIC_MOB_TIER2_AFTER = CURSES
+            .comment("Allergic: seconds of mob exposure before the reaction becomes tier 2.")
+            .defineInRange("allergicMobTier2AfterSeconds", 5, 1, 600);
+    public static final ModConfigSpec.IntValue ALLERGIC_MOB_TIER2_SECONDS = CURSES
+            .comment("Allergic: tier 2 from mob exposure lasts this long (topped up while near).")
+            .defineInRange("allergicMobTier2Seconds", 15, 1, 300);
+    public static final ModConfigSpec.IntValue ALLERGIC_MOB_TIER3_AFTER = CURSES
+            .comment("Allergic: FURTHER seconds of mob exposure (on top of the tier 2 wait) before it becomes tier 3.")
+            .defineInRange("allergicMobTier3AfterSeconds", 30, 1, 600);
+    public static final ModConfigSpec.IntValue ALLERGIC_MOB_TIER3_SECONDS = CURSES
+            .comment("Allergic: tier 3 from mob exposure lasts this long (topped up while near).")
+            .defineInRange("allergicMobTier3Seconds", 30, 1, 600);
+    public static final ModConfigSpec.DoubleValue ALLERGIC_VEGETARIAN_EXPOSURE_MULT = CURSES
+            .comment("Allergic: vegetarians build mob exposure this much faster (1.25 = 25% faster).")
+            .defineInRange("allergicVegetarianExposureMultiplier", 1.25, 0.1, 10.0);
+    public static final ModConfigSpec.DoubleValue ALLERGIC_EXPOSURE_DECAY = CURSES
+            .comment("Allergic: how fast built-up exposure drains away once clear of every hazard, relative to how fast",
+                    "it builds (1.0 = the same rate, 2.0 = twice as fast).")
+            .defineInRange("allergicExposureDecayMultiplier", 1.0, 0.0, 20.0);
+
+    // -- what each reaction tier does --
+    public static final ModConfigSpec.IntValue ALLERGIC_TIER1_COOLDOWN_PERCENT = CURSES
+            .comment("Allergic tier 1: attack cooldown is this percent longer.")
+            .defineInRange("allergicTier1AttackCooldownPercent", 40, 0, 1000);
+    public static final ModConfigSpec.IntValue ALLERGIC_TIER2_COOLDOWN_PERCENT = CURSES
+            .comment("Allergic tier 2: attack cooldown is this percent longer.")
+            .defineInRange("allergicTier2AttackCooldownPercent", 80, 0, 1000);
+    public static final ModConfigSpec.IntValue ALLERGIC_TIER3_COOLDOWN_PERCENT = CURSES
+            .comment("Allergic tier 3: attack cooldown is this percent longer.")
+            .defineInRange("allergicTier3AttackCooldownPercent", 150, 0, 1000);
+    public static final ModConfigSpec.IntValue ALLERGIC_TIER1_HEARTS_LOST = CURSES
+            .comment("Allergic tier 1: hearts of max health lost (shown as green hearts). Always leaves at least 1 heart.")
+            .defineInRange("allergicTier1HeartsLost", 2, 0, 50);
+    public static final ModConfigSpec.IntValue ALLERGIC_TIER2_HEARTS_LOST = CURSES
+            .comment("Allergic tier 2: total hearts of max health lost.")
+            .defineInRange("allergicTier2HeartsLost", 4, 0, 50);
+    public static final ModConfigSpec.IntValue ALLERGIC_TIER3_HEARTS_LOST = CURSES
+            .comment("Allergic tier 3: total hearts of max health lost.")
+            .defineInRange("allergicTier3HeartsLost", 5, 0, 50);
+    public static final ModConfigSpec.DoubleValue ALLERGIC_TIER1_FOV_REDUCTION = CURSES
+            .comment("Allergic tier 1: field of view narrowed by this fraction (0.05 = 5% narrower).")
+            .defineInRange("allergicTier1FovReduction", 0.0, 0.0, 0.5);
+    public static final ModConfigSpec.DoubleValue ALLERGIC_TIER2_FOV_REDUCTION = CURSES
+            .comment("Allergic tier 2: field of view narrowed by this fraction.")
+            .defineInRange("allergicTier2FovReduction", 0.05, 0.0, 0.5);
+    public static final ModConfigSpec.DoubleValue ALLERGIC_TIER3_FOV_REDUCTION = CURSES
+            .comment("Allergic tier 3: field of view narrowed by this fraction.")
+            .defineInRange("allergicTier3FovReduction", 0.1, 0.0, 0.5);
 
     static { CURSES.pop(); }
     static { CURSES.push("backseat"); }
@@ -1899,6 +2021,21 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue PICKPOCKET_DISGUISE_MULT = BLESSINGS
             .comment("Pickpocket+Disguise/Prop Hunt synergy: pickpocket chance multiplier when behind someone while wearing a form.")
             .defineInRange("pickpocketDisguiseMultiplier", 3.0, 1.0, 10.0);
+    public static final ModConfigSpec.DoubleValue PICKPOCKET_SNACK_CHANCE_FULL = BLESSINGS
+            .comment("Pickpocket+Munchies/Gluttony synergy (snack thief): chance (0..1) per attempt to steal and instantly",
+                    "eat one of a nearby player's foods when your hunger is nearly full. Rolled independently of the",
+                    "normal pickpocket lift. The chance slides toward pickpocketSnackChanceStarving as your hunger empties.")
+            .defineInRange("pickpocketSnackChanceFull", 0.08, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue PICKPOCKET_SNACK_CHANCE_STARVING = BLESSINGS
+            .comment("Snack thief: chance (0..1) per attempt when your hunger bar is empty.")
+            .defineInRange("pickpocketSnackChanceStarving", 0.7, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PICKPOCKET_SNACK_INTERVAL_FULL = BLESSINGS
+            .comment("Snack thief: ticks between snack attempts when your hunger is nearly full (60 = every 3s).",
+                    "Slides toward pickpocketSnackIntervalStarvingTicks as your hunger empties.")
+            .defineInRange("pickpocketSnackIntervalFullTicks", 60, 1, 1200);
+    public static final ModConfigSpec.IntValue PICKPOCKET_SNACK_INTERVAL_STARVING = BLESSINGS
+            .comment("Snack thief: ticks between snack attempts when your hunger bar is empty (10 = every 0.5s).")
+            .defineInRange("pickpocketSnackIntervalStarvingTicks", 10, 1, 1200);
     static { BLESSINGS.pop(); }
     static { BLESSINGS.push("silver"); }
     public static final ModConfigSpec.IntValue SILVER_VILLAGER_REFUND_CHANCE = BLESSINGS
@@ -1912,6 +2049,29 @@ public final class Config {
     public static final ModConfigSpec.IntValue HOMECOMING_REGEN_AMPLIFIER = SYNERGIES
             .comment("Homebody+Safety synergy: Regeneration amplifier after a teleport (9 = Regeneration 10).")
             .defineInRange("homecomingRegenAmplifier", 9, 0, 20);
+    static { SYNERGIES.pop(); }
+    static { SYNERGIES.push("allergic"); }
+    public static final ModConfigSpec.IntValue ALLERGIC_GASSY_TIER1_CHANCE = SYNERGIES
+            .comment("Allergic+Gassy synergy: percent chance PER SECOND of a reaction fart at tier 1.")
+            .defineInRange("allergicGassyTier1ChancePercent", 3, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_GASSY_TIER2_CHANCE = SYNERGIES
+            .comment("Allergic+Gassy synergy: percent chance per second of a reaction fart at tier 2.")
+            .defineInRange("allergicGassyTier2ChancePercent", 8, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_GASSY_TIER3_CHANCE = SYNERGIES
+            .comment("Allergic+Gassy synergy: percent chance per second of a reaction fart at tier 3.")
+            .defineInRange("allergicGassyTier3ChancePercent", 20, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_GASSY_BIG_CHANCE = SYNERGIES
+            .comment("Allergic+Gassy synergy: percent of tier 3 reaction farts that are BIG ones.")
+            .defineInRange("allergicGassyTier3BigChancePercent", 50, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_HICCUPS_TIER1_CHANCE = SYNERGIES
+            .comment("Allergic+Hiccups synergy: percent chance PER SECOND of a reaction hiccup at tier 1.")
+            .defineInRange("allergicHiccupsTier1ChancePercent", 3, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_HICCUPS_TIER2_CHANCE = SYNERGIES
+            .comment("Allergic+Hiccups synergy: percent chance per second of a reaction hiccup at tier 2.")
+            .defineInRange("allergicHiccupsTier2ChancePercent", 8, 0, 100);
+    public static final ModConfigSpec.IntValue ALLERGIC_HICCUPS_TIER3_CHANCE = SYNERGIES
+            .comment("Allergic+Hiccups synergy: percent chance per second of a reaction hiccup at tier 3.")
+            .defineInRange("allergicHiccupsTier3ChancePercent", 20, 0, 100);
     static { SYNERGIES.pop(); }
     static { SYNERGIES.push("layered"); }
     public static final ModConfigSpec.DoubleValue LAYERED_HIDE_FLOOR_BONUS = SYNERGIES
@@ -2015,6 +2175,1041 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue LASTSTAND_RADIUS = BLESSINGS
             .comment("Last Stand: radius (blocks) of the knockback burst.")
             .defineInRange("lastStandRadius", 6.0, 1.0, 32.0);
+
+    // --- Cornucopia (secret blessing) --------------------------------------------------------------------
+    static { BLESSINGS.pop(); }
+    static { BLESSINGS.push("cornucopia"); }
+    public static final ModConfigSpec.IntValue CORNUCOPIA_SLOTS = BLESSINGS
+            .comment("Cornucopia: how many random blessings it holds on you at once, ON TOP of the normal blessing limit.")
+            .defineInRange("cornucopiaSlots", 3, 1, 10);
+    public static final ModConfigSpec.IntValue CORNUCOPIA_SWAP_SECONDS = BLESSINGS
+            .comment("Cornucopia: seconds between swaps — each swap trades the OLDEST held blessing for a new random one.")
+            .defineInRange("cornucopiaSwapSeconds", 90, 5, 3600);
+
+    // --- Puppeteer (secret blessing) ---------------------------------------------------------------------
+    static { BLESSINGS.pop(); }
+    static { BLESSINGS.push("puppeteer"); }
+    public static final ModConfigSpec.IntValue PUPPETEER_COOLDOWN_SECONDS = BLESSINGS
+            .comment("Puppeteer: seconds after leaving (or losing) a puppet before you can possess another.",
+                    "(1 while testing — raise it for real play, e.g. 60.)")
+            .defineInRange("puppeteerCooldownSeconds", 1, 0, 3600);
+    public static final ModConfigSpec.IntValue PUPPETEER_POSSESS_TICKS = BLESSINGS
+            .comment("Puppeteer: length (ticks) of the possession itself — the mob freezes, your soul streams into it and",
+                    "your body is drawn into its spot before you take control.")
+            .defineInRange("puppeteerPossessTicks", 22, 1, 200);
+    public static final ModConfigSpec.IntValue PUPPETEER_RELEASE_GRACE_TICKS = BLESSINGS
+            .comment("Puppeteer: when you step out, the mob stands dazed (no AI) for this many ticks so it doesn't",
+                    "instantly attack you. Saved with the mob, so a crash or unload can never leave it stuck that way.")
+            .defineInRange("puppeteerReleaseGraceTicks", 40, 0, 400);
+    public static final ModConfigSpec.BooleanValue PUPPETEER_MONSTERS_IGNORE = BLESSINGS
+            .comment("Puppeteer: while you're possessing something, monsters don't target you (you're one of them, or prey",
+                    "they'd ignore anyway).")
+            .define("puppeteerMonstersIgnore", true);
+
+    // zombie family (zombie, husk, drowned, zombie villager, zombified piglin)
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOMBIE_SPEED = BLESSINGS
+            .comment("Puppeteer (zombies): your movement speed as a multiple of normal (sprinting still works).")
+            .defineInRange("puppeteerZombieSpeedMultiplier", 0.9, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOMBIE_ATTACK = BLESSINGS
+            .comment("Puppeteer (zombies): damage of each hit (before your own blessings/curses scale it).")
+            .defineInRange("puppeteerZombieAttackDamage", 3.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOMBIE_REACH = BLESSINGS
+            .comment("Puppeteer (zombies): how far you can hit (blocks) — a zombie's short reach, not a player's 3.")
+            .defineInRange("puppeteerZombieReach", 2.0, 0.5, 6.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOMBIE_RALLY_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (zombies): ticks between Rallies (right-click). 140 = 7s.")
+            .defineInRange("puppeteerZombieRallyCooldownTicks", 140, 0, 2400);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOMBIE_RALLY_RANGE = BLESSINGS
+            .comment("Puppeteer (zombies): Rally MARKS whoever you're LOOKING AT, up to this many blocks away.")
+            .defineInRange("puppeteerZombieRallyRange", 24.0, 1.0, 96.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOMBIE_RALLY_RADIUS = BLESSINGS
+            .comment("Puppeteer (zombies): the marked target glows, and every zombie variant within this many blocks of you",
+                    "goes after it with a speed boost. (Skeleton puppets use the same radius: skeletons near you shoot at",
+                    "whatever your arrows hit.)")
+            .defineInRange("puppeteerZombieRallyRadius", 16.0, 1.0, 64.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOMBIE_RALLY_SECONDS = BLESSINGS
+            .comment("Puppeteer (zombies): how long the mark (glowing) and the rallied zombies' speed boost last.")
+            .defineInRange("puppeteerZombieRallySeconds", 10, 1, 120);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOMBIE_RALLY_SPAWN_LIGHT = BLESSINGS
+            .comment("Puppeteer (zombies): if a Rally finds NO zombies nearby and the light where you stand is at or below",
+                    "this level (0-15), 1-2 of YOUR kind (zombies, husks, ...) claw their way up nearby to answer the call.")
+            .defineInRange("puppeteerZombieRallySpawnLight", 7, 0, 15);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOMBIE_RALLY_SPAWN_MAX = BLESSINGS
+            .comment("Puppeteer (zombies): the most a dark Rally can summon (it rolls 1..this).")
+            .defineInRange("puppeteerZombieRallySpawnMax", 2, 0, 8);
+    public static final ModConfigSpec.BooleanValue PUPPETEER_ZOMBIE_BURNS = BLESSINGS
+            .comment("Puppeteer (zombie, zombie villager, drowned): burn in direct daylight without a helmet, like the real",
+                    "thing (the puppet takes it). Husks and zombified piglins never burn.")
+            .define("puppeteerZombieBurnsInDaylight", true);
+    public static final ModConfigSpec.IntValue PUPPETEER_HUSK_HUNGER_SECONDS = BLESSINGS
+            .comment("Puppeteer (husk): each hit gives the victim Hunger for this long, like a real husk.")
+            .defineInRange("puppeteerHuskHungerSeconds", 7, 0, 120);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DROWNED_SWIM_BONUS = BLESSINGS
+            .comment("Puppeteer (drowned): extra swim speed in water (1.0 = double), and you never run out of air.")
+            .defineInRange("puppeteerDrownedSwimBonus", 1.0, 0.0, 5.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_DROWNED_TRIDENT_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (drowned): ticks between trident throws. Hold right-click to charge (like a real trident,",
+                    "at least 10 ticks), let go to throw. Anything it hits is marked for nearby drowned — and if none are",
+                    "around and it's dark or near water, 1-2 drowned rise to answer (the Rally knobs above apply).")
+            .defineInRange("puppeteerDrownedTridentCooldownTicks", 40, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_DROWNED_TRIDENT_LIFE_TICKS = BLESSINGS
+            .comment("Puppeteer (drowned): thrown tridents can't be picked up and vanish after this many ticks.")
+            .defineInRange("puppeteerDrownedTridentLifeTicks", 60, 5, 1200);
+
+    // creeper
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CREEPER_SPEED = BLESSINGS
+            .comment("Puppeteer (creeper): your movement speed as a multiple of normal (sprinting still works).")
+            .defineInRange("puppeteerCreeperSpeedMultiplier", 1.0, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CREEPER_ATTACK = BLESSINGS
+            .comment("Puppeteer (creeper): damage of each hit — creepers aren't fighters, it's a shove.")
+            .defineInRange("puppeteerCreeperAttackDamage", 1.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CREEPER_REACH = BLESSINGS
+            .comment("Puppeteer (creeper): how far you can hit (blocks).")
+            .defineInRange("puppeteerCreeperReach", 2.0, 0.5, 6.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_CREEPER_FUSE_TICKS = BLESSINGS
+            .comment("Puppeteer (creeper): hold right-click this long (ticks) to explode (a real creeper's is 30). Letting go",
+                    "winds the fuse back down.")
+            .defineInRange("puppeteerCreeperFuseTicks", 30, 5, 200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CREEPER_FUSE_SLOW = BLESSINGS
+            .comment("Puppeteer (creeper): how much slower you move while the fuse is lit (0.75 = 75% slower).")
+            .defineInRange("puppeteerCreeperFuseSlow", 0.75, 0.0, 1.0);
+
+    // farm animals (pig, cow, sheep, chicken)
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ANIMAL_SPEED = BLESSINGS
+            .comment("Puppeteer (farm animals): your movement speed as a multiple of normal (sprinting still works).")
+            .defineInRange("puppeteerAnimalSpeedMultiplier", 0.8, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ANIMAL_ATTACK = BLESSINGS
+            .comment("Puppeteer (farm animals): damage of each hit — a headbutt, not a weapon.")
+            .defineInRange("puppeteerAnimalAttackDamage", 1.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ANIMAL_REACH = BLESSINGS
+            .comment("Puppeteer (farm animals): how far you can hit (blocks).")
+            .defineInRange("puppeteerAnimalReach", 1.5, 0.5, 6.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ANIMAL_SOUND_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (pig / cow / sheep): ticks between Oinks, Moos and grazes.")
+            .defineInRange("puppeteerAnimalSoundCooldownTicks", 20, 0, 1200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ANIMAL_LURE_RANGE = BLESSINGS
+            .comment("Puppeteer (farm animals): another player holding your animal's food (wheat, carrots, seeds...) within",
+                    "this many blocks drags you towards them, like Siren's Call. 0 = off.")
+            .defineInRange("puppeteerAnimalLureRange", 8.0, 0.0, 32.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ANIMAL_LURE_STRENGTH = BLESSINGS
+            .comment("Puppeteer (farm animals): how hard that food drags you (added speed per tick).")
+            .defineInRange("puppeteerAnimalLureStrength", 0.06, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_CHICKEN_EGG_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (chicken): ticks between LAID eggs (tap right-click). 500 = 25s. Chickens also fall gently.")
+            .defineInRange("puppeteerChickenEggCooldownTicks", 500, 0, 12000);
+    public static final ModConfigSpec.IntValue PUPPETEER_CHICKEN_EXPLOSIVE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (chicken): ticks between EXPLOSIVE eggs — HOLD right-click to charge (like a bow, at least",
+                    "10 ticks) and let go to throw. Its own cooldown, separate from laying. 160 = 8s.")
+            .defineInRange("puppeteerChickenExplosiveCooldownTicks", 160, 0, 12000);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CHICKEN_EGG_VELOCITY = BLESSINGS
+            .comment("Puppeteer (chicken): throw speed of a fully charged explosive egg (scaled by charge like a bow).")
+            .defineInRange("puppeteerChickenEggVelocity", 2.24, 0.1, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CHICKEN_EGG_POWER = BLESSINGS
+            .comment("Puppeteer (chicken): explosion power of the explosive egg (tnt is 4). Respects mobGriefing.")
+            .defineInRange("puppeteerChickenEggPower", 3.0, 0.0, 8.0);
+
+    // skeleton
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SKELETON_SPEED = BLESSINGS
+            .comment("Puppeteer (skeleton): your movement speed as a multiple of normal (sprinting still works).")
+            .defineInRange("puppeteerSkeletonSpeedMultiplier", 1.0, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SKELETON_ATTACK = BLESSINGS
+            .comment("Puppeteer (skeleton): damage of a melee hit (your arrows are a real bow's).")
+            .defineInRange("puppeteerSkeletonAttackDamage", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SKELETON_REACH = BLESSINGS
+            .comment("Puppeteer (skeleton): how far you can hit in melee (blocks).")
+            .defineInRange("puppeteerSkeletonReach", 2.0, 0.5, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SKELETON_DRAW_SPEED = BLESSINGS
+            .comment("Puppeteer (skeleton): you draw a REAL bow (arrows and archery blessings work as normal) this much",
+                    "faster than a player (1.25 = 25% faster). Stacks with draw-speed blessings like Dexterous.")
+            .defineInRange("puppeteerSkeletonDrawSpeed", 1.25, 1.0, 4.0);
+
+    // spiders (spider, cave spider)
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_SPEED = BLESSINGS
+            .comment("Puppeteer (spiders): your movement speed as a multiple of normal. You climb walls like the Spider",
+                    "blessing (hold forward against a wall), and every swing POUNCES you forward like a real spider's attack.")
+            .defineInRange("puppeteerSpiderSpeedMultiplier", 1.1, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_ATTACK = BLESSINGS
+            .comment("Puppeteer (spiders): damage of each bite.")
+            .defineInRange("puppeteerSpiderAttackDamage", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_REACH = BLESSINGS
+            .comment("Puppeteer (spiders): how far you can bite (blocks).")
+            .defineInRange("puppeteerSpiderReach", 2.0, 0.5, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_POUNCE_POWER = BLESSINGS
+            .comment("Puppeteer (spiders): how far a swing's pounce throws you forward (a vanilla spider's leap is 0.4).")
+            .defineInRange("puppeteerSpiderPouncePower", 0.6, 0.0, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_POUNCE_LIFT = BLESSINGS
+            .comment("Puppeteer (spiders): and how high (vanilla's is 0.4).")
+            .defineInRange("puppeteerSpiderPounceLift", 0.4, 0.0, 3.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SPIDER_POUNCE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (spiders): ticks between pounces (you have to be on the ground, too).")
+            .defineInRange("puppeteerSpiderPounceCooldownTicks", 20, 0, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_CAVE_SPIDER_POISON_SECONDS = BLESSINGS
+            .comment("Puppeteer (cave spider): bites poison the victim for this long, like a real cave spider's.")
+            .defineInRange("puppeteerCaveSpiderPoisonSeconds", 7, 0, 120);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_AIR_POUNCE_POWER = BLESSINGS
+            .comment("Puppeteer (spiders): swinging MID-JUMP pounces again (once per jump) — this much harder forward than",
+                    "a ground pounce, for travel.")
+            .defineInRange("puppeteerSpiderAirPounceMultiplier", 1.6, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SPIDER_AIR_POUNCE_LIFT = BLESSINGS
+            .comment("Puppeteer (spiders): and a little extra lift on the air pounce.")
+            .defineInRange("puppeteerSpiderAirPounceLift", 0.2, 0.0, 3.0);
+
+    // wither skeleton
+    public static final ModConfigSpec.DoubleValue PUPPETEER_WITHER_SKELETON_ATTACK = BLESSINGS
+            .comment("Puppeteer (wither skeleton): damage of each hit (no special move — it hasn't one in vanilla either).")
+            .defineInRange("puppeteerWitherSkeletonAttackDamage", 7.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_WITHER_SKELETON_REACH = BLESSINGS
+            .comment("Puppeteer (wither skeleton): reach (blocks) — it's tall.")
+            .defineInRange("puppeteerWitherSkeletonReach", 2.5, 0.5, 6.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_WITHER_SKELETON_WITHER_SECONDS = BLESSINGS
+            .comment("Puppeteer (wither skeleton): hits inflict Wither for this long (vanilla: 10). It's fire immune and",
+                    "never burns in daylight.")
+            .defineInRange("puppeteerWitherSkeletonWitherSeconds", 10, 0, 120);
+
+    // guardians (guardian, elder guardian)
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_SWIM_BONUS = BLESSINGS
+            .comment("Puppeteer (guardians): extra swim speed in water (1.0 = double). Endless air.")
+            .defineInRange("puppeteerGuardianSwimBonus", 1.0, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_LAND_SLOW = BLESSINGS
+            .comment("Puppeteer (guardians): out of water you flop and bounce about like a beached guardian (it doesn't",
+                    "dry out, it's just awkward) — this much slower (0.5 = half speed).")
+            .defineInRange("puppeteerGuardianLandSlow", 0.5, 0.0, 1.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_FLOP_POWER = BLESSINGS
+            .comment("Puppeteer (guardians): how high each beached bounce goes.")
+            .defineInRange("puppeteerGuardianFlopPower", 0.5, 0.0, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_BEAM_RANGE = BLESSINGS
+            .comment("Puppeteer (guardians): the laser's reach (blocks). HOLD right-click to fire a beam you aim yourself;",
+                    "it ticks damage on whatever it's on and ends in a burst.")
+            .defineInRange("puppeteerGuardianBeamRange", 16.0, 2.0, 64.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GUARDIAN_BEAM_TICKS = BLESSINGS
+            .comment("Puppeteer (guardians): full beam length (ticks). Holding this long fires the full BURST automatically.")
+            .defineInRange("puppeteerGuardianBeamTicks", 60, 10, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_GUARDIAN_BEAM_MIN_BURST_TICKS = BLESSINGS
+            .comment("Puppeteer (guardians): let go after at least this many ticks and you still get a (weaker) burst,",
+                    "scaled by how long you held. Let go sooner and the beam just fizzles out.")
+            .defineInRange("puppeteerGuardianBeamMinBurstTicks", 20, 1, 400);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_BEAM_TICK_DAMAGE = BLESSINGS
+            .comment("Puppeteer (guardians): damage the beam does to what it's on, every 10 ticks (magic — ignores armour).")
+            .defineInRange("puppeteerGuardianBeamTickDamage", 1.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_BURST_DAMAGE = BLESSINGS
+            .comment("Puppeteer (guardian): damage of the full burst (a real guardian's beam does 6).")
+            .defineInRange("puppeteerGuardianBurstDamage", 6.0, 0.0, 80.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ELDER_GUARDIAN_BURST_DAMAGE = BLESSINGS
+            .comment("Puppeteer (elder guardian): damage of the full burst — an elder's beam is a real threat.")
+            .defineInRange("puppeteerElderGuardianBurstDamage", 24.0, 0.0, 200.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ELDER_GUARDIAN_BEAM_TICK_DAMAGE = BLESSINGS
+            .comment("Puppeteer (elder guardian): the beam's damage every 10 ticks while it's on something.")
+            .defineInRange("puppeteerElderGuardianBeamTickDamage", 3.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GUARDIAN_BEAM_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (guardians): ticks after a burst before the beam can fire again. While channelling you're",
+                    "anchored in place (easier to track a target); fire it out of water and this cooldown is doubled.")
+            .defineInRange("puppeteerGuardianBeamCooldownTicks", 40, 0, 1200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ELDER_RALLY_RADIUS = BLESSINGS
+            .comment("Puppeteer (elder guardian): its beam marks the target (glowing) and EVERY guardian within this many",
+                    "blocks drops what it's doing and goes for it with Speed II. (A normal guardian's beam is a soft rally:",
+                    "guardians within puppeteerZombieRallyRadius only join in if they aren't already busy.)")
+            .defineInRange("puppeteerElderRallyRadius", 32.0, 1.0, 128.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ELDER_CALL_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (elder guardian): left-click (attack) is also Call — if fewer than",
+                    "puppeteerElderCallTarget guardians are nearby, more rise from the water around you. Its cooldown.")
+            .defineInRange("puppeteerElderCallCooldownTicks", 400, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_ELDER_CALL_TARGET = BLESSINGS
+            .comment("Puppeteer (elder guardian): Call tops the guardians within puppeteerElderCallRadius up to this many.")
+            .defineInRange("puppeteerElderCallTarget", 4, 1, 16);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ELDER_CALL_RADIUS = BLESSINGS
+            .comment("Puppeteer (elder guardian): how far Call counts guardians, and looks for water to raise them from.")
+            .defineInRange("puppeteerElderCallRadius", 12.0, 2.0, 48.0);
+
+    // dolphin
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DOLPHIN_SWIM_BONUS = BLESSINGS
+            .comment("Puppeteer (dolphin): extra swim speed (2.0 = triple). Dolphins breathe air: underwater your air lasts",
+                    "16x longer (a real dolphin's 4 minutes) but you DO have to surface.")
+            .defineInRange("puppeteerDolphinSwimBonus", 2.0, 0.0, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DOLPHIN_ATTACK = BLESSINGS
+            .comment("Puppeteer (dolphin): damage of each hit (vanilla 3).")
+            .defineInRange("puppeteerDolphinAttackDamage", 3.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DOLPHIN_LAND_SLOW = BLESSINGS
+            .comment("Puppeteer (dolphin): out of water you flop about and are this much slower (0.7 = 70% slower).")
+            .defineInRange("puppeteerDolphinLandSlow", 0.7, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_DOLPHIN_MOISTURE_TICKS = BLESSINGS
+            .comment("Puppeteer (dolphin): ticks out of water (rain counts as water) before you start drying out (vanilla 2400).")
+            .defineInRange("puppeteerDolphinMoistureTicks", 2400, 20, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_DOLPHIN_INSPIRE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (dolphin): Inspire cooldown. Right-click: every player and water creature near you gets",
+                    "Dolphin's Grace (much faster swimming).")
+            .defineInRange("puppeteerDolphinInspireCooldownTicks", 300, 0, 72000);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DOLPHIN_INSPIRE_RADIUS = BLESSINGS
+            .comment("Puppeteer (dolphin): reach of Inspire (blocks).")
+            .defineInRange("puppeteerDolphinInspireRadius", 12.0, 1.0, 64.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_DOLPHIN_INSPIRE_SECONDS = BLESSINGS
+            .comment("Puppeteer (dolphin): how long Inspire's Dolphin's Grace lasts.")
+            .defineInRange("puppeteerDolphinInspireSeconds", 8, 1, 600);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DOLPHIN_FISH_HEAL = BLESSINGS
+            .comment("Puppeteer (dolphin): health a fish heals (swim into a dropped raw cod / salmon / ..., or someone feeds",
+                    "you one by right-clicking you with it — what a real dolphin eats).")
+            .defineInRange("puppeteerDolphinFishHeal", 4.0, 0.0, 40.0);
+
+    // axolotl
+    public static final ModConfigSpec.DoubleValue PUPPETEER_AXOLOTL_ATTACK = BLESSINGS
+            .comment("Puppeteer (axolotl): damage of each bite (vanilla 2).")
+            .defineInRange("puppeteerAxolotlAttackDamage", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_AXOLOTL_SWIM_BONUS = BLESSINGS
+            .comment("Puppeteer (axolotl): extra swim speed. Endless air underwater; walks fine on land.")
+            .defineInRange("puppeteerAxolotlSwimBonus", 0.5, 0.0, 5.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_AXOLOTL_MOISTURE_TICKS = BLESSINGS
+            .comment("Puppeteer (axolotl): ticks out of water (rain counts) before you start drying out (vanilla 6000).")
+            .defineInRange("puppeteerAxolotlMoistureTicks", 6000, 20, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_AXOLOTL_PLAY_DEAD_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (axolotl): HOLD right-click to play dead for as long as you like — you lie still, regenerate",
+                    "fast, and every mob after you loses interest. This cooldown starts when you get back up.")
+            .defineInRange("puppeteerAxolotlPlayDeadCooldownTicks", 240, 0, 72000);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_AXOLOTL_PLAY_DEAD_REGEN = BLESSINGS
+            .comment("Puppeteer (axolotl): health regenerated per second while playing dead.")
+            .defineInRange("puppeteerAxolotlPlayDeadRegen", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_AXOLOTL_PLAY_DEAD_RADIUS = BLESSINGS
+            .comment("Puppeteer (axolotl): mobs within this range that are after you lose interest when you play dead.")
+            .defineInRange("puppeteerAxolotlPlayDeadRadius", 32.0, 1.0, 128.0);
+
+    // phantom
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PHANTOM_FLY_SPEED = BLESSINGS
+            .comment("Puppeteer (phantom): flight speed (double-tap jump, like the bat; vanilla creative is 0.05). No",
+                    "sprint-flying — unless you have the Flight blessing, which unlocks a fast sprint glide",
+                    "(puppeteerPhantomFlySprintSpeed), exactly as it does for the bat disguise. Burns in daylight.")
+            .defineInRange("puppeteerPhantomFlySpeed", 0.04, 0.005, 0.5);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PHANTOM_FLY_SPRINT_SPEED = BLESSINGS
+            .comment("Puppeteer (phantom): sprint-fly speed with the Flight blessing.")
+            .defineInRange("puppeteerPhantomFlySprintSpeed", 0.09, 0.005, 1.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PHANTOM_BITE_DAMAGE = BLESSINGS
+            .comment("Puppeteer (phantom): Bite damage — your normal left-click attack (vanilla phantom: 6).")
+            .defineInRange("puppeteerPhantomBiteDamage", 6.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_PHANTOM_DIVE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (phantom): Dive (right-click) cooldown. A fast free dive along where you look with only",
+                    "limited steering — a skill shot: hit something and it takes puppeteerPhantomDiveDamage and you pull up.")
+            .defineInRange("puppeteerPhantomDiveCooldownTicks", 100, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_PHANTOM_DIVE_TICKS = BLESSINGS
+            .comment("Puppeteer (phantom): how long a dive lasts at most (it also ends on hitting something or the ground).")
+            .defineInRange("puppeteerPhantomDiveTicks", 30, 1, 200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PHANTOM_DIVE_SPEED = BLESSINGS
+            .comment("Puppeteer (phantom): dive speed (blocks per tick) — faster still the steeper you dive (up to 1.5x).")
+            .defineInRange("puppeteerPhantomDiveSpeed", 0.9, 0.05, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PHANTOM_DIVE_TURN = BLESSINGS
+            .comment("Puppeteer (phantom): how far the dive can turn towards your look, degrees per tick.")
+            .defineInRange("puppeteerPhantomDiveTurnDegrees", 3.0, 0.0, 180.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PHANTOM_DIVE_DAMAGE = BLESSINGS
+            .comment("Puppeteer (phantom): damage of a dive that connects (the skill-shot bonus over a bite).")
+            .defineInRange("puppeteerPhantomDiveDamage", 12.0, 0.0, 80.0);
+
+    // iron golem
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOLEM_SPEED = BLESSINGS
+            .comment("Puppeteer (iron golem): movement speed multiplier (sprinting allowed).")
+            .defineInRange("puppeteerGolemSpeedMultiplier", 0.9, 0.1, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOLEM_ATTACK = BLESSINGS
+            .comment("Puppeteer (iron golem): damage of a fully charged swing (vanilla's attribute is 15). Swings use a",
+                    "weapon-style cooldown (puppeteerGolemAttackSpeed) and spamming does less, exactly like a sword or axe.")
+            .defineInRange("puppeteerGolemAttackDamage", 15.0, 0.0, 80.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOLEM_ATTACK_SPEED = BLESSINGS
+            .comment("Puppeteer (iron golem): attacks per second at full charge (a sword is 1.6, an axe 0.8-1.0).")
+            .defineInRange("puppeteerGolemAttackSpeed", 0.9, 0.1, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOLEM_REACH = BLESSINGS
+            .comment("Puppeteer (iron golem): reach (blocks).")
+            .defineInRange("puppeteerGolemReach", 3.0, 0.5, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOLEM_FLING = BLESSINGS
+            .comment("Puppeteer (iron golem): how hard a swing flings its target UP, on top of the hit's own knockback (vanilla",
+                    "golem 0.4; applied at the end of the tick, since vanilla's knockback would otherwise flatten it — a touch",
+                    "higher by default to make up for that tick). You take no knockback yourself. Monsters that hate golems",
+                    "(zombies, skeletons, spiders, illagers, ravagers) hunt you like a real one.")
+            .defineInRange("puppeteerGolemFling", 0.5, 0.0, 4.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOLEM_POPPY_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (iron golem): Offer Poppy cooldown. HOLD right-click to hold a poppy out to whoever you're",
+                    "looking at; held long enough, they get brief Strength and Resistance.")
+            .defineInRange("puppeteerGolemPoppyCooldownTicks", 600, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOLEM_POPPY_HOLD_TICKS = BLESSINGS
+            .comment("Puppeteer (iron golem): how long you hold the poppy out before it's taken.")
+            .defineInRange("puppeteerGolemPoppyHoldTicks", 20, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOLEM_POPPY_SECONDS = BLESSINGS
+            .comment("Puppeteer (iron golem): how long the poppy's Strength I + Resistance I last.")
+            .defineInRange("puppeteerGolemPoppySeconds", 10, 1, 600);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOLEM_IRON_HEAL = BLESSINGS
+            .comment("Puppeteer (iron golem): health an iron ingot repairs when someone right-clicks you with it (vanilla 25).")
+            .defineInRange("puppeteerGolemIronHeal", 25.0, 0.0, 200.0);
+
+    // snow golem
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_SPEED = BLESSINGS
+            .comment("Puppeteer (snow golem): movement speed multiplier. Leaves a snow trail (mobGriefing), melts in hot",
+                    "biomes and is hurt by water / rain, like the real one.")
+            .defineInRange("puppeteerSnowGolemSpeedMultiplier", 0.85, 0.1, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_ATTACK = BLESSINGS
+            .comment("Puppeteer (snow golem): melee damage — next to nothing, but it chills (brief Slowness).")
+            .defineInRange("puppeteerSnowGolemAttackDamage", 0.5, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_CHILL_TICKS = BLESSINGS
+            .comment("Puppeteer (snow golem): Slowness I from a melee hit, in ticks.")
+            .defineInRange("puppeteerSnowGolemChillTicks", 40, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_SNOWBALL_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (snow golem): tap right-click to throw a snowball that actually hurts. Its cooldown.")
+            .defineInRange("puppeteerSnowGolemSnowballCooldownTicks", 10, 0, 1200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_SNOWBALL_DAMAGE = BLESSINGS
+            .comment("Puppeteer (snow golem): a snowball's damage.")
+            .defineInRange("puppeteerSnowGolemSnowballDamage", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_SNOWBALL_SLOW_LEVEL = BLESSINGS
+            .comment("Puppeteer (snow golem): a snowball's Slowness level — significant, but brief (see ...SlowTicks).")
+            .defineInRange("puppeteerSnowGolemSnowballSlowLevel", 3, 1, 10);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_SNOWBALL_SLOW_TICKS = BLESSINGS
+            .comment("Puppeteer (snow golem): how long a snowball's Slowness lasts.")
+            .defineInRange("puppeteerSnowGolemSnowballSlowTicks", 25, 1, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_VOLLEY_DURATION_TICKS = BLESSINGS
+            .comment("Puppeteer (snow golem): the blizzard fires its salvos over this many ticks — each salvo a wide fan of",
+                    "enhanced snowballs lobbed at mixed heights and speeds, so together they blanket a big area (it's for crowds).",
+                    "You stay slowed while it pours out. Every snowball can hit — no hurt-cooldown.")
+            .defineInRange("puppeteerSnowGolemVolleyDurationTicks", 24, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_VOLLEY_SALVOS = BLESSINGS
+            .comment("Puppeteer (snow golem): salvos in a blizzard (each fires puppeteerSnowGolemVolleyCount snowballs at once).")
+            .defineInRange("puppeteerSnowGolemVolleySalvos", 12, 1, 64);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_VOLLEY_SPREAD = BLESSINGS
+            .comment("Puppeteer (snow golem): how wide each salvo fans out (degrees, side to side).")
+            .defineInRange("puppeteerSnowGolemVolleySpread", 80.0, 0.0, 180.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_VOLLEY_DAMAGE_CAP = BLESSINGS
+            .comment("Puppeteer (snow golem): the most damage one blizzard can deal to any single target (direct hits and",
+                    "splashes together; it still chills them). 0 = no cap.")
+            .defineInRange("puppeteerSnowGolemVolleyDamageCap", 30.0, 0.0, 1000.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_VOLLEY_SPLASH = BLESSINGS
+            .comment("Puppeteer (snow golem): enhanced snowballs burst where they land — this much damage (and a chill) to",
+                    "everything within puppeteerSnowGolemVolleySplashRadius, besides whatever they hit directly.")
+            .defineInRange("puppeteerSnowGolemVolleySplash", 1.5, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_VOLLEY_SPLASH_RADIUS = BLESSINGS
+            .comment("Puppeteer (snow golem): that burst's radius (blocks).")
+            .defineInRange("puppeteerSnowGolemVolleySplashRadius", 1.75, 0.0, 8.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_VOLLEY_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (snow golem): HOLD right-click this long (you slow down while winding up) and let go to",
+                    "fire a huge volley of bigger, better snowballs.")
+            .defineInRange("puppeteerSnowGolemVolleyChargeTicks", 30, 5, 400);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_VOLLEY_SLOW = BLESSINGS
+            .comment("Puppeteer (snow golem): how much slower you move while winding the volley up (0.6 = 60%).")
+            .defineInRange("puppeteerSnowGolemVolleySlow", 0.6, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_VOLLEY_COUNT = BLESSINGS
+            .comment("Puppeteer (snow golem): snowballs per salvo (all thrown at once).")
+            .defineInRange("puppeteerSnowGolemVolleyCount", 30, 1, 128);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SNOW_GOLEM_VOLLEY_DAMAGE = BLESSINGS
+            .comment("Puppeteer (snow golem): damage of an enhanced volley snowball's direct hit (they also chill harder: Slowness II).")
+            .defineInRange("puppeteerSnowGolemVolleyDamage", 3.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SNOW_GOLEM_VOLLEY_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (snow golem): the volley's own cooldown.")
+            .defineInRange("puppeteerSnowGolemVolleyCooldownTicks", 200, 0, 72000);
+
+    // rabbit / killer rabbit
+    public static final ModConfigSpec.DoubleValue PUPPETEER_RABBIT_HOP_SPEED = BLESSINGS
+            .comment("Puppeteer (rabbit): you can only move by hopping — hold a movement key and you bound along in small,",
+                    "vanilla-rabbit hops. Each hop's forward speed (blocks per tick). No move of its own; carrots and dandelions lure it.")
+            .defineInRange("puppeteerRabbitHopSpeed", 0.3, 0.05, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_RABBIT_SPRINT_HOP = BLESSINGS
+            .comment("Puppeteer (rabbit / killer rabbit): sprinting hops this much further — a rabbit bolting when it's hurt.",
+                    "(You can also steer mid-hop, so you don't get stuck.)")
+            .defineInRange("puppeteerRabbitSprintHopMultiplier", 1.6, 1.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_RABBIT_HOP_LIFT = BLESSINGS
+            .comment("Puppeteer (rabbit): how high a movement hop goes (upward speed; a normal jump is 0.42).")
+            .defineInRange("puppeteerRabbitHopLift", 0.3, 0.05, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_RABBIT_JUMP_BOOST = BLESSINGS
+            .comment("Puppeteer (rabbit): extra height on a real jump (the jump key), e.g. 0.4 = +40% jump strength. Fall",
+                    "damage starts higher to match.")
+            .defineInRange("puppeteerRabbitJumpBoost", 0.4, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_KILLER_RABBIT_HOP_SPEED = BLESSINGS
+            .comment("Puppeteer (killer rabbit — the Caerbannog variant): built for the chase — long, low, distance-eating hops.")
+            .defineInRange("puppeteerKillerRabbitHopSpeed", 1.0, 0.05, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_KILLER_RABBIT_HOP_LIFT = BLESSINGS
+            .comment("Puppeteer (killer rabbit): how high a movement hop goes (kept low — it's all distance).")
+            .defineInRange("puppeteerKillerRabbitHopLift", 0.32, 0.05, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_KILLER_RABBIT_JUMP_BOOST = BLESSINGS
+            .comment("Puppeteer (killer rabbit): extra height on a real jump (the jump key).")
+            .defineInRange("puppeteerKillerRabbitJumpBoost", 1.0, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_KILLER_RABBIT_ATTACK = BLESSINGS
+            .comment("Puppeteer (killer rabbit): melee (left-click) damage — huge (vanilla's killer bunny does 8).")
+            .defineInRange("puppeteerKillerRabbitAttackDamage", 18.0, 0.0, 80.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_KILLER_RABBIT_MAUL_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (killer rabbit): Maul (right-click) cooldown. You lunge a huge distance; the first living thing",
+                    "you hit stops you, and the two of you are locked in a frenzied scrap (both stuck) while it takes",
+                    "puppeteerKillerRabbitMaulHits hits.")
+            .defineInRange("puppeteerKillerRabbitMaulCooldownTicks", 60, 0, 72000);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_KILLER_RABBIT_MAUL_SPEED = BLESSINGS
+            .comment("Puppeteer (killer rabbit): Maul lunge speed (blocks per tick).")
+            .defineInRange("puppeteerKillerRabbitMaulSpeed", 1.6, 0.1, 5.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_KILLER_RABBIT_MAUL_TICKS = BLESSINGS
+            .comment("Puppeteer (killer rabbit): how long the Maul lunge flies before giving up.")
+            .defineInRange("puppeteerKillerRabbitMaulTicks", 14, 1, 200);
+    public static final ModConfigSpec.IntValue PUPPETEER_KILLER_RABBIT_MAUL_HITS = BLESSINGS
+            .comment("Puppeteer (killer rabbit): hits in the scrap.")
+            .defineInRange("puppeteerKillerRabbitMaulHits", 8, 1, 50);
+    public static final ModConfigSpec.IntValue PUPPETEER_KILLER_RABBIT_MAUL_HIT_INTERVAL = BLESSINGS
+            .comment("Puppeteer (killer rabbit): ticks between hits in the scrap.")
+            .defineInRange("puppeteerKillerRabbitMaulHitInterval", 4, 1, 40);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_KILLER_RABBIT_MAUL_DAMAGE = BLESSINGS
+            .comment("Puppeteer (killer rabbit): damage per hit in the scrap (8 hits x 3.5 = 28 by default).")
+            .defineInRange("puppeteerKillerRabbitMaulDamage", 3.5, 0.0, 40.0);
+
+    // silverfish
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_EMBED_TICKS = BLESSINGS
+            .comment("Puppeteer (silverfish): right-click while looking at a stone-type block (one that can be infested) to",
+                    "Embed: you burrow in over this many ticks, then you're hidden inside it (you can still look out).",
+                    "Right-click again — any time — to BURST out. Not looking at stone, right-click calls reinforcements.")
+            .defineInRange("puppeteerSilverfishEmbedTicks", 30, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_BROOD_TICKS = BLESSINGS
+            .comment("Puppeteer (silverfish): every this many ticks hidden, one more silverfish bursts out with you.")
+            .defineInRange("puppeteerSilverfishBroodTicks", 40, 1, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_BROOD_MAX = BLESSINGS
+            .comment("Puppeteer (silverfish): the most that can burst out with you (not counting you).")
+            .defineInRange("puppeteerSilverfishBroodMax", 9, 0, 32);
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_BURST_SPEED_TICKS = BLESSINGS
+            .comment("Puppeteer (silverfish): bursting out gives you and the brood Speed II for this long.")
+            .defineInRange("puppeteerSilverfishBurstSpeedTicks", 60, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_CALL_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (silverfish): Call reinforcements cooldown — every infested block nearby breaks open and its",
+                    "silverfish join you (vanilla's own wake-up; needs mobGriefing), and nearby silverfish go for what you're looking at.")
+            .defineInRange("puppeteerSilverfishCallCooldownTicks", 100, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_CALL_INFEST = BLESSINGS
+            .comment("Puppeteer (silverfish): Call also INFESTS up to this many stone-type blocks near you (seeding them for the",
+                    "next call). Silverfish also rally like the zombies (no glow): whatever you bite, the silverfish near you",
+                    "go for; and bursting out of stone sends the brood at the closest mob.")
+            .defineInRange("puppeteerSilverfishCallInfest", 6, 0, 64);
+    public static final ModConfigSpec.IntValue PUPPETEER_SILVERFISH_CALL_RADIUS = BLESSINGS
+            .comment("Puppeteer (silverfish): how far Call reaches (blocks; half that up and down).")
+            .defineInRange("puppeteerSilverfishCallRadius", 10, 1, 32);
+
+    // enderman
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ENDERMAN_ATTACK = BLESSINGS
+            .comment("Puppeteer (enderman): melee damage (vanilla 7). Endermen you hit turn on you.")
+            .defineInRange("puppeteerEndermanAttackDamage", 7.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ENDERMAN_TELEPORT_RANGE = BLESSINGS
+            .comment("Puppeteer (enderman): right-click is a smart teleport to the block you're looking at, within this many",
+                    "blocks — biased to land you on solid ground (it looks down from there for a floor). Crouch + right-click a",
+                    "block picks it up / puts it down (crouch + right-click at nothing still leaves the puppet).")
+            .defineInRange("puppeteerEndermanTeleportRange", 22.4, 2.0, 64.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ENDERMAN_TELEPORT_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (enderman): teleport recharge (one charge).")
+            .defineInRange("puppeteerEndermanTeleportCooldownTicks", 80, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_ENDERMAN_RAGE_SECONDS = BLESSINGS
+            .comment("Puppeteer (enderman): anyone who looks you in the eye ENRAGES you for this long (refreshed while they",
+                    "stare): Speed, two teleport charges with a faster recharge, your jaw drops and you shake — and, for you",
+                    "alone, whoever looked at you glows.")
+            .defineInRange("puppeteerEndermanRageSeconds", 10, 1, 600);
+    public static final ModConfigSpec.IntValue PUPPETEER_ENDERMAN_RAGE_CHARGES = BLESSINGS
+            .comment("Puppeteer (enderman): teleport charges while enraged.")
+            .defineInRange("puppeteerEndermanRageCharges", 2, 1, 10);
+    public static final ModConfigSpec.IntValue PUPPETEER_ENDERMAN_RAGE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (enderman): teleport recharge per charge while enraged.")
+            .defineInRange("puppeteerEndermanRageCooldownTicks", 40, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_ENDERMAN_RAGE_SPEED = BLESSINGS
+            .comment("Puppeteer (enderman): Speed level while enraged (0 = none).")
+            .defineInRange("puppeteerEndermanRageSpeed", 2, 0, 10);
+    public static final ModConfigSpec.BooleanValue PUPPETEER_ENDERMAN_DODGE_PROJECTILES = BLESSINGS
+            .comment("Puppeteer (enderman): like the real thing, arrows and other projectiles never hit you — you blink away",
+                    "a short distance instead (free, no charge). Water and rain hurt you, too.")
+            .define("puppeteerEndermanDodgeProjectiles", true);
+
+    // horse / donkey / mule
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HORSE_SPEED = BLESSINGS
+            .comment("Puppeteer (horse): movement speed multiplier — controls like riding one (sprint, HOLD jump to charge a",
+                    "leap, steps up full blocks, sinks rather than swims), but you ARE the horse. Other players right-click to",
+                    "ride (no taming, no saddle needed; you steer). Saddles and horse armour can be put on you.")
+            .defineInRange("puppeteerHorseSpeedMultiplier", 1.76, 0.1, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HORSE_JUMP = BLESSINGS
+            .comment("Puppeteer (horse): a fully charged leap's strength (a horse's jump_strength: 0.7 ≈ 3 blocks, 1.0 ≈ 5).")
+            .defineInRange("puppeteerHorseJumpStrength", 0.85, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DONKEY_SPEED = BLESSINGS
+            .comment("Puppeteer (donkey / mule): movement speed multiplier — a bit slower than a horse. Others can strap a chest",
+                    "on you, then crouch + right-click to open it.")
+            .defineInRange("puppeteerDonkeySpeedMultiplier", 1.48, 0.1, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DONKEY_JUMP = BLESSINGS
+            .comment("Puppeteer (donkey / mule): a fully charged leap's strength.")
+            .defineInRange("puppeteerDonkeyJumpStrength", 0.65, 0.1, 2.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_HORSE_JUMP_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (horses): ticks of holding jump for a full-strength leap (vanilla's jump bar fills in about 10).")
+            .defineInRange("puppeteerHorseJumpChargeTicks", 10, 1, 100);
+
+    // slime / magma cube
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SLIME_HOP_SPEED = BLESSINGS
+            .comment("Puppeteer (slime): you get about by bouncing — a movement key on the ground launches a hop (steerable",
+                    "mid-air). Its forward speed, +10% per size step (small 1, medium 2, big 4). No fall damage. When it",
+                    "\"dies\" a big or medium one splits like the real thing and you carry on as one of the offspring.")
+            .defineInRange("puppeteerSlimeHopSpeed", 0.3, 0.05, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SLIME_HOP_LIFT = BLESSINGS
+            .comment("Puppeteer (slime): how high a bounce goes (upward speed; a normal jump is 0.42).")
+            .defineInRange("puppeteerSlimeHopLift", 0.42, 0.05, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_MAGMA_CUBE_HOP_SPEED = BLESSINGS
+            .comment("Puppeteer (magma cube): its bounce's forward speed (as the slime). Fire and lava proof.")
+            .defineInRange("puppeteerMagmaCubeHopSpeed", 0.3, 0.05, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_MAGMA_CUBE_HOP_LIFT = BLESSINGS
+            .comment("Puppeteer (magma cube): its bounce's height — they jump higher than slimes, +0.1 per size step like vanilla.")
+            .defineInRange("puppeteerMagmaCubeHopLift", 0.5, 0.05, 2.0);
+
+    public static final ModConfigSpec.IntValue PUPPETEER_SLIME_HOP_PAUSE = BLESSINGS
+            .comment("Puppeteer (slime / magma cube): ticks you sit squashed on the ground between bounces — the real slime's",
+                    "boing... boing rhythm (vanilla waits far longer; this keeps it playable).")
+            .defineInRange("puppeteerSlimeHopPauseTicks", 5, 0, 40);
+
+    // llama / trader llama
+    public static final ModConfigSpec.DoubleValue PUPPETEER_LLAMA_SPEED = BLESSINGS
+            .comment("Puppeteer (llama / trader llama): movement speed multiplier (a llama's pace). Right-click spits — about",
+                    "as much use as the real llama's spit (1 damage).")
+            .defineInRange("puppeteerLlamaSpeedMultiplier", 1.3, 0.1, 6.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_LLAMA_SPIT_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (llama): ticks between spits.")
+            .defineInRange("puppeteerLlamaSpitCooldownTicks", 20, 0, 1200);
+
+    // ghast
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GHAST_FLY_SPEED = BLESSINGS
+            .comment("Puppeteer (ghast): you're always flying, slowly (a ghast's drift; vanilla creative is 0.05). It can never",
+                    "sprint-fly (the Flight blessing just nudges its speed: puppeteerGhastFlySprintSpeed). Your hitbox is the",
+                    "ghast's full 4x4x4, so you need its room. Fire and lava proof.")
+            .defineInRange("puppeteerGhastFlySpeed", 0.012, 0.002, 0.5);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GHAST_FLY_SPRINT_SPEED = BLESSINGS
+            .comment("Puppeteer (ghast): its fly speed with the Flight blessing — a little quicker, but NEVER a sprint (a slow",
+                    "flier can't sprint-fly at all).")
+            .defineInRange("puppeteerGhastFlySprintSpeed", 0.016, 0.002, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GHAST_FIREBALL_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (ghast): right-click spits a single fireball (the ghast's own: its blast power, its open mouth",
+                    "and cry as it fires). Its cooldown.")
+            .defineInRange("puppeteerGhastFireballCooldownTicks", 60, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_GHAST_VOLLEY_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (ghast): HOLD left-click this long to charge the volley (you slow, shake and your view narrows),",
+                    "then let go: a flamethrower-like stream of fireballs, one after another with a little scatter.",
+                    "Let go before it's charged and nothing happens.")
+            .defineInRange("puppeteerGhastVolleyChargeTicks", 25, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_GHAST_VOLLEY_COUNT = BLESSINGS
+            .comment("Puppeteer (ghast): fireballs in the volley.")
+            .defineInRange("puppeteerGhastVolleyCount", 5, 1, 32);
+    public static final ModConfigSpec.IntValue PUPPETEER_GHAST_VOLLEY_INTERVAL_TICKS = BLESSINGS
+            .comment("Puppeteer (ghast): ticks between the volley's fireballs.")
+            .defineInRange("puppeteerGhastVolleyIntervalTicks", 2, 1, 40);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GHAST_VOLLEY_SCATTER = BLESSINGS
+            .comment("Puppeteer (ghast): how far each volley fireball strays from your aim (degrees).")
+            .defineInRange("puppeteerGhastVolleyScatter", 2.5, 0.0, 45.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GHAST_VOLLEY_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (ghast): the volley's own cooldown.")
+            .defineInRange("puppeteerGhastVolleyCooldownTicks", 120, 0, 72000);
+
+    // blaze
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BLAZE_FLY_SPEED = BLESSINGS
+            .comment("Puppeteer (blaze): free flight (double-tap jump), never sprint-flying (the Flight blessing just nudges",
+                    "its speed: puppeteerBlazeFlySprintSpeed). Out of flight it drifts down slowly, like the real blaze. Water, rain and",
+                    "snowballs hurt it; it's fire proof, and it lights up while it's in a fight.")
+            .defineInRange("puppeteerBlazeFlySpeed", 0.03, 0.002, 0.5);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BLAZE_FLY_SPRINT_SPEED = BLESSINGS
+            .comment("Puppeteer (blaze): its fly speed with the Flight blessing — a little quicker, never a sprint.")
+            .defineInRange("puppeteerBlazeFlySprintSpeed", 0.04, 0.002, 1.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BLAZE_ATTACK = BLESSINGS
+            .comment("Puppeteer (blaze): melee damage (vanilla 6).")
+            .defineInRange("puppeteerBlazeAttackDamage", 6.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_WINDUP_TICKS = BLESSINGS
+            .comment("Puppeteer (blaze): HOLD right-click to wind up an enhanced fireball volley (you slow, shake, view narrows)",
+                    "for at least this long; the longer you hold (up to puppeteerBlazeChargeTicks), the more fireballs. Just TAP",
+                    "right-click instead for the real blaze's burst: puppeteerBlazeTapFireballs at its own pace.")
+            .defineInRange("puppeteerBlazeWindupTicks", 8, 1, 200);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_TAP_FIREBALLS = BLESSINGS
+            .comment("Puppeteer (blaze): fireballs in a tapped burst (vanilla's blaze: 3, six ticks apart, at its normal speed).")
+            .defineInRange("puppeteerBlazeTapFireballs", 3, 1, 16);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (blaze): a full charge — the most fireballs.")
+            .defineInRange("puppeteerBlazeChargeTicks", 40, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_MIN_FIREBALLS = BLESSINGS
+            .comment("Puppeteer (blaze): fireballs at the minimum wind-up.")
+            .defineInRange("puppeteerBlazeMinFireballs", 3, 1, 32);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_MAX_FIREBALLS = BLESSINGS
+            .comment("Puppeteer (blaze): fireballs at a full charge.")
+            .defineInRange("puppeteerBlazeMaxFireballs", 6, 1, 32);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_VOLLEY_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (blaze): the volley's cooldown.")
+            .defineInRange("puppeteerBlazeVolleyCooldownTicks", 60, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_BLAZE_COMBAT_SECONDS = BLESSINGS
+            .comment("Puppeteer (blaze): how long it stays lit up after hitting, being hit or firing.")
+            .defineInRange("puppeteerBlazeCombatSeconds", 5, 0, 120);
+
+    // breeze
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_FLY_SPEED = BLESSINGS
+            .comment("Puppeteer (breeze): free flight like the blaze (never sprint-flying). No melee —",
+                    "and anything hostile that gets too close pushes you away on the wind. Projectiles bounce off you, as off",
+                    "the real breeze. Left-click: a wind charge; hold right-click: a gale.")
+            .defineInRange("puppeteerBreezeFlySpeed", 0.035, 0.002, 0.5);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_FLY_SPRINT_SPEED = BLESSINGS
+            .comment("Puppeteer (breeze): its fly speed with the Flight blessing — a little quicker, never a sprint.")
+            .defineInRange("puppeteerBreezeFlySprintSpeed", 0.045, 0.002, 1.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_REPEL_RANGE = BLESSINGS
+            .comment("Puppeteer (breeze): hostile mobs closer than this push you away (gently — less than an animal's lure).")
+            .defineInRange("puppeteerBreezeRepelRange", 3.0, 0.0, 16.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_REPEL_STRENGTH = BLESSINGS
+            .comment("Puppeteer (breeze): that push, per tick.")
+            .defineInRange("puppeteerBreezeRepelStrength", 0.04, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_BREEZE_SHOT_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (breeze): left-click wind charge cooldown (the real breeze's wind charge: knockback, triggers",
+                    "doors / buttons / redstone, the gust).")
+            .defineInRange("puppeteerBreezeShotCooldownTicks", 15, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_BREEZE_GALE_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (breeze): HOLD right-click this long for a full gale (you slow, view narrows); let go to fire one",
+                    "slower, far stronger wind charge — bigger the longer you held (half-charged at least, or it fizzles).")
+            .defineInRange("puppeteerBreezeGaleChargeTicks", 30, 1, 400);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_GALE_RADIUS = BLESSINGS
+            .comment("Puppeteer (breeze): a full gale's blast radius (a wind charge's is 3).")
+            .defineInRange("puppeteerBreezeGaleRadius", 7.5, 1.0, 16.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_GALE_KNOCKBACK = BLESSINGS
+            .comment("Puppeteer (breeze): a full gale's knockback multiplier (a wind charge is 1.0).")
+            .defineInRange("puppeteerBreezeGaleKnockback", 3.6, 0.1, 10.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BREEZE_GALE_DAMAGE = BLESSINGS
+            .comment("Puppeteer (breeze): a gale's direct-hit damage (a wind charge does 1).")
+            .defineInRange("puppeteerBreezeGaleDamage", 5.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_BREEZE_GALE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (breeze): the gale's cooldown.")
+            .defineInRange("puppeteerBreezeGaleCooldownTicks", 140, 0, 72000);
+
+    // witch
+    public static final ModConfigSpec.IntValue PUPPETEER_WITCH_THROW_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (witch): your hotbar becomes her potion belt (scroll to pick). Right-click throws the picked potion",
+                    "as a splash potion; hold right-click to brew it into a lingering potion; left-click drinks it (the witch's own",
+                    "swig: 1.6s, slowed). Cooldown after a splash throw (all three share the belt's cooldown sweep).")
+            .defineInRange("puppeteerWitchThrowCooldownTicks", 30, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_WITCH_LINGER_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (witch): hold right-click this long to throw a lingering potion instead (let go sooner: a splash).")
+            .defineInRange("puppeteerWitchLingerChargeTicks", 25, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_WITCH_LINGER_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (witch): cooldown after a lingering potion.")
+            .defineInRange("puppeteerWitchLingerCooldownTicks", 120, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_WITCH_DRINK_TICKS = BLESSINGS
+            .comment("Puppeteer (witch): how long drinking takes (vanilla 32); the potion works when you finish.")
+            .defineInRange("puppeteerWitchDrinkTicks", 32, 1, 200);
+    public static final ModConfigSpec.IntValue PUPPETEER_WITCH_DRINK_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (witch): cooldown after drinking.")
+            .defineInRange("puppeteerWitchDrinkCooldownTicks", 60, 0, 72000);
+
+    // camel
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CAMEL_SPEED = BLESSINGS
+            .comment("Puppeteer (camel): movement speed multiplier — a nimble ride (steps up 1.5 blocks; the jump key jumps as",
+                    "normal). Other players right-click to ride (you steer). HOLD right-click to charge a dash, like a horse's",
+                    "jump bar; let go to dash.")
+            .defineInRange("puppeteerCamelSpeedMultiplier", 1.4, 0.1, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_CAMEL_DASH_BOOST = BLESSINGS
+            .comment("Puppeteer (camel): the dash, relative to the real camel's (1.05 = a touch stronger).")
+            .defineInRange("puppeteerCamelDashBoost", 1.05, 0.1, 5.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_CAMEL_DASH_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (camel): ticks of holding for a full dash (a tap is a 40% dash, like a horse's jump).")
+            .defineInRange("puppeteerCamelDashChargeTicks", 10, 1, 100);
+    public static final ModConfigSpec.IntValue PUPPETEER_CAMEL_DASH_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (camel): dash cooldown (vanilla 55).")
+            .defineInRange("puppeteerCamelDashCooldownTicks", 55, 0, 1200);
+
+    // goat
+    public static final ModConfigSpec.IntValue PUPPETEER_GOAT_RAM_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (goat): HOLD right-click to lower your head and charge a ram — the longer, the further, faster and",
+                    "harder it goes (this many ticks for a full charge). It does NO damage, just sends whatever it hits flying the",
+                    "way you were going. Good for getting about, too. Goats fall further unhurt.")
+            .defineInRange("puppeteerGoatRamChargeTicks", 40, 1, 400);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOAT_RAM_SPEED = BLESSINGS
+            .comment("Puppeteer (goat): a full ram's speed (blocks per tick; a tap gets about a third of it).")
+            .defineInRange("puppeteerGoatRamSpeed", 1.3, 0.1, 5.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOAT_RAM_TICKS = BLESSINGS
+            .comment("Puppeteer (goat): a full ram's length (ticks; a tap is about a third).")
+            .defineInRange("puppeteerGoatRamTicks", 24, 1, 200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOAT_RAM_KNOCKBACK = BLESSINGS
+            .comment("Puppeteer (goat): a full ram's knockback (blocks per tick launched — absurd on purpose; a tap is about a third).")
+            .defineInRange("puppeteerGoatRamKnockback", 4.5, 0.0, 20.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOAT_RAM_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (goat): ram cooldown.")
+            .defineInRange("puppeteerGoatRamCooldownTicks", 40, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOAT_SHRIEK_CHARGE_TICKS = BLESSINGS
+            .comment("Puppeteer (screaming goat): HOLD left-click to wind up a SHRIEK — it only goes off fully charged (this many",
+                    "ticks). A warden-style sonic boom that goes straight through walls, does no damage, and blasts everything",
+                    "in its path away with one insanely high knockback — with the goat's scream.")
+            .defineInRange("puppeteerGoatShriekChargeTicks", 40, 1, 400);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOAT_SHRIEK_RANGE = BLESSINGS
+            .comment("Puppeteer (screaming goat): the shriek's reach (blocks, through anything).")
+            .defineInRange("puppeteerGoatShriekRange", 20.0, 1.0, 64.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GOAT_SHRIEK_KNOCKBACK = BLESSINGS
+            .comment("Puppeteer (screaming goat): the shriek's knockback (blocks per tick launched).")
+            .defineInRange("puppeteerGoatShriekKnockback", 21.0, 0.0, 100.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_GOAT_SHRIEK_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (screaming goat): shriek cooldown.")
+            .defineInRange("puppeteerGoatShriekCooldownTicks", 600, 0, 72000);
+
+    // pillager
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PILLAGER_BOLT_DAMAGE = BLESSINGS
+            .comment("Puppeteer (pillager): your hotbar is crossbows (real ones: right-click to load, right-click to fire, every",
+                    "crossbow blessing works) with a bottomless quiver. No melee. Its bolts hit this much harder (1.25 = +25%).")
+            .defineInRange("puppeteerPillagerBoltDamageMultiplier", 1.25, 0.1, 10.0);
+
+    // fox
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FOX_SPRINT_BONUS = BLESSINGS
+            .comment("Puppeteer (fox): extra speed while sprinting, on top of the normal sprint (0.2 = +20%). Crouching makes you",
+                    "completely silent. You pick items up in your mouth (one at a time — the drop key lets go of it) and eat",
+                    "food you're holding after a moment.")
+            .defineInRange("puppeteerFoxSprintBonus", 0.2, 0.0, 3.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_FOX_EAT_TICKS = BLESSINGS
+            .comment("Puppeteer (fox): ticks you hold food in your mouth before eating it (0 = never eat).")
+            .defineInRange("puppeteerFoxEatTicks", 60, 0, 1200);
+    public static final ModConfigSpec.IntValue PUPPETEER_FOX_POUNCE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (fox): Pounce (right-click) cooldown. A short rush: the first player or mob you reach that's",
+                    "holding something loses it to you (whatever's in your mouth is dropped for it). Nobody to rob: you bite the first thing you reach.")
+            .defineInRange("puppeteerFoxPounceCooldownTicks", 160, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_FOX_POUNCE_TICKS = BLESSINGS
+            .comment("Puppeteer (fox): how long the pounce rushes for.")
+            .defineInRange("puppeteerFoxPounceTicks", 8, 1, 100);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FOX_POUNCE_SPEED = BLESSINGS
+            .comment("Puppeteer (fox): the pounce's speed (blocks per tick).")
+            .defineInRange("puppeteerFoxPounceSpeed", 0.9, 0.1, 4.0);
+
+    // vindicator
+    public static final ModConfigSpec.DoubleValue PUPPETEER_VINDICATOR_SPEED = BLESSINGS
+            .comment("Puppeteer (vindicator): movement speed multiplier — a brute. A vindicator named Johnny is faster still",
+                    "(puppeteerJohnnyBonus), hits harder and faster, sparks on every hit — and can't help attacking anything near.")
+            .defineInRange("puppeteerVindicatorSpeedMultiplier", 1.35, 0.1, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_VINDICATOR_ATTACK = BLESSINGS
+            .comment("Puppeteer (vindicator): damage of a fully charged swing (weapon-style cooldown, like the iron golem's;",
+                    "the axe's enchantments add on).")
+            .defineInRange("puppeteerVindicatorAttackDamage", 11.0, 0.0, 80.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_VINDICATOR_ATTACK_SPEED = BLESSINGS
+            .comment("Puppeteer (vindicator): attacks per second at full charge (an axe is 0.8-1.0).")
+            .defineInRange("puppeteerVindicatorAttackSpeed", 1.15, 0.1, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_JOHNNY_BONUS = BLESSINGS
+            .comment("Puppeteer (Johnny): how much more speed and damage Johnny gets (0.3 = +30%).")
+            .defineInRange("puppeteerJohnnyBonus", 0.3, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_JOHNNY_ATTACK_SPEED = BLESSINGS
+            .comment("Puppeteer (Johnny): attacks per second at full charge.")
+            .defineInRange("puppeteerJohnnyAttackSpeed", 1.6, 0.1, 4.0);
+
+    // evoker
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_FANGS_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): right-click casts (arms up, its spell's coloured sparks, its chant). Tap: a ring of",
+                    "FANGS around you. Hold a little longer: a LINE of fangs down your aim. Hold longer still: SUMMON VEXES. At a",
+                    "sheep: WOLOLO (blue turns red, red turns blue); at a villager: CONVERT it into a witch. This is the fangs cooldown.")
+            .defineInRange("puppeteerEvokerFangsCooldownTicks", 80, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_LINE_HOLD_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): ticks of holding right-click before a release casts the line of fangs instead of the ring.")
+            .defineInRange("puppeteerEvokerLineHoldTicks", 10, 1, 200);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_VEX_HOLD_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): ticks of holding right-click before a release summons vexes (when they're ready).")
+            .defineInRange("puppeteerEvokerVexHoldTicks", 30, 1, 400);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_VEX_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): summon vex cooldown. They hunt whoever you last hit or horned (and never you).")
+            .defineInRange("puppeteerEvokerVexCooldownTicks", 300, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_HORN_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): left-click at something blows the RALLYING HORN — no damage, but every illager (and",
+                    "witch, and ravager) in range turns on that one target, with a burst of speed. Its cooldown.")
+            .defineInRange("puppeteerEvokerHornCooldownTicks", 400, 0, 72000);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_EVOKER_HORN_RANGE = BLESSINGS
+            .comment("Puppeteer (evoker): how far you can mark a target with the horn, and how far away illagers answer it.")
+            .defineInRange("puppeteerEvokerHornRange", 32.0, 1.0, 128.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_HORN_SPEED_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): how long the rallied get Speed (level puppeteerEvokerHornSpeedLevel).")
+            .defineInRange("puppeteerEvokerHornSpeedTicks", 200, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_HORN_SPEED_LEVEL = BLESSINGS
+            .comment("Puppeteer (evoker): the rallied's Speed level (1 = Speed I).")
+            .defineInRange("puppeteerEvokerHornSpeedLevel", 1, 1, 10);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_VEX_COUNT = BLESSINGS
+            .comment("Puppeteer (evoker): vexes per summon (vanilla 3).")
+            .defineInRange("puppeteerEvokerVexCount", 3, 1, 16);
+    public static final ModConfigSpec.IntValue PUPPETEER_EVOKER_WINDUP_TICKS = BLESSINGS
+            .comment("Puppeteer (evoker): the wind-up before a wololo or a conversion goes off (the fangs and vexes wind up while you hold).")
+            .defineInRange("puppeteerEvokerWindupTicks", 20, 0, 200);
+
+    // general
+    public static final ModConfigSpec.DoubleValue PUPPETEER_DEXTEROUS_CHARGE_BONUS = BLESSINGS
+            .comment("Puppeteer: with the Dexterous blessing every charge-up goes this much quicker (0.25 = 25%) — held moves,",
+                    "the creeper's fuse, the guardian beam, the poppy, embedding, a horse's jump bar...")
+            .defineInRange("puppeteerDexterousChargeBonus", 0.25, 0.0, 4.0);
+
+    // endermite
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ENDERMITE_BURROW_SPEED = BLESSINGS
+            .comment("Puppeteer (endermite): right-click to BURROW — you sink into the ground and move straight through blocks",
+                    "(where you look, jump to rise; you can see through the rock around you). Right-click again to surface",
+                    "(up to the nearest open space). Its speed, blocks per tick. Anything as hard as obsidian or harder",
+                    "(see ...MaxHardness), or unbreakable (bedrock), can't be passed.")
+            .defineInRange("puppeteerEndermiteBurrowSpeed", 0.25, 0.01, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ENDERMITE_MAX_HARDNESS = BLESSINGS
+            .comment("Puppeteer (endermite): blocks this hard or harder can't be burrowed through (obsidian is 50; unbreakable",
+                    "blocks never can). Covers other mods' toughest blocks too.")
+            .defineInRange("puppeteerEndermiteMaxHardness", 50.0, 0.0, 10000.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ENDERMITE_BURROW_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (endermite): ticks between burrowing / surfacing.")
+            .defineInRange("puppeteerEndermiteBurrowCooldownTicks", 20, 0, 1200);
+
+    // villager
+    public static final ModConfigSpec.IntValue PUPPETEER_VILLAGER_HMM_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (villager): right-click goes \"hmm\" — and every villager nearby turns to look at you and",
+                    "hmms back. Its cooldown. (Other players can right-click you to TRADE with your villager's real trades;",
+                    "whatever emeralds they pay go in your till, paid out when you step out.)")
+            .defineInRange("puppeteerVillagerHmmCooldownTicks", 20, 0, 1200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_VILLAGER_HMM_RADIUS = BLESSINGS
+            .comment("Puppeteer (villager): how far the hmm carries.")
+            .defineInRange("puppeteerVillagerHmmRadius", 16.0, 1.0, 64.0);
+    public static final ModConfigSpec.BooleanValue PUPPETEER_VILLAGER_INFECTION = BLESSINGS
+            .comment("Puppeteer (villager): killed by a zombie (or a zombie puppet), you don't die — you're INFECTED and",
+                    "carry on as a zombie villager puppet (your trades and profession come along). Zombies and illagers hunt a",
+                    "villager puppet; iron golems defend it; it panics (Speed II) when hurt.")
+            .define("puppeteerVillagerInfection", true);
+
+    // hoglin / zoglin
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_SPEED = BLESSINGS
+            .comment("Puppeteer (hoglin): movement speed multiplier. Hoglins are lone brutes — no rallies.")
+            .defineInRange("puppeteerHoglinSpeedMultiplier", 1.15, 0.1, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOGLIN_SPEED = BLESSINGS
+            .comment("Puppeteer (zoglin): movement speed multiplier.")
+            .defineInRange("puppeteerZoglinSpeedMultiplier", 1.3, 0.1, 4.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_ATTACK = BLESSINGS
+            .comment("Puppeteer (hoglin): damage of each tusk swing (vanilla 6).")
+            .defineInRange("puppeteerHoglinAttackDamage", 6.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOGLIN_ATTACK = BLESSINGS
+            .comment("Puppeteer (zoglin): damage of each tusk swing.")
+            .defineInRange("puppeteerZoglinAttackDamage", 7.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_REACH = BLESSINGS
+            .comment("Puppeteer (hoglin / zoglin): reach (blocks).")
+            .defineInRange("puppeteerHoglinReach", 2.5, 0.5, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_KNOCKBACK = BLESSINGS
+            .comment("Puppeteer (hoglin): how hard a swing tosses what it hits (vanilla's tusk throw — up and away).")
+            .defineInRange("puppeteerHoglinKnockback", 1.0, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOGLIN_KNOCKBACK = BLESSINGS
+            .comment("Puppeteer (zoglin): the same, harder.")
+            .defineInRange("puppeteerZoglinKnockback", 1.4, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_FUNGUS_RANGE = BLESSINGS
+            .comment("Puppeteer (hoglin, babies too): like the real thing, PLACED warped fungus (and the rest of vanilla's",
+                    "hoglin_repellents: nether portals, respawn anchors) within this many blocks (horizontally; 4 up/down)",
+                    "drives you away from it. Zoglins don't care. 0 = off.")
+            .defineInRange("puppeteerHoglinFungusRange", 8.0, 0.0, 16.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_FUNGUS_STRENGTH = BLESSINGS
+            .comment("Puppeteer (hoglin): how hard a repellent pushes you away each tick.")
+            .defineInRange("puppeteerHoglinFungusStrength", 0.08, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_HOGLIN_BABY_FLEE_TICKS = BLESSINGS
+            .comment("Puppeteer (baby hoglin): when hurt it bolts away from whatever hit it (Speed II + a shove) for this long.")
+            .defineInRange("puppeteerHoglinBabyFleeTicks", 40, 0, 400);
+    public static final ModConfigSpec.BooleanValue PUPPETEER_HOGLIN_ZOMBIFIES = BLESSINGS
+            .comment("Puppeteer (hoglin): like the real thing, a hoglin outside the Nether shakes and, after",
+                    "puppeteerHoglinZombifyTicks, turns into a zoglin — and you with it.")
+            .define("puppeteerHoglinZombifies", true);
+    public static final ModConfigSpec.IntValue PUPPETEER_HOGLIN_ZOMBIFY_TICKS = BLESSINGS
+            .comment("Puppeteer (hoglin): ticks outside the Nether before it zombifies (vanilla 300).")
+            .defineInRange("puppeteerHoglinZombifyTicks", 300, 1, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_HOGLIN_LUNGE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (hoglin): Lunge cooldown. Right-click: you stop briefly, then charge with limited turning.",
+                    "The first thing you plough into takes puppeteerHoglinLungeDamage and is sent flying, and the charge stops.")
+            .defineInRange("puppeteerHoglinLungeCooldownTicks", 180, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOGLIN_LUNGE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (zoglin): Lunge cooldown. Shorter wind-up, faster, turns better, and ploughs THROUGH",
+                    "everything it hits (each thing once).")
+            .defineInRange("puppeteerZoglinLungeCooldownTicks", 100, 0, 72000);
+    public static final ModConfigSpec.IntValue PUPPETEER_HOGLIN_LUNGE_WINDUP = BLESSINGS
+            .comment("Puppeteer (hoglin): ticks you stand still before the charge.")
+            .defineInRange("puppeteerHoglinLungeWindupTicks", 12, 0, 100);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOGLIN_LUNGE_WINDUP = BLESSINGS
+            .comment("Puppeteer (zoglin): ticks you stand still before the charge.")
+            .defineInRange("puppeteerZoglinLungeWindupTicks", 6, 0, 100);
+    public static final ModConfigSpec.IntValue PUPPETEER_HOGLIN_LUNGE_TICKS = BLESSINGS
+            .comment("Puppeteer (hoglin): how long the charge lasts.")
+            .defineInRange("puppeteerHoglinLungeTicks", 25, 1, 200);
+    public static final ModConfigSpec.IntValue PUPPETEER_ZOGLIN_LUNGE_TICKS = BLESSINGS
+            .comment("Puppeteer (zoglin): how long the charge lasts.")
+            .defineInRange("puppeteerZoglinLungeTicks", 30, 1, 200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_LUNGE_SPEED = BLESSINGS
+            .comment("Puppeteer (hoglin): charge speed (blocks per tick, roughly; sprinting is ~0.28).")
+            .defineInRange("puppeteerHoglinLungeSpeed", 0.5, 0.05, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOGLIN_LUNGE_SPEED = BLESSINGS
+            .comment("Puppeteer (zoglin): charge speed.")
+            .defineInRange("puppeteerZoglinLungeSpeed", 0.65, 0.05, 3.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_LUNGE_TURN = BLESSINGS
+            .comment("Puppeteer (hoglin): how far the charge can turn towards where you look, in degrees per tick.")
+            .defineInRange("puppeteerHoglinLungeTurnDegrees", 2.5, 0.0, 180.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOGLIN_LUNGE_TURN = BLESSINGS
+            .comment("Puppeteer (zoglin): the same — more, but still limited.")
+            .defineInRange("puppeteerZoglinLungeTurnDegrees", 5.0, 0.0, 180.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_LUNGE_DAMAGE = BLESSINGS
+            .comment("Puppeteer (hoglin): damage to what the charge hits.")
+            .defineInRange("puppeteerHoglinLungeDamage", 10.0, 0.0, 80.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ZOGLIN_LUNGE_DAMAGE = BLESSINGS
+            .comment("Puppeteer (zoglin): damage to each thing the charge ploughs through.")
+            .defineInRange("puppeteerZoglinLungeDamage", 10.0, 0.0, 80.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_HOGLIN_LUNGE_LAUNCH = BLESSINGS
+            .comment("Puppeteer (hoglin / zoglin): how hard the charge sends its victim flying (horizontal; upward is 40% of it).")
+            .defineInRange("puppeteerHoglinLungeLaunch", 1.6, 0.0, 6.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_GUARDIAN_THORNS = BLESSINGS
+            .comment("Puppeteer (guardians): while you're holding still your spikes are out — anything that hits you in melee",
+                    "takes this much thorns damage, like a real guardian.")
+            .defineInRange("puppeteerGuardianThornsDamage", 2.0, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ELDER_CURSE_INTERVAL_TICKS = BLESSINGS
+            .comment("Puppeteer (elder guardian): every this many ticks you curse every other player nearby with Mining",
+                    "Fatigue III — the ghostly face jumpscare and all, like a real elder guardian. 0 = off.")
+            .defineInRange("puppeteerElderCurseIntervalTicks", 1200, 0, 72000);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_ELDER_CURSE_RADIUS = BLESSINGS
+            .comment("Puppeteer (elder guardian): reach of that curse (blocks).")
+            .defineInRange("puppeteerElderCurseRadius", 32.0, 1.0, 128.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_ELDER_CURSE_SECONDS = BLESSINGS
+            .comment("Puppeteer (elder guardian): how long the Mining Fatigue lasts (vanilla's is 300).")
+            .defineInRange("puppeteerElderCurseSeconds", 60, 1, 600);
+
+    // squids (squid, glow squid)
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SQUID_SWIM = BLESSINGS
+            .comment("Puppeteer (squids): swim speed change in water (-0.3 = 30% slower — squids are slow). Endless air",
+                    "underwater; out of water you can hardly move and you dry out and die.")
+            .defineInRange("puppeteerSquidSwimBonus", -0.3, -0.9, 3.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SQUID_FLEE_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (squids): ticks between Flees (right-click): a short dash and a cloud of ink.")
+            .defineInRange("puppeteerSquidFleeCooldownTicks", 60, 0, 1200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SQUID_FLEE_DASH = BLESSINGS
+            .comment("Puppeteer (squids): strength of the Flee dash.")
+            .defineInRange("puppeteerSquidFleeDash", 0.9, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_SQUID_INK_RADIUS = BLESSINGS
+            .comment("Puppeteer (squids): everything within this many blocks of the ink cloud is blinded (a glow squid's",
+                    "ink also makes them glow).")
+            .defineInRange("puppeteerSquidInkRadius", 4.0, 0.5, 16.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_SQUID_INK_SECONDS = BLESSINGS
+            .comment("Puppeteer (squids): how long the ink's Blindness (and the glow squid's Glowing) lasts.")
+            .defineInRange("puppeteerSquidInkSeconds", 4, 1, 60);
+
+    // zombified piglin
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PIGLIN_SPEED = BLESSINGS
+            .comment("Puppeteer (zombified piglin): your movement speed as a multiple of normal.")
+            .defineInRange("puppeteerPiglinSpeedMultiplier", 1.0, 0.1, 2.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PIGLIN_ATTACK = BLESSINGS
+            .comment("Puppeteer (zombified piglin): damage of each hit (a real one's golden sword hits for 5).")
+            .defineInRange("puppeteerPiglinAttackDamage", 5.0, 0.0, 40.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PIGLIN_CALL_RADIUS = BLESSINGS
+            .comment("Puppeteer (zombified piglin): no Rally, but whenever you hit something OR something hits you, every",
+                    "zombified piglin within this many blocks turns on it — the whole pack, like the real thing.")
+            .defineInRange("puppeteerPiglinCallRadius", 24.0, 1.0, 64.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_PIGLIN_FRENZY_SECONDS = BLESSINGS
+            .comment("Puppeteer (zombified piglin): that call gives you AND the pack Speed II for this long.")
+            .defineInRange("puppeteerPiglinFrenzySeconds", 8, 1, 120);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_PIGLIN_CONVERT_RADIUS = BLESSINGS
+            .comment("Puppeteer (zombified piglin): right-click a PIG to Convert it — and every pig within this many blocks",
+                    "of it — into zombified piglins.")
+            .defineInRange("puppeteerPiglinConvertRadius", 8.0, 0.0, 32.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_PIGLIN_CONVERT_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (zombified piglin): ticks between Converts.")
+            .defineInRange("puppeteerPiglinConvertCooldownTicks", 200, 0, 6000);
+
+    // babies
+    public static final ModConfigSpec.DoubleValue PUPPETEER_BABY_ZOMBIE_SPEED = BLESSINGS
+            .comment("Puppeteer: a BABY zombie-family puppet is this much faster, like a real baby zombie (0.5 = +50%,",
+                    "vanilla's own boost). Every baby puppet is also half size, so you fit where it fits.")
+            .defineInRange("puppeteerBabyZombieSpeedBonus", 0.5, 0.0, 3.0);
+
+    // fish (cod, salmon, pufferfish, tropical fish)
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FISH_SWIM_BONUS = BLESSINGS
+            .comment("Puppeteer (fish): extra swim speed in water (1.5 = +150%). Underwater you never run out of air.")
+            .defineInRange("puppeteerFishSwimBonus", 1.5, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FISH_LAND_SLOW = BLESSINGS
+            .comment("Puppeteer (fish): out of water you can barely move (0.85 = 85% slower) and you flop about like a real",
+                    "fish (the bounce is the fishFlopPower synergy knob). Your air runs out on land, then you dry out.")
+            .defineInRange("puppeteerFishLandSlow", 0.85, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_FISH_LEAP_COOLDOWN_TICKS = BLESSINGS
+            .comment("Puppeteer (fish): ticks between Leaps (right-click). 80 = 4s.")
+            .defineInRange("puppeteerFishLeapCooldownTicks", 80, 0, 1200);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FISH_LEAP_POWER = BLESSINGS
+            .comment("Puppeteer (fish): out of water, Leap launches you this hard along where you're looking (horizontal)...")
+            .defineInRange("puppeteerFishLeapPower", 1.3, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FISH_LEAP_LIFT = BLESSINGS
+            .comment("Puppeteer (fish): ...and this hard upwards, for a big arc. Fish puppets take no fall damage.")
+            .defineInRange("puppeteerFishLeapLift", 0.8, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FISH_DASH_POWER = BLESSINGS
+            .comment("Puppeteer (fish): in water, Leap is a quick dash this strong, straight where you're looking.")
+            .defineInRange("puppeteerFishDashPower", 1.6, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue PUPPETEER_FISH_ATTACK = BLESSINGS
+            .comment("Puppeteer (fish): damage of each hit — it's a fish.")
+            .defineInRange("puppeteerFishAttackDamage", 0.5, 0.0, 40.0);
+    public static final ModConfigSpec.IntValue PUPPETEER_PUFFERFISH_POISON_SECONDS = BLESSINGS
+            .comment("Puppeteer (pufferfish): hits poison the victim for this long, like a real pufferfish's spines.")
+            .defineInRange("puppeteerPufferfishPoisonSeconds", 6, 0, 120);
 
     // --- Pickpocket (blessing) -------------------------------------------------------------------------
     static { BLESSINGS.pop(); }
@@ -2945,6 +4140,49 @@ public final class Config {
                     "worth a little but nothing like fruit. Set to 0 if it should be worth nothing at all.")
             .defineInRange("thirstRestoreOtherFood", 1, 0, 40);
 
+    // --- Pandora's Box (secret curse) -----------------------------------------------------------------
+    static { CURSES.pop(); }
+    static { CURSES.push("pandoras_box"); }
+    public static final ModConfigSpec.IntValue PANDORA_SLOTS = CURSES
+            .comment("Pandora's Box: how many random curses it holds on you at once. These are ON TOP of the normal",
+                    "curse limit (they don't count toward it).")
+            .defineInRange("pandorasBoxSlots", 3, 1, 10);
+    public static final ModConfigSpec.IntValue PANDORA_SWAP_SECONDS = CURSES
+            .comment("Pandora's Box: seconds between swaps — each swap trades the OLDEST held curse for a new random one.")
+            .defineInRange("pandorasBoxSwapSeconds", 90, 5, 3600);
+
+    // --- Shadow (secret curse) ----------------------------------------------------------------------------
+    static { CURSES.pop(); }
+    static { CURSES.push("shadow"); }
+    public static final ModConfigSpec.IntValue SHADOW_DELAY_TICKS = CURSES
+            .comment("Shadow: how far behind you (ticks) your shadow retraces your exact path. 42 = 2.1 seconds. Stand",
+                    "still for this long and it reaches you.")
+            .defineInRange("shadowDelayTicks", 42, 10, 1200);
+    public static final ModConfigSpec.IntValue SHADOW_MAX_CHASE_TICKS = CURSES
+            .comment("Shadow: chases come in bouts. After chasing (risen) for this many ticks it gives up and vanishes, as",
+                    "if you'd gone into water, then returns after shadowRespawnTicks + the delay. 1440 = 1.2 minutes.")
+            .defineInRange("shadowMaxChaseTicks", 1440, 100, 72000);
+    public static final ModConfigSpec.IntValue SHADOW_SUMMON_TICKS = CURSES
+            .comment("Shadow: length (ticks) of its summoning — it claws up out of the ground and can't catch anyone",
+                    "until it has fully risen.")
+            .defineInRange("shadowSummonTicks", 25, 0, 200);
+    public static final ModConfigSpec.DoubleValue SHADOW_SPAWN_MIN_DISTANCE = CURSES
+            .comment("Shadow: idle protection for SPAWNING only — it won't form while its spawn point (your position",
+                    "shadowDelayTicks ago) is closer to you than this, so standing still can't make it appear on top of",
+                    "you. It waits until you've moved away. Once it exists, the normal chase rules apply.")
+            .defineInRange("shadowSpawnMinDistance", 4.0, 0.0, 32.0);
+    public static final ModConfigSpec.IntValue SHADOW_RESPAWN_TICKS = CURSES
+            .comment("Shadow: after it vanishes (you went into water, changed dimension, or it just caught you), how long",
+                    "(ticks) before it starts following again. It then re-forms shadowDelayTicks behind you.")
+            .defineInRange("shadowRespawnTicks", 100, 0, 6000);
+    public static final ModConfigSpec.DoubleValue SHADOW_CATCH_DISTANCE = CURSES
+            .comment("Shadow: how close (blocks, centre to centre) it has to get to catch — and kill — you.")
+            .defineInRange("shadowCatchDistance", 0.6, 0.1, 3.0);
+    public static final ModConfigSpec.DoubleValue SHADOW_MUSIC_DISTANCE = CURSES
+            .comment("Shadow: its chase music (the Snail's) starts when it's within this many blocks of you, and swells",
+                    "to full volume as it closes in. Only the hunted player hears it.")
+            .defineInRange("shadowMusicDistance", 48.0, 1.0, 128.0);
+
     // --- Pests -----------------------------------------------------------------------------------------
     static { CURSES.pop(); }
     static { CURSES.push("pests"); }
@@ -2953,6 +4191,11 @@ public final class Config {
                     "high-frequency action, so this is much lower than it looks — at 8% a normal tunnelling",
                     "session still produces a steady trickle.")
             .defineInRange("pestsChancePercent", 8, 0, 100);
+
+    public static final ModConfigSpec.IntValue PESTS_MOB_HIT_CHANCE = CURSES
+            .comment("Pests: percent chance per melee hit on a mob that silverfish crawl out of it (hitting a",
+                    "silverfish never spawns more).")
+            .defineInRange("pestsMobHitChancePercent", 7, 0, 100);
 
     public static final ModConfigSpec.IntValue PESTS_MIN_PER_TRIGGER = CURSES
             .comment("Pests: fewest silverfish per trigger.")

@@ -214,7 +214,7 @@ public final class CurseSirensCall extends Effect {
             if (!inWater) {
                 int gap = s3 ? 30 : 60; // yearning cue gets more insistent at stage 3
                 if (target.tickCount % gap == 0) {
-                    target.displayClientMessage(Component.literal("You yearn for the water...")
+                    target.displayClientMessage(Component.translatable("witchmod.sirens_call.yearn")
 .withStyle(ChatFormatting.AQUA), true);
                 }
             }

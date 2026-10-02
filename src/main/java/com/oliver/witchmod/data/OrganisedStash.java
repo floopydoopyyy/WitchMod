@@ -27,7 +27,7 @@ public final class OrganisedStash {
         SimpleContainer container = openContainer(owner);
         owner.openMenu(new SimpleMenuProvider(
                 (id, inv, p) -> new ChestMenu(MenuType.GENERIC_9x1, id, inv, container, 1),
-                Component.literal("Stash")));
+                Component.translatable("witchmod.gui.stash")));
     }
 
     /** container seeded from the stored slots that saves back to the attachment on close. */

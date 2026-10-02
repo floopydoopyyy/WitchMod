@@ -39,6 +39,87 @@ public final class WitchModAttachments {
             ResourceLocation.CODEC.listOf().xmap(HashSet::new, ArrayList::new);
 
     /** which curses/blessings this player has discovered — see {@link DiscoveryManager}. */
+    /** special (secret) attachments this player has already tried to cast without the knowledge — the next try backfires. */
+    public static final Supplier<AttachmentType<Set<ResourceLocation>>> SPECIAL_ATTEMPTS = ATTACHMENT_TYPES.register("special_attempts",
+            () -> AttachmentType.builder((Supplier<Set<ResourceLocation>>) HashSet::new)
+                    .serialize(RESOURCE_LOCATION_SET_CODEC)
+                    .copyOnDeath()
+                    .build());
+
+    /** puppeteer: the entity type id currently possessed ("" = none). synced so every client draws you as it. */
+    public static final Supplier<AttachmentType<String>> PUPPET_TYPE = ATTACHMENT_TYPES.register("puppet_type",
+            () -> AttachmentType.builder(() -> "").serialize(Codec.STRING).sync(ByteBufCodecs.STRING_UTF8).build());
+    /**
+     * puppeteer: on a MOB frozen mid-possession — its own NoAI / invulnerable flags (bit 1 / bit 2) to put back. saved
+     * with the mob, so a crash mid-possession can't leave it frozen forever (it's thawed when it next loads). -1 = none.
+     */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_FROZEN = ATTACHMENT_TYPES.register("puppet_frozen",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).build());
+    /** puppeteer: this player was given a bat puppet's flight — saved, so a crash can't leave a survival player flying. */
+    public static final Supplier<AttachmentType<Boolean>> PUPPET_GRANTED_FLIGHT = ATTACHMENT_TYPES.register("puppet_granted_flight",
+            () -> AttachmentType.builder(() -> false).serialize(Codec.BOOL).build());
+    /** puppeteer: the possessed mob's saved data (health included) — it's restored from this when you leave. */
+    public static final Supplier<AttachmentType<net.minecraft.nbt.CompoundTag>> PUPPET_DATA = ATTACHMENT_TYPES.register("puppet_data",
+            () -> AttachmentType.builder(() -> new net.minecraft.nbt.CompoundTag()).serialize(net.minecraft.nbt.CompoundTag.CODEC)
+                    // synced so clients can draw the puppet exactly as the mob looked (armour, wool, baby, charged...).
+                    .sync(ByteBufCodecs.COMPOUND_TAG).build());
+    /** puppeteer: game tick the possession cooldown ends (synced for the hud prompt). */
+    public static final Supplier<AttachmentType<Long>> PUPPET_COOLDOWN_END = ATTACHMENT_TYPES.register("puppet_cooldown_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer: your stashed inventory while possessing (so nothing can be used) — given back when you leave. */
+    public static final Supplier<AttachmentType<net.minecraft.nbt.CompoundTag>> PUPPET_INVENTORY = ATTACHMENT_TYPES.register("puppet_inventory",
+            () -> AttachmentType.builder(() -> new net.minecraft.nbt.CompoundTag()).serialize(net.minecraft.nbt.CompoundTag.CODEC).build());
+    /** puppeteer: the puppet's current / max health — what the hud shows in place of your hearts. */
+    public static final Supplier<AttachmentType<Float>> PUPPET_HEALTH = ATTACHMENT_TYPES.register("puppet_health",
+            () -> AttachmentType.builder(() -> 0.0F).sync(ByteBufCodecs.FLOAT).build());
+    public static final Supplier<AttachmentType<Float>> PUPPET_MAX_HEALTH = ATTACHMENT_TYPES.register("puppet_max_health",
+            () -> AttachmentType.builder(() -> 0.0F).sync(ByteBufCodecs.FLOAT).build());
+    /** puppeteer: bumped every time the puppet does its move, so clients can play its animation (a sheep grazing). */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_ACTION_COUNT = ATTACHMENT_TYPES.register("puppet_action_count",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+    /** puppeteer: ticks right-click has been held for a held move (creeper fuse, drowned trident, chicken egg); synced. */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_FUSE = ATTACHMENT_TYPES.register("puppet_fuse",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+    /** puppeteer (creeper): whether the puppet is charged. */
+    public static final Supplier<AttachmentType<Boolean>> PUPPET_CHARGED = ATTACHMENT_TYPES.register("puppet_charged",
+            () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
+    /** puppeteer: game tick the possession animation finishes (0 = not possessing-in-progress). */
+    public static final Supplier<AttachmentType<Long>> PUPPET_BINDING_END = ATTACHMENT_TYPES.register("puppet_binding_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer: game tick the puppet's special action is ready again (for the hud). */
+    /** puppeteer: a second move's cooldown, for puppets with two (the chicken's explosive egg vs laying). */
+    public static final Supplier<AttachmentType<Long>> PUPPET_ACTION2_READY = ATTACHMENT_TYPES.register("puppet_action2_ready",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    public static final Supplier<AttachmentType<Long>> PUPPET_ACTION_READY = ATTACHMENT_TYPES.register("puppet_action_ready",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer (silverfish): hidden inside a stone block (not rendered, not pushed out, can see out). */
+    public static final Supplier<AttachmentType<Boolean>> PUPPET_HIDDEN = ATTACHMENT_TYPES.register("puppet_hidden",
+            () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
+    /** puppeteer (enderman): game time the rage (someone looked you in the eye) ends; 0 = calm. */
+    public static final Supplier<AttachmentType<Long>> PUPPET_RAGE_END = ATTACHMENT_TYPES.register("puppet_rage_end",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer (goat): the current ram's power, 0-100 (how long it was charged) — the client drives the charge from it. */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_DASH_POWER = ATTACHMENT_TYPES.register("puppet_dash_power",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+    /** puppeteer (enderman): teleport charges ready. */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_TP_CHARGES = ATTACHMENT_TYPES.register("puppet_tp_charges",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+    /** puppeteer (endermite): burrowing — moving through blocks (see EntityBurrowMixin / PlayerBurrowMixin). */
+    public static final Supplier<AttachmentType<Boolean>> PUPPET_BURROWED = ATTACHMENT_TYPES.register("puppet_burrowed",
+            () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
+    /** puppeteer (hoglin / zoglin): game time the current lunge started (0 = none). your own client drives the charge from it. */
+    public static final Supplier<AttachmentType<Long>> PUPPET_LUNGE_START = ATTACHMENT_TYPES.register("puppet_lunge_start",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer: the blessing is active (synced so the hud can offer "possess" when you look at a mob). */
+    public static final Supplier<AttachmentType<Boolean>> PUPPETEER_ACTIVE = ATTACHMENT_TYPES.register("puppeteer_active",
+            () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
+
+    /** pandora's box / cornucopia: the rotating effects each is currently holding on this player (oldest first). */
+    public static final Supplier<AttachmentType<RouletteState>> ROULETTE_CURSES = ATTACHMENT_TYPES.register("roulette_curses",
+            () -> AttachmentType.builder(() -> RouletteState.EMPTY).serialize(RouletteState.CODEC).build());
+    public static final Supplier<AttachmentType<RouletteState>> ROULETTE_BLESSINGS = ATTACHMENT_TYPES.register("roulette_blessings",
+            () -> AttachmentType.builder(() -> RouletteState.EMPTY).serialize(RouletteState.CODEC).build());
+
     public static final Supplier<AttachmentType<Set<ResourceLocation>>> DISCOVERED_EFFECTS = ATTACHMENT_TYPES.register("discovered_effects",
             () -> AttachmentType.builder((Supplier<Set<ResourceLocation>>) HashSet::new)
                     .serialize(RESOURCE_LOCATION_SET_CODEC)
@@ -377,6 +458,10 @@ public final class WitchModAttachments {
      */
     public static final Supplier<AttachmentType<Integer>> ALLERGIC_DIET = ATTACHMENT_TYPES.register("allergic_diet",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).build());
+
+    /** current allergic reaction tier (0 = none, 1..3), synced to everyone so the green skin tint shows on all clients. */
+    public static final Supplier<AttachmentType<Integer>> ALLERGY_TIER = ATTACHMENT_TYPES.register("allergy_tier",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
 
     /**
      * Backseat Driver: game tick the current AI-takeover episode ends. Auto-synced so the client can cut the

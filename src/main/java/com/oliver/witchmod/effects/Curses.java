@@ -89,6 +89,10 @@ public final class Curses {
     public static final DeferredHolder<Effect, CurseChannels> CHANNELS = register("channels", CurseChannels::new);
     public static final DeferredHolder<Effect, CurseNarrator> NARRATOR = register("narrator", CurseNarrator::new);
 
+    // secret attachments — hidden until every other curse is discovered (see SpecialAttachments).
+    public static final DeferredHolder<Effect, CursePandorasBox> PANDORAS_BOX = register("pandoras_box", CursePandorasBox::new);
+    public static final DeferredHolder<Effect, CurseShadow> SHADOW = register("shadow", CurseShadow::new);
+
     // hidden internal attachments applied by the Slime Ball / Slime Block MODIFIERS (not selectable/castable).
     public static final DeferredHolder<Effect, CurseInfectious> INFECTIOUS = register("infectious", CurseInfectious::new);
     public static final DeferredHolder<Effect, CurseVeryInfectious> VERY_INFECTIOUS = register("very_infectious", CurseVeryInfectious::new);
