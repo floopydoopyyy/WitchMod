@@ -20,7 +20,7 @@ import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
 public abstract class EntityBurrowMixin {
     @Inject(method = "move", at = @At("HEAD"), cancellable = true)
     private void witchmod$burrow(MoverType type, Vec3 delta, CallbackInfo ci) {
-        if ((Object) this instanceof Player player && BlessingPuppeteer.burrowed(player)) {
+        if ((Object) this instanceof Player player && BlessingPuppeteer.phasing(player)) {
             Vec3 moved = BlessingPuppeteer.burrowDelta(player, delta);
             player.setPos(player.getX() + moved.x, player.getY() + moved.y, player.getZ() + moved.z);
             player.setOnGround(false);

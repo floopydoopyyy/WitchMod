@@ -20,14 +20,16 @@
     "EntitySwimMixin",
     "GoatAccessor",
     "EntityCamelSeatMixin",
-    "SpellcasterIllagerAccessor"
+    "SpellcasterIllagerAccessor",
+    "RavagerAccessor"
   ],
   "client": [
     "ListenerMixin",
     "EntityTintMixin",
     "AllergyArmTintMixin",
     "LocalPlayerPushMixin",
-    "MinecraftGlowMixin"
+    "MinecraftGlowMixin",
+    "MinecraftMissTimeAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

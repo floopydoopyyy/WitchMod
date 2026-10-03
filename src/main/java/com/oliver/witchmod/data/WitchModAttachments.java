@@ -95,6 +95,9 @@ public final class WitchModAttachments {
     /** puppeteer (silverfish): hidden inside a stone block (not rendered, not pushed out, can see out). */
     public static final Supplier<AttachmentType<Boolean>> PUPPET_HIDDEN = ATTACHMENT_TYPES.register("puppet_hidden",
             () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
+    /** puppeteer (wandering trader): drank invisibility — the puppet isn't rendered at all (solid-snake stealth). */
+    public static final Supplier<AttachmentType<Boolean>> PUPPET_STEALTH = ATTACHMENT_TYPES.register("puppet_stealth",
+            () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
     /** puppeteer (enderman): game time the rage (someone looked you in the eye) ends; 0 = calm. */
     public static final Supplier<AttachmentType<Long>> PUPPET_RAGE_END = ATTACHMENT_TYPES.register("puppet_rage_end",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
@@ -110,6 +113,9 @@ public final class WitchModAttachments {
     /** puppeteer (hoglin / zoglin): game time the current lunge started (0 = none). your own client drives the charge from it. */
     public static final Supplier<AttachmentType<Long>> PUPPET_LUNGE_START = ATTACHMENT_TYPES.register("puppet_lunge_start",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer (evoker): the spell belt selection — 0 fang ring, 1 line, 2 vexes. scroll cycles it; the hud shows it. */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_SPELL_SELECT = ATTACHMENT_TYPES.register("puppet_spell_select",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
     /** puppeteer: the blessing is active (synced so the hud can offer "possess" when you look at a mob). */
     public static final Supplier<AttachmentType<Boolean>> PUPPETEER_ACTIVE = ATTACHMENT_TYPES.register("puppeteer_active",
             () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());

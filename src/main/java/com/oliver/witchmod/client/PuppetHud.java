@@ -202,10 +202,19 @@ public final class PuppetHud {
                         lines.add(moveLine(List.of(mc.options.keyUp.getTranslatedKeyMessage()), "witchmod.puppeteer.action.hop", 0L, now));
                     }
                     if (puppet == BlessingPuppeteer.PuppetType.EVOKER) {
-                        // one right-click line that changes with what a release would cast (aim, and how long it's held)
-                        BlessingPuppeteer.EvokerSpell spell = BlessingPuppeteer.evokerSpell(player, hold);
-                        lines.add(moveLine(List.of(use), spell.labelKey(),
-                                spell.second ? player.getData(WitchModAttachments.PUPPET_ACTION2_READY) : ready, now));
+                        // the spell belt: scroll picks ring / line / vexes, right-click casts what you're aiming at
+                        BlessingPuppeteer.EvokerSpell belt = BlessingPuppeteer.beltSpell(player);
+                        BlessingPuppeteer.EvokerSpell cast = BlessingPuppeteer.evokerSpell(player);
+                        long castReady = cast.second ? player.getData(WitchModAttachments.PUPPET_ACTION2_READY) : ready;
+                        lines.add(new Line(List.of(Component.translatable("witchmod.puppeteer.scroll")),
+                                Component.translatable("witchmod.puppeteer.evoker_select", Component.translatable(belt.labelKey())), true));
+                        // the cast line names a contextual wololo / convert, else "Cast <belt spell>"
+                        Component castLabel = cast == BlessingPuppeteer.EvokerSpell.WOLOLO || cast == BlessingPuppeteer.EvokerSpell.CONVERT
+                                ? Component.translatable(cast.labelKey())
+                                : Component.translatable("witchmod.puppeteer.action.evoker_cast", Component.translatable(belt.labelKey()));
+                        lines.add(castReady > now
+                                ? new Line(List.of(use), Component.translatable("witchmod.puppeteer.cooldown_short", castLabel, (castReady - now + 19) / 20), false)
+                                : new Line(List.of(use), castLabel, true));
                         lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.horn",
                                 player.getData(WitchModAttachments.PUPPET_RAGE_END), now));
                     }
@@ -240,6 +249,10 @@ public final class PuppetHud {
                         lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.call",
                                 player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
                     }
+                    if (puppet == BlessingPuppeteer.PuppetType.CAT) {
+                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.meow",
+                                player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
+                    }
                     if (move == BlessingPuppeteer.Move.BOW && player.isUsingItem()) {
                         progress = net.minecraft.world.item.BowItem.getPowerForTime(player.getTicksUsingItem());
                     } else if (move == BlessingPuppeteer.Move.CROSSBOW && player.isUsingItem()) {
@@ -256,8 +269,9 @@ public final class PuppetHud {
                             case EMBED -> player.getData(WitchModAttachments.PUPPET_HIDDEN) ? -1.0F
                                     : Math.min(1.0F, hold / (float) Math.max(1, embedTicks()));
                             case MAUL -> -1.0F; // mid-scrap: no bar
-                            case FIREBALL, BLAZE_VOLLEY, GALE, POTION, DASH, RAM -> Math.max(0.0F, PuppeteerClient.shotCharge(player));
-                            case SPELL -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_EVOKER_VEX_HOLD_TICKS.get()));
+                            case LUNGE_HEAVY -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_VINDICATOR_LUNGE_CHARGE_TICKS.get()));
+                            case FIREBALL, BLAZE_VOLLEY, GALE, POTION, DASH, RAM, ROAR -> Math.max(0.0F, PuppeteerClient.shotCharge(player));
+                            case MITOSIS -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_ALLAY_MITOSIS_CHARGE_TICKS.get()));
                             default -> Math.min(1.0F, hold / 10.0F);
                         };
                     }

@@ -115,8 +115,9 @@ public final class BlessingPuppeteer extends Effect {
     /** what each puppet does with right-click. held moves charge while right-click is held, firing on release. */
     public enum Move {
         RALLY(false), TRIDENT(true), FUSE(true), OINK(false), MOO(false), GRAZE(false), EGG(true), LEAP(false), BOW(true),
-        POUNCE(false), FLY(false), FLEE(false), CONVERT(false), BEAM(true), NONE(false), LUNGE(false), INSPIRE(false), BURROW(false), TELEPORT(false), SPIT(false), FIREBALL(false), BLAZE_VOLLEY(true), GALE(true), POTION(true), DASH(true), RAM(true), CROSSBOW(true), MUG(false), SPELL(true),
-        PLAY_DEAD(true), DIVE(false), OFFER(true), VOLLEY(true), HMM(false), MAUL(false), EMBED(false);
+        POUNCE(false), FLY(false), FLEE(false), CONVERT(false), BEAM(true), NONE(false), LUNGE(false), INSPIRE(false), BURROW(false), TELEPORT(false), SPIT(false), FIREBALL(false), BLAZE_VOLLEY(true), GALE(true), POTION(true), DASH(true), RAM(true), CROSSBOW(true), MUG(false), SPELL(false),
+        PLAY_DEAD(true), DIVE(false), OFFER(true), VOLLEY(true), HMM(false), MAUL(false), EMBED(false), LUNGE_HEAVY(true), SCARED(false), ROAR(true),
+        GIGGLE(false), MITOSIS(true);
 
         private final boolean held;
 
@@ -138,7 +139,7 @@ public final class BlessingPuppeteer extends Effect {
         }
     }
 
-    public enum Group { ZOMBIE, SKELETON, SPIDER, PIGLIN, CREEPER, ANIMAL, FISH, SQUID, BAT, GUARDIAN, BRUTE, DOLPHIN, AXOLOTL, PHANTOM, GOLEM, SNOW_GOLEM, VILLAGER, RABBIT, SILVERFISH, ENDERMITE, ENDERMAN, HORSE, SLIME, LLAMA, GHAST, BLAZE, BREEZE, WITCH, CAMEL, GOAT, PILLAGER, FOX, VINDICATOR, EVOKER }
+    public enum Group { ZOMBIE, SKELETON, SPIDER, PIGLIN, CREEPER, ANIMAL, FISH, SQUID, BAT, GUARDIAN, BRUTE, DOLPHIN, AXOLOTL, PHANTOM, GOLEM, SNOW_GOLEM, VILLAGER, RABBIT, SILVERFISH, ENDERMITE, ENDERMAN, HORSE, SLIME, LLAMA, GHAST, BLAZE, BREEZE, WITCH, CAMEL, GOAT, PILLAGER, FOX, VINDICATOR, EVOKER, WOLF, CAT, RAVAGER, VEX, ALLAY }
 
     /** the possessable mobs. the full vanilla checklist (what's done, what's ruled out) is docs/PUPPETEER_MOBS.md. */
     public enum PuppetType {
@@ -201,8 +202,14 @@ public final class BlessingPuppeteer extends Effect {
         SCREAMING_GOAT(EntityType.GOAT, Group.GOAT, Move.RAM),
         PILLAGER(EntityType.PILLAGER, Group.PILLAGER, Move.CROSSBOW),
         FOX(EntityType.FOX, Group.FOX, Move.MUG),
-        VINDICATOR(EntityType.VINDICATOR, Group.VINDICATOR, Move.NONE),
-        EVOKER(EntityType.EVOKER, Group.EVOKER, Move.SPELL);
+        VINDICATOR(EntityType.VINDICATOR, Group.VINDICATOR, Move.LUNGE_HEAVY),
+        EVOKER(EntityType.EVOKER, Group.EVOKER, Move.SPELL),
+        WOLF(EntityType.WOLF, Group.WOLF, Move.POUNCE), // swings pounce, like a real wolf; a right-click Maul appears while frenzied
+        CAT(EntityType.CAT, Group.CAT, Move.SCARED),
+        WANDERING_TRADER(EntityType.WANDERING_TRADER, Group.VILLAGER, Move.HMM), // treated like a villager (shop, hmm, hunted)
+        RAVAGER(EntityType.RAVAGER, Group.RAVAGER, Move.ROAR), // fast chaser, head-poke bite, charge-up knockback roar, tramples leaves
+        VEX(EntityType.VEX, Group.VEX, Move.GIGGLE), // temporary; flies + phases through soft blocks; left-click lunge, right-click laugh
+        ALLAY(EntityType.ALLAY, Group.ALLAY, Move.MITOSIS); // flies, can't hit; carries/drops items, takes from containers, splits to music
 
         private final EntityType<?> entityType;
         private final Group group;
@@ -292,6 +299,10 @@ public final class BlessingPuppeteer extends Effect {
                 case CAMEL -> Config.PUPPETEER_CAMEL_SPEED.get();
                 case HORSE -> this == DONKEY || this == MULE ? Config.PUPPETEER_DONKEY_SPEED.get() : Config.PUPPETEER_HORSE_SPEED.get();
                 case RABBIT -> 1.0; // it only hops (the hop's own speed, client side)
+                case WOLF -> Config.PUPPETEER_WOLF_SPEED.get();
+                case CAT -> Config.PUPPETEER_CAT_SPEED.get();
+                case RAVAGER -> Config.PUPPETEER_RAVAGER_SPEED.get();
+                case VEX, ALLAY -> 1.0; // they fly (creative-style flight)
             };
         }
 
@@ -331,6 +342,11 @@ public final class BlessingPuppeteer extends Effect {
                 case FOX -> Config.PUPPETEER_SKELETON_ATTACK.get(); // a fox's bite: 2
                 case VINDICATOR -> Config.PUPPETEER_VINDICATOR_ATTACK.get();
                 case EVOKER -> Double.valueOf(0.0); // no melee — its left-click is its spells
+                case WOLF -> Config.PUPPETEER_WOLF_ATTACK.get();
+                case CAT -> Double.valueOf(0.0); // no bite — its left-click is a meow
+                case RAVAGER -> Config.PUPPETEER_RAVAGER_ATTACK.get();
+                case VEX -> Config.PUPPETEER_VEX_ATTACK.get(); // its lunge, applied specially
+                case ALLAY -> Double.valueOf(0.0); // can't hit anything
             }).floatValue();
         }
 
@@ -358,6 +374,9 @@ public final class BlessingPuppeteer extends Effect {
                 case GHAST -> Config.PUPPETEER_GOLEM_REACH.get(); // it's huge
                 case ENDERMAN -> Config.PUPPETEER_ZOMBIE_REACH.get();
                 case BRUTE -> Config.PUPPETEER_HOGLIN_REACH.get();
+                case WOLF, CAT -> Config.PUPPETEER_ANIMAL_REACH.get();
+                case RAVAGER -> Config.PUPPETEER_RAVAGER_REACH.get();
+                case VEX, ALLAY -> Config.PUPPETEER_ANIMAL_REACH.get();
             };
         }
 
@@ -416,6 +435,13 @@ public final class BlessingPuppeteer extends Effect {
     private static final Map<UUID, Boolean> BEAM_RALLIED = new ConcurrentHashMap<>();
     /** players dealing beam / thorns damage right now — it skips the "puppet hits do base damage" override. */
     private static final Set<UUID> SPECIAL_DAMAGE = ConcurrentHashMap.newKeySet();
+    /** mobs being forced to retaliate against the puppet that just hit them — so onTarget lets the grudge through. */
+    private static final Set<UUID> FORCED_TARGET = ConcurrentHashMap.newKeySet();
+    /** a ravager's bite in flight: the head pokes out a few ticks after the swing, then the hit lands. */
+    private record Bite(LivingEntity target, long at) {}
+    private static final Map<UUID, Bite> BITES = new ConcurrentHashMap<>();
+    /** a vex puppet's dissolve tick (it's temporary); the action bar counts down to it. */
+    private static final Map<UUID, Long> VEX_END = new ConcurrentHashMap<>();
     /** each guardian puppet's position last tick — a guardian holding still has its spikes out (thorns). */
     private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
     private static final Set<UUID> STILL = ConcurrentHashMap.newKeySet();
@@ -486,9 +512,15 @@ public final class BlessingPuppeteer extends Effect {
         if (type.group() == Group.ANIMAL || type == PuppetType.RABBIT) {
             lure(target, type);
         }
-        if (type == PuppetType.KILLER_RABBIT) {
-            tickLunge(target, type); // the maul's lunge
+        if (type == PuppetType.KILLER_RABBIT || type == PuppetType.WOLF) {
+            tickLunge(target, type); // the maul's lunge (a frenzied wolf shares the killer bunny's maul, weakened)
             tickMaul(target);
+        }
+        if (type == PuppetType.WOLF) {
+            tickWolf(target);
+        }
+        if (type == PuppetType.CAT) {
+            tickCat(target);
         }
         if (type == PuppetType.SILVERFISH) {
             tickSilverfish(target);
@@ -528,10 +560,20 @@ public final class BlessingPuppeteer extends Effect {
             refillQuiver(target);
         }
         if (type == PuppetType.VINDICATOR) {
-            tickJohnny(target);
+            tickVindicator(target);
         }
         if (type == PuppetType.EVOKER) {
             tickEvoker(target);
+        }
+        if (type == PuppetType.RAVAGER) {
+            tickHold(target, type); // the roar's charge (right-click held)
+            tickRavager(target);
+        }
+        if (type == PuppetType.VEX) {
+            tickVex(target);
+        }
+        if (type == PuppetType.ALLAY) {
+            tickAllay(target);
         }
         if (type == PuppetType.FOX) {
             tickFox(target);
@@ -563,7 +605,9 @@ public final class BlessingPuppeteer extends Effect {
         if (type == PuppetType.PHANTOM) {
             tickLunge(target, type); // the dive
         }
-        if ((type == PuppetType.IRON_GOLEM || type == PuppetType.VILLAGER) && ticksRemaining % 10 == 0) {
+        if (ticksRemaining % 10 == 0) {
+            // every puppet: nearby mobs that would hunt its mob TYPE pick it out (hunts() holds the faction logic),
+            // so a stray puppet draws iron golems while a sheep puppet is left alone.
             drawHunters(target, type);
         }
         if (type == PuppetType.SNOW_GOLEM) {
@@ -636,24 +680,56 @@ public final class BlessingPuppeteer extends Effect {
     private static final Map<LivingEntity, Double> PENDING_FLING = new ConcurrentHashMap<>();
     /** a golem's attack charge, caught before vanilla resets it, so its swing damage scales like a weapon's. */
     private static final Map<UUID, Float> SWING_STRENGTH = new ConcurrentHashMap<>();
+    /** a vindicator lunge in flight → its charge-scaled damage multiplier; removed when it connects (else it missed). */
+    private static final Map<UUID, Float> LUNGE_BONUS = new ConcurrentHashMap<>();
+    /** a vindicator that MISSED a lunge → the tick its recovery lockout ends (can't swing or lunge until then). */
+    private static final Map<UUID, Long> RECOVER_UNTIL = new ConcurrentHashMap<>();
 
     // the lunge machinery is shared: hoglin / zoglin charges and the phantom's dive (no wind-up, steered in 3d).
     public static int lungeWindup(PuppetType type) {
         return switch (type) {
             case ZOGLIN -> Config.PUPPETEER_ZOGLIN_LUNGE_WINDUP.get();
-            case PHANTOM, KILLER_RABBIT, GOAT, SCREAMING_GOAT, FOX -> 0;
+            case PHANTOM, KILLER_RABBIT, GOAT, SCREAMING_GOAT, FOX, VINDICATOR, WOLF -> 0; // the charge/none is the wind-up
+            case VEX -> Config.PUPPETEER_VEX_LUNGE_WINDUP_TICKS.get(); // a slight giggle-charge before it darts
             default -> Config.PUPPETEER_HOGLIN_LUNGE_WINDUP.get();
         };
     }
 
-    /** a lunge's length for this player — a goat's ram depends on how long it was charged. */
+    /** a lunge's length for this player — a goat's ram / a vindicator's committed lunge depend on the charge. */
     public static int lungeTicks(Player player, PuppetType type) {
-        return type.group() == Group.GOAT ? ramTicks(player) : lungeTicks(type);
+        if (type.group() == Group.GOAT) {
+            return ramTicks(player);
+        }
+        if (type == PuppetType.VINDICATOR) {
+            return vindLungeTicks(player);
+        }
+        return lungeTicks(type);
     }
 
-    /** a lunge's speed for this player — a goat's ram depends on how long it was charged. */
+    /** a lunge's speed for this player — a goat's ram / a vindicator's committed lunge depend on the charge. */
     public static double lungeSpeed(Player player, PuppetType type) {
-        return type.group() == Group.GOAT ? ramSpeed(player) : lungeSpeed(type);
+        if (type.group() == Group.GOAT) {
+            return ramSpeed(player);
+        }
+        if (type == PuppetType.VINDICATOR) {
+            return vindLungeSpeed(player);
+        }
+        return lungeSpeed(type);
+    }
+
+    /** a vindicator lunge's share of full reach from its charge (PUPPET_DASH_POWER); even a tap commits a real gap-closer. */
+    private static double vindShare(Player player) {
+        return 0.6 + 0.4 * Mth.clamp(player.getData(WitchModAttachments.PUPPET_DASH_POWER) / 100.0, 0.0, 1.0);
+    }
+
+    public static int vindLungeTicks(Player player) {
+        double reach = johnny(player) ? Config.PUPPETEER_JOHNNY_LUNGE_REACH.get() : 1.0;
+        return Math.max(3, (int) Math.round(Config.PUPPETEER_VINDICATOR_LUNGE_TICKS.get() * vindShare(player) * reach));
+    }
+
+    public static double vindLungeSpeed(Player player) {
+        double reach = johnny(player) ? Config.PUPPETEER_JOHNNY_LUNGE_REACH.get() : 1.0;
+        return Config.PUPPETEER_VINDICATOR_LUNGE_SPEED.get() * vindShare(player) * reach;
     }
 
     public static int lungeTicks(PuppetType type) {
@@ -661,7 +737,9 @@ public final class BlessingPuppeteer extends Effect {
             case ZOGLIN -> Config.PUPPETEER_ZOGLIN_LUNGE_TICKS.get();
             case PHANTOM -> Config.PUPPETEER_PHANTOM_DIVE_TICKS.get();
             case KILLER_RABBIT -> Config.PUPPETEER_KILLER_RABBIT_MAUL_TICKS.get();
+            case WOLF -> Config.PUPPETEER_WOLF_MAUL_TICKS.get();
             case FOX -> Config.PUPPETEER_FOX_POUNCE_TICKS.get();
+            case VEX -> Config.PUPPETEER_VEX_LUNGE_TICKS.get();
             default -> Config.PUPPETEER_HOGLIN_LUNGE_TICKS.get();
         };
     }
@@ -671,7 +749,9 @@ public final class BlessingPuppeteer extends Effect {
             case ZOGLIN -> Config.PUPPETEER_ZOGLIN_LUNGE_SPEED.get();
             case PHANTOM -> Config.PUPPETEER_PHANTOM_DIVE_SPEED.get();
             case KILLER_RABBIT -> Config.PUPPETEER_KILLER_RABBIT_MAUL_SPEED.get();
+            case WOLF -> Config.PUPPETEER_WOLF_MAUL_SPEED.get();
             case FOX -> Config.PUPPETEER_FOX_POUNCE_SPEED.get();
+            case VEX -> Config.PUPPETEER_VEX_LUNGE_SPEED.get();
             default -> Config.PUPPETEER_HOGLIN_LUNGE_SPEED.get();
         };
     }
@@ -680,8 +760,9 @@ public final class BlessingPuppeteer extends Effect {
         return switch (type) {
             case ZOGLIN -> Config.PUPPETEER_ZOGLIN_LUNGE_TURN.get();
             case PHANTOM -> Config.PUPPETEER_PHANTOM_DIVE_TURN.get();
-            case KILLER_RABBIT -> 0.0; // a maul goes dead straight
-            case GOAT, SCREAMING_GOAT, FOX -> 3.0; // a ram (or a fox's rush) barely turns
+            case KILLER_RABBIT, WOLF -> 0.0; // a maul goes dead straight
+            case GOAT, SCREAMING_GOAT, FOX, VINDICATOR -> 3.0; // a ram (or a fox's rush / an axe lunge) barely turns
+            case VEX -> Config.PUPPETEER_VEX_LUNGE_TURN.get(); // a vex homes in a bit as it darts
             default -> Config.PUPPETEER_HOGLIN_LUNGE_TURN.get();
         };
     }
@@ -780,7 +861,12 @@ public final class BlessingPuppeteer extends Effect {
         }
         long t = player.level().getGameTime() - lunge.start();
         int windup = lungeWindup(type);
-        if (t >= windup + lungeTicks(type)) {
+        if (t >= windup + lungeTicks(player, type)) {
+            // a vindicator lunge that ran its course without connecting is a MISS — the commit's recovery lockout.
+            if (type == PuppetType.VINDICATOR && LUNGE_BONUS.remove(player.getUUID()) != null) {
+                RECOVER_UNTIL.put(player.getUUID(), player.level().getGameTime() + Config.PUPPETEER_VINDICATOR_LUNGE_RECOVERY_TICKS.get());
+                player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_WEAK, SoundSource.PLAYERS, 0.8F, 0.7F);
+            }
             endLunge(player);
             return;
         }
@@ -788,6 +874,16 @@ public final class BlessingPuppeteer extends Effect {
             return;
         }
         ServerLevel level = player.serverLevel();
+        if (type == PuppetType.VINDICATOR) {
+            for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(0.4),
+                    e -> e != player && e.isAlive() && !e.isSpectator())) {
+                vindicatorLungeHit(player, e);
+                endLunge(player);
+                cooldown(player, Config.PUPPETEER_VINDICATOR_LUNGE_COOLDOWN_TICKS.get()); // a connect just goes on cooldown, no recovery
+                return;
+            }
+            return;
+        }
         if (type == PuppetType.FOX) {
             tickMug(player);
             return;
@@ -800,7 +896,11 @@ public final class BlessingPuppeteer extends Effect {
             tickDive(player, lunge);
             return;
         }
-        if (type == PuppetType.KILLER_RABBIT) {
+        if (type == PuppetType.VEX) {
+            tickVexLunge(player);
+            return;
+        }
+        if (type == PuppetType.KILLER_RABBIT || type == PuppetType.WOLF) {
             for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(0.4),
                     e -> e != player && e.isAlive() && !e.isSpectator())) {
                 endLunge(player);
@@ -887,16 +987,18 @@ public final class BlessingPuppeteer extends Effect {
     private static final ResourceLocation RABBIT_JUMP_ID = EffectUtil.modifierId("puppeteer_rabbit_jump");
     private static final ResourceLocation RABBIT_FALL_ID = EffectUtil.modifierId("puppeteer_rabbit_fall");
 
-    /** killer rabbit: Maul (right-click) — a huge straight lunge (the shared lunge machinery, no wind-up, no steering). */
+    /** killer rabbit (and a frenzied wolf): Maul (right-click) — a straight lunge (the shared lunge machinery, no wind-up). */
     private static void startMaulLunge(ServerPlayer player) {
         if (LUNGES.containsKey(player.getUUID()) || MAULS.containsKey(player.getUUID())) {
             return;
         }
+        boolean wolf = possessed(player) == PuppetType.WOLF;
         long now = player.level().getGameTime();
-        cooldown(player, Config.PUPPETEER_KILLER_RABBIT_MAUL_COOLDOWN_TICKS.get());
+        cooldown(player, wolf ? Config.PUPPETEER_WOLF_MAUL_COOLDOWN_TICKS.get() : Config.PUPPETEER_KILLER_RABBIT_MAUL_COOLDOWN_TICKS.get());
         LUNGES.put(player.getUUID(), new Lunge(now, ConcurrentHashMap.newKeySet()));
         player.setData(WitchModAttachments.PUPPET_LUNGE_START, now);
-        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.RABBIT_JUMP, SoundSource.PLAYERS, 1.2F, 0.7F);
+        player.serverLevel().playSound(null, player.blockPosition(),
+                wolf ? SoundEvents.WOLF_GROWL : SoundEvents.RABBIT_JUMP, SoundSource.PLAYERS, 1.2F, wolf ? 1.0F : 0.7F);
     }
 
     /** the lunge reached something: both of you are pinned in a frenzied scrap (PUPPET_FUSE > 0 holds your client still). */
@@ -917,7 +1019,8 @@ public final class BlessingPuppeteer extends Effect {
         }
         ServerLevel level = player.serverLevel();
         LivingEntity target = maul.target();
-        int maxHits = Config.PUPPETEER_KILLER_RABBIT_MAUL_HITS.get();
+        boolean wolf = possessed(player) == PuppetType.WOLF;
+        int maxHits = (wolf ? Config.PUPPETEER_WOLF_MAUL_HITS : Config.PUPPETEER_KILLER_RABBIT_MAUL_HITS).get();
         if (!target.isAlive() || target.level() != level || maul.hits()[0] >= maxHits) {
             endMaul(player, maul);
             return;
@@ -939,7 +1042,7 @@ public final class BlessingPuppeteer extends Effect {
         // the fight cloud churns the whole time
         level.sendParticles(ParticleTypes.POOF, mid.x, mid.y, mid.z, 3, 0.4, 0.3, 0.4, 0.02);
         long t = level.getGameTime() - maul.start();
-        if (t % Config.PUPPETEER_KILLER_RABBIT_MAUL_HIT_INTERVAL.get() != 0) {
+        if (t % (wolf ? Config.PUPPETEER_WOLF_MAUL_HIT_INTERVAL : Config.PUPPETEER_KILLER_RABBIT_MAUL_HIT_INTERVAL).get() != 0) {
             return;
         }
         maul.hits()[0]++;
@@ -947,7 +1050,8 @@ public final class BlessingPuppeteer extends Effect {
         SPECIAL_DAMAGE.add(player.getUUID());
         NO_KNOCKBACK.add(target.getUUID()); // pinned, not shoved
         try {
-            target.hurt(player.damageSources().playerAttack(player), Config.PUPPETEER_KILLER_RABBIT_MAUL_DAMAGE.get().floatValue());
+            target.hurt(player.damageSources().playerAttack(player),
+                    (wolf ? Config.PUPPETEER_WOLF_MAUL_DAMAGE : Config.PUPPETEER_KILLER_RABBIT_MAUL_DAMAGE).get().floatValue());
         } finally {
             SPECIAL_DAMAGE.remove(player.getUUID());
             NO_KNOCKBACK.remove(target.getUUID());
@@ -999,21 +1103,29 @@ public final class BlessingPuppeteer extends Effect {
         return player.hasData(WitchModAttachments.PUPPET_BURROWED) && player.getData(WitchModAttachments.PUPPET_BURROWED);
     }
 
-    private static double maxHardness() {
+    /** whether a puppet is phasing through blocks right now: a burrowing endermite, or a vex while it flies. */
+    public static boolean phasing(Player player) {
+        return burrowed(player)
+                || (PuppetType.byId(player.getData(WitchModAttachments.PUPPET_TYPE)) == PuppetType.VEX && player.getAbilities().flying);
+    }
+
+    /** the hardest block this puppet can pass: a vex gets obsidian (50), an endermite stops at obsidian-hard. */
+    private static double maxHardness(Player player) {
         try {
-            return Config.PUPPETEER_ENDERMITE_MAX_HARDNESS.get();
+            return PuppetType.byId(player.getData(WitchModAttachments.PUPPET_TYPE)) == PuppetType.VEX
+                    ? Config.PUPPETEER_VEX_MAX_HARDNESS.get() : Config.PUPPETEER_ENDERMITE_MAX_HARDNESS.get();
         } catch (IllegalStateException e) {
             return 50.0;
         }
     }
 
-    /** a block a burrowing endermite can't pass: unbreakable (bedrock, barriers...) or as hard as obsidian or harder. */
-    private static boolean impassable(net.minecraft.world.level.Level level, BlockPos pos, BlockState state) {
+    /** a block a phasing puppet can't pass: unbreakable (bedrock, barriers...) or at least as hard as its cap. */
+    private static boolean impassable(net.minecraft.world.level.Level level, BlockPos pos, BlockState state, double cap) {
         if (state.isAir()) {
             return false;
         }
         float hardness = state.getDestroySpeed(level, pos);
-        return hardness < 0.0F || hardness >= maxHardness();
+        return hardness < 0.0F || hardness >= cap;
     }
 
     private static boolean passable(Player player, net.minecraft.world.phys.AABB box) {
@@ -1021,9 +1133,10 @@ public final class BlessingPuppeteer extends Effect {
         if (box.minY < level.getMinBuildHeight()) {
             return false; // never out through the bottom of the world
         }
+        double cap = maxHardness(player);
         for (BlockPos pos : BlockPos.betweenClosed(Mth.floor(box.minX), Mth.floor(box.minY), Mth.floor(box.minZ),
                 Mth.floor(box.maxX - 1.0E-7), Mth.floor(box.maxY - 1.0E-7), Mth.floor(box.maxZ - 1.0E-7))) {
-            if (impassable(level, pos, level.getBlockState(pos))) {
+            if (impassable(level, pos, level.getBlockState(pos), cap)) {
                 return false;
             }
         }
@@ -1069,7 +1182,7 @@ public final class BlessingPuppeteer extends Effect {
         }
         BlockPos below = BlockPos.containing(player.getX(), player.getY() - 0.5, player.getZ());
         BlockState ground = level.getBlockState(below);
-        if (ground.getCollisionShape(level, below).isEmpty() || impassable(level, below, ground)) {
+        if (ground.getCollisionShape(level, below).isEmpty() || impassable(level, below, ground, maxHardness(player))) {
             player.displayClientMessage(Component.translatable("witchmod.puppeteer.endermite_no_burrow").withStyle(ChatFormatting.GRAY), true);
             return;
         }
@@ -1773,6 +1886,12 @@ public final class BlessingPuppeteer extends Effect {
      * and charging slows you.
      */
     private static void tickBlaze(ServerPlayer player, int ticksRemaining) {
+        // keep the blaze able to fly — re-grant each tick in case anything strips mayfly (it flies like the breeze).
+        if (!player.getAbilities().mayfly && !player.isCreative() && !player.isSpectator()) {
+            player.getAbilities().mayfly = true;
+            player.setData(WitchModAttachments.PUPPET_GRANTED_FLIGHT, true);
+            player.onUpdateAbilities();
+        }
         if (ticksRemaining % 10 == 0 && player.isInWaterRainOrBubble()) {
             player.hurt(player.damageSources().drown(), 1.0F);
         }
@@ -2175,6 +2294,350 @@ public final class BlessingPuppeteer extends Effect {
         player.setData(WitchModAttachments.PUPPET_ACTION2_READY, level.getGameTime() + Config.PUPPETEER_GOAT_SHRIEK_COOLDOWN_TICKS.get());
     }
 
+    // --- ravager ------------------------------------------------------------------------------------
+
+    /** left-click on something in reach: a ravager's bite doesn't land at once — its head pokes out a moment later. */
+    private static void startRavagerBite(ServerPlayer player, LivingEntity target) {
+        if (BITES.containsKey(player.getUUID())) {
+            return; // one bite in flight at a time — the head-poke paces it
+        }
+        BITES.put(player.getUUID(), new Bite(target, player.level().getGameTime() + Config.PUPPETEER_RAVAGER_BITE_DELAY_TICKS.get()));
+    }
+
+    /**
+     * ravager upkeep: lands the delayed bite when its head-poke delay is up, and tramples leaves it pushes through
+     * (like a real ravager, gated on mobGriefing).
+     */
+    private static void tickRavager(ServerPlayer player) {
+        Bite bite = BITES.get(player.getUUID());
+        if (bite != null && player.level().getGameTime() >= bite.at()) {
+            BITES.remove(player.getUUID());
+            LivingEntity target = bite.target();
+            double reach = PuppetType.RAVAGER.reach() + 2.0; // a little slack — the head pokes out and they may have shifted
+            if (target.isAlive() && target.level() == player.level() && player.distanceToSqr(target) <= reach * reach) {
+                target.hurt(player.damageSources().playerAttack(player), 1.0F); // onDamageFirst sets the ravager's bite damage
+                Vec3 away = target.position().subtract(player.position());
+                away = away.lengthSqr() < 1.0E-4 ? player.getLookAngle() : away.normalize();
+                double kb = Config.PUPPETEER_RAVAGER_BITE_KNOCKUP.get();
+                target.setDeltaMovement(target.getDeltaMovement().add(away.x * kb, kb, away.z * kb)); // tossed up and back
+                target.hurtMarked = true;
+                ravagerRally(player, target); // the raid piles onto your quarry
+            }
+        }
+        if (player.horizontalCollision && player.level().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_MOBGRIEFING)) {
+            trampleLeaves(player);
+        }
+    }
+
+    /** break any leaves the ravager is pushing through (vanilla's own ravager behaviour). */
+    private static void trampleLeaves(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        net.minecraft.world.phys.AABB box = player.getBoundingBox().inflate(0.2);
+        for (BlockPos pos : BlockPos.betweenClosed((int) Math.floor(box.minX), (int) Math.floor(box.minY), (int) Math.floor(box.minZ),
+                (int) Math.floor(box.maxX), (int) Math.floor(box.maxY), (int) Math.floor(box.maxZ))) {
+            if (level.getBlockState(pos).is(net.minecraft.tags.BlockTags.LEAVES)) {
+                level.destroyBlock(pos, true, player);
+            }
+        }
+    }
+
+    /**
+     * ravager: let go of a charged ROAR — everything around you is flung away and hurt, scaled by how long you charged
+     * (your view shook and zoomed as it built). the ravager's own roar sound + animation.
+     */
+    private static void ravagerRoar(ServerPlayer player, int charge) {
+        if (!ready(player)) {
+            return;
+        }
+        int full = Config.PUPPETEER_RAVAGER_ROAR_CHARGE_TICKS.get();
+        float frac = Mth.clamp(charge / (float) full, 0.0F, 1.0F);
+        if (charge < full / 4) {
+            return; // too brief to be a roar — nothing spent
+        }
+        ServerLevel level = player.serverLevel();
+        double radius = Config.PUPPETEER_RAVAGER_ROAR_RADIUS.get() * frac;
+        double kb = Config.PUPPETEER_RAVAGER_ROAR_KNOCKBACK.get() * frac;
+        float dmg = Config.PUPPETEER_RAVAGER_ROAR_DAMAGE.get().floatValue() * frac;
+        int stun = Math.round(Config.PUPPETEER_RAVAGER_ROAR_STUN_TICKS.get() * frac);
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
+                e -> e != player && e.isAlive() && !e.isSpectator() && e.distanceToSqr(player) <= radius * radius)) {
+            if (e instanceof net.minecraft.world.entity.raid.Raider) {
+                continue; // a ravager never hurts its own — pillagers, vindicators, evokers, witches, other ravagers
+            }
+            Vec3 away = e.position().subtract(player.position());
+            away = away.lengthSqr() < 1.0E-4 ? player.getLookAngle() : away.normalize();
+            double power = kb * Math.max(0.0, 1.0 - e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+            e.setDeltaMovement(away.x * power, 0.5 + power * 0.5, away.z * power);
+            e.hurtMarked = true;
+            e.resetFallDistance();
+            if (dmg > 0.0F) {
+                SPECIAL_DAMAGE.add(player.getUUID());
+                try {
+                    e.hurt(player.damageSources().playerAttack(player), dmg);
+                } finally {
+                    SPECIAL_DAMAGE.remove(player.getUUID());
+                }
+            }
+            if (stun > 0) {
+                e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, stun, 3, false, false));
+            }
+        }
+        // the bellow, gone all out: a central blast + expanding ground rings + a sweep ring + smoke billowing out
+        Vec3 c = player.position();
+        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.8, c.z, 1, 0.0, 0.0, 0.0, 0.0);
+        level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.8, c.z, 6, 0.6, 0.5, 0.6, 0.0);
+        for (double rr = 1.0; rr <= radius; rr += 1.0) {
+            int steps = (int) Math.max(8, rr * 8);
+            for (int i = 0; i < steps; i++) {
+                double a = i * 2.0 * Math.PI / steps;
+                double px = c.x + Math.cos(a) * rr;
+                double pz = c.z + Math.sin(a) * rr;
+                level.sendParticles(ParticleTypes.POOF, px, c.y + 0.2, pz, 1, 0.0, 0.02, 0.0, 0.02);
+                level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, px, c.y + 0.1, pz, 1, 0.0, 0.01, 0.0, 0.0);
+                if (rr <= 2.0) {
+                    level.sendParticles(ParticleTypes.SWEEP_ATTACK, px, c.y + 0.9, pz, 1, 0.0, 0.0, 0.0, 0.0);
+                }
+            }
+        }
+        level.playSound(null, c.x, c.y, c.z, SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0F, 1.0F);
+        level.playSound(null, c.x, c.y, c.z, SoundEvents.RAVAGER_STUNNED, SoundSource.PLAYERS, 1.2F, 0.7F);
+        // nudge the action counter so every client plays the dummy's roar animation
+        player.setData(WitchModAttachments.PUPPET_ACTION_COUNT, player.getData(WitchModAttachments.PUPPET_ACTION_COUNT) + 1);
+        cooldown(player, Config.PUPPETEER_RAVAGER_ROAR_COOLDOWN_TICKS.get());
+    }
+
+    /** nearby pillagers/illagers pile onto whatever the ravager just bit — a soft rally (no glow, don't override a target). */
+    private static void ravagerRally(ServerPlayer player, LivingEntity prey) {
+        double r = Config.PUPPETEER_RAVAGER_RALLY_RADIUS.get();
+        if (r <= 0.0) {
+            return;
+        }
+        for (net.minecraft.world.entity.monster.AbstractIllager illager : player.serverLevel().getEntitiesOfClass(
+                net.minecraft.world.entity.monster.AbstractIllager.class, player.getBoundingBox().inflate(r),
+                i -> i.isAlive() && (i.getTarget() == null || !i.getTarget().isAlive()))) {
+            illager.setTarget(prey);
+        }
+    }
+
+    // --- vex ----------------------------------------------------------------------------------------
+
+    /** vex upkeep: it never really lands (so it stays airborne + phasing), and it's temporary — an action-bar timer. */
+    private static void tickVex(ServerPlayer player) {
+        if (player.getAbilities().mayfly && !player.getAbilities().flying) {
+            player.getAbilities().flying = true; // kept aloft (and so always phasing)
+            player.onUpdateAbilities();
+        }
+        tickLunge(player, PuppetType.VEX); // the lunge's contact check
+        long now = player.level().getGameTime();
+        long end = VEX_END.computeIfAbsent(player.getUUID(), k -> now + Config.PUPPETEER_VEX_DURATION_TICKS.get());
+        long left = end - now;
+        if (left <= 0) {
+            VEX_END.remove(player.getUUID());
+            player.serverLevel().sendParticles(ParticleTypes.POOF, player.getX(), player.getY() + 0.5, player.getZ(), 20, 0.3, 0.4, 0.3, 0.02);
+            player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.VEX_DEATH, SoundSource.PLAYERS, 1.0F, 1.0F);
+            release(player, null, false); // the vex dissolves and lets you go
+            return;
+        }
+        if (now % 4 == 0) {
+            player.displayClientMessage(Component.translatable("witchmod.puppeteer.vex_timer", (int) Math.ceil(left / 20.0))
+                    .withStyle(ChatFormatting.AQUA), true);
+        }
+    }
+
+    /** left-click: a short charged dash — the vex's only way to hit (it can't during the cooldown). */
+    private static void startVexLunge(ServerPlayer player) {
+        if (!ready(player) || LUNGES.containsKey(player.getUUID())) {
+            return;
+        }
+        long now = player.level().getGameTime();
+        cooldown(player, Config.PUPPETEER_VEX_LUNGE_COOLDOWN_TICKS.get());
+        LUNGES.put(player.getUUID(), new Lunge(now, ConcurrentHashMap.newKeySet()));
+        player.setData(WitchModAttachments.PUPPET_LUNGE_START, now);
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.VEX_CHARGE, SoundSource.PLAYERS, 1.0F, 1.0F);
+    }
+
+    /** the dash's contact: the first thing it reaches takes the vex's hit, then the lunge ends. */
+    private static void tickVexLunge(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(0.5),
+                e -> e != player && e.isAlive() && !e.isSpectator())) {
+            SPECIAL_DAMAGE.add(player.getUUID());
+            try {
+                e.hurt(player.damageSources().playerAttack(player), Config.PUPPETEER_VEX_ATTACK.get().floatValue());
+            } finally {
+                SPECIAL_DAMAGE.remove(player.getUUID());
+            }
+            player.swing(InteractionHand.MAIN_HAND, true);
+            level.playSound(null, e.blockPosition(), SoundEvents.VEX_HURT, SoundSource.PLAYERS, 1.0F, 1.3F);
+            endLunge(player);
+            return;
+        }
+    }
+
+    /** right-click: just the annoying vex giggle. */
+    private static void vexLaugh(ServerPlayer player) {
+        if (!ready2(player)) {
+            return;
+        }
+        player.setData(WitchModAttachments.PUPPET_ACTION2_READY,
+                player.level().getGameTime() + Config.PUPPETEER_VEX_LAUGH_COOLDOWN_TICKS.get());
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.VEX_AMBIENT, SoundSource.PLAYERS, 1.3F, 1.0F);
+    }
+
+    // --- allay --------------------------------------------------------------------------------------
+
+    /** allay upkeep: keep its free flight granted (no sprint-fly, enforced client-side), and build the mitosis charge. */
+    private static void tickAllay(ServerPlayer player) {
+        if (!player.getAbilities().mayfly && !player.isCreative() && !player.isSpectator()) {
+            grantBatFlight(player);
+        }
+        // the mitosis charge builds ONLY while you hold right-click within earshot of a playing jukebox (and off cooldown);
+        // let go (or move out of earshot) at a full charge to split. a short hold instead does the tap action (fireHeld).
+        boolean holding = HELD.contains(player.getUUID());
+        int hold = player.getData(WitchModAttachments.PUPPET_FUSE);
+        if (holding && ready2(player) && nearMusic(player)) {
+            if (hold == 0) {
+                player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.ALLAY_ITEM_GIVEN, SoundSource.PLAYERS, 0.6F, 1.2F);
+            }
+            player.setData(WitchModAttachments.PUPPET_FUSE, Math.min(hold + 1, Config.PUPPETEER_ALLAY_MITOSIS_CHARGE_TICKS.get()));
+        } else if (hold != 0 && !holding) {
+            player.setData(WitchModAttachments.PUPPET_FUSE, 0);
+        }
+    }
+
+    /** whether a playing jukebox is within earshot (the allay needs music to split). */
+    private static boolean nearMusic(ServerPlayer player) {
+        int r = (int) Math.ceil(Config.PUPPETEER_ALLAY_MUSIC_RADIUS.get());
+        BlockPos at = player.blockPosition();
+        net.minecraft.world.level.Level level = player.level();
+        for (BlockPos pos : BlockPos.betweenClosed(at.offset(-r, -r, -r), at.offset(r, r, r))) {
+            BlockState state = level.getBlockState(pos);
+            if (state.is(net.minecraft.world.level.block.Blocks.JUKEBOX)
+                    && state.getValue(net.minecraft.world.level.block.JukeboxBlock.HAS_RECORD)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** a quick right-click: take one random item from a public container you're eyeing, else pick up / drop ground items. */
+    private static void allayTap(ServerPlayer player) {
+        net.minecraft.world.phys.HitResult hit = player.pick(5.0, 1.0F, false);
+        if (hit instanceof net.minecraft.world.phys.BlockHitResult block) {
+            net.minecraft.world.level.block.entity.BlockEntity be = player.level().getBlockEntity(block.getBlockPos());
+            // a public container (chests, barrels, hoppers, furnaces...) — ender chests aren't Containers, so they're out
+            if (be instanceof net.minecraft.world.Container container && !container.isEmpty()) {
+                takeRandomItem(player, container);
+                return;
+            }
+        }
+        allayPickupOrDrop(player);
+    }
+
+    /** pull one item out of a random non-empty slot and hand it to the allay (held), or drop it if the allay's hands are full. */
+    private static void takeRandomItem(ServerPlayer player, net.minecraft.world.Container container) {
+        List<Integer> slots = new ArrayList<>();
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            if (!container.getItem(i).isEmpty()) {
+                slots.add(i);
+            }
+        }
+        if (slots.isEmpty()) {
+            return;
+        }
+        int slot = slots.get(player.getRandom().nextInt(slots.size()));
+        ItemStack taken = container.removeItem(slot, 1);
+        if (taken.isEmpty()) {
+            return;
+        }
+        container.setChanged();
+        if (allayHeld(player).isEmpty()) {
+            setAllayHeld(player, taken);
+        } else if (!player.getInventory().add(taken)) {
+            player.drop(taken, false);
+        }
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.ALLAY_ITEM_TAKEN, SoundSource.PLAYERS, 1.0F, 1.0F);
+    }
+
+    /** right-click with nothing to take: drop what the allay holds, or pick up the nearest ground item (up to a stack). */
+    private static void allayPickupOrDrop(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        ItemStack held = allayHeld(player);
+        if (!held.isEmpty()) {
+            net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(level,
+                    player.getX(), player.getY() + 0.5, player.getZ(), held);
+            drop.setDeltaMovement(player.getLookAngle().scale(0.2));
+            drop.setPickUpDelay(20);
+            level.addFreshEntity(drop);
+            setAllayHeld(player, ItemStack.EMPTY);
+            level.playSound(null, player.blockPosition(), SoundEvents.ALLAY_THROW, SoundSource.PLAYERS, 1.0F, 1.0F);
+            return;
+        }
+        double r = Config.PUPPETEER_ALLAY_PICKUP_RADIUS.get();
+        net.minecraft.world.entity.item.ItemEntity nearest = null;
+        double best = Double.MAX_VALUE;
+        for (net.minecraft.world.entity.item.ItemEntity item : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                player.getBoundingBox().inflate(r), i -> i.isAlive() && !i.getItem().isEmpty())) {
+            double d = item.distanceToSqr(player);
+            if (d < best) {
+                best = d;
+                nearest = item;
+            }
+        }
+        if (nearest == null) {
+            return;
+        }
+        ItemStack stack = nearest.getItem();
+        ItemStack take = stack.copyWithCount(Math.min(stack.getCount(), stack.getMaxStackSize()));
+        setAllayHeld(player, take);
+        stack.shrink(take.getCount());
+        if (stack.isEmpty()) {
+            nearest.discard();
+        } else {
+            nearest.setItem(stack);
+        }
+        level.playSound(null, player.blockPosition(), SoundEvents.ALLAY_ITEM_TAKEN, SoundSource.PLAYERS, 1.0F, 1.0F);
+    }
+
+    /** near music, a full hold splits off a real allay copy (carrying a copy of what you hold), on a long cooldown. */
+    private static void allayMitosis(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        player.setData(WitchModAttachments.PUPPET_ACTION2_READY,
+                level.getGameTime() + Config.PUPPETEER_ALLAY_MITOSIS_COOLDOWN_TICKS.get());
+        net.minecraft.world.entity.animal.allay.Allay clone = EntityType.ALLAY.create(level);
+        if (clone != null) {
+            clone.moveTo(player.getX(), player.getY(), player.getZ(), player.getYRot(), 0.0F);
+            ItemStack held = allayHeld(player);
+            if (!held.isEmpty()) {
+                clone.setItemInHand(InteractionHand.MAIN_HAND, held.copyWithCount(1));
+            }
+            level.addFreshEntity(clone);
+        }
+        level.sendParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.4, 0.4, 0.4, 1.0);
+        level.playSound(null, player.blockPosition(), SoundEvents.ALLAY_ITEM_GIVEN, SoundSource.PLAYERS, 1.0F, 1.0F);
+        player.setData(WitchModAttachments.PUPPET_FUSE, 0);
+    }
+
+    private static final String ALLAY_HELD_KEY = "witchmod_allay_held";
+
+    public static ItemStack allayHeld(Player player) {
+        CompoundTag data = player.getData(WitchModAttachments.PUPPET_DATA);
+        if (!data.contains(ALLAY_HELD_KEY, Tag.TAG_COMPOUND)) {
+            return ItemStack.EMPTY;
+        }
+        return ItemStack.parseOptional(player.registryAccess(), data.getCompound(ALLAY_HELD_KEY));
+    }
+
+    private static void setAllayHeld(Player player, ItemStack stack) {
+        CompoundTag data = player.getData(WitchModAttachments.PUPPET_DATA);
+        if (stack.isEmpty()) {
+            data.remove(ALLAY_HELD_KEY);
+        } else {
+            data.put(ALLAY_HELD_KEY, stack.save(player.registryAccess()));
+        }
+        player.setData(WitchModAttachments.PUPPET_DATA, data);
+    }
+
     /** a camel puppet (both sides — EntityCamelSeatMixin seats its two riders like the real camel's). */
     public static boolean camelPuppet(Player player) {
         return player.hasData(WitchModAttachments.PUPPET_TYPE)
@@ -2413,6 +2876,276 @@ public final class BlessingPuppeteer extends Effect {
         }
     }
 
+    /** vindicator upkeep: the committed Lunge (charge while held, dash + heavy hit on release) and Johnny's auto-swings. */
+    private static void tickVindicator(ServerPlayer player) {
+        boolean lunging = LUNGES.containsKey(player.getUUID());
+        if (!lunging && !recovering(player)) {
+            tickHold(player, PuppetType.VINDICATOR); // builds the charge while right-click is held
+        }
+        tickLunge(player, PuppetType.VINDICATOR);
+        vindicatorChargeSlow(player); // a light wind-up slow — not enough to make sprinting into the lunge clunky
+        if (!lunging && !recovering(player)) {
+            tickJohnny(player);
+        }
+    }
+
+    /** the vindicator's wind-up slow — a gentler, configurable version of chargeSlow so sprinting still feels responsive. */
+    private static void vindicatorChargeSlow(ServerPlayer player) {
+        AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed == null) {
+            return;
+        }
+        double amount = Config.PUPPETEER_VINDICATOR_LUNGE_CHARGE_SLOW.get();
+        boolean slow = amount > 0.0 && player.getData(WitchModAttachments.PUPPET_FUSE) > 0;
+        if (slow != speed.hasModifier(FUSE_SLOW_ID)) {
+            if (slow) {
+                EffectUtil.addModifier(player, Attributes.MOVEMENT_SPEED, FUSE_SLOW_ID, -amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+            } else {
+                speed.removeModifier(FUSE_SLOW_ID);
+            }
+        }
+    }
+
+    /** whether a vindicator is in the brief lockout after a MISSED lunge — the commit. */
+    private static boolean recovering(ServerPlayer player) {
+        Long until = RECOVER_UNTIL.get(player.getUUID());
+        return until != null && player.level().getGameTime() < until;
+    }
+
+    /**
+     * vindicator: let go of the committed Lunge — a forward dash your own client drives (see PuppeteerClient.tickLunge).
+     * the first thing it reaches takes a charge-scaled heavy blow; a miss costs a recovery. Johnny's lunge is enhanced.
+     */
+    private static void vindicatorLunge(ServerPlayer player, int charge) {
+        if (charge < MIN_CHARGE || !ready(player) || LUNGES.containsKey(player.getUUID()) || recovering(player)) {
+            return;
+        }
+        int power = (int) Math.round(Mth.clamp(charge / (float) Config.PUPPETEER_VINDICATOR_LUNGE_CHARGE_TICKS.get(), 0.0F, 1.0F) * 100);
+        double max = johnny(player) ? Config.PUPPETEER_JOHNNY_LUNGE_BONUS_MAX.get() : Config.PUPPETEER_VINDICATOR_LUNGE_BONUS_MAX.get();
+        float bonus = (float) Mth.lerp(power / 100.0, Config.PUPPETEER_VINDICATOR_LUNGE_BONUS_MIN.get(), max);
+        long now = player.level().getGameTime();
+        player.setData(WitchModAttachments.PUPPET_DASH_POWER, power);
+        LUNGE_BONUS.put(player.getUUID(), bonus);
+        LUNGES.put(player.getUUID(), new Lunge(now, ConcurrentHashMap.newKeySet()));
+        player.setData(WitchModAttachments.PUPPET_LUNGE_START, now);
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 0.7F);
+    }
+
+    /** the lunge connects: the vindicator's base hit × the charge bonus (+ Johnny, + the axe's damage enchants), with weight. */
+    private static void vindicatorLungeHit(ServerPlayer player, LivingEntity e) {
+        ServerLevel level = player.serverLevel();
+        float amount = PuppetType.VINDICATOR.attackDamage() * LUNGE_BONUS.getOrDefault(player.getUUID(), 1.5F);
+        if (johnny(player)) {
+            amount *= 1.0F + Config.PUPPETEER_JOHNNY_BONUS.get().floatValue();
+        }
+        ItemStack weapon = mobWeapon(player, player.getData(WitchModAttachments.PUPPET_DATA));
+        if (!weapon.isEmpty()) {
+            amount = net.minecraft.world.item.enchantment.EnchantmentHelper.modifyDamage(level, weapon, e,
+                    player.damageSources().playerAttack(player), amount);
+        }
+        LUNGE_BONUS.remove(player.getUUID());
+        SPECIAL_DAMAGE.add(player.getUUID());
+        try {
+            e.hurt(player.damageSources().playerAttack(player), amount);
+        } finally {
+            SPECIAL_DAMAGE.remove(player.getUUID());
+        }
+        player.swing(InteractionHand.MAIN_HAND, true);
+        Vec3 look = player.getLookAngle();
+        Vec3 dir = new Vec3(look.x, 0.0, look.z);
+        dir = dir.lengthSqr() < 1.0E-4 ? new Vec3(0.0, 0.0, 1.0) : dir.normalize();
+        double kb = 0.5 * Math.max(0.0, 1.0 - e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+        e.setDeltaMovement(dir.x * kb, Math.max(e.getDeltaMovement().y, 0.0) + kb * 0.3, dir.z * kb);
+        e.hurtMarked = true;
+        level.playSound(null, e.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0F, 0.8F);
+    }
+
+    // --- wolf ---------------------------------------------------------------------------------------
+
+    private static final ResourceLocation WOLF_FRENZY_ATTACK_ID = EffectUtil.modifierId("puppeteer_wolf_frenzy_attack");
+    /** one fading scent footprint where a mob walked; the prey's (whoever hit a frenzied wolf) burn brighter/red. */
+    private record ScentPrint(double x, double y, double z, long tick, boolean prey) {}
+    /** each wolf puppet's scent trail — re-sent to its own client so it lingers (a limited Bloodhound). */
+    private static final Map<UUID, List<ScentPrint>> WOLF_SCENT = new ConcurrentHashMap<>();
+    /** a frenzied wolf → the mob that last hit it, whose scent is burned in bright for the pursuit. */
+    private static final Map<UUID, UUID> WOLF_PREY = new ConcurrentHashMap<>();
+
+    /** whether a wolf puppet is rabid (PUPPET_RAGE_END doubles as the frenzy-until tick, synced for the angry render). */
+    private static boolean frenzied(ServerPlayer player) {
+        return possessed(player) == PuppetType.WOLF
+                && player.level().getGameTime() < player.getData(WitchModAttachments.PUPPET_RAGE_END);
+    }
+
+    /** a hit sends a wolf rabid: Darkness, a faster bite, a pursuit Maul on right-click, the attacker's scent burned bright. */
+    private static void wolfFrenzy(ServerPlayer player, LivingEntity attacker) {
+        int ticks = Config.PUPPETEER_WOLF_FRENZY_TICKS.get();
+        if (ticks <= 0) {
+            return;
+        }
+        boolean fresh = !frenzied(player);
+        player.setData(WitchModAttachments.PUPPET_RAGE_END, player.level().getGameTime() + ticks);
+        WOLF_PREY.put(player.getUUID(), attacker.getUUID());
+        player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, ticks, 0, false, false));
+        if (fresh) {
+            player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.WOLF_GROWL, SoundSource.PLAYERS, 1.3F, 0.7F);
+        }
+    }
+
+    /** wolf upkeep: a faster bite while rabid (and the rabid motes), plus the always-on scent sense. */
+    private static void tickWolf(ServerPlayer player) {
+        boolean frenzy = frenzied(player);
+        AttributeInstance atk = player.getAttribute(Attributes.ATTACK_SPEED);
+        if (atk != null) {
+            boolean has = atk.hasModifier(WOLF_FRENZY_ATTACK_ID);
+            if (frenzy && !has) {
+                EffectUtil.addModifier(player, Attributes.ATTACK_SPEED, WOLF_FRENZY_ATTACK_ID,
+                        Config.PUPPETEER_WOLF_FRENZY_ATTACK_SPEED.get(), AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+            } else if (!frenzy && has) {
+                atk.removeModifier(WOLF_FRENZY_ATTACK_ID);
+                WOLF_PREY.remove(player.getUUID());
+            }
+        }
+        // no public rabid FX (red motes / bristle) — it's a disguise; the frenzy shows only in your own faster bite + maul.
+        wolfScent(player, frenzy);
+    }
+
+    /** the scent sense: nearby living mobs leave fading footprints shown to YOU only; the prey's burn bright red. */
+    private static void wolfScent(ServerPlayer player, boolean frenzy) {
+        long now = player.level().getGameTime();
+        List<ScentPrint> trail = WOLF_SCENT.computeIfAbsent(player.getUUID(), k -> new ArrayList<>());
+        int linger = Config.PUPPETEER_WOLF_SCENT_LINGER_TICKS.get();
+        if (now % Config.PUPPETEER_WOLF_SCENT_INTERVAL.get() == 0) {
+            double r = Config.PUPPETEER_WOLF_SCENT_RADIUS.get();
+            UUID preyId = WOLF_PREY.get(player.getUUID());
+            for (LivingEntity e : player.serverLevel().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(r),
+                    e -> e != player && e.isAlive() && !e.isSpectator() && e.onGround())) {
+                trail.add(new ScentPrint(e.getX(), e.getY() + 0.06, e.getZ(), now, frenzy && e.getUUID().equals(preyId)));
+            }
+        }
+        trail.removeIf(p -> now - p.tick() > linger);
+        while (trail.size() > 300) {
+            trail.remove(0);
+        }
+        if (now % 4 != 0) {
+            return; // re-send a few times a second — enough to linger, not a flood
+        }
+        net.minecraft.core.particles.DustParticleOptions normal =
+                new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.4F, 0.75F, 1.0F), 1.6F);
+        net.minecraft.core.particles.DustParticleOptions prey =
+                new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0F, 0.05F, 0.05F), 2.4F);
+        for (ScentPrint p : trail) {
+            // a clear marker on the ground, plus a short rising wisp, so a trail reads at a glance (the prey's a bold red).
+            player.serverLevel().sendParticles(player, p.prey() ? prey : normal, false, p.x(), p.y(), p.z(), 1, 0.0, 0.0, 0.0, 0.0);
+            player.serverLevel().sendParticles(player, p.prey() ? prey : normal, false, p.x(), p.y() + 0.45, p.z(), 1, 0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+    // --- cat ----------------------------------------------------------------------------------------
+
+    /** cat puppets → firework rocket ids near them last tick; one vanishing means it went off → a forced Scare. */
+    private static final Map<UUID, Set<Integer>> CAT_ROCKETS = new ConcurrentHashMap<>();
+
+    /** left-click: a meow (its own light cooldown on ACTION2). */
+    private static void catMeow(ServerPlayer player) {
+        if (!ready2(player)) {
+            return;
+        }
+        player.setData(WitchModAttachments.PUPPET_ACTION2_READY,
+                player.level().getGameTime() + Config.PUPPETEER_CAT_MEOW_COOLDOWN_TICKS.get());
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.CAT_AMBIENT, SoundSource.PLAYERS,
+                1.2F, 0.9F + player.getRandom().nextFloat() * 0.2F);
+        player.swing(InteractionHand.MAIN_HAND, true);
+    }
+
+    /** the startled cat: flung backwards and up with a loud comical hiss, like a cat that's just been spooked. */
+    private static void catScared(ServerPlayer player) {
+        Vec3 look = player.getLookAngle();
+        Vec3 back = new Vec3(-look.x, 0.0, -look.z);
+        back = back.lengthSqr() < 1.0E-4 ? new Vec3(0.0, 0.0, 1.0) : back.normalize().scale(Config.PUPPETEER_CAT_SCARE_BACK.get());
+        player.setDeltaMovement(back.x, Config.PUPPETEER_CAT_SCARE_UP.get(), back.z);
+        player.hurtMarked = true;
+        player.resetFallDistance();
+        ServerLevel level = player.serverLevel();
+        level.playSound(null, player.blockPosition(), SoundEvents.CAT_HISS, SoundSource.PLAYERS, 1.5F, 1.0F);
+        level.playSound(null, player.blockPosition(), SoundEvents.CAT_AMBIENT, SoundSource.PLAYERS, 1.5F, 1.6F);
+        level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.3, player.getZ(), 8, 0.2, 0.1, 0.2, 0.02);
+    }
+
+    /** cat upkeep: scaring creepers off, and being spooked airborne by a nearby firework going off. */
+    private static void tickCat(ServerPlayer player) {
+        scareCreepers(player);
+        catLoudScare(player);
+    }
+
+    /** nearby creepers deflate and back away, as a real cat scares them. */
+    private static void scareCreepers(ServerPlayer player) {
+        double r = Config.PUPPETEER_CAT_CREEPER_SCARE_RADIUS.get();
+        if (r <= 0 || player.tickCount % 5 != 0) {
+            return;
+        }
+        for (net.minecraft.world.entity.monster.Creeper creeper : player.serverLevel().getEntitiesOfClass(
+                net.minecraft.world.entity.monster.Creeper.class, player.getBoundingBox().inflate(r), LivingEntity::isAlive)) {
+            creeper.setTarget(null);
+            creeper.setSwellDir(-1); // stop fusing and deflate
+            // actually RUN away, like vanilla's AvoidEntityGoal: path to a spot away from the cat, fast.
+            Vec3 flee = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosAway(creeper, 16, 7, player.position());
+            if (flee != null) {
+                creeper.getNavigation().moveTo(flee.x, flee.y, flee.z, 1.4);
+            }
+        }
+    }
+
+    /** a firework rocket going off nearby spooks the cat (explosions are handled in onExplosion). */
+    private static void catLoudScare(ServerPlayer player) {
+        double r = Config.PUPPETEER_CAT_SCARE_LOUD_RADIUS.get();
+        if (r <= 0) {
+            return;
+        }
+        Set<Integer> present = ConcurrentHashMap.newKeySet();
+        for (net.minecraft.world.entity.projectile.FireworkRocketEntity rocket : player.serverLevel().getEntitiesOfClass(
+                net.minecraft.world.entity.projectile.FireworkRocketEntity.class, player.getBoundingBox().inflate(r))) {
+            present.add(rocket.getId());
+        }
+        Set<Integer> was = CAT_ROCKETS.put(player.getUUID(), present);
+        if (was == null || !ready(player)) {
+            return;
+        }
+        for (int id : was) {
+            if (!present.contains(id)) { // one that was close is gone — it went off
+                cooldown(player, Config.PUPPETEER_CAT_SCARE_COOLDOWN_TICKS.get());
+                catScared(player);
+                return;
+            }
+        }
+    }
+
+    /** a nearby explosion spooks a cat puppet into the air — its forced Scare, respecting the cooldown. */
+    @SubscribeEvent
+    static void onExplosion(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate event) {
+        double r = Config.PUPPETEER_CAT_SCARE_LOUD_RADIUS.get();
+        if (r <= 0 || !(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        Vec3 at = event.getExplosion().center();
+        for (ServerPlayer p : level.getEntitiesOfClass(ServerPlayer.class, new net.minecraft.world.phys.AABB(at, at).inflate(r))) {
+            if (possessed(p) == PuppetType.CAT && ready(p)) {
+                cooldown(p, Config.PUPPETEER_CAT_SCARE_COOLDOWN_TICKS.get());
+                catScared(p);
+            }
+        }
+    }
+
+    /** whether a crouched cat puppet is sitting on top of {@code chestPos} (blocking others from opening it). */
+    private static boolean catSittingOnChest(net.minecraft.world.level.Level level, BlockPos chestPos) {
+        for (Player p : level.players()) {
+            if (p instanceof ServerPlayer sp && possessed(sp) == PuppetType.CAT && sp.isCrouching()
+                    && sp.blockPosition().equals(chestPos.above())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // --- evoker -------------------------------------------------------------------------------------
 
     /**
@@ -2435,11 +3168,20 @@ public final class BlessingPuppeteer extends Effect {
         }
     }
 
+    /** the belt's three fang/vex spells, in scroll order — 0 ring, 1 line, 2 vexes. */
+    private static final EvokerSpell[] BELT = {EvokerSpell.RING, EvokerSpell.LINE, EvokerSpell.VEXES};
+
+    /** the belt spell the selection points at (clamped). */
+    public static EvokerSpell beltSpell(Player player) {
+        int sel = Mth.clamp(player.getData(WitchModAttachments.PUPPET_SPELL_SELECT), 0, BELT.length - 1);
+        return BELT[sel];
+    }
+
     /**
-     * what letting go of right-click would cast right now (client and server: the HUD shows just this one): at a sheep,
-     * wololo; at a villager, convert; else by how long it's been held — ring, line, then vexes (if they're ready).
+     * what a right-click casts right now (client and server share it, so the HUD matches): at a sheep, wololo; at a
+     * villager, convert; otherwise the belt's selected spell. no hold-timing any more — you scroll the belt instead.
      */
-    public static EvokerSpell evokerSpell(Player player, int hold) {
+    public static EvokerSpell evokerSpell(Player player) {
         LivingEntity target = beamHit(player, 16.0).entity();
         if (target instanceof net.minecraft.world.entity.animal.Sheep) {
             return EvokerSpell.WOLOLO;
@@ -2447,17 +3189,15 @@ public final class BlessingPuppeteer extends Effect {
         if (target instanceof net.minecraft.world.entity.npc.Villager) {
             return EvokerSpell.CONVERT;
         }
-        boolean vexesReady = player.getData(WitchModAttachments.PUPPET_ACTION2_READY) <= player.level().getGameTime();
-        if (hold >= Config.PUPPETEER_EVOKER_VEX_HOLD_TICKS.get() && vexesReady) {
-            return EvokerSpell.VEXES;
-        }
-        return hold >= Config.PUPPETEER_EVOKER_LINE_HOLD_TICKS.get() ? EvokerSpell.LINE : EvokerSpell.RING;
+        return beltSpell(player);
     }
 
     /** an evoker winding up a wololo / conversion: which, when it goes off, and at what. */
     private record Cast(EvokerSpell spell, long at, @Nullable LivingEntity target) {}
 
     private static final Map<UUID, Cast> CASTS = new ConcurrentHashMap<>();
+    /** when an instant cast's arms-up pose ends (game time) — purely cosmetic. */
+    private static final Map<UUID, Long> CAST_POSE = new ConcurrentHashMap<>();
     /** each evoker puppet's vexes, and who they're hunting (whoever it last hit or horned). */
     private static final Map<UUID, List<net.minecraft.world.entity.monster.Vex>> VEXES = new ConcurrentHashMap<>();
     private static final Map<UUID, LivingEntity> VEX_PREY = new ConcurrentHashMap<>();
@@ -2467,10 +3207,30 @@ public final class BlessingPuppeteer extends Effect {
         return spell.second ? ready2(player) : ready(player);
     }
 
-    /** let go of right-click: cast what evokerSpell says. fangs and vexes go off at once (the hold was the wind-up). */
-    private static void evokerRelease(ServerPlayer player, int charge) {
-        player.setData(WitchModAttachments.PUPPET_DASH_POWER, 0);
-        EvokerSpell spell = evokerSpell(player, charge);
+    /** scroll the spell belt (dir -1 / +1), wrapping; a soft chime + action-bar name so the change reads. */
+    public static void cycleSpell(ServerPlayer player, int dir) {
+        if (possessed(player) != PuppetType.EVOKER) {
+            return;
+        }
+        int sel = Math.floorMod(player.getData(WitchModAttachments.PUPPET_SPELL_SELECT) + Integer.signum(dir), BELT.length);
+        player.setData(WitchModAttachments.PUPPET_SPELL_SELECT, sel);
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_HAT.value(), SoundSource.PLAYERS, 0.6F, 1.4F);
+        player.displayClientMessage(Component.translatable("witchmod.puppeteer.evoker_select",
+                Component.translatable(BELT[sel].labelKey())).withStyle(ChatFormatting.LIGHT_PURPLE), true);
+    }
+
+    /** arms-up pose for a cast: the spell's colour for a short flash (the client reads it from PUPPET_DASH_POWER). */
+    private static void castPose(ServerPlayer player, int pose, int ticks) {
+        player.setData(WitchModAttachments.PUPPET_DASH_POWER, pose);
+        CAST_POSE.put(player.getUUID(), player.level().getGameTime() + ticks);
+    }
+
+    /**
+     * a right-click casts {@link #evokerSpell}: a sheep/villager in your sights winds up a wololo / conversion, otherwise
+     * the belt's selected spell goes off at once. each spell keeps its own cooldown, so a recharging one just doesn't fire.
+     */
+    private static void evokerCast(ServerPlayer player, @Nullable Entity target) {
+        EvokerSpell spell = evokerSpell(player);
         if (CASTS.containsKey(player.getUUID()) || !spellReady(player, spell)) {
             return;
         }
@@ -2478,45 +3238,33 @@ public final class BlessingPuppeteer extends Effect {
         long now = level.getGameTime();
         switch (spell) {
             case WOLOLO, CONVERT -> {
+                LivingEntity at = target instanceof LivingEntity hit ? hit : lookTarget(player, 16.0);
+                if (!(at instanceof net.minecraft.world.entity.animal.Sheep)
+                        && !(at instanceof net.minecraft.world.entity.npc.Villager)) {
+                    return; // lost the target between aim and click — no cooldown spent
+                }
                 int windup = Config.PUPPETEER_EVOKER_WINDUP_TICKS.get();
                 cooldown(player, windup + 20);
                 level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_WOLOLO, SoundSource.PLAYERS, 1.0F, 1.0F);
-                CASTS.put(player.getUUID(), new Cast(spell, now + windup, lookTarget(player, 16.0)));
+                CASTS.put(player.getUUID(), new Cast(spell, now + windup, at));
                 player.setData(WitchModAttachments.PUPPET_DASH_POWER, spell.pose);
+                player.setData(WitchModAttachments.PUPPET_ACTION_COUNT, player.getData(WitchModAttachments.PUPPET_ACTION_COUNT) + 1);
                 return;
             }
             case VEXES -> {
                 player.setData(WitchModAttachments.PUPPET_ACTION2_READY, now + Config.PUPPETEER_EVOKER_VEX_COOLDOWN_TICKS.get());
                 summonVexes(player);
+                level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.PLAYERS, 1.0F, 1.0F);
             }
             default -> {
                 cooldown(player, Config.PUPPETEER_EVOKER_FANGS_COOLDOWN_TICKS.get());
                 fangs(player, spell == EvokerSpell.LINE);
+                level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_ATTACK, SoundSource.PLAYERS, 1.0F, 1.0F);
             }
         }
+        castPose(player, spell.pose, 8);
         level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_CAST_SPELL, SoundSource.PLAYERS, 1.0F, 1.0F);
         player.setData(WitchModAttachments.PUPPET_ACTION_COUNT, player.getData(WitchModAttachments.PUPPET_ACTION_COUNT) + 1);
-    }
-
-    /** while right-click's held: arms up in the colour of whatever a release would cast, and its chant as it changes. */
-    private static void tickEvokerHold(ServerPlayer player) {
-        if (CASTS.containsKey(player.getUUID())) {
-            return;
-        }
-        int hold = player.getData(WitchModAttachments.PUPPET_FUSE);
-        int pose = 0;
-        if (HELD.contains(player.getUUID()) && hold > 0) {
-            EvokerSpell spell = evokerSpell(player, hold);
-            pose = spellReady(player, spell) ? spell.pose : 0;
-        }
-        int was = player.getData(WitchModAttachments.PUPPET_DASH_POWER);
-        if (pose != was) {
-            player.setData(WitchModAttachments.PUPPET_DASH_POWER, pose);
-            if (pose != 0) {
-                player.serverLevel().playSound(null, player.blockPosition(), pose == 1 ? SoundEvents.EVOKER_PREPARE_SUMMON
-                        : pose == 3 ? SoundEvents.EVOKER_PREPARE_WOLOLO : SoundEvents.EVOKER_PREPARE_ATTACK, SoundSource.PLAYERS, 1.0F, 1.0F);
-            }
-        }
     }
 
     /**
@@ -2536,26 +3284,41 @@ public final class BlessingPuppeteer extends Effect {
         }
         player.setData(WitchModAttachments.PUPPET_RAGE_END, now + Config.PUPPETEER_EVOKER_HORN_COOLDOWN_TICKS.get());
         level.playSound(null, player.blockPosition(), SoundEvents.RAID_HORN.value(), SoundSource.PLAYERS, 4.0F, 1.0F);
+        level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.PLAYERS, 2.0F, 0.8F);
         VEX_PREY.put(player.getUUID(), target);
         int speedTicks = Config.PUPPETEER_EVOKER_HORN_SPEED_TICKS.get();
         int speedLevel = Config.PUPPETEER_EVOKER_HORN_SPEED_LEVEL.get() - 1;
+        // mark the quarry for everyone to see: it glows for the whole rally, so it's clear who's being hunted.
+        target.addEffect(new MobEffectInstance(MobEffects.GLOWING, Math.max(speedTicks, 200), 0));
+        player.swing(InteractionHand.MAIN_HAND, true);
+        int count = 0;
         for (net.minecraft.world.entity.raid.Raider raider : level.getEntitiesOfClass(net.minecraft.world.entity.raid.Raider.class,
                 player.getBoundingBox().inflate(range), r -> r.isAlive() && r != target)) {
             raider.setTarget(target);
             if (speedTicks > 0) {
                 raider.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, speedTicks, speedLevel));
             }
-            level.sendParticles(ParticleTypes.ANGRY_VILLAGER, raider.getX(), raider.getEyeY() + 0.5, raider.getZ(), 1, 0.2, 0.1, 0.2, 0.0);
+            // a clear thread of anger from each raider toward the quarry
+            level.sendParticles(ParticleTypes.ANGRY_VILLAGER, raider.getX(), raider.getEyeY() + 0.6, raider.getZ(), 3, 0.25, 0.2, 0.25, 0.0);
+            count++;
         }
-        level.sendParticles(ParticleTypes.ANGRY_VILLAGER, target.getX(), target.getEyeY() + 0.6, target.getZ(), 4, 0.4, 0.2, 0.4, 0.0);
+        // a bold burst over the quarry so it reads at a glance
+        level.sendParticles(ParticleTypes.ANGRY_VILLAGER, target.getX(), target.getEyeY() + 0.7, target.getZ(), 16, 0.5, 0.4, 0.5, 0.0);
+        level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getEyeY() + 0.5, target.getZ(), 12, 0.5, 0.4, 0.5, 0.3);
+        player.displayClientMessage(Component.translatable("witchmod.puppeteer.horn", count,
+                target.getName()).withStyle(ChatFormatting.RED), true);
         player.setData(WitchModAttachments.PUPPET_ACTION_COUNT, player.getData(WitchModAttachments.PUPPET_ACTION_COUNT) + 1);
     }
 
-    /** evoker upkeep: the held spell's pose; a wound-up wololo / conversion goes off; vexes keep after their prey. */
+    /** evoker upkeep: a brief cast pose fades; a wound-up wololo / conversion goes off; vexes keep after their prey. */
     private static void tickEvoker(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        tickHold(player, PuppetType.EVOKER);
-        tickEvokerHold(player);
+        // clear the short arms-up flash from an instant cast (a wind-up owns the pose itself until it resolves)
+        Long poseEnd = CAST_POSE.get(player.getUUID());
+        if (poseEnd != null && level.getGameTime() >= poseEnd && !CASTS.containsKey(player.getUUID())) {
+            CAST_POSE.remove(player.getUUID());
+            player.setData(WitchModAttachments.PUPPET_DASH_POWER, 0);
+        }
         Cast cast = CASTS.get(player.getUUID());
         if (cast != null && level.getGameTime() >= cast.at()) {
             CASTS.remove(player.getUUID());
@@ -3188,7 +3951,8 @@ public final class BlessingPuppeteer extends Effect {
     /** villager: Hmm — and every villager around turns to look at you, then hmms back, one after another. */
     private static void hmm(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        level.playSound(null, player.blockPosition(), SoundEvents.VILLAGER_AMBIENT, SoundSource.PLAYERS, 1.0F, 1.0F);
+        // your own voice is the puppet's (a wandering trader keeps its own "hmm"); the villagers that answer are real.
+        level.playSound(null, player.blockPosition(), ambientOf(possessed(player)), SoundSource.PLAYERS, 1.0F, 1.0F);
         double r = Config.PUPPETEER_VILLAGER_HMM_RADIUS.get();
         long now = level.getGameTime();
         for (net.minecraft.world.entity.npc.Villager v : level.getEntitiesOfClass(net.minecraft.world.entity.npc.Villager.class,
@@ -3197,6 +3961,28 @@ public final class BlessingPuppeteer extends Effect {
                     new net.minecraft.world.entity.ai.behavior.EntityTracker(player, true), 80L);
             ECHOES.add(new Echo(now + 8 + level.random.nextInt(25), v));
         }
+    }
+
+    /**
+     * wandering trader: right-click drinks a potion of invisibility and the puppet vanishes entirely (no model, no
+     * nametag, no bubbles — solid-snake stealth); right-click again opts back out. also makes mobs lose track of you.
+     */
+    private static void toggleTraderStealth(ServerPlayer player) {
+        boolean on = !player.getData(WitchModAttachments.PUPPET_STEALTH);
+        player.setData(WitchModAttachments.PUPPET_STEALTH, on);
+        ServerLevel level = player.serverLevel();
+        if (on) {
+            player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, -1, 0, false, false, false)); // hidden: no icon, no particles
+            level.playSound(null, player.blockPosition(), SoundEvents.WANDERING_TRADER_DRINK_POTION, SoundSource.PLAYERS, 1.0F, 1.0F);
+        } else {
+            player.removeEffect(MobEffects.INVISIBILITY);
+            level.playSound(null, player.blockPosition(), SoundEvents.WANDERING_TRADER_DRINK_MILK, SoundSource.PLAYERS, 1.0F, 1.0F);
+        }
+    }
+
+    /** whether a puppet is in wandering-trader stealth (hide the dummy entirely). */
+    public static boolean stealthed(Player player) {
+        return player.getData(WitchModAttachments.PUPPET_STEALTH);
     }
 
     private static void tickEchoes(long now) {
@@ -3218,19 +4004,21 @@ public final class BlessingPuppeteer extends Effect {
     private static void openShop(ServerPlayer puppet, ServerPlayer customer) {
         ServerLevel level = puppet.serverLevel();
         Entity e = EntityType.loadEntityRecursive(puppet.getData(WitchModAttachments.PUPPET_DATA).copy(), level, x -> x);
-        if (!(e instanceof net.minecraft.world.entity.npc.Villager shop)) {
+        // a villager OR a wandering trader (both are AbstractVillager merchants) can run a shop.
+        if (!(e instanceof net.minecraft.world.entity.npc.AbstractVillager shop)) {
             return;
         }
         shop.moveTo(puppet.getX(), puppet.getY(), puppet.getZ());
+        boolean trader = possessed(puppet) == PuppetType.WANDERING_TRADER;
         if (shop.isBaby() || shop.getOffers().isEmpty()) {
-            level.playSound(null, puppet.blockPosition(), SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 1.0F, 1.0F);
+            level.playSound(null, puppet.blockPosition(), trader ? SoundEvents.WANDERING_TRADER_NO : SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 1.0F, 1.0F);
             customer.displayClientMessage(Component.translatable("witchmod.puppeteer.villager_no_trades", puppet.getName())
                     .withStyle(ChatFormatting.GRAY), true);
             return;
         }
         CompoundTag tag = puppet.getData(WitchModAttachments.PUPPET_DATA);
         if (!tag.contains("Offers")) {
-            // a villager that never traded rolls its trades on first look — keep them, or they'd re-roll every visit.
+            // one that never traded rolls its trades on first look — keep them, or they'd re-roll every visit.
             CompoundTag saved = new CompoundTag();
             shop.saveWithoutId(saved);
             if (saved.contains("Offers")) {
@@ -3240,9 +4028,9 @@ public final class BlessingPuppeteer extends Effect {
         }
         shop.setTradingPlayer(customer);
         SHOPS.put(shop, puppet.getUUID());
-        shop.openTradingScreen(customer, Component.translatable("witchmod.puppeteer.villager_shop", puppet.getName()),
-                shop.getVillagerData().getLevel());
-        level.playSound(null, puppet.blockPosition(), SoundEvents.VILLAGER_TRADE, SoundSource.PLAYERS, 1.0F, 1.0F);
+        int shopLevel = shop instanceof net.minecraft.world.entity.npc.Villager v ? v.getVillagerData().getLevel() : 1;
+        shop.openTradingScreen(customer, Component.translatable("witchmod.puppeteer.villager_shop", puppet.getName()), shopLevel);
+        level.playSound(null, puppet.blockPosition(), trader ? SoundEvents.WANDERING_TRADER_TRADE : SoundEvents.VILLAGER_TRADE, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 
     /** a trade at a puppet's shop: its trades / xp carry back into the puppet, and the emeralds paid go in the till. */
@@ -3251,7 +4039,7 @@ public final class BlessingPuppeteer extends Effect {
         UUID owner = SHOPS.get(event.getAbstractVillager());
         if (owner == null || !(event.getAbstractVillager().level() instanceof ServerLevel level)
                 || !(level.getServer().getPlayerList().getPlayer(owner) instanceof ServerPlayer puppet)
-                || possessed(puppet) != PuppetType.VILLAGER) {
+                || (possessed(puppet) != PuppetType.VILLAGER && possessed(puppet) != PuppetType.WANDERING_TRADER)) {
             return;
         }
         CompoundTag saved = new CompoundTag();
@@ -3274,7 +4062,9 @@ public final class BlessingPuppeteer extends Effect {
                     .withStyle(ChatFormatting.GREEN), true);
         }
         puppet.setData(WitchModAttachments.PUPPET_DATA, tag);
-        puppet.serverLevel().playSound(null, puppet.blockPosition(), SoundEvents.VILLAGER_YES, SoundSource.PLAYERS, 1.0F, 1.0F);
+        boolean trader = possessed(puppet) == PuppetType.WANDERING_TRADER;
+        puppet.serverLevel().playSound(null, puppet.blockPosition(),
+                trader ? SoundEvents.WANDERING_TRADER_YES : SoundEvents.VILLAGER_YES, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 
     /** close every customer's shop window for this puppet (it's leaving / changing). */
@@ -3345,6 +4135,16 @@ public final class BlessingPuppeteer extends Effect {
      * ignore puppets" rule doesn't apply to them): golems are hated by zombies, skeletons, spiders, illagers and
      * ravagers; villagers are hunted by zombies, illagers and ravagers.
      */
+    /** a hostile-monster puppet (what a village iron golem would attack: any MONSTER except a creeper). */
+    private static boolean isHostilePuppet(@Nullable PuppetType type) {
+        return type != null && type != PuppetType.CREEPER
+                && type.entityType().getCategory() == net.minecraft.world.entity.MobCategory.MONSTER;
+    }
+
+    /**
+     * whether {@code mob} would hunt this puppet's mob TYPE in vanilla — so the puppet is treated by the faction
+     * system as the mob it is (a stray puppet is attacked by golems; a sheep puppet is left alone; ...).
+     */
     private static boolean hunts(Mob mob, @Nullable PuppetType type) {
         if (type == null) {
             return false;
@@ -3352,12 +4152,31 @@ public final class BlessingPuppeteer extends Effect {
         boolean zombie = mob instanceof Zombie && !(mob instanceof net.minecraft.world.entity.monster.ZombifiedPiglin);
         boolean raider = mob instanceof net.minecraft.world.entity.monster.AbstractIllager
                 || mob instanceof net.minecraft.world.entity.monster.Ravager;
-        return switch (type) {
-            case IRON_GOLEM -> zombie || raider || mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton
+        boolean golem = mob instanceof net.minecraft.world.entity.animal.IronGolem
+                || mob instanceof net.minecraft.world.entity.animal.SnowGolem;
+        boolean wildWolf = mob instanceof net.minecraft.world.entity.animal.Wolf w && !w.isTame();
+        boolean fox = mob instanceof net.minecraft.world.entity.animal.Fox;
+        // villagers & wandering traders: hunted by zombies and raiders.
+        if (type == PuppetType.VILLAGER || type == PuppetType.WANDERING_TRADER) {
+            return zombie || raider;
+        }
+        // an iron-golem puppet: hated by zombies, raiders, skeletons and spiders.
+        if (type == PuppetType.IRON_GOLEM) {
+            return zombie || raider || mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton
                     || mob instanceof net.minecraft.world.entity.monster.Spider;
-            case VILLAGER -> zombie || raider;
-            default -> false;
-        };
+        }
+        // a hostile puppet: village defenders (iron/snow golems) go after it, and wild wolves hunt skeletons.
+        if (isHostilePuppet(type)) {
+            return golem || (type.group() == Group.SKELETON && wildWolf);
+        }
+        // prey: wild wolves hunt sheep & rabbits; foxes hunt chickens, rabbits and fish.
+        if (type == PuppetType.SHEEP || type == PuppetType.RABBIT) {
+            return wildWolf || (type == PuppetType.RABBIT && fox);
+        }
+        if (type == PuppetType.CHICKEN || type.group() == Group.FISH) {
+            return fox;
+        }
+        return false;
     }
 
     /** the hunters around you pick you out, as their target goals would pick out the real mob (line of sight, 16 blocks). */
@@ -3508,14 +4327,14 @@ public final class BlessingPuppeteer extends Effect {
      * regenerate quickly, and every mob after you loses interest (and can't pick you back up while you're down).
      */
     private static void tickAxolotl(ServerPlayer player, int ticksRemaining) {
-        if (player.isInWater()) {
-            player.setAirSupply(player.getMaxAirSupply());
-        }
-        tickMoisture(player, Config.PUPPETEER_AXOLOTL_MOISTURE_TICKS.get());
+        // amphibious, like a real axolotl: breathes fine in AND out of water — it never drowns, it only dries out.
+        player.setAirSupply(player.getMaxAirSupply());
         tickHold(player, PuppetType.AXOLOTL);
         if (!playingDead(player)) {
+            tickMoisture(player, Config.PUPPETEER_AXOLOTL_MOISTURE_TICKS.get());
             return;
         }
+        // playing dead: it's resting, so the dry-out is paused — you can keep it up out of water as long as you like.
         if (ticksRemaining % 10 == 0) {
             scaleHeal(player, Config.PUPPETEER_AXOLOTL_PLAY_DEAD_REGEN.get().floatValue() / 2.0F);
         }
@@ -4155,6 +4974,21 @@ public final class BlessingPuppeteer extends Effect {
         if (type == PuppetType.VINDICATOR) {
             applyVindicatorStats(player);
         }
+        // melee-weapon mobs show their weapon in FIRST person: a visual puppet-tool copy in the main hand, which
+        // vanilla swings on each attack (the bow/crossbow kits already fill the hand; this covers axes/swords/tridents).
+        // (the drowned is excluded — a real held trident makes vanilla play the throw-charge USE animation; its
+        // trident is rendered by hand in first person instead, raised in the spear pose while winding up.)
+        if (type.move() != Move.BOW && type.move() != Move.CROSSBOW && type != PuppetType.DROWNED) {
+            ItemStack display = mobWeapon.copy();
+            if (!display.isEmpty()) {
+                display.setCount(1);
+                markPuppetTool(display);
+                // fill the WHOLE hotbar (like the bow/crossbow kits) so it shows whatever slot the client has selected.
+                for (int i = 0; i < 9; i++) {
+                    player.getInventory().setItem(i, display.copy());
+                }
+            }
+        }
         notePriorEffects(player, tag);
         player.setData(WitchModAttachments.PUPPET_DATA, tag);
         player.setData(WitchModAttachments.PUPPET_MAX_HEALTH, mob.getMaxHealth());
@@ -4188,11 +5022,11 @@ public final class BlessingPuppeteer extends Effect {
             }
         }
         if (type == PuppetType.BAT || type == PuppetType.PHANTOM || type == PuppetType.GHAST || type == PuppetType.BLAZE
-                || type == PuppetType.BREEZE) {
+                || type == PuppetType.BREEZE || type == PuppetType.VEX || type == PuppetType.ALLAY) {
             grantBatFlight(player);
         }
-        if (type == PuppetType.GHAST && player.getAbilities().mayfly) {
-            player.getAbilities().flying = true; // a ghast never lands
+        if ((type == PuppetType.GHAST || type == PuppetType.VEX) && player.getAbilities().mayfly) {
+            player.getAbilities().flying = true; // a ghast / vex never really lands (the vex also phases while flying)
             player.onUpdateAbilities();
         }
         if (type.group() == Group.HORSE) {
@@ -4279,6 +5113,17 @@ public final class BlessingPuppeteer extends Effect {
         player.setData(WitchModAttachments.PUPPET_RAGE_END, 0L);
         player.setData(WitchModAttachments.PUPPET_TP_CHARGES, 0);
         MAULS.remove(player.getUUID());
+        BITES.remove(player.getUUID());
+        VEX_END.remove(player.getUUID());
+        if (player.getData(WitchModAttachments.PUPPET_STEALTH)) { // leaving a stealthed trader: drop the invisibility
+            player.removeEffect(MobEffects.INVISIBILITY);
+            player.setData(WitchModAttachments.PUPPET_STEALTH, false);
+        }
+        ItemStack allayCarried = allayHeld(player); // an allay leaves holding something: drop it so it isn't lost
+        if (!allayCarried.isEmpty()) {
+            player.drop(allayCarried, false);
+            setAllayHeld(player, ItemStack.EMPTY);
+        }
         DRINKS.remove(player.getUUID());
         EffectUtil.removeModifier(player, Attributes.MOVEMENT_SPEED, WITCH_DRINK_SLOW_ID);
         player.getCooldowns().removeCooldown(Items.POTION); // the belt's sweep mustn't linger on your real potions
@@ -4298,6 +5143,13 @@ public final class BlessingPuppeteer extends Effect {
         EffectUtil.removeModifier(player, Attributes.KNOCKBACK_RESISTANCE, GOLEM_KB_RESIST_ID);
         EffectUtil.removeModifier(player, Attributes.ATTACK_SPEED, GOLEM_ATTACK_SPEED_ID);
         SWING_STRENGTH.remove(player.getUUID());
+        LUNGES.remove(player.getUUID());
+        LUNGE_BONUS.remove(player.getUUID());
+        RECOVER_UNTIL.remove(player.getUUID());
+        EffectUtil.removeModifier(player, Attributes.ATTACK_SPEED, WOLF_FRENZY_ATTACK_ID);
+        WOLF_SCENT.remove(player.getUUID());
+        WOLF_PREY.remove(player.getUUID());
+        CAT_ROCKETS.remove(player.getUUID());
         player.setData(WitchModAttachments.PUPPET_TYPE, "");
         player.refreshDimensions();
         player.setData(WitchModAttachments.PUPPET_DATA, new CompoundTag());
@@ -4324,6 +5176,7 @@ public final class BlessingPuppeteer extends Effect {
         EffectUtil.removeModifier(player, Attributes.MOVEMENT_SPEED, FOX_SPRINT_ID);
         EffectUtil.removeModifier(player, Attributes.MOVEMENT_SPEED, JOHNNY_SPEED_ID);
         CASTS.remove(player.getUUID());
+        CAST_POSE.remove(player.getUUID());
         VEXES.remove(player.getUUID());
         VEX_PREY.remove(player.getUUID());
         FOX_CHEWING.remove(player.getUUID());
@@ -4558,6 +5411,12 @@ public final class BlessingPuppeteer extends Effect {
             case FOX -> SoundEvents.FOX_AMBIENT;
             case VINDICATOR -> SoundEvents.VINDICATOR_AMBIENT;
             case EVOKER -> SoundEvents.EVOKER_AMBIENT;
+            case WOLF -> SoundEvents.WOLF_AMBIENT;
+            case CAT -> SoundEvents.CAT_AMBIENT;
+            case WANDERING_TRADER -> SoundEvents.WANDERING_TRADER_AMBIENT;
+            case RAVAGER -> SoundEvents.RAVAGER_AMBIENT;
+            case VEX -> SoundEvents.VEX_AMBIENT;
+            case ALLAY -> SoundEvents.ALLAY_AMBIENT_WITHOUT_ITEM;
             default -> SoundEvents.ZOMBIE_AMBIENT;
         };
     }
@@ -4628,6 +5487,12 @@ public final class BlessingPuppeteer extends Effect {
             case FOX -> SoundEvents.FOX_HURT;
             case VINDICATOR -> SoundEvents.VINDICATOR_HURT;
             case EVOKER -> SoundEvents.EVOKER_HURT;
+            case WOLF -> SoundEvents.WOLF_HURT;
+            case CAT -> SoundEvents.CAT_HURT;
+            case WANDERING_TRADER -> SoundEvents.WANDERING_TRADER_HURT;
+            case RAVAGER -> SoundEvents.RAVAGER_HURT;
+            case VEX -> SoundEvents.VEX_HURT;
+            case ALLAY -> SoundEvents.ALLAY_HURT;
             default -> SoundEvents.ZOMBIE_HURT;
         };
     }
@@ -4653,6 +5518,21 @@ public final class BlessingPuppeteer extends Effect {
         }
         if (type == PuppetType.SILVERFISH) {
             silverfishAction(player); // burst / embed / call (bursting out ignores the cooldown)
+            return;
+        }
+        if (type == PuppetType.WANDERING_TRADER) {
+            toggleTraderStealth(player); // right-click: drink invisibility / opt back out
+            return;
+        }
+        if (type == PuppetType.VEX) {
+            vexLaugh(player); // right-click: just the annoying vex laugh
+            return;
+        }
+        if (type == PuppetType.WOLF) {
+            return; // a wolf is swing-only: a bite, a pounce, or (while rabid) a maul — right-click does nothing.
+        }
+        if (type == PuppetType.EVOKER) {
+            evokerCast(player, target); // casts the selected belt spell (or a contextual wololo / convert), own cooldowns
             return;
         }
         if (type.move().held() || type.move() == Move.NONE || !ready(player)) {
@@ -4710,6 +5590,10 @@ public final class BlessingPuppeteer extends Effect {
                 }
                 cooldown(player, Config.PUPPETEER_PIGLIN_CONVERT_COOLDOWN_TICKS.get());
                 convertPigs(player, pig);
+            }
+            case SCARED -> {
+                cooldown(player, Config.PUPPETEER_CAT_SCARE_COOLDOWN_TICKS.get());
+                catScared(player);
             }
             default -> { }
         }
@@ -4869,26 +5753,52 @@ public final class BlessingPuppeteer extends Effect {
             breezeShot(player); // left-click: a wind charge
             return;
         }
+        if (type == PuppetType.CAT) {
+            catMeow(player); // left-click: a meow
+            return;
+        }
+        if (type == PuppetType.WANDERING_TRADER) {
+            if (ready(player)) { // a wandering trader's hmm is on the LEFT-click (right-click is its stealth)
+                cooldown(player, Config.PUPPETEER_VILLAGER_HMM_COOLDOWN_TICKS.get());
+                hmm(player);
+            }
+            return;
+        }
+        if (type == PuppetType.VEX) {
+            startVexLunge(player); // left-click: the lunge — its only way to hit
+            return;
+        }
         if (type == null || type.move() != Move.POUNCE) {
+            return;
+        }
+        boolean wolf = type == PuppetType.WOLF;
+        // a rabid wolf's swing grabs + bursts like a (tamer) killer-bunny maul instead of a plain leap.
+        if (wolf && frenzied(player)) {
+            if (ready(player)) {
+                startMaulLunge(player);
+            }
             return;
         }
         boolean air = !player.onGround();
         if (air ? AIR_POUNCED.contains(player.getUUID()) || player.isInWater() || player.onClimbable() : !ready(player)) {
             return;
         }
-        double power = Config.PUPPETEER_SPIDER_POUNCE_POWER.get() * (air ? Config.PUPPETEER_SPIDER_AIR_POUNCE_POWER.get() : 1.0);
+        double base = wolf ? Config.PUPPETEER_WOLF_POUNCE_POWER.get() : Config.PUPPETEER_SPIDER_POUNCE_POWER.get();
+        double power = base * (air ? Config.PUPPETEER_SPIDER_AIR_POUNCE_POWER.get() : 1.0);
         Vec3 look = player.getLookAngle();
         Vec3 flat = new Vec3(look.x, 0.0, look.z);
         flat = flat.lengthSqr() < 1.0E-4 ? Vec3.ZERO : flat.normalize().scale(power);
         Vec3 now = player.getDeltaMovement();
-        double lift = air ? Math.max(now.y, 0.0) + Config.PUPPETEER_SPIDER_AIR_POUNCE_LIFT.get() : Config.PUPPETEER_SPIDER_POUNCE_LIFT.get();
+        double groundLift = wolf ? Config.PUPPETEER_WOLF_POUNCE_LIFT.get() : Config.PUPPETEER_SPIDER_POUNCE_LIFT.get();
+        double lift = air ? Math.max(now.y, 0.0) + Config.PUPPETEER_SPIDER_AIR_POUNCE_LIFT.get() : groundLift;
         if (air) {
             AIR_POUNCED.add(player.getUUID()); // cleared on landing (tick)
         }
         player.setDeltaMovement(flat.x + now.x * 0.2, lift, flat.z + now.z * 0.2);
         player.hurtMarked = true;
         cooldown(player, Config.PUPPETEER_SPIDER_POUNCE_COOLDOWN_TICKS.get());
-        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.SPIDER_AMBIENT, SoundSource.PLAYERS, 1.0F, 1.2F);
+        player.serverLevel().playSound(null, player.blockPosition(), wolf ? SoundEvents.WOLF_GROWL : SoundEvents.SPIDER_AMBIENT,
+                SoundSource.PLAYERS, 1.0F, wolf ? 1.0F : 1.2F);
     }
 
     /**
@@ -5014,8 +5924,7 @@ public final class BlessingPuppeteer extends Effect {
         }
         // a chicken charges its explosive egg on that egg's own cooldown; everything else on the main one.
         // (the snow golem's volley too: a tap still throws a plain snowball while the volley recharges.)
-        // an evoker always charges: a long hold reaches its vexes even while the fangs recharge
-        boolean canCharge = type == PuppetType.EVOKER || (type == PuppetType.CHICKEN || type == PuppetType.SNOW_GOLEM ? ready2(player) : ready(player));
+        boolean canCharge = type == PuppetType.CHICKEN || type == PuppetType.SNOW_GOLEM ? ready2(player) : ready(player);
         if (held && canCharge) {
             if (hold == 0 && type.group() == Group.GOAT) {
                 player.serverLevel().playSound(null, player.blockPosition(), type == PuppetType.SCREAMING_GOAT
@@ -5023,6 +5932,9 @@ public final class BlessingPuppeteer extends Effect {
             }
             if (hold == 0 && type == PuppetType.DROWNED) {
                 player.level().playSound(null, player.blockPosition(), SoundEvents.TRIDENT_RETURN, SoundSource.PLAYERS, 0.6F, 1.4F);
+            }
+            if (hold == 0 && type == PuppetType.RAVAGER) {
+                player.level().playSound(null, player.blockPosition(), SoundEvents.RAVAGER_AMBIENT, SoundSource.PLAYERS, 1.2F, 0.6F); // the building growl
             }
             player.setData(WitchModAttachments.PUPPET_FUSE, Math.min(hold + chargeStep(player), 200));
         }
@@ -5046,9 +5958,6 @@ public final class BlessingPuppeteer extends Effect {
         } else if (type == PuppetType.BLAZE) {
             blazeRelease(player, charge);
             return;
-        } else if (type == PuppetType.EVOKER) {
-            evokerRelease(player, charge);
-            return;
         } else if (type == PuppetType.WITCH) {
             // a quick click throws a splash; held long enough it's brewed into a lingering potion
             witchThrow(player, charge >= Config.PUPPETEER_WITCH_LINGER_CHARGE_TICKS.get());
@@ -5056,8 +5965,21 @@ public final class BlessingPuppeteer extends Effect {
         } else if (type == PuppetType.CAMEL) {
             camelDash(player, charge);
             return;
+        } else if (type.group() == Group.VINDICATOR) {
+            vindicatorLunge(player, charge);
+            return;
         } else if (type.group() == Group.GOAT) {
             goatRam(player, type, charge);
+            return;
+        } else if (type == PuppetType.RAVAGER) {
+            ravagerRoar(player, charge);
+            return;
+        } else if (type == PuppetType.ALLAY) {
+            if (charge >= Config.PUPPETEER_ALLAY_MITOSIS_CHARGE_TICKS.get() && ready2(player) && nearMusic(player)) {
+                allayMitosis(player); // a full hold within earshot of music: split off a copy
+            } else {
+                allayTap(player); // a tap: take from a container you're eyeing, else pick up / drop ground items
+            }
             return;
         } else if (type == PuppetType.BREEZE) {
             breezeRelease(player, charge);
@@ -5127,11 +6049,12 @@ public final class BlessingPuppeteer extends Effect {
     /** a drowned's trident: whatever it hits is marked for nearby drowned, who rise from dark or water if none are around. */
     private static void tridentRally(ServerPlayer thrower, LivingEntity hit) {
         ServerLevel level = thrower.serverLevel();
-        BlockPos at = hit.blockPosition();
-        boolean dark = level.getMaxLocalRawBrightness(at) <= Config.PUPPETEER_ZOMBIE_RALLY_SPAWN_LIGHT.get();
-        boolean wet = hit.isInWater() || BlockPos.betweenClosedStream(at.offset(-3, -2, -3), at.offset(3, 1, 3))
+        BlockPos leaderAt = thrower.blockPosition();
+        boolean dark = level.getMaxLocalRawBrightness(leaderAt) <= Config.PUPPETEER_ZOMBIE_RALLY_SPAWN_LIGHT.get();
+        boolean wet = thrower.isInWater() || BlockPos.betweenClosedStream(leaderAt.offset(-3, -2, -3), leaderAt.offset(3, 1, 3))
                 .anyMatch(p -> level.getFluidState(p).is(FluidTags.WATER));
-        answerCall(level, thrower, hit, hit.position(), Drowned.class, EntityType.DROWNED, dark || wet, true);
+        // raised near YOU (the leader), not the target — like the other undead rallies.
+        answerCall(level, thrower, hit, thrower.position(), Drowned.class, EntityType.DROWNED, dark || wet, true);
     }
 
     /** farm animals: someone holding your food drags you over to them, nose first. */
@@ -5290,8 +6213,8 @@ public final class BlessingPuppeteer extends Effect {
         if (type != null && (type.group() == Group.HORSE || type.group() == Group.CAMEL)) {
             return horseInteract(user, hand, stack, puppet, type);
         }
-        if (type == PuppetType.VILLAGER) {
-            // right-clicking a villager puppet opens its shop (whatever's in your hand)
+        if (type == PuppetType.VILLAGER || type == PuppetType.WANDERING_TRADER) {
+            // right-clicking a villager / wandering-trader puppet opens its shop (whatever's in your hand)
             if (user instanceof ServerPlayer customer && hand == InteractionHand.MAIN_HAND) {
                 openShop(puppet, customer);
             }
@@ -5339,6 +6262,17 @@ public final class BlessingPuppeteer extends Effect {
             }
             return true;
         }
+        if (type == PuppetType.WOLF && stack.is(ItemTags.WOLF_FOOD)
+                && puppet.getData(WitchModAttachments.PUPPET_HEALTH) < puppet.getData(WitchModAttachments.PUPPET_MAX_HEALTH)) {
+            if (!user.level().isClientSide) {
+                stack.consume(1, user); // feeding a wolf its meat heals it, exactly like a real wolf
+                scaleHeal(puppet, Config.PUPPETEER_WOLF_FEED_HEAL.get().floatValue());
+                ServerLevel level = puppet.serverLevel();
+                level.playSound(null, puppet.blockPosition(), SoundEvents.WOLF_PANT, SoundSource.PLAYERS, 1.0F, 1.2F);
+                level.sendParticles(ParticleTypes.HEART, puppet.getX(), puppet.getY() + 0.6, puppet.getZ(), 3, 0.3, 0.3, 0.3, 0.0);
+            }
+            return true;
+        }
         if ((type == PuppetType.COW || type == PuppetType.MOOSHROOM) && stack.is(Items.BUCKET)) {
             if (!user.level().isClientSide) {
                 user.setItemInHand(hand, ItemUtils.createFilledResult(stack, user, new ItemStack(Items.MILK_BUCKET)));
@@ -5382,6 +6316,14 @@ public final class BlessingPuppeteer extends Effect {
     /** no doors, chests or buttons from inside a puppet — a right-click on a block is the special move instead. */
     @SubscribeEvent
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        // a cat puppet sitting on a chest blocks everyone else from opening it — the classic annoying-cat mechanic.
+        if (!event.getLevel().isClientSide && !isBusy(event.getEntity())
+                && event.getLevel().getBlockState(event.getPos()).getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+                && catSittingOnChest(event.getLevel(), event.getPos())) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
         if (drawsBow(event.getEntity())) {
             event.setUseBlock(TriState.FALSE); // no block use, but the bow still draws
             return;
@@ -5489,12 +6431,15 @@ public final class BlessingPuppeteer extends Effect {
                 && !SPECIAL_DAMAGE.contains(attacker.getUUID())) {
             PuppetType type = possessed(attacker);
             if (type == PuppetType.GHAST || type == PuppetType.BREEZE || type == PuppetType.WITCH || type == PuppetType.SCREAMING_GOAT
-                    || type == PuppetType.PILLAGER || type == PuppetType.EVOKER) {
-                event.setCanceled(true); // no melee at all — whatever got a punch through
+                    || type == PuppetType.PILLAGER || type == PuppetType.EVOKER || type == PuppetType.WANDERING_TRADER
+                    || type == PuppetType.VEX || type == PuppetType.ALLAY) {
+                event.setCanceled(true); // no direct melee (the vex only hits via its lunge; the allay never hits)
                 return;
             }
             if (type != null) {
-                float amount = type.attackDamage();
+                float amount = type == PuppetType.DROWNED
+                        ? Config.PUPPETEER_DROWNED_MELEE_DAMAGE.get().floatValue() // its trident jab, not a bare zombie slap
+                        : type.attackDamage();
                 Float strength = SWING_STRENGTH.remove(attacker.getUUID());
                 if ((type == PuppetType.IRON_GOLEM || type == PuppetType.VINDICATOR) && strength != null) {
                     amount *= 0.2F + strength * strength * 0.8F; // vanilla's weapon cooldown scaling
@@ -5509,6 +6454,9 @@ public final class BlessingPuppeteer extends Effect {
                 }
                 if (type.group() == Group.SLIME) {
                     amount = slimeDamage(attacker, type); // grows with the slime
+                }
+                if (type == PuppetType.WOLF && frenzied(attacker)) {
+                    amount *= Config.PUPPETEER_WOLF_FRENZY_DAMAGE.get().floatValue(); // a rabid wolf hits harder
                 }
                 event.setAmount(amount);
             }
@@ -5544,7 +6492,7 @@ public final class BlessingPuppeteer extends Effect {
         PuppetType type = possessed(player);
         if (source.is(DamageTypeTags.IS_FALL) && type != null && (type == PuppetType.CHICKEN || type.group() == Group.FISH
                 || type == PuppetType.PHANTOM || type == PuppetType.IRON_GOLEM || type.group() == Group.SLIME || type == PuppetType.GHAST
-                || type == PuppetType.BLAZE || type == PuppetType.BREEZE)
+                || type == PuppetType.BLAZE || type == PuppetType.BREEZE || type == PuppetType.CAT) // cats always land on their feet
                 || source.is(DamageTypeTags.IS_FIRE) && type != null && type.entityType().fireImmune()) { // only the truly fire-proof
             event.setCanceled(true);
         }
@@ -5589,8 +6537,9 @@ public final class BlessingPuppeteer extends Effect {
         if (type == PuppetType.BLAZE) {
             blazeCombat(player); // ...and when it's hit
         }
-        if (type == PuppetType.VILLAGER && event.getSource().getEntity() instanceof LivingEntity attacker && attacker != player) {
-            // a hurt villager panics, and the village's iron golems come for whoever did it.
+        if ((type == PuppetType.VILLAGER || type == PuppetType.WANDERING_TRADER)
+                && event.getSource().getEntity() instanceof LivingEntity attacker && attacker != player) {
+            // a hurt villager / trader panics, and the village's iron golems come for whoever did it.
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 60, 1, false, false));
             if (!(attacker instanceof net.minecraft.world.entity.animal.IronGolem)
                     && !(attacker instanceof Player p && (p.isCreative() || p.isSpectator()))) {
@@ -5608,6 +6557,9 @@ public final class BlessingPuppeteer extends Effect {
             player.hurtMarked = true;
             if (type == PuppetType.ZOMBIFIED_PIGLIN) {
                 piglinCall(player, attacker); // hit one, the pack answers
+            }
+            if (type == PuppetType.WOLF) {
+                wolfFrenzy(player, attacker); // a hit sends a wolf rabid
             }
             // a baby hoglin bolts from whatever hurt it.
             int flee = Config.PUPPETEER_HOGLIN_BABY_FLEE_TICKS.get();
@@ -5775,6 +6727,7 @@ public final class BlessingPuppeteer extends Effect {
         if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player && possessed(player) != null
                 && event.getEntity() instanceof Enemy && Config.PUPPETEER_MONSTERS_IGNORE.get()
                 && event.getEntity().getLastHurtByMob() != player
+                && !FORCED_TARGET.contains(event.getEntity().getUUID())
                 && !(event.getEntity() instanceof Mob mob && hunts(mob, possessed(player)))) {
             event.setCanceled(true);
         }
@@ -5786,6 +6739,17 @@ public final class BlessingPuppeteer extends Effect {
         // nothing picks a fight with an axolotl that's playing dead — not even whatever it bit.
         if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player && playingDead(player)) {
             event.setCanceled(true);
+        }
+    }
+
+    /** speaking in chat while possessing something lets out the mob's own call (or nothing, if it has none). */
+    @SubscribeEvent
+    static void onChat(net.neoforged.neoforge.event.ServerChatEvent event) {
+        ServerPlayer player = event.getPlayer();
+        PuppetType type = possessed(player);
+        if (type != null) {
+            player.serverLevel().playSound(null, player.blockPosition(), ambientOf(type), SoundSource.PLAYERS,
+                    1.2F, 0.9F + player.getRandom().nextFloat() * 0.2F);
         }
     }
 
@@ -5856,13 +6820,39 @@ public final class BlessingPuppeteer extends Effect {
         // bats can't; the "dead" don't; nor can a rabbit mid-maul or a silverfish hidden in stone. a ghast's left-click
         // is its volley and a breeze's its wind charge — neither has a melee.
         if (group == Group.BAT || group == Group.GHAST || group == Group.BREEZE || group == Group.WITCH || group == Group.PILLAGER
+                || group == Group.CAT
                 || PuppetType.byId(event.getEntity().getData(WitchModAttachments.PUPPET_TYPE)) == PuppetType.SCREAMING_GOAT || playingDead(event.getEntity())
                 || busyBody(event.getEntity())) {
             event.setCanceled(true);
             return;
         }
+        // the vindicator's lunge-miss commit: locked out of swinging during the recovery.
+        if (group == Group.VINDICATOR && event.getEntity() instanceof ServerPlayer sp && recovering(sp)) {
+            event.setCanceled(true);
+            return;
+        }
         if ((group == Group.GOLEM || group == Group.VINDICATOR) && !event.getEntity().level().isClientSide) {
             SWING_STRENGTH.put(event.getEntity().getUUID(), event.getEntity().getAttackStrengthScale(0.5F)); // before vanilla resets it
+        }
+        // anything you attack while possessed turns on YOU and keeps the grudge after you unpossess — you were the
+        // attacker. neutral mobs (iron golems, wolves...) get real persistent anger so it sticks, like being hit for real.
+        if (event.getEntity() instanceof ServerPlayer sp && possessed(sp) != null && !sp.level().isClientSide
+                && event.getTarget() instanceof Mob victim) {
+            FORCED_TARGET.add(victim.getUUID()); // lets onTarget through even for an Enemy puppet's victim
+            try {
+                if (victim instanceof net.minecraft.world.entity.NeutralMob neutral) {
+                    neutral.setPersistentAngerTarget(sp.getUUID());
+                    neutral.startPersistentAngerTimer();
+                }
+                victim.setTarget(sp);
+            } finally {
+                FORCED_TARGET.remove(victim.getUUID());
+            }
+        }
+        // a ravager's bite is delayed: cancel the instant hit and schedule it for when the head pokes out.
+        if (group == Group.RAVAGER && event.getEntity() instanceof ServerPlayer rav && event.getTarget() instanceof LivingEntity tgt) {
+            event.setCanceled(true);
+            startRavagerBite(rav, tgt);
         }
     }
 }
