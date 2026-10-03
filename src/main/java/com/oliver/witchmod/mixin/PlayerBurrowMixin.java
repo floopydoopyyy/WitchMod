@@ -18,7 +18,7 @@ public abstract class PlayerBurrowMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void witchmod$stayNoclip(CallbackInfo ci) {
         Player self = (Player) (Object) this;
-        if (BlessingPuppeteer.burrowed(self)) {
+        if (BlessingPuppeteer.phasing(self)) {
             self.noPhysics = true;
         }
     }

@@ -321,6 +321,23 @@ public final class WitchModNetwork {
         net.neoforged.neoforge.network.PacketDistributor.sendToServer(new PuppetFusePayload(holding));
     }
 
+    /** c2s: puppeteer (evoker) — scroll the spell belt one step (dir -1 / +1). */
+    public record PuppetSpellPayload(int dir) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<PuppetSpellPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_spell"));
+        public static final StreamCodec<ByteBuf, PuppetSpellPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, PuppetSpellPayload::dir, PuppetSpellPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public static void sendPuppetSpell(int dir) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new PuppetSpellPayload(dir));
+    }
+
     /** client → server: report this client's curse opt-outs (called on join and whenever the client config reloads). */
     public static void sendOptOuts(java.util.List<String> ids) {
         net.neoforged.neoforge.network.PacketDistributor.sendToServer(new ClientOptOutPayload(ids));
@@ -502,6 +519,12 @@ public final class WitchModNetwork {
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
                         com.oliver.witchmod.effects.blessings.BlessingPuppeteer.onSwing(player);
+                    }
+                }));
+        registrar.playToServer(PuppetSpellPayload.TYPE, PuppetSpellPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.cycleSpell(player, payload.dir());
                     }
                 }));
         registrar.playToServer(PuppetDropPayload.TYPE, PuppetDropPayload.STREAM_CODEC,

@@ -32,8 +32,8 @@ The "idea" column is just a starting point for discussion — your call on all o
 | Camel | ✅ | Nimble ride (1.5-block step-up, normal jump); two riders in the real camel's seats, you steer. Hold right-click to charge a dash (horse-jump-bar style), boosted over vanilla. |
 | Goat | ✅ | Hold right-click: a ram that goes further, faster and harder the longer you charge — no damage, absurd knockback, doubles as travel. **Screaming goat** keeps its screams, and hold left-click (fully charged) for a wall-piercing, no-damage sonic shriek with truly insane knockback (30s cooldown). |
 | Fox | ✅ | Fox pace with a bigger sprint; crouching is silent. Picks items up in its mouth (drop key lets go) and eats food it holds. Right-click: Pounce — a rush that steals what the first holder it reaches is holding (swapping in whatever you carried) — or, with nothing to steal, bites the first thing it reaches. |
-| Wolf | ⬜ | Bite; howl to make nearby wolves follow? Armour. |
-| Cat | ⬜ | Scares phantoms/creepers; hiss. |
+| Wolf | ✅ | Swings pounce (like a real wolf's lunge-bite). Always-on scent sense: nearby mobs leave fading footprint trails only you see (a limited Bloodhound). Crouch = sit; others feed it its meat to heal it. **Frenzy** (on being hit): goes rabid — Darkness, a faster bite, the attacker's scent burned in bright red, and a weakened killer-bunny Maul on right-click for pursuit. |
+| Cat | ✅ | No bite; left-click meows. Quick, and takes no fall damage. Scares creepers off (they deflate and flee). Crouch = sit; sitting on a chest blocks others opening it. Right-click = Scare (6s): flung backwards + up with a loud hiss — a nearby explosion or firework forces it. |
 | Ocelot | ⬜ | Fast, scares creepers. |
 | Parrot | ⬜ | Flight (flutter), mimic mob sounds. |
 | Panda | ⬜ | Roll / sneeze (drops slime), lazy variants. |
@@ -46,7 +46,7 @@ The "idea" column is just a starting point for discussion — your call on all o
 | Allay | ⬜ | Flight; collect items (but your inventory is stashed…). |
 | Sniffer | ⬜ | Sniff up ancient seeds; very slow. |
 | Strider | ⬜ | Walk on lava; shivers out of it. |
-| Wandering Trader | ⬜ | Drink invisibility at night; summons llamas? |
+| Wandering Trader | ✅ | Treated like a villager: Hmm, others open your shop (your real trades; emeralds go to your till, paid out on leaving), hunted by zombies/illagers + defended by golems, panics when hurt. |
 
 ## Water
 | Mob | Status | Idea / notes |
@@ -93,7 +93,7 @@ The "idea" column is just a starting point for discussion — your call on all o
 | Ghast | ✅ | Always flying, slowly; full 4x4x4 hitbox. Right-click: one fireball (3s). Hold left-click: charge (slowed, shaking, view narrows), release for a flamethrower-like stream of 5 scattered fireballs. Face + cry only as it fires. Fire / lava proof. |
 | Witch | ✅ | Hotbar = her potion belt (scroll to pick): right-click throws it as a splash, hold for lingering; left-click drinks it. Her magic resistance; her own brews don't touch her. |
 | Pillager | ✅ | Real crossbows on the hotbar (load + fire, every crossbow blessing), bottomless quiver, +25% bolt damage; no melee. |
-| Vindicator | ✅ | A brute: big speed, big hits, a quicker swing; keeps its axe's enchantments. Named "Johnny": attacks anything nearby on its own, with bonus damage, speed, swing speed and extra hit sparks. |
+| Vindicator | ✅ | A brute: big speed, big hits, a quicker swing; keeps its axe's enchantments. **Hold right-click = a committed DbD-style Lunge** (charge for bonus damage; a miss costs a 12-tick recovery). Named "Johnny": attacks anything nearby on its own, with bonus damage, speed, swing speed, extra hit sparks — and an enhanced lunge. |
 | Evoker | ✅ | Right-click spells (one HUD line shows what letting go casts): tap — fang ring; hold — fang line; hold longer — 3 vexes (15s) that hunt whoever you last hit; at a sheep — wololo; at a villager — turn it into a witch. Left-click: Rallying Horn (20s) — every illager and witch nearby turns on your target, sped up. No melee. |
 | Illusioner | ❌ | Unused vanilla mob. |
 | Vex | ❌ | Flies through walls. |

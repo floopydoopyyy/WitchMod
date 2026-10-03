@@ -71,6 +71,8 @@ public final class PuppeteerClient {
     private static final Map<UUID, Integer> BREEZE_SHOT = new HashMap<>();
     /** a camel puppet plays its dash animation until this tick. */
     private static final Map<UUID, Integer> CAMEL_DASH = new HashMap<>();
+    /** a ravager puppet's remaining roar-animation ticks (set when a roar fires). */
+    private static final Map<UUID, Integer> RAVAGER_ROAR = new HashMap<>();
 
     /** your shot's charge as 0..1 (ghast volley / blaze volley / breeze gale), or -1 if you're not winding one up. */
     public static float shotCharge(Player p) {
@@ -89,6 +91,7 @@ public final class PuppeteerClient {
                 case GOAT -> com.oliver.witchmod.Config.PUPPETEER_GOAT_RAM_CHARGE_TICKS.get();
                 case SCREAMING_GOAT -> p == Minecraft.getInstance().player && attackHeld
                         ? com.oliver.witchmod.Config.PUPPETEER_GOAT_SHRIEK_CHARGE_TICKS.get() : com.oliver.witchmod.Config.PUPPETEER_GOAT_RAM_CHARGE_TICKS.get();
+                case RAVAGER -> com.oliver.witchmod.Config.PUPPETEER_RAVAGER_ROAR_CHARGE_TICKS.get();
                 default -> 0;
             };
             return full <= 0 ? -1.0F : Math.min(1.0F, hold / (float) full);
@@ -103,12 +106,16 @@ public final class PuppeteerClient {
         float charge = shotCharge(event.getPlayer());
         BlessingPuppeteer.PuppetType who = BlessingPuppeteer.PuppetType.byId(typeOf(event.getPlayer()));
         if (charge >= 0.0F && who != BlessingPuppeteer.PuppetType.CAMEL) { // (a camel's dash charge is a jump bar, not an aim)
-            event.setNewFovModifier(event.getNewFovModifier() * (1.0F - 0.15F * charge * charge));
+            // the ravager's roar zooms in harder than a drawn bow — the build-up to the bellow
+            float pull = who == BlessingPuppeteer.PuppetType.RAVAGER ? 0.35F : 0.15F;
+            event.setNewFovModifier(event.getNewFovModifier() * (1.0F - pull * charge * charge));
         }
     }
     private static boolean held;
     /** the attack button held (a ghast puppet's volley charge), as last reported. */
     private static boolean attackHeld;
+    /** crouch+use held last tick (the witch leave-assist edge detector). */
+    private static boolean witchLeavePrev;
     /** the lunge's current heading (your own), and the lunge it belongs to. */
     private static net.minecraft.world.phys.Vec3 lungeDir;
     private static long lungeFor;
@@ -177,10 +184,29 @@ public final class PuppeteerClient {
     static void onSwingKey(net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
         Player player = Minecraft.getInstance().player;
         BlessingPuppeteer.PuppetType own = player == null ? null : BlessingPuppeteer.PuppetType.byId(typeOf(player));
-        if (event.isAttack() && player != null && (isSpiderPuppet(player)
-                || own == BlessingPuppeteer.PuppetType.ELDER_GUARDIAN || own == BlessingPuppeteer.PuppetType.BREEZE
-                || own == BlessingPuppeteer.PuppetType.WITCH || own == BlessingPuppeteer.PuppetType.EVOKER)) {
-            WitchModNetwork.sendPuppetSwing();
+        // a swing at thin air never reaches the server, so report it for anything whose LEFT-click does something:
+        // every pouncer (spider AND wolf), the cat's meow, and the left-click specials.
+        if (event.isAttack() && player != null && own != null && (own.move() == BlessingPuppeteer.Move.POUNCE
+                || own == BlessingPuppeteer.PuppetType.CAT || own == BlessingPuppeteer.PuppetType.ELDER_GUARDIAN
+                || own == BlessingPuppeteer.PuppetType.BREEZE || own == BlessingPuppeteer.PuppetType.WITCH
+                || own == BlessingPuppeteer.PuppetType.EVOKER || own == BlessingPuppeteer.PuppetType.WANDERING_TRADER
+                || own == BlessingPuppeteer.PuppetType.VEX)) {
+            WitchModNetwork.sendPuppetSwing(); // the trader's hmm / the vex's lunge are on the left-click
+        }
+    }
+
+    /** an evoker scrolls its spell belt (ring / line / vexes) instead of the hotbar — the wheel never reaches it. */
+    @SubscribeEvent
+    static void onScroll(net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.screen != null || mc.player.isShiftKeyDown()
+                || BlessingPuppeteer.PuppetType.byId(typeOf(mc.player)) != BlessingPuppeteer.PuppetType.EVOKER) {
+            return;
+        }
+        double dy = event.getScrollDeltaY();
+        if (dy != 0.0) {
+            event.setCanceled(true);
+            WitchModNetwork.sendPuppetSpell(dy > 0 ? -1 : 1);
         }
     }
 
@@ -197,8 +223,8 @@ public final class PuppeteerClient {
             return;
         }
         event.setCanceled(true);
-        if (isHidden(p)) {
-            return; // a silverfish inside its stone: nothing to see
+        if (isHidden(p) || BlessingPuppeteer.stealthed(p)) {
+            return; // a silverfish inside its stone, or a trader that drank invisibility: nothing to see
         }
         float pt = event.getPartialTick();
         float bodyYaw = Mth.rotLerp(pt, p.yBodyRotO, p.yBodyRot);
@@ -239,6 +265,8 @@ public final class PuppeteerClient {
                 m.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
             }
             m.setAggressive(p.isUsingItem());
+        } else if (m instanceof net.minecraft.world.entity.monster.Vindicator) {
+            m.setAggressive(true); // always holds the axe out (an illager hides it when arms are crossed); swings animate it
         } else {
             m.setAggressive(recentSwing);
         }
@@ -279,6 +307,13 @@ public final class PuppeteerClient {
         if (m instanceof net.minecraft.world.entity.animal.Fox fox) {
             fox.setIsCrouching(p.isCrouching()); // the stalking crouch
             fox.setIsPouncing(lungeTick(p) >= 0); // and the pounce
+        }
+        if (m instanceof net.minecraft.world.entity.animal.Wolf wolfDummy) {
+            wolfDummy.setInSittingPose(p.isCrouching()); // crouch = sit, like a pet
+            // no visible bristle while frenzied — it's a disguise; the rage shows only in your own faster bite + maul.
+        }
+        if (m instanceof net.minecraft.world.entity.animal.Cat catDummy) {
+            catDummy.setInSittingPose(p.isCrouching()); // crouch = sit
         }
         if (m instanceof net.minecraft.world.entity.monster.Pillager pillager) {
             // its own crossbow poses: aimed while held, drawn back while loading
@@ -336,8 +371,17 @@ public final class PuppeteerClient {
         BlessingPuppeteer.PuppetType shaker = BlessingPuppeteer.PuppetType.byId(typeOf(p));
         boolean thrash = hold > 0 && shaker == BlessingPuppeteer.PuppetType.KILLER_RABBIT;
         boolean tremble = hold > 0 && (shaker == BlessingPuppeteer.PuppetType.GHAST || shaker == BlessingPuppeteer.PuppetType.BLAZE
-                || shaker == BlessingPuppeteer.PuppetType.BREEZE || shaker == BlessingPuppeteer.PuppetType.SCREAMING_GOAT);
-        if (flop) {
+                || shaker == BlessingPuppeteer.PuppetType.BREEZE || shaker == BlessingPuppeteer.PuppetType.SCREAMING_GOAT
+                || shaker == BlessingPuppeteer.PuppetType.RAVAGER);
+        // a sitting cat/wolf's model tucks down a touch below the feet — a small lift sits it ON the floor without floating
+        // (per-species: the two models tuck by different amounts).
+        boolean sittingCat = m instanceof net.minecraft.world.entity.animal.Cat && p.isCrouching();
+        boolean sittingWolf = m instanceof net.minecraft.world.entity.animal.Wolf && p.isCrouching();
+        boolean sitting = sittingCat || sittingWolf;
+        if (sitting) {
+            pose.pushPose();
+            pose.translate(0.0, sittingCat ? 0.28 : 0.12, 0.0);
+        } else if (flop) {
             float t = (p.tickCount + pt) * 0.9F;
             pose.pushPose();
             pose.translate(0.0, 0.15, 0.0);
@@ -358,7 +402,7 @@ public final class PuppeteerClient {
         }
         render(Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(m), m, bodyYaw, pt,
                 pose, event.getMultiBufferSource(), event.getPackedLight());
-        if (flop || thrash || tremble) {
+        if (sitting || flop || thrash || tremble) {
             pose.popPose();
         }
     }
@@ -409,9 +453,23 @@ public final class PuppeteerClient {
         if (player == null || typeOf(player).isEmpty()) {
             return;
         }
-        event.setCanceled(true); // a puppet has no hands
+        BlessingPuppeteer.PuppetType type = BlessingPuppeteer.PuppetType.byId(typeOf(player));
+        // a puppet that holds a weapon (a skeleton's bow, a pillager's crossbow, a vindicator's axe, a wither
+        // skeleton's sword, a drowned's trident...) shows it in first person — vanilla renders + swings it.
+        if (event.getHand() == InteractionHand.MAIN_HAND && !player.getMainHandItem().isEmpty()) {
+            // the vindicator's axe is drawn by hand — vanilla's first-person placement throws it off-screen for a puppet.
+            // held at the ready, raised overhead while winding up the committed lunge, and jabbed on a swing.
+            if (type != null && type.group() == BlessingPuppeteer.Group.VINDICATOR) {
+                event.setCanceled(true);
+                boolean winding = player.getData(WitchModAttachments.PUPPET_FUSE) > 0;
+                renderHeldWeapon(player, player.getMainHandItem().copy(), event, winding);
+                return;
+            }
+            return; // other weapon-holders (bow, crossbow): let vanilla draw + animate them
+        }
+        event.setCanceled(true); // a puppet otherwise has no hands
         // ...but a fox can see what it's carrying: the item in its mouth, low in the middle of your view
-        if (event.getHand() == InteractionHand.MAIN_HAND && BlessingPuppeteer.PuppetType.byId(typeOf(player)) == BlessingPuppeteer.PuppetType.FOX) {
+        if (event.getHand() == InteractionHand.MAIN_HAND && type == BlessingPuppeteer.PuppetType.FOX) {
             net.minecraft.nbt.ListTag hands = player.getData(WitchModAttachments.PUPPET_DATA).getList("HandItems", net.minecraft.nbt.Tag.TAG_COMPOUND);
             ItemStack carried = hands.isEmpty() ? ItemStack.EMPTY : ItemStack.parseOptional(player.registryAccess(), hands.getCompound(0));
             if (!carried.isEmpty()) {
@@ -425,6 +483,129 @@ public final class PuppeteerClient {
                 pose.popPose();
             }
         }
+        if (event.getHand() != InteractionHand.MAIN_HAND) {
+            return;
+        }
+        // a drowned holds its trident — raised in the throw pose while winding a throw (FUSE), else at the ready and
+        // jabbed forward on a melee swing (so meleeing reads as a real trident stab).
+        if (type == BlessingPuppeteer.PuppetType.DROWNED) {
+            renderHeldWeapon(player, new ItemStack(Items.TRIDENT), event, player.getData(WitchModAttachments.PUPPET_FUSE) > 0);
+        }
+        // an iron golem holds a poppy out low while offering it (toward the bottom of the view, not up top).
+        if (type == BlessingPuppeteer.PuppetType.IRON_GOLEM && player.getData(WitchModAttachments.PUPPET_FUSE) > 0) {
+            PoseStack pose = event.getPoseStack();
+            pose.pushPose();
+            pose.translate(0.0, -0.55, -0.6);
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-25.0F));
+            Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, new ItemStack(Items.POPPY),
+                    net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND, false, pose,
+                    event.getMultiBufferSource(), event.getPackedLight());
+            pose.popPose();
+        }
+        // an enderman shows the block it's carrying.
+        if (type == BlessingPuppeteer.PuppetType.ENDERMAN) {
+            ItemStack block = endermanCarried(player);
+            if (!block.isEmpty()) {
+                renderFirstPersonItem(player, block, event, false);
+            }
+        }
+        // an allay shows whatever it's carrying, held out low in the middle of the view.
+        if (type == BlessingPuppeteer.PuppetType.ALLAY) {
+            ItemStack carried = BlessingPuppeteer.allayHeld(player);
+            if (!carried.isEmpty()) {
+                PoseStack pose = event.getPoseStack();
+                pose.pushPose();
+                pose.translate(0.0, -0.35, -0.6);
+                pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-20.0F));
+                pose.scale(0.7F, 0.7F, 0.7F);
+                Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, carried,
+                        net.minecraft.world.item.ItemDisplayContext.GROUND, false, pose, event.getMultiBufferSource(), event.getPackedLight());
+                pose.popPose();
+            }
+        }
+    }
+
+    /**
+     * a weapon held in first person (a vindicator's axe, a drowned's trident): at the ready, raised overhead while
+     * winding up a committed move, and jabbed forward on a melee swing so meleeing reads as a real stab/chop.
+     */
+    private static void renderHeldWeapon(Player player, ItemStack stack, RenderHandEvent event, boolean raised) {
+        PoseStack pose = event.getPoseStack();
+        pose.pushPose();
+        if (raised) {
+            pose.translate(0.2, 0.2, -0.55);
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-75.0F));
+        } else {
+            double jab = Math.sin(player.getAttackAnim(event.getPartialTick()) * Math.PI); // 0 at rest, peaks mid-swing
+            pose.translate(0.32, -0.32 - jab * 0.08, -0.5 - jab * 0.45);
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-18.0F - (float) (jab * 38.0)));
+        }
+        Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, stack,
+                net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND, false, pose,
+                event.getMultiBufferSource(), event.getPackedLight());
+        pose.popPose();
+    }
+
+    /** render an item in a simple first-person held pose (raised = held up in front, like a trident/offering). */
+    private static void renderFirstPersonItem(Player player, ItemStack stack, RenderHandEvent event, boolean raised) {
+        PoseStack pose = event.getPoseStack();
+        pose.pushPose();
+        if (raised) {
+            pose.translate(0.2, 0.2, -0.55);
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-75.0F));
+        } else {
+            pose.translate(0.25, -0.3, -0.6);
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-15.0F));
+        }
+        Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, stack,
+                net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND, false, pose,
+                event.getMultiBufferSource(), event.getPackedLight());
+        pose.popPose();
+    }
+
+    /** the block an enderman puppet is carrying (its own carriedBlockState key in the puppet data), as an item. */
+    private static ItemStack endermanCarried(Player player) {
+        net.minecraft.nbt.CompoundTag data = player.getData(WitchModAttachments.PUPPET_DATA);
+        if (!data.contains("carriedBlockState", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            net.minecraft.world.level.block.state.BlockState state = net.minecraft.nbt.NbtUtils.readBlockState(
+                    player.level().holderLookup(net.minecraft.core.registries.Registries.BLOCK), data.getCompound("carriedBlockState"));
+            net.minecraft.world.item.Item item = state.getBlock().asItem();
+            return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
+        } catch (RuntimeException e) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    /** a slight zoom while an iron golem offers its poppy, so it feels like aiming. */
+    @SubscribeEvent
+    static void onPuppetFov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
+        Player p = event.getPlayer();
+        if (BlessingPuppeteer.PuppetType.byId(typeOf(p)) == BlessingPuppeteer.PuppetType.IRON_GOLEM
+                && p.getData(WitchModAttachments.PUPPET_FUSE) > 0) {
+            event.setNewFovModifier(event.getNewFovModifier() * 0.9F);
+        }
+    }
+
+    /** the ravager's roar charge rattles your first-person view, building with the charge (respects the shake setting). */
+    @SubscribeEvent
+    static void onPuppetCameraShake(net.neoforged.neoforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+        Player p = Minecraft.getInstance().player;
+        if (p == null || BlessingPuppeteer.PuppetType.byId(typeOf(p)) != BlessingPuppeteer.PuppetType.RAVAGER) {
+            return;
+        }
+        float charge = shotCharge(p);
+        double mult = com.oliver.witchmod.ClientConfig.cameraShakeMultiplier();
+        if (charge <= 0.0F || mult <= 0.0) {
+            return;
+        }
+        float amount = (float) (charge * charge * mult); // grows with the charge
+        float t = p.tickCount + (float) event.getPartialTick();
+        event.setYaw(event.getYaw() + Mth.sin(t * 37.0F) * 0.7F * amount);
+        event.setPitch(event.getPitch() + Mth.cos(t * 41.0F) * 0.6F * amount);
+        event.setRoll(event.getRoll() + Mth.sin(t * 29.0F) * 1.1F * amount);
     }
 
     /** no inventory while you're a puppet — there's nothing in it anyway (it's stashed), and nothing to use. */
@@ -461,7 +642,7 @@ public final class PuppeteerClient {
         if (start == 0L || t == null || start == lungeStopped
                 || (t.move() != BlessingPuppeteer.Move.LUNGE && t != BlessingPuppeteer.PuppetType.PHANTOM
                 && t != BlessingPuppeteer.PuppetType.KILLER_RABBIT && t.group() != BlessingPuppeteer.Group.GOAT
-                && t != BlessingPuppeteer.PuppetType.FOX)) {
+                && t != BlessingPuppeteer.PuppetType.FOX && t.group() != BlessingPuppeteer.Group.VINDICATOR)) {
             return -1L;
         }
         long tick = p.level().getGameTime() - start;
@@ -760,6 +941,17 @@ public final class PuppeteerClient {
         }
         // held moves (creeper fuse, drowned trident, chicken egg): report right-click held / let go, on change.
         BlessingPuppeteer.PuppetType own = mc.player == null ? null : BlessingPuppeteer.PuppetType.byId(typeOf(mc.player));
+        // a puppet's left-click is always a puppet action (never real mining), but vanilla's 10-tick miss cooldown eats
+        // the click after a swing at air or an out-of-reach entity — so clear it each tick, or e.g. a wolf only pounced
+        // and a vex only lunged when aimed at a block.
+        if (own != null) {
+            ((com.oliver.witchmod.mixin.MinecraftMissTimeAccessor) mc).witchmodSetMissTime(0);
+        }
+        // the vex and allay fly but can't SPRINT-fly (which would double the speed) — clear sprint while airborne.
+        if ((own == BlessingPuppeteer.PuppetType.VEX || own == BlessingPuppeteer.PuppetType.ALLAY)
+                && mc.player != null && mc.player.getAbilities().flying && mc.player.isSprinting()) {
+            mc.player.setSprinting(false);
+        }
         boolean want = own != null && own.move().held() && !own.move().vanillaUse() && mc.screen == null
                 && mc.options.keyUse.isDown() && !mc.player.isShiftKeyDown();
         // a ghast charges its volley on the ATTACK button: report that held / let go too.
@@ -773,6 +965,14 @@ public final class PuppeteerClient {
             held = want;
             WitchModNetwork.sendPuppetFuse(want);
         }
+        // the witch's potions sit on a vanilla cooldown, which suppresses the right-click interaction — so crouch+use
+        // (leave) gets swallowed while they recharge. detect it here and request the leave directly.
+        boolean witchLeave = own == BlessingPuppeteer.PuppetType.WITCH && mc.screen == null
+                && mc.options.keyUse.isDown() && mc.player != null && mc.player.isShiftKeyDown();
+        if (witchLeave && !witchLeavePrev) {
+            WitchModNetwork.sendPuppetAction();
+        }
+        witchLeavePrev = witchLeave;
         // the camera follows the puppet's eye height: re-measure anyone whose (synced) puppet changed.
         for (Player p : mc.level.players()) {
             String type = typeOf(p);
@@ -826,12 +1026,16 @@ public final class PuppeteerClient {
                 PREV_FUSE.remove(e.getKey());
                 LAST_ACTION.remove(e.getKey());
                 LOADED.remove(e.getKey());
+                RAVAGER_ROAR.remove(e.getKey());
                 return true;
             }
             Mob m = e.getValue();
             float dx = (float) (p.getX() - p.xo);
             float dz = (float) (p.getZ() - p.zo);
-            m.walkAnimation.update(Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0F, 1.0F), 0.4F);
+            // a sitting cat/wolf holds still — don't drive its walk cycle, or its legs/tail splay out of the sitting curl.
+            boolean sittingPet = (m instanceof net.minecraft.world.entity.animal.Cat
+                    || m instanceof net.minecraft.world.entity.animal.Wolf) && p.isCrouching();
+            m.walkAnimation.update(sittingPet ? 0.0F : Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0F, 1.0F), 0.4F);
             m.tickCount = p.tickCount;
             boolean swingStart = p.swinging && p.tickCount - LAST_SWING.getOrDefault(p.getUUID(), -1000) > 1;
             if (p.swinging) {
@@ -855,6 +1059,14 @@ public final class PuppeteerClient {
                 ((com.oliver.witchmod.mixin.ZoglinAccessor) zoglin).witchmodSetAttackAnimationTicks(
                         swingStart ? 10 : Math.max(0, zoglin.getAttackAnimationRemainingTicks() - 1));
             }
+            // vex: the red charging look (and arm raise) while it winds up / dashes a lunge
+            if (m instanceof net.minecraft.world.entity.monster.Vex vex) {
+                vex.setIsCharging(lungeTick(p) >= 0);
+            }
+            // allay: holds whatever it's carrying out in front, like the real one
+            if (m instanceof net.minecraft.world.entity.animal.allay.Allay allay) {
+                allay.setItemInHand(InteractionHand.MAIN_HAND, BlessingPuppeteer.allayHeld(p));
+            }
             int fuse = p.getData(WitchModAttachments.PUPPET_FUSE);
             PREV_FUSE.put(p.getUUID(), LAST_FUSE.getOrDefault(p.getUUID(), fuse));
             LAST_FUSE.put(p.getUUID(), fuse);
@@ -870,6 +1082,14 @@ public final class PuppeteerClient {
             // ghast: its mouth stays open a moment after each fireball (the hold's charging face is set at render)
             if (m instanceof net.minecraft.world.entity.monster.Ghast && lastAction != null && action != lastAction) {
                 GHAST_FACE.put(p.getUUID(), p.tickCount + 10);
+            }
+            // ravager: the head pokes out over 10 ticks on each swing (the bite), and it rears into a roar when one fires.
+            if (m instanceof net.minecraft.world.entity.monster.Ravager ravager) {
+                com.oliver.witchmod.mixin.RavagerAccessor acc = (com.oliver.witchmod.mixin.RavagerAccessor) ravager;
+                acc.witchmodSetAttackTick(swingStart ? 10 : Math.max(0, acc.witchmodGetAttackTick() - 1));
+                int roar = lastAction != null && action != lastAction ? 20 : Math.max(0, RAVAGER_ROAR.getOrDefault(p.getUUID(), 0) - 1);
+                RAVAGER_ROAR.put(p.getUUID(), roar);
+                acc.witchmodSetRoarTick(roar);
             }
             // evoker: while a spell winds up, its arms go up and its spell's coloured sparks rise from its hands (vanilla's look)
             if (m instanceof net.minecraft.world.entity.monster.Evoker) {
@@ -972,8 +1192,12 @@ public final class PuppeteerClient {
         }
         long start = p.getData(WitchModAttachments.PUPPET_LUNGE_START);
         net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
-        if (type == BlessingPuppeteer.PuppetType.PHANTOM) {
-            dive(p, type, start, tick);
+        if (type == BlessingPuppeteer.PuppetType.VEX && tick < BlessingPuppeteer.lungeWindup(type)) {
+            p.setDeltaMovement(v.x * 0.2, v.y * 0.4, v.z * 0.2); // the slight giggle-charge: hover in place
+            return;
+        }
+        if (type == BlessingPuppeteer.PuppetType.PHANTOM || type == BlessingPuppeteer.PuppetType.VEX) {
+            dive(p, type, start, tick); // a 3-d dash that follows your look (the vex darts like a phantom's dive)
             return;
         }
         if (tick < BlessingPuppeteer.lungeWindup(type)) {
