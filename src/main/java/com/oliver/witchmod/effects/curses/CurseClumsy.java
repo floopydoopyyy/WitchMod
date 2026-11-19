@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.curses;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +27,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you keep getting it slightly wrong. Every so often a block you place comes out facing
@@ -43,14 +45,14 @@ import com.oliver.witchmod.effects.Curses;
  * a furnace — is most likely to come out FACING wrong (that's the mistake that reads as clumsy for those),
  * then misplaced, then swapped. A plain cube can only really go to the wrong spot or be the wrong block.
  *
- * <p>Runs off {@code BlockEvent.EntityPlaceEvent} in {@code CurseEventHandler}: vanilla places the block and
+ * <p>Runs off {@code BlockEvent.EntityPlaceEvent} in the hooks below: vanilla places the block and
  * handles all the item accounting, then this mutates the RESULT. That's deliberately simpler and safer than
  * intercepting the placement — the wrong-block case only has to move a single item across, and there is no
  * way for it to duplicate or void anything.
  */
 public final class CurseClumsy extends Effect {
     /** victim -> blocks placed cleanly since the last slip, which drives the ramp. */
-    private static final Map<UUID, Integer> CLEAN_RUN = new HashMap<>();
+    private static final Map<UUID, Integer> CLEAN_RUN = EffectState.saved("clumsy/clean_run", Codec.INT);
 
     /** properties whose presence means the block has an orientation worth getting wrong. */
     private static final Property<?>[] ORIENTATION_PROPS = {
@@ -78,7 +80,7 @@ public final class CurseClumsy extends Effect {
     }
 
     /**
-     * hook for placing a block — see {@code CurseEventHandler}. The block is already in the world at
+     * hook for placing a block — see the hooks below. The block is already in the world at
      * {@code pos} with {@code placedState}; if the ramping roll fires, this makes it go wrong.
      */
     public static void onBlockPlaced(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState placedState) {
@@ -198,5 +200,13 @@ public final class CurseClumsy extends Effect {
             }
         }
         return false;
+    }
+
+    /** a block you just placed has a ramping chance of going down wrong. */
+    @Override
+    public void onBlockPlace(ServerPlayer self, BlockEvent.EntityPlaceEvent event) {
+        if (event.getLevel() instanceof ServerLevel level) {
+            onBlockPlaced(self, level, event.getPos(), event.getPlacedBlock());
+        }
     }
 }

@@ -7,6 +7,8 @@ import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
 /**
  * you breathe anywhere: underwater AND buried in blocks. Done
@@ -15,7 +17,7 @@ import com.oliver.witchmod.data.EffectCostTier;
  *   <li><b>Underwater:</b> the air supply is topped back up every tick, so the bubble bar never drains and
  *       you never start drowning in the first place.</li>
  *   <li><b>In blocks:</b> suffocation (`in_wall`) damage is cancelled — and drowning too, as a backstop for
- *       the odd tick where the air top-up hasn't run yet — in {@code BlessingEventHandler}.</li>
+ *       the odd tick where the air top-up hasn't run yet — in the hooks below.</li>
  * </ul>
  * No status effect, so it can't be milked off and doesn't clutter the effect bar; the mod owns the behaviour.
  */
@@ -37,6 +39,15 @@ public final class BlessingIronLung extends Effect {
         if (target.getAirSupply() < target.getMaxAirSupply()) {
             target.setAirSupply(target.getMaxAirSupply());
             Blessings.IRON_LUNG.get().markDiscoveredByVictim(target); // discovered on the first breath saved
+        }
+    }
+
+    /** breathe in blocks: suffocation is negated (and drowning, backing up water breathing). */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (event.getSource().is(DamageTypes.IN_WALL) || event.getSource().is(DamageTypes.DROWN)) {
+            event.setCanceled(true);
+            markDiscoveredByVictim(self); // discovered on the first breath saved
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +26,22 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.data.WitchModMobEffects;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import com.oliver.witchmod.data.EffectManager;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.block.LayeredCauldronBlock;
+import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
+import net.minecraft.core.particles.ParticleTypes;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * A second bar you have to keep topped up. It works like hunger but is weighted
@@ -47,20 +62,20 @@ import com.oliver.witchmod.data.WitchModMobEffects;
  * killing you on Peaceful and Easy; this uses the mod's own dehydration damage type, applied directly with
  * no difficulty check and bypassing armour.
  *
- * <p>Refills are handled in {@code CurseEventHandler}, which also has to work around vanilla refusing to let
+ * <p>Refills are handled in the hooks below, which also have to work around vanilla refusing to let
  * you eat at full hunger — see {@code allowThirstyEating} there.
  */
 public final class CurseThirstMeter extends Effect {
     /** victim -> accumulated thirst exhaustion, the same idea as vanilla's hunger exhaustion. */
-    private static final Map<UUID, Float> EXHAUSTION = new HashMap<>();
+    private static final Map<UUID, Float> EXHAUSTION = EffectState.saved("thirst_meter/exhaustion", Codec.FLOAT);
     /**
      * victim -> hidden thirst saturation. Spent BEFORE the visible bar, exactly like hunger saturation, and
      * it exists for exactly the same reason: without it a bar you have just filled starts ticking down on the
      * very next point of exhaustion, which feels like the drink did nothing.
      */
-    private static final Map<UUID, Float> SATURATION = new HashMap<>();
+    private static final Map<UUID, Float> SATURATION = EffectState.saved("thirst_meter/saturation", Codec.FLOAT);
     /** victim -> points burned while the bar was already low, which is what brings on Dehydration. */
-    private static final Map<UUID, Integer> STRAIN = new HashMap<>();
+    private static final Map<UUID, Integer> STRAIN = EffectState.saved("thirst_meter/strain", Codec.INT);
 
     public CurseThirstMeter() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.POTION);
@@ -176,7 +191,7 @@ public final class CurseThirstMeter extends Effect {
         }
     }
 
-    /** mining, fighting — the strenuous one-off actions. Called from {@code CurseEventHandler}. */
+    /** mining, fighting — the strenuous one-off actions. Called from the hooks below. */
     public static void onStrenuousAction(ServerPlayer target) {
         int thirst = target.getData(WitchModAttachments.THIRST);
         if (thirst >= 0) {
@@ -199,7 +214,7 @@ public final class CurseThirstMeter extends Effect {
 
     // --- Refills ---------------------------------------------------------------------------------------
 
-    /** anything drunk or eaten. Called from the use-Finish hook in {@code CurseEventHandler}. */
+    /** anything drunk or eaten. Called from the use-finish hook below. */
     public static void onConsumed(ServerPlayer target, ItemStack stack) {
         int thirst = target.getData(WitchModAttachments.THIRST);
         if (thirst < 0) {
@@ -302,5 +317,93 @@ public final class CurseThirstMeter extends Effect {
     public static boolean wantsToDrink(ServerPlayer target) {
         int thirst = target.getData(WitchModAttachments.THIRST);
         return thirst >= 0 && thirst < Config.THIRST_MAX.get();
+    }
+
+    /** mining is thirsty work. */
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        onStrenuousAction(self);
+    }
+
+    /** anything drunk or eaten hydrates by some amount: water bottles most, then potions, natural, raw, dry food. */
+    @Override
+    public void onUseFinish(ServerPlayer self, LivingEntityUseItemEvent.Finish event) {
+        onConsumed(self, event.getItem());
+    }
+
+    @Override
+    public void onRightClickBlock(ServerPlayer self, PlayerInteractEvent.RightClickBlock event) {
+        if (consumedByThirst(self, event.getHand())) {
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+        }
+    }
+
+    @Override
+    public void onRightClickItem(ServerPlayer self, PlayerInteractEvent.RightClickItem event) {
+        if (consumedByThirst(self, event.getHand())) {
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * drinking straight from a water source, and eating while already full. both need this because vanilla won't:
+     * <ul>
+     *   <li>the crosshair ray-trace ignores fluids, so a click aimed at water lands on whatever's behind it — the
+     *       click is re-traced here with fluid clipping to see whether water was what you meant.</li>
+     *   <li>{@code Player.canEat} refuses unless {@code needsFood()}, so a full player could never eat a juicy
+     *       apple for the thirst; when that's the only thing stopping them, the use is started manually.</li>
+     * </ul>
+     *
+     * @return true if thirst took the interaction, so the caller should cancel it
+     */
+    private static boolean consumedByThirst(ServerPlayer player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+
+        // eating at full hunger, purely for the hydration
+        FoodProperties food = stack.get(DataComponents.FOOD);
+        if (food != null && !player.canEat(false) && wantsToDrink(player)) {
+            player.startUsingItem(hand);
+            return true;
+        }
+
+        // drinking from the world: only with a free hand, so it never eats a real item use
+        if (!stack.isEmpty()) {
+            return false;
+        }
+        HitResult hit = player.pick(player.blockInteractionRange(), 0.0F, true); // true = clip fluids
+        if (hit.getType() != HitResult.Type.BLOCK) {
+            return false;
+        }
+        BlockPos pos = ((BlockHitResult) hit).getBlockPos();
+        Level level = player.level();
+        BlockState state = level.getBlockState(pos);
+
+        // a cauldron: drink it down a level. still untreated water, so the same risk applies
+        if (state.getBlock() instanceof LayeredCauldronBlock
+                && state.getValue(LayeredCauldronBlock.LEVEL) > 0
+                && drinkFromWorld(player, hand)) {
+            LayeredCauldronBlock.lowerFillLevel(state, level, pos);
+            return true;
+        }
+        // a wet sponge. deeply unpleasant, entirely allowed, and it wrings the thing dry
+        if (state.is(Blocks.WET_SPONGE) && drinkFromWorld(player, hand)) {
+            level.setBlockAndUpdate(pos, Blocks.SPONGE.defaultBlockState());
+            level.playSound(null, pos, SoundEvents.WET_SPONGE_DRIES, SoundSource.BLOCKS, 1.0F, 1.0F);
+            return true;
+        }
+        // holy water: a clean drink (no raw-water risk) that also washes time off every attachment
+        if (com.oliver.witchmod.blocks.HolyWater.isProtectingFluidAt(level, pos) && drinkHoly(player, hand)) {
+            EffectManager.reduceAllDurations(player, Config.HOLY_WATER_DRINK_DRAIN_TICKS.get());
+            player.serverLevel().sendParticles(ParticleTypes.END_ROD,
+                    player.getX(), player.getEyeY() - 0.2, player.getZ(), 8, 0.18, 0.18, 0.18, 0.01);
+            return true;
+        }
+        // open water
+        if (level.getFluidState(pos).is(FluidTags.WATER)) {
+            return drinkFromWorld(player, hand);
+        }
+        return false;
     }
 }

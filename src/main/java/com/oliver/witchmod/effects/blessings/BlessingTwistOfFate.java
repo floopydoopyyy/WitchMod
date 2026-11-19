@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +18,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * fortune's on your side (Twist of Fate, END CRYSTAL). An incoming hit has a chance to simply not happen —
@@ -26,8 +28,8 @@ import com.oliver.witchmod.data.WitchModSounds;
  * climb per hit that doesn't dodge and reset on one that does. A brief cooldown follows each dodge.
  */
 public final class BlessingTwistOfFate extends Effect {
-    private static final Map<UUID, Long> NEXT_ALLOWED = new HashMap<>();
-    private static final Map<UUID, Double> PITY = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_ALLOWED = EffectState.saved("twist_of_fate/next_allowed", Codec.LONG);
+    private static final Map<UUID, Double> PITY = EffectState.saved("twist_of_fate/pity", Codec.DOUBLE);
     private static final DustParticleOptions YELLOW = new DustParticleOptions(new Vector3f(1.0F, 0.9F, 0.25F), 1.2F);
 
     public BlessingTwistOfFate() {
@@ -88,5 +90,14 @@ public final class BlessingTwistOfFate extends Effect {
         level.sendParticles(ParticleTypes.END_ROD, x, y, z, 5, 0.3, 0.5, 0.3, 0.03);
         level.playSound(null, player.blockPosition(), WitchModSounds.BLESSED.get(), SoundSource.PLAYERS, 0.7F, 1.3F);
         return true;
+    }
+
+    /** a small chance (off cooldown) that a hit just doesn't happen, with a chime and particles. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (tryNegate(self)) {
+            event.setCanceled(true);
+            markDiscoveredByVictim(self);
+        }
     }
 }

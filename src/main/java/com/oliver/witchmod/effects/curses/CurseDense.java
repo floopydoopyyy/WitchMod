@@ -8,6 +8,7 @@ import net.minecraft.world.item.Items;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 
 /**
  * dense (Iron Block) — the MERGER of the old Heavy and Heavyweight curses (both retired). You're crushingly
@@ -49,5 +50,14 @@ public final class CurseDense extends Effect {
     public void onRemove(ServerPlayer target) {
         heavy.onRemove(target);
         heavyweight.onRemove(target);
+    }
+
+    /**
+     * you come down hard: fall damage is amplified. only the damage — the crater is triggered from the tick,
+     * because this event never fires in creative.
+     */
+    @Override
+    public void onFall(ServerPlayer self, LivingFallEvent event) {
+        event.setDamageMultiplier(event.getDamageMultiplier() * CurseHeavy.fallDamageMultiplier());
     }
 }

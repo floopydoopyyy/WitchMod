@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.blessings;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +24,8 @@ import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * the wind keeps blowing good fortune your way. As you
@@ -39,10 +40,10 @@ import com.oliver.witchmod.data.EffectCostTier;
  */
 public final class BlessingWindfall extends Effect {
     /** player -> ticks of MOVEMENT until the next windfall drifts by. */
-    private static final Map<UUID, Integer> NEXT = new HashMap<>();
+    private static final Map<UUID, Integer> NEXT = EffectState.saved("windfall/next", Codec.INT);
 
     /** player -> the drifting items currently in the air for them (so they can be culled on walk-away/expiry). */
-    private static final Map<UUID, List<Drifting>> ACTIVE = new HashMap<>();
+    private static final Map<UUID, List<Drifting>> ACTIVE = EffectState.session("windfall/active");
 
     /** A live windfall item plus the tick it was spawned, so its age can be measured. */
     private record Drifting(ItemEntity entity, int spawnedAt) {}

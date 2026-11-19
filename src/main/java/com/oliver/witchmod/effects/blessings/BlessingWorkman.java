@@ -14,6 +14,7 @@ import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * nothing you use wears out. Tools AND armour take no
@@ -30,7 +31,7 @@ public final class BlessingWorkman extends Effect {
     private record Tracked(Item item, int damage) {}
 
     /** player -> last-seen (item, damage) per watched slot, so wear can be detected and healed straight back. */
-    private static final Map<UUID, Map<EquipmentSlot, Tracked>> LAST = new HashMap<>();
+    private static final Map<UUID, Map<EquipmentSlot, Tracked>> LAST = EffectState.session("workman/last");
 
     private static final EquipmentSlot[] WATCHED = {
             EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND,

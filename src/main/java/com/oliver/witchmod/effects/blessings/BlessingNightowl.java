@@ -10,6 +10,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 
 /**
  * you see in the dark, and nothing dims your view.
@@ -19,7 +20,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  *   <li><b>Full-bright</b> — gamma is forced to a full-bright value, so unlit caves are as clear as daylight
  *       (client).</li>
  *   <li><b>Immune to darkening effects</b> — Blindness and Darkness simply can't be applied to you, and are
- *       stripped if something already did (server; see {@code BlessingEventHandler.onNightowlEffect}).</li>
+ *       stripped if something already did (server; see the hook below).</li>
  * </ul>
  * The old prototype's night-time speed burst is dropped — the spec is about vision, not movement.
  */
@@ -50,5 +51,14 @@ public final class BlessingNightowl extends Effect {
     private static void stripDarkening(ServerPlayer target) {
         target.removeEffect(MobEffects.BLINDNESS);
         target.removeEffect(MobEffects.DARKNESS);
+    }
+
+    /** blindness and darkness can't be applied to you. */
+    @Override
+    public void onMobEffect(ServerPlayer self, MobEffectEvent.Applicable event) {
+        var effect = event.getEffectInstance().getEffect();
+        if (effect == MobEffects.BLINDNESS || effect == MobEffects.DARKNESS) {
+            event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
+        }
     }
 }

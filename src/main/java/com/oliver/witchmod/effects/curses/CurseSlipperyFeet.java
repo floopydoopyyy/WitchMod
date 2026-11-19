@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,6 +23,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * A joke at the expense of one of Minecraft's most reflexive habits. Everyone
@@ -50,8 +50,8 @@ import com.oliver.witchmod.data.WitchModSounds;
  */
 public final class CurseSlipperyFeet extends Effect {
     /** how long each victim has been crouched over an edge, and the grace period rolled for this stint. */
-    private static final Map<UUID, Integer> CROUCH_TICKS = new HashMap<>();
-    private static final Map<UUID, Integer> CROUCH_LIMIT = new HashMap<>();
+    private static final Map<UUID, Integer> CROUCH_TICKS = EffectState.session("slippery_feet/crouch_ticks");
+    private static final Map<UUID, Integer> CROUCH_LIMIT = EffectState.session("slippery_feet/crouch_limit");
 
     public CurseSlipperyFeet() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.ICE);

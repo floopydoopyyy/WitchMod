@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +26,13 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * the protagonist moment: when you're
@@ -38,7 +44,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  *   <li>Faster attacks — {@code mainCharCooldownReductionT1/T2} (~30% / 45% shorter cooldown) via an
  *       {@code ATTACK_SPEED} modifier.</li>
  *   <li>Harder knockback dealt — {@code mainCharKnockbackT1/T2} (1.3x / 1.6x), applied in
- *       {@code BlessingEventHandler} by multiplying the knockback of anyone you hit.</li>
+ *       the hooks below, by multiplying the knockback of anyone you hit.</li>
  *   <li>Speed I and Resistance I.</li>
  * </ul>
  *
@@ -47,15 +53,16 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * tier is published on the synced {@link WitchModAttachments#MAINCHAR_TIER} attachment — the client plays the
  * theme off it, and the knockback handler reads it. Custom drum theme supplied.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingMainCharacter extends Effect {
     private static final ResourceLocation ATTACK_SPEED_ID = EffectUtil.modifierId("mainchar_attack_speed");
     private static final int BUFF_REFRESH_TICKS = 10;
     private static final int BUFF_DURATION_TICKS = 40;
 
     /** player -> game tick the sticky window ends. */
-    private static final Map<UUID, Long> ACTIVE_UNTIL = new HashMap<>();
+    private static final Map<UUID, Long> ACTIVE_UNTIL = EffectState.session("main_character/active_until");
     /** target entity uuid -> the knockback multiplier queued by a Main Character's incoming hit this tick. */
-    private static final Map<UUID, Float> PENDING_KB = new HashMap<>();
+    private static final Map<UUID, Float> PENDING_KB = EffectState.session("main_character/pending_kb");
 
     public BlessingMainCharacter() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.FIREWORK_ROCKET);
@@ -178,7 +185,7 @@ public final class BlessingMainCharacter extends Effect {
         com.oliver.witchmod.effects.Blessings.MAIN_CHARACTER.get().markDiscoveredByVictim(target);
     }
 
-    // --- Outgoing-knockback multiplier, driven from BlessingEventHandler's attack + knockback events. --------
+    // --- Outgoing-knockback multiplier, driven from the attack + knockback events. --------
 
     /** the knockback multiplier for a Main Character at the given tier (1.0 = none). */
     public static float knockbackMultiplier(int tier) {
@@ -203,5 +210,28 @@ public final class BlessingMainCharacter extends Effect {
     public static float consumeKnockback(LivingEntity target) {
         Float mult = PENDING_KB.remove(target.getUUID());
         return mult == null ? 1.0F : mult;
+    }
+
+    /** while you're powered up, mark anyone you hit so their knockback is multiplied. */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        int tier = self.getData(WitchModAttachments.MAINCHAR_TIER);
+        if (tier <= 0 || !(target instanceof LivingEntity victim)) {
+            return;
+        }
+        queueKnockback(victim, knockbackMultiplier(tier));
+        ServerLevel level = self.serverLevel();
+        double vy = victim.getY() + victim.getBbHeight() * 0.6;
+        level.sendParticles(ParticleTypes.FIREWORK, victim.getX(), vy, victim.getZ(), tier >= 2 ? 16 : 10, 0.3, 0.4, 0.3, 0.12);
+        level.sendParticles(ParticleTypes.CRIT, victim.getX(), vy, victim.getZ(), 8, 0.3, 0.3, 0.3, 0.15);
+    }
+
+    /** applies the queued knockback multiplier when the hit's knockback resolves (keyed on the victim). */
+    @SubscribeEvent
+    static void onKnockback(LivingKnockBackEvent event) {
+        float mult = consumeKnockback(event.getEntity());
+        if (mult != 1.0F) {
+            event.setStrength(event.getStrength() * mult);
+        }
     }
 }

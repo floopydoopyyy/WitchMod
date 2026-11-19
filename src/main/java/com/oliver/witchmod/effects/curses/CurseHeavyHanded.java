@@ -15,6 +15,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you're rough with your gear. Tools and
@@ -34,7 +35,7 @@ public final class CurseHeavyHanded extends Effect {
     private record Tracked(Item item, int damage) {}
 
     /** victim -> last-seen (item, damage) per watched slot, so a rise can be detected and topped up. */
-    private static final Map<UUID, Map<EquipmentSlot, Tracked>> LAST = new HashMap<>();
+    private static final Map<UUID, Map<EquipmentSlot, Tracked>> LAST = EffectState.session("heavy_handed/last");
 
     private static final EquipmentSlot[] WATCHED = {
             EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND,

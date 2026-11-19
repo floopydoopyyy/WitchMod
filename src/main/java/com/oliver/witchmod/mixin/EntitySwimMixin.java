@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
-import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
+import com.oliver.witchmod.effects.blessings.puppeteer.Puppets;
 
 /**
  * puppeteer: a puppet never drops into the player's swimming mode (the lying-flat sprint-swim, which drags the camera
@@ -18,7 +18,7 @@ import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
 public abstract class EntitySwimMixin {
     @Inject(method = "updateSwimming", at = @At("HEAD"), cancellable = true)
     private void witchmod$noPuppetSwimming(CallbackInfo ci) {
-        if ((Object) this instanceof Player player && BlessingPuppeteer.isPuppetSafe(player)) {
+        if ((Object) this instanceof Player player && Puppets.isPuppetSafe(player)) {
             if (player.isSwimming()) {
                 player.setSwimming(false);
             }

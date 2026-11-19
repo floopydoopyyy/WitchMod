@@ -47,6 +47,8 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModMobEffects;
 import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.synergy.Synergies;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * an allergy that turns places into no-go zones. the diet comes from the time of day it was cast (so casters can
@@ -72,9 +74,9 @@ public final class CurseAllergic extends Effect {
     }
 
     /** built-up mob exposure in ticks (fractional, vegetarians build faster). */
-    private static final Map<UUID, Float> EXPOSURE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Float> EXPOSURE = EffectState.saved("allergic/exposure", Codec.FLOAT);
     /** target → {caster most/least bits, game tick to tell them}. */
-    private static final Map<UUID, long[]> PENDING_CAST_MESSAGE = new ConcurrentHashMap<>();
+    private static final Map<UUID, long[]> PENDING_CAST_MESSAGE = EffectState.sessionConcurrent("allergic/pending_cast_message");
 
     public CurseAllergic() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.SWEET_BERRIES);

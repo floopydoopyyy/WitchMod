@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,8 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * blessing of Safety (RESPAWN ANCHOR): crouch, stand still and look DOWN to begin a 10s channel; hold it and
@@ -30,11 +31,11 @@ import com.oliver.witchmod.data.EffectCostTier;
  * short cooldown before you can try again.
  */
 public final class BlessingSafety extends Effect {
-    private static final Map<UUID, Integer> CHANNEL = new HashMap<>();   // ticks channelled
-    private static final Map<UUID, Long> COOLDOWN = new HashMap<>();     // game tick the cooldown ends
-    private static final Map<UUID, Vec3> LAST_POS = new HashMap<>();
-    private static final Map<UUID, Float> LAST_HEALTH = new HashMap<>();
-    private static final Map<UUID, Integer> MOVE_GRACE = new HashMap<>(); // consecutive moving ticks (leeway)
+    private static final Map<UUID, Integer> CHANNEL = EffectState.session("safety/channel");   // ticks channelled
+    private static final Map<UUID, Long> COOLDOWN = EffectState.saved("safety/cooldown", Codec.LONG);     // game tick the cooldown ends
+    private static final Map<UUID, Vec3> LAST_POS = EffectState.session("safety/last_pos");
+    private static final Map<UUID, Float> LAST_HEALTH = EffectState.session("safety/last_health");
+    private static final Map<UUID, Integer> MOVE_GRACE = EffectState.session("safety/move_grace"); // consecutive moving ticks (leeway)
 
     private static final double MOVE_THRESHOLD_SQR = 0.02;  // ~0.14 blocks/tick before it counts as "moving"
     private static final int MOVE_LEEWAY_TICKS = 5;         // a little leeway before movement cancels it

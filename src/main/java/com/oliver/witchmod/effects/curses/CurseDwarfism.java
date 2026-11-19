@@ -17,6 +17,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import com.oliver.witchmod.effects.blessings.puppeteer.Puppets;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * you're half the man you were. Half height, half health — and small enough that the
@@ -34,7 +36,7 @@ import com.oliver.witchmod.data.EffectUtil;
  * without the clamp you'd sit at 20/10 until something damaged you — and vanilla renders that as a full bar,
  * hiding the entire downside of the curse.
  *
- * <p>Riding is handled in {@code CurseEventHandler} off the entity-interact event.
+ * <p>Riding is handled in the hooks below off the entity-interact event.
  */
 public final class CurseDwarfism extends Effect {
     private static final ResourceLocation SCALE_MODIFIER_ID = EffectUtil.modifierId("curse_dwarfism_scale");
@@ -59,7 +61,7 @@ public final class CurseDwarfism extends Effect {
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         // a puppet wears the mob's body, not yours — the shrink waits until you step out.
-        if (com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(target)) {
+        if (Puppets.isPuppet(target)) {
             clearModifiers(target);
             SizeCrisis.clear(target);
             return;
@@ -104,7 +106,7 @@ public final class CurseDwarfism extends Effect {
     }
 
     /**
-     * hook for right-clicking something rideable — see {@code CurseEventHandler}.
+     * hook for right-clicking something rideable — see the hooks below.
      *
      * @return true if the interaction was consumed (so it doesn't also open a trade screen)
      */
@@ -121,5 +123,13 @@ public final class CurseDwarfism extends Effect {
         // but nothing about it actually misbehaves. The mount keeps full control of itself: a rider only
         // steers a vehicle that reads rider input, and neither players nor villagers do.
         return rider.startRiding(mount, true);
+    }
+
+    /** right-click a player or villager to climb on — cancelled when it works, so a villager's trades don't open too. */
+    @Override
+    public void onInteract(ServerPlayer self, Entity target, PlayerInteractEvent.EntityInteract event) {
+        if (tryRide(self, target)) {
+            event.setCanceled(true);
+        }
     }
 }

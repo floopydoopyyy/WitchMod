@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,6 +18,11 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * bloodlust: landing hit after hit without whiffing
@@ -27,15 +31,15 @@ import com.oliver.witchmod.effects.Blessings;
  * resets and you have to build it again.
  *
  * <p>The speed-up is a growing {@code ATTACK_SPEED} modifier (same route Main Character uses). Stacks are held
- * per-player server-side; {@code BlessingEventHandler} feeds a hit on {@code AttackEntityEvent}, the client
+ * per-player server-side; the attack hook below feeds a hit on {@code AttackEntityEvent}, the client
  * reports a miss (an air-swing) via a tiny C2S packet, and {@link #onTick} resets on the no-hit timeout and
  * self-heals the modifier after a reload.
  */
 public final class BlessingBerserker extends Effect {
     public static final ResourceLocation ATTACK_SPEED_ID = EffectUtil.modifierId("blessing_berserker");
 
-    private static final Map<UUID, Integer> STACKS = new HashMap<>();
-    private static final Map<UUID, Long> LAST_HIT = new HashMap<>();
+    private static final Map<UUID, Integer> STACKS = EffectState.saved("berserker/stacks", Codec.INT);
+    private static final Map<UUID, Long> LAST_HIT = EffectState.saved("berserker/last_hit", Codec.LONG);
 
     public BlessingBerserker() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 35, () -> Items.IRON_AXE);
@@ -145,5 +149,12 @@ public final class BlessingBerserker extends Effect {
 
     private static int maxStacks() {
         return Config.BERSERKER_MAX_STACKS.get();
+    }
+
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        if (target instanceof LivingEntity) {
+            onHit(self);
+        }
     }
 }

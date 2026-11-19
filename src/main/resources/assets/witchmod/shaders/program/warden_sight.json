@@ -1,0 +1,22 @@
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "one",
+        "dstrgb": "zero"
+    },
+    "vertex": "witchmod:warden_sight",
+    "fragment": "witchmod:warden_sight",
+    "attributes": [ "Position" ],
+    "samplers": [
+        { "name": "DiffuseSampler" }
+    ],
+    "uniforms": [
+        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "InSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "OutSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "Amount", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "Pulse", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Clock", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Rage", "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}

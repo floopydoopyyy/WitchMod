@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -14,6 +13,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * blessing of Flight (ELYTRA): creative-style flight tied to a resource. Hold JUMP to rise, draining a small
@@ -23,13 +24,13 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class BlessingFlight extends Effect {
     /** player -> rise mode reported by the client (0 none / 1 push-up / 2 sprint-glide). */
-    private static final java.util.Map<UUID, Integer> MODE = new java.util.HashMap<>();
+    private static final java.util.Map<UUID, Integer> MODE = EffectState.session("flight/mode");
     /** players who've bottomed out the bar — locked out of flight until it refills to the threshold. */
-    private static final Set<UUID> DEPLETED = new HashSet<>();
+    private static final Set<UUID> DEPLETED = EffectState.sessionSet("flight/depleted");
     /** player -> game tick they last rose, so the bar waits a beat before refilling. */
-    private static final java.util.Map<UUID, Long> LAST_RISE_TICK = new java.util.HashMap<>();
+    private static final java.util.Map<UUID, Long> LAST_RISE_TICK = EffectState.session("flight/last_rise_tick");
     /** player -> consecutive ticks off the ground, so a brief natural jump doesn't cost the airborne drain. */
-    private static final java.util.Map<UUID, Integer> AIRBORNE_TICKS = new java.util.HashMap<>();
+    private static final java.util.Map<UUID, Integer> AIRBORNE_TICKS = EffectState.session("flight/airborne_ticks");
     private static final float REFILL_THRESHOLD = 0.2F; // 20% back before you can fly again
 
     public BlessingFlight() {
@@ -143,7 +144,7 @@ public final class BlessingFlight extends Effect {
         }
     }
 
-    /** called from {@code BlessingEventHandler} when a Flight-blessed player takes damage: spend 20% + lock out. */
+    /** called from the hooks below when a Flight-blessed player takes damage: spend 20% + lock out. */
     public static void onHurt(ServerPlayer player) {
         float energy = player.getData(WitchModAttachments.FLIGHT_ENERGY);
         energy = Math.max(0.0F, energy - (float) (double) Config.FLIGHT_DAMAGE_COST.get());
@@ -151,5 +152,11 @@ public final class BlessingFlight extends Effect {
         player.setData(WitchModAttachments.FLIGHT_LOCKOUT_END,
                 player.level().getGameTime() + Config.FLIGHT_LOCKOUT_TICKS.get());
         MODE.remove(player.getUUID());
+    }
+
+    /** taking a hit spends some of the energy bar and knocks you out of flight for a moment. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        onHurt(self);
     }
 }

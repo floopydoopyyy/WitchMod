@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,6 +17,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.synergy.Synergies;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you hit hard and you break like one. Every hit you take lands for
@@ -30,7 +32,7 @@ import com.oliver.witchmod.effects.Curses;
  * applied only when the direct entity of the hit IS the glass-cannon player, so a shot arrow doesn't count.
  *
  * <p>Each direction gets a shatter of particles and a glassy sound for emphasis — the whole point is that
- * both hitting and being hit feel fragile and violent. The hooks live in {@code CurseEventHandler}.
+ * both hitting and being hit feel fragile and violent. The hooks are below.
  */
 public final class CurseGlassCannon extends Effect {
     /**
@@ -39,8 +41,8 @@ public final class CurseGlassCannon extends Effect {
      * like standing in lava crackles once rather than machine-gunning a wall of glass every tick.
      */
     private static final int FX_COOLDOWN_TICKS = 10;
-    private static final Map<UUID, Long> NEXT_TAKEN_FX = new HashMap<>();
-    private static final Map<UUID, Long> NEXT_DEALT_FX = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_TAKEN_FX = EffectState.session("glass_cannon/next_taken_fx");
+    private static final Map<UUID, Long> NEXT_DEALT_FX = EffectState.session("glass_cannon/next_dealt_fx");
 
     public CurseGlassCannon() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.GLASS);
@@ -91,5 +93,25 @@ public final class CurseGlassCannon extends Effect {
     /** true for a direct melee blow FROM this attacker (a projectile's direct entity is the projectile). */
     public static boolean isMelee(Entity directEntity, LivingEntity attacker) {
         return directEntity == attacker;
+    }
+
+    /** taking a hit: every source counts. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        // tempered-glass synergy: if thick skinned would negate this (small) hit, skip the doubling and let it —
+        // nullification wins over amplification, whatever the order
+        boolean nullifies = Synergies.TEMPERED_GLASS.activeFor(self)
+                && event.getAmount() <= Config.THICKSKIN_DAMAGE_FLOOR.get();
+        if (!nullifies) {
+            event.setAmount(onDamageTaken(self, event.getAmount()));
+        }
+    }
+
+    /** dealing a hit: melee only (the direct entity is you, not a projectile). */
+    @Override
+    public void onHurtOther(ServerPlayer self, LivingEntity victim, LivingIncomingDamageEvent event) {
+        if (isMelee(event.getSource().getDirectEntity(), self)) {
+            event.setAmount(onMeleeDealt(self, victim, event.getAmount()));
+        }
     }
 }

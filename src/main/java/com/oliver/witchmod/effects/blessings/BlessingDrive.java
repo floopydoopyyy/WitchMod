@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -21,6 +20,8 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.curses.CurseFarmhand;
 import com.oliver.witchmod.synergy.Synergies;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * drive (sacrificial item GOLDEN CARROT): animals around you have NO breeding cooldown — the post-breeding
@@ -33,7 +34,7 @@ import com.oliver.witchmod.synergy.Synergies;
  */
 public final class BlessingDrive extends Effect {
     /** player -> last game-tick they bred an animal themselves (detected from a fresh post-breed lockout). */
-    private static final Map<UUID, Long> LAST_MANUAL_BREED = new HashMap<>();
+    private static final Map<UUID, Long> LAST_MANUAL_BREED = EffectState.saved("drive/last_manual_breed", Codec.LONG);
 
     public BlessingDrive() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.GOLDEN_CARROT);

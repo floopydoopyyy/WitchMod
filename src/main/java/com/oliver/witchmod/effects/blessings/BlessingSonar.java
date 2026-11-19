@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +28,9 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * sonar (sacrificial item SCULK SENSOR — Spectral Arrow is taken by Steady Hands). A slow, dramatic ping:
@@ -40,9 +42,9 @@ import com.oliver.witchmod.effects.Blessings;
  */
 public final class BlessingSonar extends Effect {
     /** player -> ticks until the next ping starts charging. */
-    private static final Map<UUID, Integer> TIMER = new HashMap<>();
+    private static final Map<UUID, Integer> TIMER = EffectState.saved("sonar/timer", Codec.INT);
     /** player -> ticks left in the 2.5s buildup, or absent when not charging. */
-    private static final Map<UUID, Integer> CHARGE = new HashMap<>();
+    private static final Map<UUID, Integer> CHARGE = EffectState.saved("sonar/charge", Codec.INT);
 
     // A coherent radar-GREEN palette — reads like an actual sonar sweep, not a rainbow, and not the blue/cyan
     // of vanilla sculk/sonic. One main green with a brighter highlight for the pulse itself.
@@ -113,7 +115,7 @@ public final class BlessingSonar extends Effect {
         }
     }
 
-    /** taking damage sharpens your senses: shave time off the next ping (called from BlessingEventHandler). */
+    /** taking damage sharpens your senses: shave time off the next ping (called from the hooks below). */
     public static void onDamaged(ServerPlayer target) {
         Integer t = TIMER.get(target.getUUID());
         if (t != null) {
@@ -208,5 +210,11 @@ public final class BlessingSonar extends Effect {
                                         int count, double dx, double dy, double dz, double speed) {
         target.connection.send(new ClientboundLevelParticlesPacket(particle, true, x, y, z,
                 (float) dx, (float) dy, (float) dz, (float) speed, count));
+    }
+
+    /** every hit you take sharpens your senses: time off the next ping. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        onDamaged(self);
     }
 }

@@ -16,6 +16,11 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
 
 /**
  * you go off when you go down. Dying detonates you properly: a real
@@ -34,6 +39,7 @@ import com.oliver.witchmod.effects.Curses;
  *
  * <p>sacrificial item is gunpowder (super explosive is tnt) — the two are kept distinct.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseExplosive extends Effect {
     /** deaths waiting to go off — see the class note on why this can't happen immediately. */
     private static final List<PendingBlast> PENDING = new ArrayList<>();
@@ -50,7 +56,7 @@ public final class CurseExplosive extends Effect {
         return true;
     }
 
-    /** hook for dying — see {@code CurseEventHandler}. Queues the blast for a tick's time. */
+    /** hook for dying — see the hooks below. Queues the blast for a tick's time. */
     public static void onDeath(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         PENDING.add(new PendingBlast(player, level, player.position(),
@@ -58,7 +64,7 @@ public final class CurseExplosive extends Effect {
         Curses.EXPLOSIVE.value().markDiscoveredByVictim(player);
     }
 
-    /** detonates anything whose moment has come. Called once per server tick from {@code CurseEventHandler}. */
+    /** detonates anything whose moment has come. Called once per server tick from the listener below. */
     public static void tickPending() {
         if (PENDING.isEmpty()) {
             return;
@@ -94,5 +100,17 @@ public final class CurseExplosive extends Effect {
             e.setDeltaMovement(e.getDeltaMovement().add(0.0, knockup * falloff, 0.0));
             e.hurtMarked = true; // or the velocity never reaches the client
         }
+    }
+
+    /** going down sets you off. queued rather than immediate — see the class javadoc. */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        onDeath(self);
+    }
+
+    /** set off any death that has waited its tick: by now the drops are real entities, so the blast destroys them. */
+    @SubscribeEvent
+    static void onServerTick(ServerTickEvent.Post event) {
+        tickPending();
     }
 }

@@ -11,14 +11,14 @@ import com.oliver.witchmod.data.EffectCostTier;
  * would give, so nothing sticks and you graze constantly) BUT you wolf it down {@code munchiesEatSpeedPercent}
  * faster. The eat-speed boost is applied the same way Gluttony's is (shortening the use duration on
  * {@code LivingEntityUseItemEvent.Start}), so the two STACK — a Gluttony+Munchies victim eats very fast
- * indeed. All wired in {@code CurseEventHandler}'s eat hooks.
+ * indeed. All wired in {@link EatingCurses}.
  */
 public final class CurseMunchies extends Effect {
     public CurseMunchies() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.PUMPKIN_PIE);
     }
 
-    /** discovered the first time a meal barely fills you (marked in CurseEventHandler's eat-finish hook). */
+    /** discovered the first time a meal barely fills you (marked in {@link EatingCurses}). */
     @Override
     public boolean discoversOnTrigger() {
         return true;

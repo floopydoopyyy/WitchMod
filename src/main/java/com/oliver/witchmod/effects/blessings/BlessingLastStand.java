@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +26,13 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * A comeback tool (Last Stand, TOTEM OF UNDYING). A fatal blow leaves you standing with a brief window of total
@@ -34,9 +40,10 @@ import com.oliver.witchmod.effects.Blessings;
  * moment. Not consumed per use: instead an escalating cooldown (doubling each revive) up to {@code
  * lastStandMaxUses} revives, then the blessing breaks.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingLastStand extends Effect {
     /** short-lived invuln window end tick, per player (2s comeback window). */
-    private static final Map<UUID, Long> INVULN_END = new HashMap<>();
+    private static final Map<UUID, Long> INVULN_END = EffectState.session("last_stand/invuln_end");
     private static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1.0F, 0.78F, 0.20F), 1.6F);
     private static final DustParticleOptions WHITE = new DustParticleOptions(new Vector3f(1.0F, 1.0F, 0.95F), 1.3F);
 
@@ -140,6 +147,24 @@ public final class BlessingLastStand extends Effect {
             Vec3 push = away.scale(1.0 / dist).scale(force * falloff);
             target.setDeltaMovement(target.getDeltaMovement().add(push.x, Math.max(0.35, push.y * 0.5 + 0.35), push.z));
             target.hurtMarked = true;
+        }
+    }
+
+    /** revive with a brief invulnerable comeback window, off cooldown; on cooldown you die normally. */
+    @Override
+    public boolean cheatsDeath(ServerPlayer self, LivingDeathEvent event) {
+        if (!tryTrigger(self)) {
+            return false;
+        }
+        markDiscoveredByVictim(self);
+        return true;
+    }
+
+    /** the post-revive invulnerable window. not a hook: it must still hold after the final revive used it up. */
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && isInvulnerable(player)) {
+            event.setCanceled(true);
         }
     }
 }

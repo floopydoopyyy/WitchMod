@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +26,22 @@ import com.oliver.witchmod.data.TwitchChat;
 import com.oliver.witchmod.data.Usernames;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.network.WitchModNetwork;
+import net.neoforged.neoforge.event.entity.living.AnimalTameEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.entity.player.CriticalHitEvent;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * your own personal Twitch stream. A fake chat panel reacts
@@ -34,7 +49,7 @@ import com.oliver.witchmod.network.WitchModNetwork;
  * internal <b>entertainment score</b> that drives a live <b>viewer count</b>, chains highlights into a
  * <b>hype train</b>, and earns <b>subs</b> — cashed in for rewards at the end (capped).
  *
- * <p>All the brains are here (server-side): the score is fed by action hooks in {@code BlessingEventHandler}
+ * <p>All the brains are here (server-side): the score is fed by the action hooks below
  * via {@link #quiet}/{@link #highlight}; the decay, sub economy, combo/hype-train, and random
  * donation/raid events live in {@link #onTick}; each line is pushed to the owner's overlay
  * ({@code client/ChatOverlayLayer}) through {@link WitchModNetwork#sendChatLine}.
@@ -43,17 +58,17 @@ public final class BlessingChat extends Effect {
     // kinds understood by the overlay: 0 normal, 1 sub, 2 donation, 3 raid, 4 hype-highlight.
     private static final int KIND_NORMAL = 0, KIND_SUB = 1, KIND_DONATION = 2, KIND_RAID = 3, KIND_HYPE = 4;
 
-    private static final Map<UUID, Double> SCORE = new HashMap<>();
-    private static final Map<UUID, Double> SUB_ACCUM = new HashMap<>();
-    private static final Map<UUID, Long> NEXT_MESSAGE = new HashMap<>();
-    private static final Map<UUID, String> RECENT_ACTION = new HashMap<>();
-    private static final Map<UUID, Long> RECENT_ACTION_TICK = new HashMap<>();
-    private static final Map<UUID, Integer> COMBO = new HashMap<>();
-    private static final Map<UUID, Long> COMBO_TICK = new HashMap<>();
-    private static final Map<UUID, Long> LAST_CHUNK = new HashMap<>();
-    private static final Map<UUID, Boolean> ALIVE = new HashMap<>(); // is the chat currently awake (vs DEAD)?
-    private static final Map<UUID, Double> SHOWN_HYPE = new HashMap<>(); // eased hype so climbs/drops are gradual, not instant
-    private static final Map<UUID, Long> DEATH_SPAM_UNTIL = new HashMap<>(); // window of rapid dealwithit/trolldance spam
+    private static final Map<UUID, Double> SCORE = EffectState.saved("chat/score", Codec.DOUBLE);
+    private static final Map<UUID, Double> SUB_ACCUM = EffectState.saved("chat/sub_accum", Codec.DOUBLE);
+    private static final Map<UUID, Long> NEXT_MESSAGE = EffectState.saved("chat/next_message", Codec.LONG);
+    private static final Map<UUID, String> RECENT_ACTION = EffectState.saved("chat/recent_action", Codec.STRING);
+    private static final Map<UUID, Long> RECENT_ACTION_TICK = EffectState.saved("chat/recent_action_tick", Codec.LONG);
+    private static final Map<UUID, Integer> COMBO = EffectState.saved("chat/combo", Codec.INT);
+    private static final Map<UUID, Long> COMBO_TICK = EffectState.saved("chat/combo_tick", Codec.LONG);
+    private static final Map<UUID, Long> LAST_CHUNK = EffectState.saved("chat/last_chunk", Codec.LONG);
+    private static final Map<UUID, Boolean> ALIVE = EffectState.saved("chat/alive", Codec.BOOL); // is the chat currently awake (vs DEAD)?
+    private static final Map<UUID, Double> SHOWN_HYPE = EffectState.saved("chat/shown_hype", Codec.DOUBLE); // eased hype so climbs/drops are gradual, not instant
+    private static final Map<UUID, Long> DEATH_SPAM_UNTIL = EffectState.saved("chat/death_spam_until", Codec.LONG); // window of rapid dealwithit/trolldance spam
     private static final long ACTION_WINDOW = 80; // ticks a recent action keeps flavouring the chat
 
     /** message tokens the overlay recognises: an emote image or an animated gif, by name. */
@@ -614,5 +629,100 @@ public final class BlessingChat extends Effect {
             template = template.replace(keyValues[i], keyValues[i + 1]);
         }
         return template;
+    }
+
+    // feeding the entertainment score from everything the streamer does
+
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        boolean pvp = target instanceof Player;
+        quiet(self, pvp ? "combat_pvp" : "combat_pve", pvp ? Config.CHAT_PVP_SCORE.get() : Config.CHAT_PVE_SCORE.get());
+    }
+
+    @Override
+    public void onCrit(ServerPlayer self, CriticalHitEvent event) {
+        if (event.isCriticalHit()) {
+            quiet(self, "crit", Config.CHAT_CRIT_SCORE.get());
+        }
+    }
+
+    /** a kill by the streamer — the biggest highlights there are. */
+    @Override
+    public void onKill(ServerPlayer self, LivingEntity victim, LivingDeathEvent event) {
+        if (victim != self) {
+            boolean pvp = victim instanceof Player;
+            highlight(self, pvp ? "pvp_kill" : "kill", pvp ? Config.CHAT_PVP_KILL_SCORE.get() : Config.CHAT_KILL_SCORE.get());
+        }
+    }
+
+    /** the streamer dying: interest tanks and chat spams the mocking gifs. */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        onStreamerDeath(self);
+    }
+
+    @Override
+    public void onDamaged(ServerPlayer self, LivingDamageEvent.Post event) {
+        float hp = self.getHealth();
+        if (hp <= 0.0F) {
+            return; // that's a death, handled above
+        }
+        if (event.getNewDamage() >= 2.0F && hp <= (float) (double) Config.CHAT_CLUTCH_HP.get()) {
+            highlight(self, "clutch", Config.CHAT_CLUTCH_SCORE.get());
+        } else if (event.getNewDamage() >= (float) (double) Config.CHAT_DAMAGE_THRESHOLD.get()) {
+            highlight(self, "damage", Config.CHAT_DAMAGE_SCORE.get());
+        }
+    }
+
+    @Override
+    public void onFall(ServerPlayer self, LivingFallEvent event) {
+        if (event.getDistance() >= (float) (double) Config.CHAT_FALL_THRESHOLD.get()) {
+            highlight(self, "fall", Config.CHAT_FALL_SCORE.get());
+        }
+    }
+
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        if (isValuableOre(event.getState())) {
+            highlight(self, "diamond", Config.CHAT_ORE_SCORE.get());
+        } else {
+            quiet(self, "mining", Config.CHAT_MINE_SCORE.get());
+        }
+    }
+
+    private static boolean isValuableOre(net.minecraft.world.level.block.state.BlockState state) {
+        var b = state.getBlock();
+        return b == net.minecraft.world.level.block.Blocks.DIAMOND_ORE
+                || b == net.minecraft.world.level.block.Blocks.DEEPSLATE_DIAMOND_ORE
+                || b == net.minecraft.world.level.block.Blocks.EMERALD_ORE
+                || b == net.minecraft.world.level.block.Blocks.DEEPSLATE_EMERALD_ORE
+                || b == net.minecraft.world.level.block.Blocks.ANCIENT_DEBRIS;
+    }
+
+    @Override
+    public void onBlockPlace(ServerPlayer self, BlockEvent.EntityPlaceEvent event) {
+        quiet(self, "building", Config.CHAT_BUILD_SCORE.get());
+    }
+
+    @Override
+    public void onFished(ServerPlayer self, ItemFishedEvent event) {
+        highlight(self, "fish", Config.CHAT_FISH_SCORE.get());
+    }
+
+    @Override
+    public void onTame(ServerPlayer self, AnimalTameEvent event) {
+        highlight(self, "tame", Config.CHAT_TAME_SCORE.get());
+    }
+
+    @Override
+    public void onTrade(ServerPlayer self, TradeWithVillagerEvent event) {
+        quiet(self, "trade", Config.CHAT_TRADE_SCORE.get());
+    }
+
+    @Override
+    public void onUseFinish(ServerPlayer self, LivingEntityUseItemEvent.Finish event) {
+        if (event.getItem().has(DataComponents.FOOD)) {
+            quiet(self, "eat", Config.CHAT_EAT_SCORE.get());
+        }
     }
 }

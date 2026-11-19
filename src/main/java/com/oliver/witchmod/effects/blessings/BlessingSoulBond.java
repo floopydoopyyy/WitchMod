@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +22,10 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModMobEffects;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.minecraft.world.phys.Vec3;
+import com.oliver.witchmod.data.WitchModDamageTypes;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you are spiritually tethered to whoever is nearest. The nearest living thing within {@code soulBondRadius} is marked with the {@code Soul Bound}
@@ -35,12 +38,12 @@ import com.oliver.witchmod.data.WitchModMobEffects;
  * a fight becomes the bound and eats your incoming — so it discourages exactly those two things.
  *
  * <p>This class (running on the caster) owns everything: it maintains the bond, applies/refreshes the marker,
- * and spits the constant particles. The damage split and the golden trail live in {@code BlessingEventHandler}
+ * and spits the constant particles. The damage split and the golden trail live in the hooks below
  * on the caster's damage event; it reads the current bond via {@link #boundEntity}.
  */
 public final class BlessingSoulBond extends Effect {
     /** caster -> the entity id it currently has bound, so the bond can move and be cleaned up. */
-    private static final Map<UUID, Integer> BOUND = new HashMap<>();
+    private static final Map<UUID, Integer> BOUND = EffectState.session("soul_bond/bound");
 
     /** gold, matching the Totem of Undying and the trail. */
     public static final DustParticleOptions GOLD =
@@ -137,5 +140,46 @@ public final class BlessingSoulBond extends Effect {
             bound.removeEffect(WitchModMobEffects.SOUL_BOUND);
         }
         BOUND.remove(caster.getUUID());
+    }
+
+    /**
+     * your bound eats a share of every hit you take, in your place, and a golden trail flicks out to show who
+     * paid. shared damage is never itself re-shared (its own type is skipped), so two bonded souls can't
+     * ping-pong a hit forever.
+     */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (event.getSource().is(WitchModDamageTypes.SOUL_BOND)) {
+            return;
+        }
+        ServerLevel level = self.serverLevel();
+        LivingEntity bound = boundEntity(level, self);
+        if (bound == null || bound == self) {
+            return;
+        }
+        double radius = Config.SOULBOND_RADIUS.get();
+        if (bound.distanceToSqr(self) > radius * radius) {
+            return; // the tether only carries while they're actually near you
+        }
+        float shared = (float) (event.getAmount() * Config.SOULBOND_DAMAGE_SHARE.get());
+        if (shared <= 0.0F) {
+            return;
+        }
+        event.setAmount(event.getAmount() - shared);
+        bound.hurt(WitchModDamageTypes.soulBond(level, self), shared);
+        trail(level, self, bound);
+        markDiscoveredByVictim(self); // discovered the first time damage is shared
+    }
+
+    /** a golden trail from you to the entity that just took a share of your damage. */
+    private static void trail(ServerLevel level, ServerPlayer caster, LivingEntity bound) {
+        Vec3 from = caster.getEyePosition();
+        Vec3 to = bound.position().add(0.0, bound.getBbHeight() * 0.5, 0.0);
+        Vec3 delta = to.subtract(from);
+        int points = Math.max(6, (int) (delta.length() * 2.0));
+        for (int i = 0; i <= points; i++) {
+            Vec3 p = from.add(delta.scale((double) i / points));
+            level.sendParticles(GOLD, p.x, p.y, p.z, 1, 0.0, 0.0, 0.0, 0.0);
+        }
     }
 }

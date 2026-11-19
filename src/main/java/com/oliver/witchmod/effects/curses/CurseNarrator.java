@@ -34,6 +34,24 @@ import com.oliver.witchmod.data.NarratorLines;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.network.WitchModNetwork;
+import net.minecraft.world.level.block.AbstractChestBlock;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.entity.player.CanPlayerSleepEvent;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.neoforge.event.entity.EntityMountEvent;
+import net.minecraft.world.item.Item;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
+import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.ServerChatEvent;
+import com.oliver.witchmod.synergy.Synergies;
+import net.neoforged.neoforge.common.Tags;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * A smug narrator reads out your life via your client's text-to-speech, commenting on the things you do — and
@@ -55,7 +73,7 @@ import com.oliver.witchmod.network.WitchModNetwork;
  * </ul>
  * The one exception is the long tab-out spam ({@link #constant}), which ignores the escalation on purpose.
  *
- * <p>Event categories are fired from {@code CurseEventHandler} (and a few other systems via {@link #event});
+ * <p>Event categories are fired from the hooks below (and a few other systems via {@link #event});
  * ambient (idle) lines fire on a schedule here.
  */
 public final class CurseNarrator extends Effect {
@@ -71,9 +89,9 @@ public final class CurseNarrator extends Effect {
         final Map<String, Integer> variantCounts = new HashMap<>(); // per specific line, this run
     }
 
-    private static final Map<UUID, State> STATE = new HashMap<>();
+    private static final Map<UUID, State> STATE = EffectState.session("narrator/state");
     /** per-victim idle tracking: {tickTheyLastMoved, blockX, blockZ, idlingFlag}. */
-    private static final Map<UUID, long[]> IDLE = new HashMap<>();
+    private static final Map<UUID, long[]> IDLE = EffectState.session("narrator/idle");
 
     public CurseNarrator() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.WRITTEN_BOOK);
@@ -419,5 +437,86 @@ public final class CurseNarrator extends Effect {
     @Override
     public java.util.List<String> debugArgs() {
         return com.oliver.witchmod.data.NarratorLines.categories().stream().sorted().toList();
+    }
+
+    // fire an event category (rolled by maybe) as the victim does things
+
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        maybe(self, event.getState().is(Tags.Blocks.ORES) ? "mine_ore" : "break");
+    }
+
+    @Override
+    public void onBlockPlace(ServerPlayer self, BlockEvent.EntityPlaceEvent event) {
+        maybe(self, "place");
+    }
+
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        maybe(self, "attack");
+    }
+
+    @Override
+    public void onPickup(ServerPlayer self, ItemEntityPickupEvent.Post event) {
+        maybe(self, "pickup");
+    }
+
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        maybe(self, self.getHealth() <= 6.0F ? "low_health" : "hurt");
+    }
+
+    @Override
+    public void onChat(ServerPlayer self, ServerChatEvent event) {
+        maybe(self, "chat");
+    }
+
+    @Override
+    public void onCraft(ServerPlayer self, PlayerEvent.ItemCraftedEvent event) {
+        maybe(self, "crafting");
+    }
+
+    @Override
+    public void onMount(ServerPlayer self, EntityMountEvent event) {
+        if (event.isMounting()) {
+            maybe(self, "mounting");
+        }
+    }
+
+    /** the sleeplessness synergy: with insomniac you never actually sleep, and the narrator makes a point of it. */
+    @Override
+    public void onSleep(ServerPlayer self, CanPlayerSleepEvent event) {
+        maybe(self, Synergies.NARRATED_SLEEPLESSNESS.activeFor(self) ? "insomnia" : "sleeping");
+    }
+
+    @Override
+    public void onRightClickBlock(ServerPlayer self, PlayerInteractEvent.RightClickBlock event) {
+        Item item = event.getItemStack().getItem();
+        if (item == Items.FLINT_AND_STEEL || item == Items.FIRE_CHARGE) {
+            maybe(self, "griefing");
+        }
+        if (event.getLevel().getBlockState(event.getPos()).getBlock() instanceof AbstractChestBlock) {
+            maybe(self, "chest");
+        }
+    }
+
+    @Override
+    public void onChangeDimension(ServerPlayer self, PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getTo() == Level.NETHER) {
+            narrate(self, "nether");
+        } else if (event.getTo() == Level.END) {
+            narrate(self, "end");
+        }
+    }
+
+    /** death always gets the last word. */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        narrate(self, "death");
+    }
+
+    @Override
+    public void onKill(ServerPlayer self, LivingEntity victim, LivingDeathEvent event) {
+        maybe(self, "kill");
     }
 }

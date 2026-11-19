@@ -16,6 +16,9 @@ batched by package. Tick each class off in §16.4 once it's cleaned. Pending art
 job (§12, §17). Neutrals, Globals, Aura and the whole `events/` subsystem were **cut**, so don't
 reintroduce them.
 
+**Pending bulk test:** puppeteer work built since 2026-10-08 is untested in-game. Oliver tests it all at once from
+[docs/PUPPETEER_TESTING.md](docs/PUPPETEER_TESTING.md); add anything new and untested there.
+
 ## Build & run
 - Windows project. Use `./gradlew` (Git Bash) or `gradlew.bat`. Gradle 9.2.1 wrapper, NeoGradle userdev 7.1.27,
   NeoForge 21.1.230, Parchment 2024.11.17. Java **21** toolchain. The foojay resolver downloads JDK 21
@@ -34,7 +37,7 @@ reintroduce them.
 | `WitchMod`, `WitchModClient` | mod entry points (`MODID = "witchmod"`), client-only setup |
 | `Config` / `ClientConfig` | server/common config (every balance number) / per-player client config (accessibility sliders, opt-outs) |
 | `data/` | core systems: `Effect` (base class), `EffectManager` (**the chokepoint**: apply/remove/cap/no-stack/opt-out/grace), `DiscoveryManager`, `ModifierCalculator`, registries, attachments, sounds, tags, text line pools |
-| `effects/` | `Curses` / `Blessings` registries plus `curses/`, `blessings/` (one class per effect), `goals/` (mob AI), shared event handlers |
+| `effects/` | `Curses` / `Blessings` registries plus `curses/`, `blessings/` (one class per effect), `goals/` (mob AI), `EffectHooks` (the one listener per game event that calls the effect hooks) |
 | `blocks/` | Bewitching Table (+ `BewitchingTableRitual` = cast logic), Ledger, Warding Totem, Purifying/Holy Water, Amethyst Bell |
 | `items/`, `loot/`, `recipe/` | items (jars, coins, ward, voodoo, grenade…), named-jar loot, custom recipes |
 | `entities/` | Bodyguard, Tax Man, Spaghetti Man (Haunted), etc. |
@@ -45,7 +48,28 @@ reintroduce them.
 | `mixin/` | `witchmod.mixins.json` |
 
 Adding an effect means subclassing `data.Effect` (`onApply`/`onTick`/`onRemove`/`debugForce`, etc.), registering it in
-`Curses`/`Blessings`, adding its config constants to `Config`, and adding a DESIGN.md §16.3 entry.
+`Curses`/`Blessings`, adding its config constants to `Config`, and adding a DESIGN.md §16.3 entry. Game events reach it
+through the optional **event hooks** on `Effect` (`onHurt`, `onAttack`, `onBlockBreak`, `onDeath`, …), which
+`effects/EffectHooks` calls only while it's active — no `isActive` checks, no new shared handler. Per-player state goes in
+**`data/EffectState`** (`session(name)` / `saved(name, codec)` maps keyed by UUID: they survive death and relogging, and
+`saved` ones survive restarts too), never a plain static map. DESIGN.md §2 rule 10 has the details.
+
+**Puppeteer** is its own package, `effects/blessings/puppeteer/` (DESIGN.md §19):
+- `PuppetType`: one constant per possessable mob (entity, `PuppetGroup`, `PuppetMove`).
+- `PuppetBehaviour`: the interface every mob implements, all hooks optional (tick, possess/clear, clicks, held moves,
+  lunges, combat, body size, HUD `controls`). `PuppetBehaviours` maps each type to its behaviour and **refuses to load
+  if a type has none**.
+- `mob/`: one behaviour per mob family, each owning its own state and code.
+- The shared machinery: `Possession` (in/out), `Holds`, `Lunges`, `PuppetCombat`, `PuppetEvents`, `Puppets` (helpers),
+  `PuppetHunters`. These hold no per-mob `if`s — they call the hooks. `client/` is the client side, split by concern.
+- Adding a mob: a `PuppetType`, a `mob/<Name>Behaviour` and its line in `PuppetBehaviours`, sounds in
+  `Puppets.ambientOf`/`hurtOf`, and lang keys.
+- Hooks worth knowing: `scrolls`/`scroll` (a mouse-wheel belt: evoker, warden), `bindingTicks`/`bindingTick`/
+  `bindingEnded` (a possession that's a struggle: warden). `Possession.release` runs `Puppets.unstick` after every
+  `clear`, so a puppet that lived in blocks never leaves you stuck in them.
+- The warden is the biggest: `mob/WardenBehaviour` (abilities), `mob/WardenHearing` (game-event hearing, points, marks),
+  `client/WardenSenses` (fog, `warden_sight` post shader, glow colours), `client/WardenFx` (sound/sniff/mark visuals,
+  the model's animations), `client/WardenHunted` (the marked player's screen).
 
 ## Hard rules (details in DESIGN.md §2, §16)
 1. **No stacking.** Reapplying an effect keeps the longer duration. Hard cap per player (`maxActiveEffectsPerPlayer`,

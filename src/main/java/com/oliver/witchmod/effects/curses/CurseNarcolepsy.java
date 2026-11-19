@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -13,6 +12,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * narcolepsy (White Bed): every {@code narcolepsyMinInterval}..{@code narcolepsyMaxInterval} (35s–5.5min,
@@ -27,11 +28,11 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class CurseNarcolepsy extends Effect {
     /** rider UUID -> game tick the next sleep is due (transient; re-scheduled on relog like Yap). */
-    private static final Map<UUID, Long> NEXT_SLEEP = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_SLEEP = EffectState.saved("narcolepsy/next_sleep", Codec.LONG);
     /** rider UUID -> ticks stood still, for the idle-accelerated countdown. */
-    private static final Map<UUID, Integer> IDLE_TICKS = new HashMap<>();
+    private static final Map<UUID, Integer> IDLE_TICKS = EffectState.session("narcolepsy/idle_ticks");
     /** rider UUID -> last position, to measure stillness. */
-    private static final Map<UUID, net.minecraft.world.phys.Vec3> LAST_POS = new HashMap<>();
+    private static final Map<UUID, net.minecraft.world.phys.Vec3> LAST_POS = EffectState.session("narcolepsy/last_pos");
 
     public CurseNarcolepsy() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> net.minecraft.world.item.Items.WHITE_BED);

@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,28 +19,31 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * nearby hostile mobs do not attack you and all aggro on sattackers nearby
  *
  * Two halves:
  *  — a nearby hostile simply cannot acquire you<: the
- * {@code LivingChangeTargetEvent} handler in {@code BlessingEventHandler} vetoes any attempt to set you
+ * {@code LivingChangeTargetEvent} hook below vetoes any attempt to set you
  *  as its target, so its own goals can't lock on. (Clearing the target after the fact instead — the first
  *  approach — flickered against those goals and let hits through, and the rally then turned it bad)
  *  As backstops, damage from a pacified hostile is cancelled outright, and this sweep clears any target
  *  one was already holding when the blessing landed.
  *  - being hit by a GENUINE aggressor (anything that isn't a pacified hostile)
- *  records it via {@link #markDefend} (from {@code BlessingEventHandler}); for
+ *  records it via {@link #markDefend} (from the hooks below); for
  *  {@code armyDefendDurationTicks} afterward the sweep re-aims every nearby hostile at it instead.
  *
  * intentionally does not touch neutrals cus neutral aggression curse.
  */
 public final class BlessingArmy extends Effect {
     /** blessed player -> entity id of whatever last hit them. */
-    private static final Map<UUID, Integer> DEFEND_TARGET = new HashMap<>();
+    private static final Map<UUID, Integer> DEFEND_TARGET = EffectState.session("army/defend_target");
     /** blessed player -> game tick the rally expires. */
-    private static final Map<UUID, Long> DEFEND_UNTIL = new HashMap<>();
+    private static final Map<UUID, Long> DEFEND_UNTIL = EffectState.session("army/defend_until");
 
     public BlessingArmy() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 35, () -> Items.SHIELD);
@@ -112,5 +114,34 @@ public final class BlessingArmy extends Effect {
     // hostile MONSTER mobs that aren't neutral — the ones Army actually commands. funny names
     public static boolean isConscriptable(Mob mob) {
         return mob.getType().getCategory() == MobCategory.MONSTER && !(mob instanceof NeutralMob);
+    }
+
+    /**
+     * a nearby hostile can't even acquire you as a target — vetoed at the source, so its goals never lock on
+     * (clearing the target afterward flickered and let hits slip through).
+     */
+    @Override
+    public void onTargeted(ServerPlayer self, LivingEntity by, LivingChangeTargetEvent event) {
+        double radius = Config.ARMY_RADIUS.get();
+        if (by instanceof Mob mob && isConscriptable(mob) && mob.distanceToSqr(self) <= radius * radius) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * pacified hostiles are neutral, so their damage to you is cancelled outright — and being hit by a genuine
+     * aggressor (a player, a golem, anything not pacified) rallies the horde onto it.
+     */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        Entity attacker = event.getSource().getEntity();
+        if (attacker == null || attacker == self) {
+            return;
+        }
+        if (attacker instanceof Mob mob && isConscriptable(mob)) {
+            event.setCanceled(true); // neutral to you: no harm, and nothing to rally against
+            return;
+        }
+        markDefend(self, attacker);
     }
 }

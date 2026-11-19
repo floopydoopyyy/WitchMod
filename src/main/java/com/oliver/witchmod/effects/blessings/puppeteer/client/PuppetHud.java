@@ -1,4 +1,4 @@
-package com.oliver.witchmod.client;
+package com.oliver.witchmod.effects.blessings.puppeteer.client;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -25,7 +24,10 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
-import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetControls;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetGroup;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetMove;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetType;
 
 /**
  * puppeteer's hud. while you're a puppet, your hearts / hunger / armour / hotbar are swapped for the puppet's
@@ -59,7 +61,7 @@ public final class PuppetHud {
     static void onLayer(RenderGuiLayerEvent.Pre event) {
         LocalPlayer player = Minecraft.getInstance().player;
         // (a witch keeps her hotbar — it's her potion belt)
-        boolean belt = player != null && BlessingPuppeteer.PuppetType.byId(PuppeteerClient.typeOf(player)) == BlessingPuppeteer.PuppetType.WITCH
+        boolean belt = player != null && PuppetType.byId(PuppeteerClient.typeOf(player)) == PuppetType.WITCH
                 && (event.getName().equals(VanillaGuiLayers.HOTBAR) || event.getName().equals(VanillaGuiLayers.SELECTED_ITEM_NAME));
         if (player != null && isPuppet(player) && HIDDEN.contains(event.getName()) && !belt) {
             event.setCanceled(true);
@@ -89,6 +91,10 @@ public final class PuppetHud {
             }
             float health = player.getData(WitchModAttachments.PUPPET_HEALTH);
             float max = Math.max(1.0F, player.getData(WitchModAttachments.PUPPET_MAX_HEALTH));
+            if (max > com.oliver.witchmod.ClientConfig.puppetHealthBarAbove()) {
+                bar(g, mc, player, health, max, deltaTracker); // a warden's 250 hearts would fill the screen
+                return;
+            }
             int hearts = Mth.ceil(max / 2.0F);
             int rows = Mth.ceil(hearts / 10.0F);
             int rowHeight = Math.max(10 - (rows - 2), 3);
@@ -104,15 +110,29 @@ public final class PuppetHud {
                     g.blitSprite(HEART_HALF, hx, hy, 9, 9);
                 }
             }
-            BlessingPuppeteer.PuppetType puppetType = BlessingPuppeteer.PuppetType.byId(PuppeteerClient.typeOf(player));
+            PuppetType puppetType = PuppetType.byId(PuppeteerClient.typeOf(player));
             if (puppetType != null) {
-                Component name = puppetType == BlessingPuppeteer.PuppetType.KILLER_RABBIT
+                Component name = puppetType == PuppetType.KILLER_RABBIT
                         ? Component.translatable("witchmod.puppeteer.killer_rabbit")
-                        : puppetType == BlessingPuppeteer.PuppetType.SCREAMING_GOAT ? Component.translatable("witchmod.puppeteer.screaming_goat")
+                        : puppetType == PuppetType.SCREAMING_GOAT ? Component.translatable("witchmod.puppeteer.screaming_goat")
                         : puppetType.entityType().getDescription();
                 g.drawString(mc.font, name, x, y - (rows - 1) * rowHeight - 10, 0xFF9EE7A0, true);
             }
             mc.gui.leftHeight += (rows - 1) * rowHeight + 10;
+        }
+
+        /** a big puppet's health, minecraft-style: its name, then one heart and the number (a warden's 250 hearts won't fit). */
+        private static void bar(GuiGraphics g, Minecraft mc, LocalPlayer player, float health, float max, DeltaTracker delta) {
+            int x = g.guiWidth() / 2 - 91;
+            int y = g.guiHeight() - 39;
+            g.blitSprite(HEART_CONTAINER, x, y, 9, 9);
+            g.blitSprite(health / max > 0.0F ? HEART_FULL : HEART_HALF, x, y, 9, 9);
+            g.drawString(mc.font, String.valueOf(Mth.ceil(health)), x + 11, y + 1, 0xFFFFFFFF, true);
+            PuppetType puppetType = PuppetType.byId(PuppeteerClient.typeOf(player));
+            if (puppetType != null) {
+                g.drawString(mc.font, puppetType.entityType().getDescription(), x, y - 10, 0xFF9EE7A0, true);
+            }
+            mc.gui.leftHeight += 10;
         }
     }
 
@@ -141,121 +161,38 @@ public final class PuppetHud {
 
             long bindingEnd = player.getData(WitchModAttachments.PUPPET_BINDING_END);
             String type = PuppeteerClient.typeOf(player);
+            if (bindingEnd != seenBindingEnd) { // a new possession: its length is however long it has left now
+                seenBindingEnd = bindingEnd;
+                bindingTotal = Math.max(1L, bindingEnd - now);
+            }
             if (bindingEnd > now) {
-                int total = Math.max(1, possessTicks());
+                long total = bindingTotal;
                 progress = 1.0F - Mth.clamp((bindingEnd - now - deltaTracker.getGameTimeDeltaPartialTick(false)) / total, 0.0F, 1.0F);
                 lines.add(new Line(List.of(), Component.translatable("witchmod.puppeteer.possessing"), true));
             } else if (!type.isEmpty()) {
-                BlessingPuppeteer.PuppetType puppet = BlessingPuppeteer.PuppetType.byId(type);
-                long ready = player.getData(WitchModAttachments.PUPPET_ACTION_READY);
+                PuppetType puppet = PuppetType.byId(type);
                 int hold = player.getData(WitchModAttachments.PUPPET_FUSE);
                 if (puppet != null) {
-                    BlessingPuppeteer.Move move = puppet.move();
-                    if (move == BlessingPuppeteer.Move.EGG) {
-                        lines.add(moveLine(List.of(use), "witchmod.puppeteer.action.lay_egg", ready, now));
+                    PuppetMove move = puppet.move();
+                    // the puppet says what its controls are (PuppetBehaviour.controls); drawn here in your own key names
+                    PuppetControls controls = new PuppetControls();
+                    try {
+                        puppet.behaviour().controls(player, puppet, controls);
+                    } catch (IllegalStateException e) {
+                        // the server's config hasn't reached us yet: no control lines this frame
                     }
-                    if (move == BlessingPuppeteer.Move.VOLLEY) {
-                        lines.add(moveLine(List.of(use), "witchmod.puppeteer.action.snowball", ready, now));
+                    for (PuppetControls.Line control : controls.lines()) {
+                        lines.add(line(mc, control, now));
                     }
-                    long moveReady = switch (move) {
-                        case FUSE, BOW, CROSSBOW -> 0L;                                     // no cooldown
-                        case EGG, VOLLEY -> player.getData(WitchModAttachments.PUPPET_ACTION2_READY); // the second move's own
-                        default -> ready;
-                    };
-                    // the move's key: right-click (pressed or held), except a spider's pounce (your attack button) and a
-                    // bat's flight (double-tap jump).
-                    Component key = switch (move) {
-                        case POUNCE -> mc.options.keyAttack.getTranslatedKeyMessage();
-                        case FLY -> Component.translatable("witchmod.puppeteer.double_tap", mc.options.keyJump.getTranslatedKeyMessage());
-                        default -> move.held() ? Component.translatable("witchmod.puppeteer.hold", use) : use;
-                    };
-                    if (move == BlessingPuppeteer.Move.EMBED && player.getData(WitchModAttachments.PUPPET_HIDDEN)) {
-                        // hidden in stone: the brood that'll burst out with you grows the longer you wait
-                        int brood = Math.max(0, (hold - embedTicks()) / Math.max(1, broodTicks()));
-                        lines.add(new Line(List.of(use), Component.translatable("witchmod.puppeteer.action.burst", brood), true));
-                    } else if (move == BlessingPuppeteer.Move.TELEPORT) {
-                        // charges: usable whenever one's ready, even while the next recharges
-                        int charges = player.getData(WitchModAttachments.PUPPET_TP_CHARGES);
-                        lines.add(charges > 0
-                                ? new Line(List.of(use), Component.translatable("witchmod.puppeteer.action.teleport_charges", charges), true)
-                                : moveLine(List.of(use), move.labelKey(), ready, now));
-                        lines.add(new Line(List.of(sneak, use), Component.translatable("witchmod.puppeteer.action.carry"), true));
-                        if (BlessingPuppeteer.enraged(player)) {
-                            long left = player.getData(WitchModAttachments.PUPPET_RAGE_END) - now;
-                            lines.add(new Line(List.of(), Component.translatable("witchmod.puppeteer.enraged", (left + 19) / 20)
-                                    .withStyle(net.minecraft.ChatFormatting.DARK_PURPLE), true));
-                        }
-                    } else if (move == BlessingPuppeteer.Move.BURROW && player.getData(WitchModAttachments.PUPPET_BURROWED)) {
-                        lines.add(moveLine(List.of(key), "witchmod.puppeteer.action.surface", moveReady, now));
-                    } else if (move != BlessingPuppeteer.Move.NONE && move != BlessingPuppeteer.Move.SPELL) { // a wither skeleton / plain rabbit has no special move
-                        lines.add(moveLine(List.of(key), move.labelKey(), move == BlessingPuppeteer.Move.FLY ? 0L : moveReady, now));
-                    }
-                    if (puppet.group() == BlessingPuppeteer.Group.HORSE) {
-                        lines.add(new Line(List.of(Component.translatable("witchmod.puppeteer.hold", mc.options.keyJump.getTranslatedKeyMessage())),
-                                Component.translatable("witchmod.puppeteer.action.leap"), true));
-                        float leap = PuppeteerClient.horseJumpProgress();
+                    if (puppet.group() == PuppetGroup.HORSE) {
+                        float leap = PuppetMovement.horseJumpProgress();
                         if (leap > 0.0F) {
                             progress = leap;
                         }
                     }
-                    if (puppet.group() == BlessingPuppeteer.Group.RABBIT || puppet.group() == BlessingPuppeteer.Group.SLIME) {
-                        lines.add(moveLine(List.of(mc.options.keyUp.getTranslatedKeyMessage()), "witchmod.puppeteer.action.hop", 0L, now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.EVOKER) {
-                        // the spell belt: scroll picks ring / line / vexes, right-click casts what you're aiming at
-                        BlessingPuppeteer.EvokerSpell belt = BlessingPuppeteer.beltSpell(player);
-                        BlessingPuppeteer.EvokerSpell cast = BlessingPuppeteer.evokerSpell(player);
-                        long castReady = cast.second ? player.getData(WitchModAttachments.PUPPET_ACTION2_READY) : ready;
-                        lines.add(new Line(List.of(Component.translatable("witchmod.puppeteer.scroll")),
-                                Component.translatable("witchmod.puppeteer.evoker_select", Component.translatable(belt.labelKey())), true));
-                        // the cast line names a contextual wololo / convert, else "Cast <belt spell>"
-                        Component castLabel = cast == BlessingPuppeteer.EvokerSpell.WOLOLO || cast == BlessingPuppeteer.EvokerSpell.CONVERT
-                                ? Component.translatable(cast.labelKey())
-                                : Component.translatable("witchmod.puppeteer.action.evoker_cast", Component.translatable(belt.labelKey()));
-                        lines.add(castReady > now
-                                ? new Line(List.of(use), Component.translatable("witchmod.puppeteer.cooldown_short", castLabel, (castReady - now + 19) / 20), false)
-                                : new Line(List.of(use), castLabel, true));
-                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.horn",
-                                player.getData(WitchModAttachments.PUPPET_RAGE_END), now));
-                    }
-                    if (BlessingPuppeteer.johnny(player)) {
-                        lines.add(new Line(List.of(), Component.translatable("witchmod.puppeteer.johnny")
-                                .withStyle(net.minecraft.ChatFormatting.RED), true));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.FOX) {
-                        lines.add(moveLine(List.of(mc.options.keyDrop.getTranslatedKeyMessage()), "witchmod.puppeteer.action.drop_item", 0L, now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.WITCH) {
-                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.drink", ready, now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.SCREAMING_GOAT) {
-                        lines.add(moveLine(List.of(Component.translatable("witchmod.puppeteer.hold", mc.options.keyAttack.getTranslatedKeyMessage())),
-                                "witchmod.puppeteer.action.shriek", player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.GHAST) {
-                        lines.add(moveLine(List.of(Component.translatable("witchmod.puppeteer.hold", mc.options.keyAttack.getTranslatedKeyMessage())),
-                                "witchmod.puppeteer.action.ghast_volley", player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.BREEZE) {
-                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.wind_charge",
-                                player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.PHANTOM) {
-                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.bite", 0L, now));
-                        lines.add(moveLine(List.of(Component.translatable("witchmod.puppeteer.double_tap",
-                                mc.options.keyJump.getTranslatedKeyMessage())), "witchmod.puppeteer.action.fly", 0L, now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.ELDER_GUARDIAN) {
-                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.call",
-                                player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
-                    }
-                    if (puppet == BlessingPuppeteer.PuppetType.CAT) {
-                        lines.add(moveLine(List.of(mc.options.keyAttack.getTranslatedKeyMessage()), "witchmod.puppeteer.action.meow",
-                                player.getData(WitchModAttachments.PUPPET_ACTION2_READY), now));
-                    }
-                    if (move == BlessingPuppeteer.Move.BOW && player.isUsingItem()) {
+                    if (move == PuppetMove.BOW && player.isUsingItem()) {
                         progress = net.minecraft.world.item.BowItem.getPowerForTime(player.getTicksUsingItem());
-                    } else if (move == BlessingPuppeteer.Move.CROSSBOW && player.isUsingItem()) {
+                    } else if (move == PuppetMove.CROSSBOW && player.isUsingItem()) {
                         progress = Math.min(1.0F, player.getTicksUsingItem()
                                 / (float) net.minecraft.world.item.CrossbowItem.getChargeDuration(player.getUseItem(), player));
                     } else if (hold > 0) {
@@ -269,8 +206,21 @@ public final class PuppetHud {
                             case EMBED -> player.getData(WitchModAttachments.PUPPET_HIDDEN) ? -1.0F
                                     : Math.min(1.0F, hold / (float) Math.max(1, embedTicks()));
                             case MAUL -> -1.0F; // mid-scrap: no bar
+                            case PERCH, CURL -> -1.0F; // a dance, a curl: nothing to fill
+                            case DIVE -> com.oliver.witchmod.effects.blessings.puppeteer.mob.PhantomBehaviour.hudProgress(player); // its teleport
+                            case SHELL -> com.oliver.witchmod.effects.blessings.puppeteer.mob.ShulkerBehaviour.hudProgress(player); // its volley
+                            case WARDEN_BELT -> com.oliver.witchmod.effects.blessings.puppeteer.mob.WardenBehaviour.hudProgress(player);
+                            case SNIFF_DIG -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_SNIFFER_SEED_TICKS.get()));
+                            case LAY_EGGS -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_TURTLE_LAY_CHARGE_TICKS.get()));
+                            case PUFF -> com.oliver.witchmod.effects.blessings.puppeteer.mob.FishBehaviour.puffLevel(player) / 2.0F; // how puffed
+                            case WOLF_MAUL -> PuppetMovement.holdingStill(player) ? -1.0F
+                                    : Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_WOLF_MAUL_CHARGE_TICKS.get()));
                             case LUNGE_HEAVY -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_VINDICATOR_LUNGE_CHARGE_TICKS.get()));
-                            case FIREBALL, BLAZE_VOLLEY, GALE, POTION, DASH, RAM, ROAR -> Math.max(0.0F, PuppeteerClient.shotCharge(player));
+                            case FIREBALL, BLAZE_VOLLEY, POTION, DASH, RAM, ROAR -> Math.max(0.0F, PuppetCamera.shotCharge(player));
+                            case BREEZE_DASH -> hold > 0 ? Math.max(0.0F, PuppetCamera.shotCharge(player)) : -1.0F; // its gale
+                            case PIGLIN_CALL -> -1.0F; // a tap or a dance: nothing to fill
+                            case SPELL -> Math.min(1.0F, hold / (float) com.oliver.witchmod.effects.blessings.puppeteer.mob.EvokerBehaviour
+                                    .chargeTicks(com.oliver.witchmod.effects.blessings.puppeteer.mob.EvokerBehaviour.evokerSpell(player)));
                             case MITOSIS -> Math.min(1.0F, hold / (float) Math.max(1, com.oliver.witchmod.Config.PUPPETEER_ALLAY_MITOSIS_CHARGE_TICKS.get()));
                             default -> Math.min(1.0F, hold / 10.0F);
                         };
@@ -290,6 +240,35 @@ public final class PuppetHud {
             g.pose().scale(SCALE, SCALE, 1.0F);
             draw(g, mc.font, lines, Mth.clamp(progress, -1.0F, 1.0F));
             g.pose().popPose();
+        }
+
+        /** a control line in your own key names — "[Right Button] Rally" — greyed with the seconds left while it recharges. */
+        private static Line line(Minecraft mc, PuppetControls.Line control, long now) {
+            List<Component> keys = new ArrayList<>();
+            for (PuppetControls.Input input : control.keys()) {
+                keys.add(keyName(mc, input));
+            }
+            return control.readyAt() > now
+                    ? new Line(keys, Component.translatable("witchmod.puppeteer.cooldown_short", control.label(), (control.readyAt() - now + 19) / 20), false)
+                    : new Line(keys, control.label(), true);
+        }
+
+        /** a key cap's text: the key you've bound (or the wheel), held / double-tapped as the control says. */
+        private static Component keyName(Minecraft mc, PuppetControls.Input input) {
+            Component key = switch (input.key()) {
+                case USE -> mc.options.keyUse.getTranslatedKeyMessage();
+                case ATTACK -> mc.options.keyAttack.getTranslatedKeyMessage();
+                case SNEAK -> mc.options.keyShift.getTranslatedKeyMessage();
+                case JUMP -> mc.options.keyJump.getTranslatedKeyMessage();
+                case DROP -> mc.options.keyDrop.getTranslatedKeyMessage();
+                case FORWARD -> mc.options.keyUp.getTranslatedKeyMessage();
+                case SCROLL -> Component.translatable("witchmod.puppeteer.scroll");
+            };
+            return switch (input.press()) {
+                case TAP -> key;
+                case HOLD -> Component.translatable("witchmod.puppeteer.hold", key);
+                case DOUBLE_TAP -> Component.translatable("witchmod.puppeteer.double_tap", key);
+            };
         }
 
         private static Line moveLine(List<Component> keys, String labelKey, long ready, long now) {
@@ -355,38 +334,18 @@ public final class PuppetHud {
 
         private static boolean lookingAtPuppet(Minecraft mc) {
             Entity target = mc.crosshairPickEntity;
-            return target != null && BlessingPuppeteer.PuppetType.of(target.getType()) != null;
+            return target != null && PuppetType.of(target.getType()) != null;
         }
 
-        private static int possessTicks() {
-            try {
-                return Config.PUPPETEER_POSSESS_TICKS.get();
-            } catch (IllegalStateException e) {
-                return 30;
-            }
-        }
-
-        private static int ghastVolleyTicks() {
-            try {
-                return Config.PUPPETEER_GHAST_VOLLEY_CHARGE_TICKS.get();
-            } catch (IllegalStateException e) {
-                return 25;
-            }
-        }
+        /** the possession being shown: its end, and its whole length. */
+        private static long seenBindingEnd;
+        private static long bindingTotal = 1L;
 
         private static int embedTicks() {
             try {
                 return Config.PUPPETEER_SILVERFISH_EMBED_TICKS.get();
             } catch (IllegalStateException e) {
                 return 30;
-            }
-        }
-
-        private static int broodTicks() {
-            try {
-                return Config.PUPPETEER_SILVERFISH_BROOD_TICKS.get();
-            } catch (IllegalStateException e) {
-                return 40;
             }
         }
 

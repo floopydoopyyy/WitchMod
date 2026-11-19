@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,6 +25,14 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.common.util.TriState;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * death doesn't take you — it puts you into a slow, golden REBUILD instead. When a lethal blow lands you drop everything you're carrying, your body
@@ -36,16 +43,17 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * <p>It's repeatable, but the rebuild takes longer each time
  * ({@code immortalityRecoveryBaseTicks} + {@code immortalityRecoveryIncrementTicks} per prior death → 8s / 18s
  * / 28s), and after {@code immortalityMaxUses} deaths the blessing breaks. The death save is triggered from
- * {@link com.oliver.witchmod.effects.BlessingEventHandler}'s {@code LivingDeathEvent} listener via
+ * its {@link #cheatsDeath} hook via
  * {@link #beginRecovery}; the per-tick rebuild + finish run from {@link #onTick} while the blessing is active.
  *
  * <p><b>The drawback</b>: the gear you spill can be looted by anyone — but never picked back up by YOU (the
- * drops are tagged with your UUID and the pickup is vetoed for you in {@code BlessingEventHandler}). Die in
+ * drops are tagged with your UUID and the pickup is vetoed for you in the pickup listener below). Die in
  * the open and you may well stand up to find your things already gone.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingImmortality extends Effect {
     /** player -> the exact spot they fell, so they're rooted there and stand up in place. */
-    private static final Map<UUID, Vec3> DEATH_SPOT = new HashMap<>();
+    private static final Map<UUID, Vec3> DEATH_SPOT = EffectState.session("immortality/death_spot");
 
     /** gold, for the start of the rebuild. */
     private static final DustParticleOptions GOLD =
@@ -294,5 +302,41 @@ public final class BlessingImmortality extends Effect {
     private static void clearRecoveryFlags(ServerPlayer player) {
         player.setData(WitchModAttachments.IMMORTALITY_RECOVERY_START, 0L);
         player.setData(WitchModAttachments.IMMORTALITY_RECOVERY_END, 0L);
+    }
+
+    /** death goes first to immortality (ahead of last stand), and a rebuild shrugs off every hit. */
+    @Override
+    public int hookPriority() {
+        return 100;
+    }
+
+    /** death instead drops you into the slow golden rebuild (never the respawn screen). */
+    @Override
+    public boolean cheatsDeath(ServerPlayer self, LivingDeathEvent event) {
+        beginRecovery(self);
+        return true;
+    }
+
+    /** mid-rebuild you can't be touched (no persistent invulnerable flag that could leak on relog). */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (isRecovering(self)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * the gear you spilled can be looted by anyone except you, while you're still rebuilding. once you've stood
+     * back up you can collect whatever's left — it's the "easy to be looted" window, not a permanent lockout.
+     */
+    @SubscribeEvent
+    static void onDropPickup(ItemEntityPickupEvent.Pre event) {
+        String owner = event.getItemEntity().getData(WitchModAttachments.IMMORTALITY_DROP_OWNER);
+        if (!owner.isEmpty()
+                && event.getPlayer() instanceof ServerPlayer picker
+                && owner.equals(picker.getUUID().toString())
+                && isRecovering(picker)) {
+            event.setCanPickup(TriState.FALSE);
+        }
     }
 }

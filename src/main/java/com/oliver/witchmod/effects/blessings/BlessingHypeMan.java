@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +23,6 @@ import net.minecraft.world.item.Items;
 
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.effects.Blessings;
-import com.oliver.witchmod.effects.BlessingEventHandler;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
@@ -32,13 +30,25 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.HypeManMessages;
 import com.oliver.witchmod.data.Usernames;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you've got a personal hype man — a crowd, really. Your every move makes nearby players gush about you in chat, addressing you by name,
  * sometimes to an unhinged degree. It does NOTHING mechanical — it's purely for the comedy — hence it's cheap.
  *
  * <p>Praise is triggered by what you do: <b>combat</b>, <b>picking items up</b>, <b>looting a chest</b>, and
- * just <b>being around</b> (ambient). The action hooks live in {@code BlessingEventHandler}; the ambient one is
+ * just <b>being around</b> (ambient). The action hooks are below; the ambient one is
  * this class's tick. Every trigger routes through {@link #praise}, which shares one cooldown so a busy moment
  * can't spam chat, rolls {@code hypemanChance} so it stays a treat, and speaks the line in the mouth of a
  * random nearby player (or "a fan" if you're alone) so it reads as the crowd, not the game.
@@ -48,7 +58,7 @@ import com.oliver.witchmod.data.Usernames;
  */
 public final class BlessingHypeMan extends Effect {
     /** blessed player -> game tick of their last praise, so all triggers share one cooldown. */
-    private static final Map<UUID, Long> LAST_PRAISE = new HashMap<>();
+    private static final Map<UUID, Long> LAST_PRAISE = EffectState.saved("hype_man/last_praise", Codec.LONG);
 
     /** triggers that fire with NOBODY around (using a made-up name); the rest need a real audience. */
     private static final Set<String> CROWDLESS = Set.of("nearby", "downtime");
@@ -151,7 +161,7 @@ public final class BlessingHypeMan extends Effect {
 
         // being hyped up sets off the laugh track too (if you're carrying it), like the crowd cracking up.
         if (EffectManager.isActive(blessed, Blessings.LAUGH_TRACK)) {
-            BlessingEventHandler.triggerLaughTrack(blessed);
+            BlessingLaughTrack.trigger(blessed);
         }
         // and a compliment sometimes leaves you glowing with a random buff.
         if (random.nextDouble() < Config.HYPEMAN_BUFF_CHANCE.get()) {
@@ -166,5 +176,48 @@ public final class BlessingHypeMan extends Effect {
         int seconds = min + random.nextInt(max - min + 1);
         Holder<MobEffect> effect = BUFFS[random.nextInt(BUFFS.length)];
         blessed.addEffect(new MobEffectInstance(effect, seconds * 20, 0, false, true, true));
+    }
+
+    // the crowd praises the blessed player for what they do
+
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        praise(self, "combat");
+    }
+
+    @Override
+    public void onPickup(ServerPlayer self, ItemEntityPickupEvent.Post event) {
+        praise(self, "pickup");
+    }
+
+    /** opening a chest or barrel: "looting". */
+    @Override
+    public void onContainerOpen(ServerPlayer self, PlayerContainerEvent.Open event) {
+        if (event.getContainer() instanceof net.minecraft.world.inventory.ChestMenu) {
+            praise(self, "loot");
+        }
+    }
+
+    @Override
+    public void onBlockPlace(ServerPlayer self, BlockEvent.EntityPlaceEvent event) {
+        praise(self, "building");
+    }
+
+    @Override
+    public void onKill(ServerPlayer self, LivingEntity victim, LivingDeathEvent event) {
+        praise(self, "kill");
+    }
+
+    /** taking a hit: the crowd gasps and rallies behind you. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        praise(self, "hurt");
+    }
+
+    @Override
+    public void onUseFinish(ServerPlayer self, LivingEntityUseItemEvent.Finish event) {
+        if (event.getItem().has(DataComponents.FOOD)) {
+            praise(self, "eat");
+        }
     }
 }

@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.blessings;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +33,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * A prickle at the back of your neck: every so often you
@@ -48,7 +49,7 @@ import com.oliver.witchmod.effects.Blessings;
  */
 public final class BlessingSixthSense extends Effect {
     /** player -> ticks until the next sense. */
-    private static final Map<UUID, Integer> NEXT = new HashMap<>();
+    private static final Map<UUID, Integer> NEXT = EffectState.saved("sixth_sense/next", Codec.INT);
 
     /** {@code nameKey} is a translatable lang key for the sensed thing's name (organised under witchmod.sixth_sense.*). */
     private record Sense(TagKey<Structure> tag, String nameKey) {}

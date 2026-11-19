@@ -31,6 +31,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * sudden, unprovoked violent urges. Your hand goes for whoever is nearby on its own,
@@ -66,7 +67,7 @@ public final class CurseViolence extends Effect {
     private static final Field ATTACK_STRENGTH_TICKER = resolveAttackStrengthTicker();
 
     /** in-progress flurries: player -> {extra swings left, ticks until the next one}. Transient by design. */
-    private static final Map<UUID, int[]> FLURRIES = new HashMap<>();
+    private static final Map<UUID, int[]> FLURRIES = EffectState.session("violence/flurries");
 
     /** how long each entity has loitered somewhere dangerous: entity id -> {first seen, last seen}. */
     private static final Map<Integer, long[]> HAZARD_PERCHES = new HashMap<>();

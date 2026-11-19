@@ -16,6 +16,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.synergy.Synergies;
 
 /**
  * A hide like an armadillo's: any single hit at
@@ -23,7 +26,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * floor to land at all. When a hit is shrugged off you get a little feedback: a burst of scute-coloured
  * "deflection" particles and a subtle screenshake.
  *
- * <p>The floor check lives in {@link com.oliver.witchmod.effects.BlessingEventHandler} on the incoming-damage
+ * <p>The floor check lives in the hooks below on the incoming-damage
  * event, which calls {@link #neutralise} for the feedback.
  */
 public final class BlessingThickSkinned extends Effect {
@@ -52,5 +55,18 @@ public final class BlessingThickSkinned extends Effect {
         level.sendParticles(SCUTE, c.x, y, c.z, 14, 0.4, 0.5, 0.4, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK,
                 SoundSource.PLAYERS, 0.5F, 1.2F);
+    }
+
+    /** small hits at or below the floor are negated outright, with feedback. drowning deliberately isn't. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        // layered_hide synergy (with tank): the floor is raised by a point
+        double floor = Config.THICKSKIN_DAMAGE_FLOOR.get()
+                + (Synergies.LAYERED_HIDE.activeFor(self) ? Config.LAYERED_HIDE_FLOOR_BONUS.get() : 0.0);
+        if (event.getAmount() <= floor && !event.getSource().is(DamageTypes.DROWN)) {
+            event.setCanceled(true);
+            neutralise(self);
+            markDiscoveredByVictim(self);
+        }
     }
 }

@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.curses;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +27,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you keep hearing things that aren't there. Every so often the victim — and ONLY the
@@ -49,9 +50,9 @@ public final class CurseEchoes extends Effect {
     private record Echo(long dueTick, Holder<SoundEvent> sound, double x, double y, double z,
                         float volume, float pitch) {}
 
-    private static final Map<UUID, List<Echo>> PENDING = new HashMap<>();
-    private static final Map<UUID, Long> NEXT_ECHO = new HashMap<>();
-    private static final Map<UUID, Long> DISCOVER_AT = new HashMap<>();
+    private static final Map<UUID, List<Echo>> PENDING = EffectState.session("echoes/pending");
+    private static final Map<UUID, Long> NEXT_ECHO = EffectState.saved("echoes/next_echo", Codec.LONG);
+    private static final Map<UUID, Long> DISCOVER_AT = EffectState.saved("echoes/discover_at", Codec.LONG);
 
     public CurseEchoes() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 15, () -> Items.ECHO_SHARD);

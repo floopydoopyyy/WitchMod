@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +19,8 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.effects.blessings.BlessingBodyguard;
 import com.oliver.witchmod.effects.curses.CurseSolicitor;
 import com.oliver.witchmod.entities.BodyguardEntity;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * idle banter between a player's bodyguard, solicitor and guardian angel — the "companionship" jar's flavour.
@@ -29,8 +30,8 @@ import com.oliver.witchmod.entities.BodyguardEntity;
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class CompanionshipBanter {
-    private static final Map<UUID, Long> NEXT = new HashMap<>();
-    private static final Map<UUID, Pending> PENDING = new HashMap<>();
+    private static final Map<UUID, Long> NEXT = EffectState.saved("companionship_banter/next", Codec.LONG);
+    private static final Map<UUID, Pending> PENDING = EffectState.session("companionship_banter/pending");
 
     /** a scheduled reply in an argue exchange (true = the bodyguard speaks it, false = the solicitor). */
     private record Pending(long fireAt, boolean bodyguardSpeaks, String line) {}

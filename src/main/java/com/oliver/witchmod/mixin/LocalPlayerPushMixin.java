@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.player.LocalPlayer;
 
-import com.oliver.witchmod.client.PuppeteerClient;
+import com.oliver.witchmod.effects.blessings.puppeteer.client.PuppetSenses;
 
 /**
  * puppeteer: a silverfish puppet hidden inside a stone block (or an endermite burrowing through rock) must stay there —
@@ -17,7 +17,7 @@ import com.oliver.witchmod.client.PuppeteerClient;
 public abstract class LocalPlayerPushMixin {
     @Inject(method = "moveTowardsClosestSpace", at = @At("HEAD"), cancellable = true)
     private void witchmod$stayHidden(double x, double z, CallbackInfo ci) {
-        if (PuppeteerClient.inBlocksOnPurpose((LocalPlayer) (Object) this)) {
+        if (PuppetSenses.inBlocksOnPurpose((LocalPlayer) (Object) this)) {
             ci.cancel();
         }
     }

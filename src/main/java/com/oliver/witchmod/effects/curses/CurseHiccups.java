@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,6 +18,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModSounds;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you've got the hiccups: every so often you involuntarily HOP with a hic, and sometimes it's a whole FIT —
@@ -32,7 +32,7 @@ import com.oliver.witchmod.data.WitchModSounds;
  */
 public final class CurseHiccups extends Effect {
     /** per-player {nextHiccupTick, hiccupsLeftInFit}. */
-    private static final Map<UUID, long[]> STATE = new HashMap<>();
+    private static final Map<UUID, long[]> STATE = EffectState.session("hiccups/state");
 
     public CurseHiccups() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.DRIED_KELP);

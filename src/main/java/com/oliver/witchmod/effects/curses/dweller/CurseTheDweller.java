@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.curses.dweller;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -75,6 +74,9 @@ import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.entities.SpaghettiManEntity;
 import com.oliver.witchmod.entities.WatcherEyesEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * the Dweller (sacrificial item BOAT): a self-contained, progressive mini horror. A lanky humanoid — the
@@ -99,7 +101,7 @@ import com.oliver.witchmod.entities.WitchModEntities;
  * it builds again. Only being caught is fatal.
  */
 public final class CurseTheDweller extends Effect {
-    private static final Map<UUID, State> STATES = new HashMap<>();
+    private static final Map<UUID, State> STATES = EffectState.session("the_dweller/states");
 
     // the encounter cycle: a scene with a real arc, not a steady drip of random scares.
     //   FOREPLAY — the opening phase: NO dread, NO fog/desaturation, music still plays, near-silence, only the
@@ -3294,5 +3296,25 @@ public final class CurseTheDweller extends Effect {
                                          int count, double dx, double dy, double dz, double speed) {
         target.connection.send(new ClientboundLevelParticlesPacket(particle, true, x, y, z,
                 (float) dx, (float) dy, (float) dz, (float) speed, count));
+    }
+
+    /** swinging at the stalker is swallowed before anything else hears of the swing. */
+    @Override
+    public int hookPriority() {
+        return 60;
+    }
+
+    /** death doesn't end the curse: it just knocks the dread down a tier (two mid-hunt). */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        onVictimDeath(self);
+    }
+
+    /** it's unhittable: a swing at it is swallowed (no bad interact packet). */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        if (onDwellerAttacked(self, target)) {
+            event.setCanceled(true);
+        }
     }
 }

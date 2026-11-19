@@ -5,6 +5,11 @@ import net.minecraft.world.item.Items;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import com.oliver.witchmod.effects.ProjectileBlessingHandler;
+import net.minecraft.server.level.ServerPlayer;
+import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
  * A dead eye. Every
@@ -25,5 +30,15 @@ public final class BlessingHawkGuy extends Effect {
     @Override
     public boolean discoversOnTrigger() {
         return true;
+    }
+
+    /** mark the intended target so the projectile homes on it. */
+    @Override
+    public void onProjectileLaunched(ServerPlayer self, Projectile projectile) {
+        LivingEntity target = ProjectileBlessingHandler.acquireTarget(self.serverLevel(), self);
+        if (target != null) {
+            projectile.setData(WitchModAttachments.HAWKGUY_TARGET, target.getId());
+            markDiscoveredByVictim(self);
+        }
     }
 }

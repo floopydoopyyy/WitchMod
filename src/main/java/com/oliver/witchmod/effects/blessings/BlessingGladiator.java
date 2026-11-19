@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.blessings;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -33,6 +32,11 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * A duellist's edge (Gladiator, sacrificial item GOLDEN SWORD) — a statement blessing. Right-click a sword or
@@ -55,10 +59,10 @@ public final class BlessingGladiator extends Effect {
     private record Riposte(int attackerId, long tick, float damage, boolean perfect) {}
     private record PendingHit(int attackerId, float damage, long tick) {}
 
-    private static final Map<UUID, Riposte> PENDING_RIPOSTE = new HashMap<>();
-    private static final Map<UUID, PendingHit> PENDING_HIT = new HashMap<>();
+    private static final Map<UUID, Riposte> PENDING_RIPOSTE = EffectState.session("gladiator/pending_riposte");
+    private static final Map<UUID, PendingHit> PENDING_HIT = EffectState.session("gladiator/pending_hit");
     /** tick the current window OPENED — projectile parries use this for a wider (both-ends) catch window than melee. */
-    private static final Map<UUID, Long> WINDOW_OPEN = new HashMap<>();
+    private static final Map<UUID, Long> WINDOW_OPEN = EffectState.session("gladiator/window_open");
     @Nullable private static Field attackTickerField;
     private static boolean attackTickerResolved;
 
@@ -106,7 +110,7 @@ public final class BlessingGladiator extends Effect {
         WINDOW_OPEN.remove(target.getUUID());
     }
 
-    // --- Called from BlessingEventHandler ----------------------------------------------------------------
+    // --- Called from the hooks below ----------------------------------------------------------------
 
     public static boolean isParryWeapon(ItemStack stack) {
         return stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
@@ -431,5 +435,40 @@ public final class BlessingGladiator extends Effect {
         // the attack-indicator reads the CLIENT player's ticker, so sync the ready-tick down and let the
         // client set its own ticker (server-side alone never shows the cooldown).
         player.setData(WitchModAttachments.GLADIATOR_WEAPON_READY, player.serverLevel().getGameTime() + cooldownTicks);
+    }
+
+    @Override
+    public void onRightClickItem(ServerPlayer self, PlayerInteractEvent.RightClickItem event) {
+        if (isParryWeapon(event.getItemStack())) {
+            tryStartParry(self);
+        }
+    }
+
+    /** melee (the direct entity is the attacker) -> full parry + riposte; anything a shield could block -> empty parry. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (event.getSource().getDirectEntity() != null && tryParry(self, event.getSource().getDirectEntity())) {
+            event.setCanceled(true);
+            return;
+        }
+        if (tryEmptyParry(self, event.getSource())) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** a melee hit that wasn't parried: remember it briefly so a slightly-late parry (leeway) can still catch it. */
+    @Override
+    public void onDamaged(ServerPlayer self, LivingDamageEvent.Post event) {
+        if (event.getSource().getDirectEntity() instanceof LivingEntity attacker && attacker != self) {
+            recordLeewayHit(self, attacker.getId(), event.getNewDamage());
+        }
+    }
+
+    /** caught and reflected: no damage. */
+    @Override
+    public void onStruckByProjectile(ServerPlayer self, Projectile projectile, ProjectileImpactEvent event) {
+        if (tryParryProjectile(self, projectile)) {
+            event.setCanceled(true);
+        }
     }
 }

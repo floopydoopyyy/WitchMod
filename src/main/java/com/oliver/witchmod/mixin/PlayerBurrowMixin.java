@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.world.entity.player.Player;
 
-import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
+import com.oliver.witchmod.effects.blessings.puppeteer.mob.EndermiteBehaviour;
 
 /**
  * puppeteer: Player.tick resets noPhysics every tick (to "is spectator"); a burrowing endermite puppet keeps it set
@@ -18,7 +18,7 @@ public abstract class PlayerBurrowMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void witchmod$stayNoclip(CallbackInfo ci) {
         Player self = (Player) (Object) this;
-        if (BlessingPuppeteer.phasing(self)) {
+        if (EndermiteBehaviour.phasing(self)) {
             self.noPhysics = true;
         }
     }

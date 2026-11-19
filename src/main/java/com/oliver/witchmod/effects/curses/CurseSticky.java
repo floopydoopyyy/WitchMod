@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,10 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
+import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * everything you're holding is stuck to you. You cannot drop items and you cannot take
@@ -52,7 +55,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 public final class CurseSticky extends Effect {
     /** ticks between squelches, so mashing the drop key doesn't machine-gun the sound. */
     private static final int SQUELCH_COOLDOWN_TICKS = 12;
-    private static final Map<UUID, Long> NEXT_SQUELCH = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_SQUELCH = EffectState.saved("sticky/next_squelch", Codec.LONG);
 
     public CurseSticky() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.HONEY_BOTTLE);
@@ -82,7 +85,7 @@ public final class CurseSticky extends Effect {
     }
 
     /**
-     * hook for equipment changing — see {@code CurseEventHandler}. Puts armour back on if the victim just
+     * hook for equipment changing — see the hooks below. Puts armour back on if the victim just
      * took it off.
      */
     public static void onArmourRemoved(ServerPlayer player, EquipmentSlot slot,
@@ -155,5 +158,31 @@ public final class CurseSticky extends Effect {
             }
         }
         return false;
+    }
+
+    /**
+     * items refuse to leave your hands. the client also suppresses the drop key, so this is the authoritative
+     * backstop rather than the primary mechanism.
+     */
+    @Override
+    public void onToss(ServerPlayer self, ItemTossEvent event) {
+        if (!Config.STICKY_BLOCKS_DROPPING.get()) {
+            return;
+        }
+        event.setCanceled(true);
+        // ⚠ cancelling alone destroys the item: neoforge has already taken the stack out of the inventory by the
+        // time this fires, and on cancel it only skips spawning the item entity — nothing is put back. the stack
+        // must be handed back explicitly. placeItemBackInInventory (not add) can't void: with genuinely no room it
+        // drops the stack instead — losing the curse for one item beats deleting somebody's netherite.
+        self.getInventory().placeItemBackInInventory(event.getEntity().getItem());
+        squelch(self);
+    }
+
+    /** armour goes straight back on (see the class javadoc for why it restores rather than locks). */
+    @Override
+    public void onEquipmentChange(ServerPlayer self, LivingEquipmentChangeEvent event) {
+        if (!event.getFrom().isEmpty()) { // something was actually taken off
+            onArmourRemoved(self, event.getSlot(), event.getFrom(), event.getTo());
+        }
     }
 }

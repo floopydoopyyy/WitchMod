@@ -1,6 +1,7 @@
 package com.oliver.witchmod.data;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +17,11 @@ public final class ActiveEffects {
     public static final Codec<ActiveEffects> CODEC = Codec.unboundedMap(ResourceLocation.CODEC, ActiveEffectInstance.CODEC)
             .xmap(ActiveEffects::new, ActiveEffects::asMap);
 
+    private static final Hooked[] NONE = new Hooked[0];
+
     private final Map<ResourceLocation, ActiveEffectInstance> effects;
+    /** {@link #hooked()}'s cache; null after the set of effects changes. */
+    private Hooked[] hooked;
 
     private ActiveEffects(Map<ResourceLocation, ActiveEffectInstance> effects) {
         this.effects = new LinkedHashMap<>(effects);
@@ -51,11 +56,44 @@ public final class ActiveEffects {
     }
 
     void put(ResourceLocation id, ActiveEffectInstance instance) {
-        effects.put(id, instance);
+        if (effects.put(id, instance) == null) {
+            hooked = null;
+        }
     }
 
     ActiveEffectInstance remove(ResourceLocation id) {
-        return effects.remove(id);
+        ActiveEffectInstance removed = effects.remove(id);
+        if (removed != null) {
+            hooked = null;
+        }
+        return removed;
+    }
+
+    /** an active effect with its id. */
+    public record Hooked(ResourceLocation id, Effect effect) {}
+
+    /**
+     * the active effects in hook order — {@link Effect#hookPriority()} first, then registration order. cached
+     * until the set changes, and never mutated, so it's safe to walk while hooks add or remove effects.
+     */
+    public Hooked[] hooked() {
+        Hooked[] cached = hooked;
+        if (cached != null) {
+            return cached;
+        }
+        if (effects.isEmpty()) {
+            return hooked = NONE;
+        }
+        List<Hooked> list = new ArrayList<>(effects.size());
+        for (ResourceLocation id : effects.keySet()) {
+            Effect effect = WitchModRegistries.EFFECT_REGISTRY.get(id);
+            if (effect != null) {
+                list.add(new Hooked(id, effect));
+            }
+        }
+        list.sort(Comparator.comparingInt((Hooked h) -> -h.effect().hookPriority())
+                .thenComparingInt(h -> WitchModRegistries.EFFECT_REGISTRY.getId(h.effect())));
+        return hooked = list.toArray(NONE);
     }
 
     /** decrement every effect by one tick; returns ids that just expired. */
@@ -75,6 +113,9 @@ public final class ActiveEffects {
             }
         }
         expired.forEach(effects::remove);
+        if (!expired.isEmpty()) {
+            hooked = null;
+        }
         return expired;
     }
 }

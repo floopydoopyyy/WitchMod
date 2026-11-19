@@ -18,14 +18,26 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.entities.BodyguardEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import com.oliver.witchmod.effects.Blessings;
+import com.oliver.witchmod.effects.CompanionshipBanter;
+import com.oliver.witchmod.data.EffectManager;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you've hired protection. Casting it summons a {@link BodyguardEntity} bound to you
  * as its anchor; it trails you and runs off anyone who crowds you. This class owns the entity's LIFECYCLE:
  * summon on cast, keep it around, and clear it when the blessing ends. Its <b>death</b> breaks the blessing
- * instantly — handled in {@code BlessingEventHandler} on the entity's death, which then calls back into
+ * instantly — handled by the death listener below, which then calls back into
  * {@code EffectManager.remove}, whose {@link #onRemove} discards the (already-dead) entity harmlessly.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingBodyguard extends Effect {
     // the anchor -> bodyguard mapping lives in BodyguardEntity.CANONICAL, so the entity itself can self-heal
     // duplicates against it (see BodyguardEntity). This class just claims/reads/releases it.
@@ -40,7 +52,7 @@ public final class BlessingBodyguard extends Effect {
     }
 
     /** anchor UUID -> game tick a hired replacement is due (set when the current bodyguard dies). */
-    private static final java.util.Map<UUID, Long> RESPAWN_AT = new java.util.HashMap<>();
+    private static final java.util.Map<UUID, Long> RESPAWN_AT = EffectState.saved("bodyguard/respawn_at", Codec.LONG);
 
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
@@ -162,5 +174,38 @@ public final class BlessingBodyguard extends Effect {
     @Nullable
     public static UUID anchorOf(Entity entity) {
         return entity instanceof BodyguardEntity bodyguard ? bodyguard.getAnchorId() : null;
+    }
+
+    /** anything striking you commits the bodyguard to attacking it — an actual guard, not set dressing. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (!(event.getSource().getEntity() instanceof LivingEntity attacker)
+                || attacker == self
+                || attacker instanceof BodyguardEntity) {
+            return;
+        }
+        BodyguardEntity bodyguard = get(self);
+        if (bodyguard != null) {
+            bodyguard.escalateToAttacking(attacker, true); // a real threat: pursue it on the longer leash
+        }
+    }
+
+    /** the bodyguard dying no longer breaks the blessing — a replacement is hired a while later. */
+    @SubscribeEvent
+    static void onGuardDied(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof BodyguardEntity bodyguard)
+                || !(bodyguard.level() instanceof ServerLevel level)) {
+            return;
+        }
+        UUID anchorId = bodyguard.getAnchorId();
+        if (anchorId == null) {
+            return;
+        }
+        forget(anchorId); // drop the tracking entry for the dead one
+        ServerPlayer anchor = level.getServer().getPlayerList().getPlayer(anchorId);
+        if (anchor != null && EffectManager.isActive(anchor, Blessings.BODYGUARD)) {
+            onBodyguardDeath(anchor); // schedule the replacement + announce the fall
+            CompanionshipBanter.reactToDeath(anchor, "bodyguard"); // the solicitor may pipe up
+        }
     }
 }

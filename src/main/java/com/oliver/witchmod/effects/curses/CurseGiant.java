@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +26,10 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.effects.Curses;
+import com.oliver.witchmod.effects.blessings.puppeteer.Puppets;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * GIANT. You swell to THREE TIMES your size and become a slow,
@@ -41,7 +44,7 @@ import com.oliver.witchmod.effects.Curses;
  *   <li>{@code ENTITY_INTERACTION_RANGE} ×2 — DOUBLE reach, so the towering player can still clobber things on
  *       the floor at its feet.</li>
  * </ul>
- * The ±damage (75% less taken / 80% more melee dealt) is done on the damage event in {@code CurseEventHandler},
+ * The ±damage (75% less taken / 80% more melee dealt) is done on the damage event in the hooks below,
  * exactly like Glass Cannon, so it's exact and applies to any source in / melee out.
  *
  * <p><b>STOMP:</b> anything the giant physically stands on is crushed — a per-tick sweep of its foot-slab deals
@@ -54,7 +57,7 @@ public final class CurseGiant extends Effect {
     private static final ResourceLocation REACH_ID = EffectUtil.modifierId("curse_giant_reach");
 
     /** per-victim next-stomp tick, so a crushed entity isn't hit every single tick before it's launched clear. */
-    private static final Map<UUID, Long> NEXT_STOMP = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_STOMP = EffectState.session("giant/next_stomp");
 
     public CurseGiant() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.WHEAT_SEEDS);
@@ -75,7 +78,7 @@ public final class CurseGiant extends Effect {
     @Override
     public void onTick(ServerPlayer target, int ticksRemaining) {
         // a puppet wears the mob's body, not yours — the giant's size and traits wait until you step out.
-        if (com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(target)) {
+        if (Puppets.isPuppet(target)) {
             clearModifiers(target);
             SizeCrisis.clear(target);
             return;
@@ -164,7 +167,7 @@ public final class CurseGiant extends Effect {
 
     /**
      * A giant's base melee hit lands HEAVY: extra knockback + a big burst of impact FX so it reads like being
-     * clobbered by something enormous. Fired from the {@code AttackEntityEvent} in {@code CurseEventHandler}.
+     * clobbered by something enormous. Fired from the {@code AttackEntityEvent} in the hooks below.
      */
     public static void onMeleeHit(ServerPlayer giant, net.minecraft.world.entity.Entity target) {
         if (!(giant.serverLevel() instanceof ServerLevel level) || !(target instanceof LivingEntity victim)) {
@@ -179,5 +182,34 @@ public final class CurseGiant extends Effect {
         level.sendParticles(ParticleTypes.EXPLOSION, cx, cy, cz, 1, 0.0, 0.0, 0.0, 0.0);
         level.playSound(null, cx, cy, cz, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.4F, 0.55F);
         level.playSound(null, cx, cy, cz, com.oliver.witchmod.data.WitchModSounds.BIG_HIT.get(), SoundSource.PLAYERS, 1.0F, 0.9F);
+    }
+
+    // all of these only while actually big: a size-crisis dwarf (or a puppet) is left alone
+
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        if (isBig(self)) {
+            onMeleeHit(self, target);
+        }
+    }
+
+    /** take much less from any source. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (isBig(self)) {
+            event.setAmount(onDamageTaken(event.getAmount()));
+        }
+    }
+
+    /** deal more with melee (direct hits only). */
+    @Override
+    public void onHurtOther(ServerPlayer self, LivingEntity victim, LivingIncomingDamageEvent event) {
+        if (isMelee(event.getSource().getDirectEntity(), self) && isBig(self)) {
+            event.setAmount(onMeleeDealt(event.getAmount()));
+        }
+    }
+
+    private static boolean isBig(ServerPlayer player) {
+        return !Puppets.isPuppet(player) && !SizeCrisis.isSmall(player);
     }
 }

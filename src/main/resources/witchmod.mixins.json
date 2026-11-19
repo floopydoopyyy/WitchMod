@@ -21,7 +21,22 @@
     "GoatAccessor",
     "EntityCamelSeatMixin",
     "SpellcasterIllagerAccessor",
-    "RavagerAccessor"
+    "RavagerAccessor",
+    "AllayAccessor",
+    "PandaAccessor",
+    "LivingEntityFluidMixin",
+    "ParrotInvoker",
+    "MobInvoker",
+    "PolarBearAccessor",
+    "TurtleInvoker",
+    "ArmadilloAccessor",
+    "ShulkerInvoker",
+    "SnifferInvoker",
+    "WardenAccessor",
+    "PlayerFlySpeedMixin",
+    "EntityStepMixin",
+    "EntityPuppetBodyMixin",
+    "PhantomAccessor"
   ],
   "client": [
     "ListenerMixin",
@@ -29,7 +44,9 @@
     "AllergyArmTintMixin",
     "LocalPlayerPushMixin",
     "MinecraftGlowMixin",
-    "MinecraftMissTimeAccessor"
+    "MinecraftMissTimeAccessor",
+    "EntityTeamColourMixin",
+    "LevelRendererSkyMixin"
   ],
   "injectors": {
     "defaultRequire": 1

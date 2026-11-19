@@ -18,6 +18,11 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
 
 /**
  * assassin's edge (sacrificial item NETHER BRICK — Echo Shard was requested but is taken by Echoes): a melee
@@ -28,6 +33,7 @@ import com.oliver.witchmod.effects.Blessings;
  * ({@code backstabMobDot}) than for players ({@code backstabPlayerDot}), so backstabbing something in a fight
  * is actually achievable.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingBackstabbing extends Effect {
     /** entityId -> game tick a backstab landed on it, so the knockback hook (same tick) knows to soften it. */
     private static final Map<Integer, Long> KNOCKBACK_MARK = new HashMap<>();
@@ -77,5 +83,24 @@ public final class BlessingBackstabbing extends Effect {
         double dot = facing.dot(flat.normalize());
         double threshold = victim instanceof Player ? Config.BACKSTAB_PLAYER_DOT.get() : Config.BACKSTAB_MOB_DOT.get();
         return dot <= threshold;
+    }
+
+    /** a melee hit (you're the direct entity) landed from behind: the final damage is multiplied, stacking on crits. */
+    @Override
+    public void onHurtOther(ServerPlayer self, LivingEntity victim, LivingIncomingDamageEvent event) {
+        if (event.getSource().getDirectEntity() == self && victim != self) {
+            float mult = onMeleeHit(self, victim);
+            if (mult != 1.0F) {
+                event.setAmount(event.getAmount() * mult);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    static void onKnockback(LivingKnockBackEvent event) {
+        float mult = knockbackMultiplier(event.getEntity());
+        if (mult != 1.0F) {
+            event.setStrength(event.getStrength() * mult);
+        }
     }
 }

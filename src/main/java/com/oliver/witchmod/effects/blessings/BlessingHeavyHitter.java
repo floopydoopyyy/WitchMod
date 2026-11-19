@@ -12,6 +12,11 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
 
 /**
  * heavy Hitter (Mace): your melee knockback is doubled. It multiplies the FINAL knockback strength — which
@@ -21,6 +26,7 @@ import com.oliver.witchmod.effects.Blessings;
  * <p>Same mark-then-boost pattern as Backstabbing: the melee hit (which knows the attacker) marks the victim
  * for this tick, and the {@code LivingKnockBackEvent} hook (which doesn't know the attacker) reads that mark.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingHeavyHitter extends Effect {
     /** entityId -> game tick a Heavy-Hitter hit landed on it, so the same-tick knockback hook boosts it. */
     private static final Map<Integer, Long> KNOCKBACK_MARK = new HashMap<>();
@@ -59,5 +65,22 @@ public final class BlessingHeavyHitter extends Effect {
         }
         KNOCKBACK_MARK.remove(victim.getId()); // stale (a later tick) — clean it up
         return 1.0F;
+    }
+
+    /** your melee hit adds flat damage and marks the victim for this tick, so its knockback is doubled. */
+    @Override
+    public void onHurtOther(ServerPlayer self, LivingEntity victim, LivingIncomingDamageEvent event) {
+        if (event.getSource().getDirectEntity() == self && victim != self) {
+            onMeleeHit(self, victim);
+            event.setAmount(event.getAmount() + Config.HEAVY_HITTER_FLAT_DAMAGE.get().floatValue());
+        }
+    }
+
+    @SubscribeEvent
+    static void onKnockback(LivingKnockBackEvent event) {
+        float mult = knockbackMultiplier(event.getEntity());
+        if (mult != 1.0F) {
+            event.setStrength(event.getStrength() * mult);
+        }
     }
 }

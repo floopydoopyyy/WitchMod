@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.curses;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +24,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.entities.CloneEntity;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * reality gets loose: every so often you're swapped in place with a sort-of-nearby player — not right next to
@@ -36,12 +37,12 @@ import com.oliver.witchmod.entities.CloneEntity;
  * witchmod:body_swapping @s} swaps you with the nearest VILLAGER instead (for solo testing).
  */
 public final class CurseBodySwapping extends Effect {
-    private static final Map<UUID, Long> NEXT = new HashMap<>();
+    private static final Map<UUID, Long> NEXT = EffectState.saved("body_swapping/next", Codec.LONG);
     /** an in-progress FLICKER window: keep swapping with ONE fixed target on a per-second roll. */
     private record Flicker(UUID targetId, long endTick, long nextRollTick) {}
-    private static final Map<UUID, Flicker> FLICKER = new HashMap<>();
+    private static final Map<UUID, Flicker> FLICKER = EffectState.session("body_swapping/flicker");
     /** a scheduled FAKE-OUT follow-up swap (the second swap a short beat after the first). */
-    private static final Map<UUID, Long> FAKEOUT_AT = new HashMap<>();
+    private static final Map<UUID, Long> FAKEOUT_AT = EffectState.saved("body_swapping/fakeout_at", Codec.LONG);
 
     public CurseBodySwapping() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.CHORUS_FRUIT);

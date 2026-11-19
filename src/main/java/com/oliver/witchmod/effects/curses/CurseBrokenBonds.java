@@ -27,6 +27,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.effects.goals.BrokenBondsFleeGoal;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * your animals are quietly deciding they've had enough of you.
@@ -43,7 +44,7 @@ import com.oliver.witchmod.effects.goals.BrokenBondsFleeGoal;
  */
 public final class CurseBrokenBonds extends Effect {
     /** owner -> (pet id -> current hate). Transient; rebuilt as pets are seen. */
-    private static final Map<UUID, Map<UUID, Float>> HATE = new HashMap<>();
+    private static final Map<UUID, Map<UUID, Float>> HATE = EffectState.session("broken_bonds/hate");
 
     public CurseBrokenBonds() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.LEAD);

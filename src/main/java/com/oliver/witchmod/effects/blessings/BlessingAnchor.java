@@ -12,13 +12,18 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 
 /**
  * literally no damage type can apply knockback.
  *
  * <p>Done with the two vanilla knockback-resistance attributes cranked to their maximum: {@code
  * KNOCKBACK_RESISTANCE = 1.0} zeroes attack/melee knockback and {@code EXPLOSION_KNOCKBACK_RESISTANCE = 1.0}
- * zeroes explosion (and wind-charge) knockback. {@code BlessingEventHandler.onAnchorKnockback} also cancels
+ * zeroes explosion (and wind-charge) knockback. the hook below also cancels
  * {@code LivingKnockBackEvent} outright as a guarantee for any attack path. The modifiers are TRANSIENT, so
  * {@code onTick} re-applies them if a world reload dropped them (the standard trap — {@code onApply} doesn't
  * re-run on reload).
@@ -62,5 +67,17 @@ public final class BlessingAnchor extends Effect {
                 AttributeModifier.Operation.ADD_VALUE);
         EffectUtil.addModifier(target, Attributes.EXPLOSION_KNOCKBACK_RESISTANCE, EXPLOSION_KB_ID, 1.0,
                 AttributeModifier.Operation.ADD_VALUE);
+    }
+
+    /** immovable: no attack or projectile knockback at all. discovered on the first shove resisted. */
+    @Override
+    public void onKnockback(ServerPlayer self, LivingKnockBackEvent event) {
+        event.setCanceled(true);
+        markDiscoveredByVictim(self);
+        // a very subtle "braced" cue — a soft chain tink and a few sparks at the feet — so a shove that went
+        // nowhere reads as being planted rather than as nothing happening
+        ServerLevel level = self.serverLevel();
+        level.playSound(null, self.blockPosition(), SoundEvents.CHAIN_HIT, SoundSource.PLAYERS, 0.18F, 0.7F);
+        level.sendParticles(ParticleTypes.CRIT, self.getX(), self.getY() + 0.1, self.getZ(), 4, 0.22, 0.03, 0.22, 0.0);
     }
 }

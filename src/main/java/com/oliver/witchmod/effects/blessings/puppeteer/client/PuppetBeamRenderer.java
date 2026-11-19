@@ -1,8 +1,4 @@
-package com.oliver.witchmod.client;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
+package com.oliver.witchmod.effects.blessings.puppeteer.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -17,10 +13,15 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
-import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetMove;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetType;
+import com.oliver.witchmod.effects.blessings.puppeteer.Puppets;
 
 /**
  * puppeteer: a guardian puppet's laser, drawn the way vanilla draws a guardian's (same texture, same spinning
@@ -55,8 +56,8 @@ public final class PuppetBeamRenderer {
         boolean drew = false;
         for (Player p : mc.level.players()) {
             int hold = p.getData(WitchModAttachments.PUPPET_FUSE);
-            BlessingPuppeteer.PuppetType type = BlessingPuppeteer.PuppetType.byId(p.getData(WitchModAttachments.PUPPET_TYPE));
-            if (hold <= 0 || type == null || type.move() != BlessingPuppeteer.Move.BEAM) {
+            PuppetType type = PuppetType.byId(p.getData(WitchModAttachments.PUPPET_TYPE));
+            if (hold <= 0 || type == null || type.move() != PuppetMove.BEAM) {
                 continue;
             }
             Vec3 look = p.getViewVector(pt);
@@ -68,7 +69,7 @@ public final class PuppetBeamRenderer {
                 Vec3 feet = p.getPosition(pt);
                 start = feet.add(0.0, type.entityType().getDimensions().eyeHeight(), 0.0).add(look.scale(0.4));
             }
-            Vec3 end = BlessingPuppeteer.beamHit(p, range).end();
+            Vec3 end = Puppets.beamHit(p, range, com.oliver.witchmod.Config.PUPPETEER_GUARDIAN_BEAM_WIDTH.get()).end();
             float progress = Mth.clamp((hold + pt) / fullTicks, 0.0F, 1.0F);
             pose.pushPose();
             pose.translate(start.x - cam.x, start.y - cam.y, start.z - cam.z);

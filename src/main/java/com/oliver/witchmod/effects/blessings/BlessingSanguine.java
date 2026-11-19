@@ -16,12 +16,14 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 
 /**
  * sanguine (sacrificial item RED DYE): a vampiric bargain. Your natural regeneration is throttled to
  * {@code sanguineRegenMultiplier} (20%) of normal — you don't heal by resting — but you LIFESTEAL
  * {@code sanguineLifesteal} (30%) of ALL damage you deal, melee AND projectile. Bleed your enemies to keep
- * yourself standing. The two halves live in {@code BlessingEventHandler} (heal + damage events).
+ * yourself standing. The two halves live in the hooks below (heal + damage events).
  */
 public final class BlessingSanguine extends Effect {
     public BlessingSanguine() {
@@ -67,5 +69,19 @@ public final class BlessingSanguine extends Effect {
         level.playSound(null, attacker.getX(), attacker.getY(), attacker.getZ(),
                 SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.5F, 1.35F);
         com.oliver.witchmod.effects.Blessings.SANGUINE.get().markDiscoveredByVictim(attacker);
+    }
+
+    /** natural regen throttled — you don't heal by resting, you heal by bleeding others. */
+    @Override
+    public void onHeal(ServerPlayer self, LivingHealEvent event) {
+        event.setAmount(throttleRegen(event.getAmount()));
+    }
+
+    /** lifesteal a share of the damage you deal, melee and projectile. */
+    @Override
+    public void onDamagedOther(ServerPlayer self, LivingEntity victim, LivingDamageEvent.Post event) {
+        if (victim != self && self.isAlive()) {
+            lifesteal(self, victim, event.getNewDamage());
+        }
     }
 }

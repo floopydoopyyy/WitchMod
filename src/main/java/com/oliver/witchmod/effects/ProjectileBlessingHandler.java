@@ -5,9 +5,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.AbstractArrow;
-import net.minecraft.world.entity.projectile.FireworkRocketEntity;
-import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BowItem;
@@ -17,7 +14,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
@@ -27,9 +23,9 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.data.WitchModAttachments;
 
 /**
- * the archery blessings, hooked at the moment a projectile is fired: dexterous re-aims shots to your line
- * (and speeds the draw); hawk guy homes each shot onto whoever you were aiming at (cone raycast at spawn,
- * bends toward that target each tick). also carries forgiveness's projectile assist.
+ * the archery blessings' shared projectile code: dexterous speeds the draw (both sides), hawk guy bends a marked
+ * shot toward its target each tick, forgiveness's near-miss assist, and the aim helpers. the launch-time parts
+ * are {@code onProjectileLaunched} hooks on {@code BlessingDexterous} / {@code BlessingHawkGuy}.
  */
 @EventBusSubscriber(modid = WitchMod.MODID)
 public final class ProjectileBlessingHandler {
@@ -59,47 +55,6 @@ public final class ProjectileBlessingHandler {
             int extra = Config.DEXTEROUS_CHARGE_SPEEDUP_TICKS.get();
             if (extra > 0) {
                 event.setDuration(Math.max(0, event.getDuration() - extra));
-            }
-        }
-    }
-
-    /** as a projectile enters the world: Steady Hands re-aim, then Hawk Guy target acquisition. */
-    @SubscribeEvent
-    static void onProjectileSpawn(EntityJoinLevelEvent event) {
-        if (event.getLevel().isClientSide()
-                || !(event.getEntity() instanceof Projectile projectile)
-                || projectile instanceof FishingHook) {
-            return;
-        }
-        if (!(projectile.getOwner() instanceof ServerPlayer shooter)) {
-            return;
-        }
-        ServerLevel level = (ServerLevel) event.getLevel();
-
-        // steady Hands: COMPRESS each shot toward your aim rather than snapping it dead-on. Keeping a fraction
-        // of the natural spread makes single shots very accurate while leaving multishot a tight-but-visible
-        // fan (so the three arrows aren't stacked inside each other, yet can still all hit one target).
-        if (EffectManager.isActive(shooter, Blessings.DEXTEROUS)
-                && (projectile instanceof AbstractArrow || projectile instanceof FireworkRocketEntity)) {
-            Vec3 velocity = projectile.getDeltaMovement();
-            double speed = velocity.length();
-            if (speed > 1.0E-3) {
-                Vec3 look = shooter.getViewVector(1.0F);
-                double retain = Config.DEXTEROUS_SPREAD_RETAIN.get();
-                Vec3 compressed = look.lerp(velocity.normalize(), retain); // look at retain=0, vanilla at retain=1
-                if (compressed.lengthSqr() > 1.0E-6) {
-                    faceVelocity(projectile, compressed.normalize().scale(speed));
-                    Blessings.DEXTEROUS.get().markDiscoveredByVictim(shooter);
-                }
-            }
-        }
-
-        // hawk Guy: mark the intended target so the projectile homes on it.
-        if (EffectManager.isActive(shooter, Blessings.HAWK_GUY)) {
-            LivingEntity target = acquireTarget(level, shooter);
-            if (target != null) {
-                projectile.setData(WitchModAttachments.HAWKGUY_TARGET, target.getId());
-                Blessings.HAWK_GUY.get().markDiscoveredByVictim(shooter);
             }
         }
     }
@@ -141,7 +96,54 @@ public final class ProjectileBlessingHandler {
         }
         // homing gets much more BLATANT the further the shot is from its target — gentle up close (where it's
         // already good), forgiving and sharp far away (where a distant shot needs help curving in).
-        steer(projectile, target.getBoundingBox().getCenter(), hawkGuyHomingStrength(Math.sqrt(distSqr)));
+        hawkSteer(projectile, target, hawkGuyHomingStrength(Math.sqrt(distSqr)));
+    }
+
+    /**
+     * hawk guy's smarter homing: aim at a part of the target the shot can actually see (its middle, else its head or
+     * feet); none visible — it's behind cover — fly on as fired rather than bury itself in the wall. and never take a
+     * bend that would run it into a block its own path would have cleared (easing off, then not at all).
+     */
+    private static void hawkSteer(Projectile projectile, Entity target, double strength) {
+        Vec3 from = projectile.position();
+        net.minecraft.world.phys.AABB box = target.getBoundingBox();
+        Vec3 aim = null;
+        for (Vec3 point : new Vec3[] {box.getCenter(), new Vec3(box.getCenter().x, box.maxY - 0.15, box.getCenter().z),
+                new Vec3(box.getCenter().x, box.minY + 0.2, box.getCenter().z)}) {
+            if (clear(projectile, from, point)) {
+                aim = point;
+                break;
+            }
+        }
+        if (aim == null) {
+            return; // behind cover: fly on as fired
+        }
+        Vec3 before = projectile.getDeltaMovement();
+        double speed = before.length();
+        if (speed < 1.0E-3) {
+            return;
+        }
+        // look a few ticks ahead: would the bend hit a block the straight path wouldn't?
+        Vec3 lookAhead = before.normalize().scale(Math.max(1.5, speed * 3.0));
+        boolean straightClear = clear(projectile, from, from.add(lookAhead));
+        for (double s = strength; s > 0.02; s *= 0.5) {
+            Vec3 toTarget = aim.subtract(from);
+            Vec3 aimed = before.normalize().lerp(toTarget.normalize(), s);
+            if (aimed.lengthSqr() < 1.0E-6) {
+                return;
+            }
+            Vec3 heading = aimed.normalize();
+            if (!straightClear || clear(projectile, from, from.add(heading.scale(lookAhead.length())))) {
+                faceVelocity(projectile, heading.scale(speed));
+                return;
+            }
+        }
+    }
+
+    /** no block between {@code a} and {@code b} (for the projectile). */
+    private static boolean clear(Projectile projectile, Vec3 a, Vec3 b) {
+        return projectile.level().clip(new ClipContext(a, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, projectile)).getType()
+                == net.minecraft.world.phys.HitResult.Type.MISS;
     }
 
     /** hawk Guy: per-tick homing strength, lerped from the close value up to the far value across the distance band. */
@@ -184,7 +186,7 @@ public final class ProjectileBlessingHandler {
     }
 
     /** the intended target: the living entity most in line with where the shooter is aiming, with clear sight. */
-    private static LivingEntity acquireTarget(ServerLevel level, ServerPlayer shooter) {
+    public static LivingEntity acquireTarget(ServerLevel level, ServerPlayer shooter) {
         double range = Config.HAWKGUY_ACQUIRE_RANGE.get();
         double cosCone = Math.cos(Math.toRadians(Config.HAWKGUY_ACQUIRE_CONE.get()));
         Vec3 eye = shooter.getEyePosition();
@@ -234,33 +236,12 @@ public final class ProjectileBlessingHandler {
     }
 
     /** set the projectile's velocity and point its model where it's now heading (or it flies sideways). */
-    private static void faceVelocity(Projectile projectile, Vec3 result) {
+    public static void faceVelocity(Projectile projectile, Vec3 result) {
         projectile.setDeltaMovement(result);
         projectile.hasImpulse = true;
         projectile.setYRot((float) (Mth.atan2(result.x, result.z) * (180.0 / Math.PI)));
         projectile.setXRot((float) (Mth.atan2(result.y, result.horizontalDistance()) * (180.0 / Math.PI)));
         projectile.yRotO = projectile.getYRot();
         projectile.xRotO = projectile.getXRot();
-    }
-
-    /**
-     * Steady Hands: let each of your arrows OR fireworks deal FULL damage even when they land together — after
-     * one lands, clear the victim's short invulnerability window so the next in the volley isn't absorbed
-     * (vanilla otherwise ignores same-tick hits that aren't larger than the first). Using the post-damage hook
-     * (rather than a projectile-impact one) is what lets it cover crossbow FIREWORKS, whose damage is an AOE
-     * explosion that never goes through a direct projectile-on-entity impact.
-     */
-    @SubscribeEvent
-    static void onDexterousDamage(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post event) {
-        var source = event.getSource();
-        if (!(source.getEntity() instanceof ServerPlayer shooter)
-                || !EffectManager.isActive(shooter, Blessings.DEXTEROUS)) {
-            return;
-        }
-        Entity direct = source.getDirectEntity();
-        if (direct instanceof AbstractArrow || direct instanceof FireworkRocketEntity) {
-            event.getEntity().invulnerableTime = 0;
-            event.getEntity().hurtTime = 0;
-        }
     }
 }

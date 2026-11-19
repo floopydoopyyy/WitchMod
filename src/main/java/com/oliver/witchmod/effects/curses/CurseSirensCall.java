@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -28,6 +27,10 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.minecraft.world.entity.LivingEntity;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * the sea is calling and staying dry aches. A hidden <b>longing</b> stat
@@ -55,13 +58,13 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * a server nudge alone wouldn't hold. A small server-side velocity tug rides on top.
  */
 public final class CurseSirensCall extends Effect {
-    private static final Map<UUID, Float> LONGING = new HashMap<>();
+    private static final Map<UUID, Float> LONGING = EffectState.saved("sirens_call/longing", Codec.FLOAT);
     /** consecutive ticks the victim has been in water — drives the grace period and the shader fade. */
-    private static final Map<UUID, Integer> WATER_TICKS = new HashMap<>();
+    private static final Map<UUID, Integer> WATER_TICKS = EffectState.session("sirens_call/water_ticks");
     /** the magenta shader's current strength, ramped/faded per tick. */
-    private static final Map<UUID, Float> SHADER = new HashMap<>();
+    private static final Map<UUID, Float> SHADER = EffectState.session("sirens_call/shader");
     /** whether the yearning cue has fired this bout, so it lands on the stage-2 EDGE for discovery. */
-    private static final Map<UUID, Boolean> ACHED = new HashMap<>();
+    private static final Map<UUID, Boolean> ACHED = EffectState.session("sirens_call/ached");
 
     public CurseSirensCall() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 35, () -> Items.HEART_OF_THE_SEA);
@@ -297,6 +300,18 @@ public final class CurseSirensCall extends Effect {
             if (drowned.getTarget() == target) {
                 drowned.setTarget(null);
             }
+        }
+    }
+
+    /**
+     * a drowned near you protects its own: it can't even acquire you as a target. vetoed at the source rather
+     * than cleared each tick, which flickered against its goals and let it get hits in between sweeps.
+     */
+    @Override
+    public void onTargeted(ServerPlayer self, LivingEntity by, LivingChangeTargetEvent event) {
+        double radius = Config.SIREN_DROWNED_SOOTHE_RADIUS.get();
+        if (by instanceof net.minecraft.world.entity.monster.Drowned && by.distanceToSqr(self) <= radius * radius) {
+            event.setCanceled(true);
         }
     }
 }

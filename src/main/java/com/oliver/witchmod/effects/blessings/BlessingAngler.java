@@ -17,13 +17,17 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import java.util.ArrayList;
+import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
+import net.minecraft.world.item.ItemStack;
+import java.util.List;
 
 /**
  * fish bite fast - does not touch luck because otherwise that very important blessing would be less important.
  *
  * And every so often the water gives up something it shouldn't (weighted, most→least likely): bonus
  * treasure, a live fish or squid, Drowned Strider, Woolliam, or — rarest, TNT cus funny The fast-bite half reflects into {@link FishingHook#timeUntilLured}; the
- * multi-catch and the surprises are applied on the catch in {@code BlessingEventHandler}.
+ * multi-catch and the surprises are applied on the catch in the hooks below.
  */
 public final class BlessingAngler extends Effect {
     private static Field timeUntilLuredField;
@@ -166,5 +170,22 @@ public final class BlessingAngler extends Effect {
         Vec3 toPlayer = player.position().subtract(at).scale(0.1).add(0.0, 0.3, 0.0);
         item.setDeltaMovement(toPlayer);
         level.addFreshEntity(item);
+    }
+
+    /** a catch has a decent chance to pull out multiple things, and a smaller chance of a comical surprise. */
+    @Override
+    public void onFished(ServerPlayer self, ItemFishedEvent event) {
+        // multi-catch: sometimes reel in an extra copy of what you caught (luck is untouched — that's luck's job)
+        if (self.getRandom().nextDouble() < Config.ANGLER_MULTI_CHANCE.get()) {
+            List<ItemStack> extra = new ArrayList<>();
+            for (ItemStack drop : event.getDrops()) {
+                extra.add(drop.copy());
+            }
+            event.getDrops().addAll(extra);
+        }
+        if (self.getRandom().nextDouble() < Config.ANGLER_SURPRISE_CHANCE.get()) {
+            spawnSurprise(self, event.getHookEntity());
+        }
+        markDiscoveredByVictim(self);
     }
 }

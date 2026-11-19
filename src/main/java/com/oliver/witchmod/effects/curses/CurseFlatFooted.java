@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +26,8 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.ServerChatEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * your footsteps are deafening. Every footfall
@@ -42,7 +43,7 @@ public final class CurseFlatFooted extends Effect {
     private static final ResourceLocation DETECTION_ID = EffectUtil.modifierId("curse_flat_footed_detection");
 
     /** victim -> the walk distance at their last amplified footfall. */
-    private static final Map<UUID, Float> LAST_STEP_DIST = new HashMap<>();
+    private static final Map<UUID, Float> LAST_STEP_DIST = EffectState.session("flat_footed/last_step_dist");
 
     public CurseFlatFooted() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> net.minecraft.world.item.Items.GOAT_HORN);
@@ -150,5 +151,11 @@ public final class CurseFlatFooted extends Effect {
                 followRange.removeModifier(DETECTION_ID); // wandered out of earshot again
             }
         }
+    }
+
+    /** you can't help but be loud — even your chat comes out in capitals. */
+    @Override
+    public void onChat(ServerPlayer self, ServerChatEvent event) {
+        event.setMessage(net.minecraft.network.chat.Component.literal(event.getRawText().toUpperCase(java.util.Locale.ROOT)));
     }
 }

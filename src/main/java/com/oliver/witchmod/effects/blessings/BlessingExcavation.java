@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,6 +15,13 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * the more you dig, the faster you dig. Constantly
@@ -24,13 +30,14 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * Stop for {@code excavationDecayGraceTicks} and it bleeds back down.
  *
  * <p><b>Not the Haste effect</b> — no icon, no vanilla particles. It works the same WAY (multiplying your break
- * speed) via {@code PlayerEvent.BreakSpeed} in {@code BlessingEventHandler}. The bonus lives on the synced
+ * speed) via {@code PlayerEvent.BreakSpeed} in the listener below. The bonus lives on the synced
  * {@link WitchModAttachments#EXCAVATION_BONUS} attachment because break speed is computed CLIENT-side (mining
  * is client-authoritative), so the client needs the value to actually dig faster; the server drives it.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingExcavation extends Effect {
     /** player -> game tick of their last block break, for the decay grace (server-only). */
-    private static final Map<UUID, Long> LAST_MINE = new HashMap<>();
+    private static final Map<UUID, Long> LAST_MINE = EffectState.saved("excavation/last_mine", Codec.LONG);
 
     public BlessingExcavation() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.IRON_PICKAXE);
@@ -81,5 +88,23 @@ public final class BlessingExcavation extends Effect {
         player.setData(WitchModAttachments.EXCAVATION_BONUS, bonus);
         LAST_MINE.put(player.getUUID(), player.serverLevel().getGameTime());
         markDiscoveredByVictim(player);
+    }
+
+    /** each block you break ramps the (invisible) mining-speed bonus up. */
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        onBlockBroken(self);
+    }
+
+    /**
+     * the ramped bonus applied to break speed: haste without the icon. reads the synced bonus rather than being
+     * a hook, so it runs on the client too — mining is client-authoritative, so that's the side that digs.
+     */
+    @SubscribeEvent
+    static void onBreakSpeed(PlayerEvent.BreakSpeed event) {
+        float bonus = event.getEntity().getData(WitchModAttachments.EXCAVATION_BONUS);
+        if (bonus > 0.0F) {
+            event.setNewSpeed(event.getNewSpeed() * (1.0F + bonus));
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,6 +13,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you just never seem to get hungry. Hunger — and the hidden saturation buffer
@@ -35,7 +35,7 @@ public final class BlessingFullness extends Effect {
     /** per-player last-seen food/saturation plus the banked fractional food debt. */
     private record Snapshot(int food, float saturation, float foodDebt) {}
 
-    private static final Map<UUID, Snapshot> STATE = new HashMap<>();
+    private static final Map<UUID, Snapshot> STATE = EffectState.session("fullness/state");
 
     public BlessingFullness() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.BREAD);

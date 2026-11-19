@@ -62,6 +62,7 @@
     "yap": 30
   },
   "blessings": {
+    "aim_assist": 70,
     "anchor": 5,
     "angler": 15,
     "army": 80,

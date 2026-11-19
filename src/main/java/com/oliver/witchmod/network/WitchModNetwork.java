@@ -20,6 +20,10 @@ import com.oliver.witchmod.data.OrganisedStash;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.effects.Curses;
+import com.oliver.witchmod.effects.blessings.puppeteer.mob.EvokerBehaviour;
+import com.oliver.witchmod.effects.blessings.puppeteer.mob.FoxBehaviour;
+import com.oliver.witchmod.effects.blessings.puppeteer.PuppetEvents;
+import com.oliver.witchmod.effects.blessings.puppeteer.Holds;
 
 /**
  * all of the mod's custom packets and their handlers. c2s payloads are re-checked server-side (the sender
@@ -279,6 +283,23 @@ public final class WitchModNetwork {
         }
     }
 
+    /** c2s: puppeteer — a charged jump: started charging (phase 0), or launched with {@code charge} ticks of it (phase 1). */
+    public record PuppetJumpPayload(int phase, int charge) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<PuppetJumpPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_jump"));
+        public static final StreamCodec<ByteBuf, PuppetJumpPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, PuppetJumpPayload::phase, ByteBufCodecs.VAR_INT, PuppetJumpPayload::charge, PuppetJumpPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public static void sendPuppetJump(int phase, int charge) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new PuppetJumpPayload(phase, charge));
+    }
+
     /** c2s: puppeteer (fox) — the drop key: let go of what's in its mouth. */
     public record PuppetDropPayload() implements CustomPacketPayload {
         public static final PuppetDropPayload INSTANCE = new PuppetDropPayload();
@@ -436,8 +457,109 @@ public final class WitchModNetwork {
         }
     }
 
+    /** s2c (puppeteer, warden): a sound it heard — where, who (an entity id, or -1), and how loud (WardenHearing's kinds). */
+    public record WardenHearPayload(double x, double y, double z, int entity, int kind) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<WardenHearPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "warden_hear"));
+        public static final StreamCodec<ByteBuf, WardenHearPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.DOUBLE, WardenHearPayload::x,
+                ByteBufCodecs.DOUBLE, WardenHearPayload::y,
+                ByteBufCodecs.DOUBLE, WardenHearPayload::z,
+                ByteBufCodecs.VAR_INT, WardenHearPayload::entity,
+                ByteBufCodecs.VAR_INT, WardenHearPayload::kind,
+                WardenHearPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** one creature a warden has noticed: its points, its mark's ticks left, and where it is (for the far beacons). */
+    public record WardenNotice(int entity, int points, int markTicks, float x, float y, float z) {
+        public static final StreamCodec<ByteBuf, WardenNotice> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, WardenNotice::entity,
+                ByteBufCodecs.VAR_INT, WardenNotice::points,
+                ByteBufCodecs.VAR_INT, WardenNotice::markTicks,
+                ByteBufCodecs.FLOAT, WardenNotice::x,
+                ByteBufCodecs.FLOAT, WardenNotice::y,
+                ByteBufCodecs.FLOAT, WardenNotice::z,
+                WardenNotice::new);
+    }
+
+    /** s2c (puppeteer, warden): everyone it's noticed, twice a second. */
+    public record WardenNoticesPayload(java.util.List<WardenNotice> notices) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<WardenNoticesPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "warden_notices"));
+        public static final StreamCodec<ByteBuf, WardenNoticesPayload> STREAM_CODEC = StreamCodec.composite(
+                WardenNotice.STREAM_CODEC.apply(ByteBufCodecs.list()), WardenNoticesPayload::notices,
+                WardenNoticesPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** s2c (puppeteer, warden): a sniff went off — its cone (from, aim, reach, half-angle) and whoever it caught. */
+    public record WardenSniffPayload(double x, double y, double z, float yaw, float pitch, float range, float angle,
+                                     java.util.List<Integer> caught) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<WardenSniffPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "warden_sniff"));
+        public static final StreamCodec<ByteBuf, WardenSniffPayload> STREAM_CODEC = StreamCodec.of(
+                (buf, p) -> {
+                    buf.writeDouble(p.x());
+                    buf.writeDouble(p.y());
+                    buf.writeDouble(p.z());
+                    buf.writeFloat(p.yaw());
+                    buf.writeFloat(p.pitch());
+                    buf.writeFloat(p.range());
+                    buf.writeFloat(p.angle());
+                    ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()).encode(buf, p.caught());
+                },
+                buf -> new WardenSniffPayload(buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(),
+                        buf.readFloat(), buf.readFloat(), buf.readFloat(), ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()).decode(buf)));
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * s2c (puppeteer, warden): a hunted player's own view — their points, their mark's ticks left (and the most it can
+     * have), and {@code fresh} the moment they're marked.
+     */
+    public record WardenHuntedPayload(int points, int markTicks, int markMax, boolean fresh) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<WardenHuntedPayload> TYPE =
+                new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "warden_hunted"));
+        public static final StreamCodec<ByteBuf, WardenHuntedPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, WardenHuntedPayload::points,
+                ByteBufCodecs.VAR_INT, WardenHuntedPayload::markTicks,
+                ByteBufCodecs.VAR_INT, WardenHuntedPayload::markMax,
+                ByteBufCodecs.BOOL, WardenHuntedPayload::fresh,
+                WardenHuntedPayload::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     public static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
+        registrar.playToClient(WardenHearPayload.TYPE, WardenHearPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        com.oliver.witchmod.effects.blessings.puppeteer.client.WardenSenses.heard(payload)));
+        registrar.playToClient(WardenNoticesPayload.TYPE, WardenNoticesPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        com.oliver.witchmod.effects.blessings.puppeteer.client.WardenSenses.noticed(payload.notices())));
+        registrar.playToClient(WardenSniffPayload.TYPE, WardenSniffPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        com.oliver.witchmod.effects.blessings.puppeteer.client.WardenSenses.sniffed(payload)));
+        registrar.playToClient(WardenHuntedPayload.TYPE, WardenHuntedPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        com.oliver.witchmod.effects.blessings.puppeteer.client.WardenHunted.receive(payload)));
         registrar.playToClient(ScryPayload.TYPE, ScryPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
                         com.oliver.witchmod.client.ScryingOverlay.receive(payload.title(), payload.entries())));
@@ -518,37 +640,51 @@ public final class WitchModNetwork {
         registrar.playToServer(PuppetSwingPayload.TYPE, PuppetSwingPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.onSwing(player);
+                        PuppetEvents.onSwing(player);
                     }
                 }));
         registrar.playToServer(PuppetSpellPayload.TYPE, PuppetSpellPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.cycleSpell(player, payload.dir());
+                        com.oliver.witchmod.effects.blessings.puppeteer.PuppetType type =
+                                com.oliver.witchmod.effects.blessings.puppeteer.Puppets.possessed(player);
+                        if (type != null && type.behaviour().scrolls(type)) {
+                            type.behaviour().scroll(player, type, payload.dir());
+                        }
                     }
                 }));
         registrar.playToServer(PuppetDropPayload.TYPE, PuppetDropPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.foxDrop(player);
+                        FoxBehaviour.foxDrop(player);
+                    }
+                }));
+        registrar.playToServer(PuppetJumpPayload.TYPE, PuppetJumpPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        com.oliver.witchmod.effects.blessings.puppeteer.PuppetType type =
+                                com.oliver.witchmod.effects.blessings.puppeteer.Puppets.possessed(player);
+                        if (type != null) {
+                            type.behaviour().chargedJump(player, type, payload.phase(), payload.charge());
+                        }
                     }
                 }));
         registrar.playToServer(PuppetAttackHoldPayload.TYPE, PuppetAttackHoldPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.setAttackHeld(player, payload.holding());
+                        Holds.setAttackHeld(player, payload.holding());
                     }
                 }));
         registrar.playToServer(PuppetFusePayload.TYPE, PuppetFusePayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.setHeld(player, payload.holding());
+                        Holds.setHeld(player, payload.holding());
                     }
                 }));
         registrar.playToServer(PuppetActionPayload.TYPE, PuppetActionPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        com.oliver.witchmod.effects.blessings.BlessingPuppeteer.onRightClickAir(player);
+                        PuppetEvents.onRightClickAir(player);
                     }
                 }));
         registrar.playToServer(ClientOptOutPayload.TYPE, ClientOptOutPayload.STREAM_CODEC,

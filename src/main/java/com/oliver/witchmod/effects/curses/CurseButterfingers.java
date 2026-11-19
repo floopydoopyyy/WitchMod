@@ -16,6 +16,10 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * whatever's in your hands has a habit of just... slipping. Three ways to lose
@@ -52,12 +56,12 @@ public final class CurseButterfingers extends Effect {
         }
     }
 
-    /** hook for taking a hit — see {@code CurseEventHandler}. */
+    /** hook for taking a hit — see the hooks below. */
     public static void onDamaged(ServerPlayer player) {
         tryFumble(player, Config.BUTTERFINGERS_ON_DAMAGE_CHANCE_PERCENT.get());
     }
 
-    /** hook for swinging a tool/weapon at a block or an entity — see {@code CurseEventHandler}. */
+    /** hook for swinging a tool/weapon at a block or an entity — see the hooks below. */
     public static void onToolSwing(ServerPlayer player) {
         tryFumble(player, Config.BUTTERFINGERS_ON_SWING_CHANCE_PERCENT.get());
     }
@@ -125,5 +129,32 @@ public final class CurseButterfingers extends Effect {
         int amount = Config.BUTTERFINGERS_DROPS_WHOLE_STACK.get() ? stack.getCount() : 1;
         player.drop(stack.split(amount), false);
         return true;
+    }
+
+    /** a hit is much likelier to knock something out of your hands than idle clumsiness. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        onDamaged(self);
+    }
+
+    /** swinging a tool at a block (mining) can send it flying instead. */
+    @Override
+    public void onLeftClickBlock(ServerPlayer self, PlayerInteractEvent.LeftClickBlock event) {
+        if (isToolSwing(self)) {
+            onToolSwing(self);
+        }
+    }
+
+    /** same again for swinging at an entity. */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        if (isToolSwing(self)) {
+            onToolSwing(self);
+        }
+    }
+
+    /** "swinging a tool" = holding something with durability: tools and weapons, mods included. */
+    private static boolean isToolSwing(ServerPlayer player) {
+        return player.getMainHandItem().isDamageableItem();
     }
 }

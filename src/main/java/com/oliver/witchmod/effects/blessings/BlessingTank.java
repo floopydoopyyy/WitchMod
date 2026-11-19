@@ -14,10 +14,11 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 
 /**
  * A walking wall (sacrificial item COBBLED DEEPSLATE): a whole extra health bar, with the trade that natural
- * regeneration is significantly slower ({@code BlessingEventHandler}'s heal hook).
+ * regeneration is significantly slower (the heal hook).
  *
  * <p>The extra HP is a {@code MAX_HEALTH} attribute modifier — NOT a Health Boost effect — so it never shows
  * as a status effect anywhere; it just reads as more hearts on the bar. The modifier is transient and
@@ -51,6 +52,14 @@ public final class BlessingTank extends Effect {
         if (health != null && !health.hasModifier(HEALTH_ID)) {
             health.addOrUpdateTransientModifier(new AttributeModifier(HEALTH_ID,
                     Config.TANK_BONUS_HEALTH.get(), AttributeModifier.Operation.ADD_VALUE));
+        }
+    }
+
+    /** small heals are natural regen ticks — slow those slightly. potions and food (bigger heals) are untouched. */
+    @Override
+    public void onHeal(ServerPlayer self, LivingHealEvent event) {
+        if (event.getAmount() <= 1.0F) {
+            event.setAmount(event.getAmount() * Config.TANK_REGEN_MULT.get().floatValue());
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +21,11 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * splitscreen (sacrificial item ANY SIGN): drags the nearest player into a shared, console-style split screen —
@@ -39,11 +43,12 @@ import com.oliver.witchmod.data.WitchModAttachments;
  *
  * <p>Phases (synced via {@link WitchModAttachments#SPLITSCREEN_PHASE}): 0 off · 1 entering · 2 active · 3 exiting.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseSplitscreen extends Effect {
     /** victim UUID -> partner UUID (server-authoritative; the entity-id attachment is only for the client). */
-    private static final Map<UUID, UUID> PAIR = new HashMap<>();
+    private static final Map<UUID, UUID> PAIR = EffectState.session("splitscreen/pair");
     /** player UUID -> whether they currently have a sign editor open (reported by the client). */
-    private static final Map<UUID, Boolean> SIGN_EDITING = new HashMap<>();
+    private static final Map<UUID, Boolean> SIGN_EDITING = EffectState.session("splitscreen/sign_editing");
 
     public CurseSplitscreen() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 35, () -> Items.OAK_SIGN);
@@ -181,7 +186,7 @@ public final class CurseSplitscreen extends Effect {
         }
     }
 
-    // --- Hooks (called from CurseEventHandler / the network layer) --------------------------------------
+    // --- Hooks (called from the hooks below / the network layer) --------------------------------------
 
     /** the client reports its sign-editor open/closed here. */
     public static void reportSignEditing(ServerPlayer player, boolean editing) {
@@ -274,5 +279,13 @@ public final class CurseSplitscreen extends Effect {
             }
         }
         return best;
+    }
+
+    /** taking damage while a shared sign is open force-closes it for both players (keyed off the sign phase). */
+    @SubscribeEvent
+    static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            onDamaged(player);
+        }
     }
 }

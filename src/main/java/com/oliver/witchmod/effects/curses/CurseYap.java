@@ -13,12 +13,20 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
 
+import com.oliver.witchmod.effects.blessings.BlessingLaughTrack;
 import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.YapMessages;
 import com.oliver.witchmod.effects.Curses;
+import net.minecraft.world.level.block.AbstractChestBlock;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you cannot stop talking. Two streams of chatter, both broadcast to server chat as if you
@@ -32,11 +40,11 @@ import com.oliver.witchmod.effects.Curses;
  */
 public final class CurseYap extends Effect {
     /** when this player's next ambient outburst is due (game tick). */
-    private static final Map<UUID, Long> NEXT_YAP = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_YAP = EffectState.saved("yap/next_yap", Codec.LONG);
     /** remaining lines of an in-progress multi-message outburst, sent one per gap. */
-    private static final Map<UUID, Deque<String>> QUEUE = new HashMap<>();
+    private static final Map<UUID, Deque<String>> QUEUE = EffectState.session("yap/queue");
     /** when the next queued line should go out. */
-    private static final Map<UUID, Long> NEXT_LINE = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_LINE = EffectState.saved("yap/next_line", Codec.LONG);
     /** per-player, per-event cooldown end tick, keyed "uuid|event". */
     private static final Map<String, Long> EVENT_COOLDOWN = new HashMap<>();
 
@@ -115,7 +123,7 @@ public final class CurseYap extends Effect {
         }
     }
 
-    // --- Event reactions (called from CurseEventHandler) -----------------------------------------------
+    // --- Event reactions (called from the hooks below) -----------------------------------------------
 
     /** fires an event reaction line if that event's long cooldown has elapsed and it isn't mid-outburst. */
     public static void triggerEvent(ServerPlayer target, String eventKey) {
@@ -179,7 +187,35 @@ public final class CurseYap extends Effect {
         server.getPlayerList().broadcastSystemMessage(chat, false);
         // comedic_timing synergy: a yapped line gets the laugh track as if you typed it.
         if (com.oliver.witchmod.synergy.Synergies.COMEDIC_TIMING.activeFor(target)) {
-            com.oliver.witchmod.effects.BlessingEventHandler.triggerLaughTrack(target);
+            BlessingLaughTrack.trigger(target);
+        }
+    }
+
+    /** a reaction line for taking a hit. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        triggerEvent(self, "hurt");
+    }
+
+    /** ...and for landing one on a player. */
+    @Override
+    public void onHurtOther(ServerPlayer self, LivingEntity victim, LivingIncomingDamageEvent event) {
+        if (victim instanceof ServerPlayer) {
+            triggerEvent(self, "attack");
+        }
+    }
+
+    /** last words. */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        triggerEvent(self, "death");
+    }
+
+    /** opening a chest (incl. trapped/ender) is one of its rare reaction triggers. */
+    @Override
+    public void onRightClickBlock(ServerPlayer self, PlayerInteractEvent.RightClickBlock event) {
+        if (event.getLevel().getBlockState(event.getPos()).getBlock() instanceof AbstractChestBlock) {
+            triggerEvent(self, "chest");
         }
     }
 }

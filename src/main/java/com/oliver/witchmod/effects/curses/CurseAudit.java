@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +26,8 @@ import com.oliver.witchmod.data.TaxValues;
 import com.oliver.witchmod.data.WitchModTags;
 import com.oliver.witchmod.entities.TaxManEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * somebody has noticed how much you're hoarding. While the curse is active the victim's
@@ -45,9 +46,9 @@ import com.oliver.witchmod.entities.WitchModEntities;
  */
 public final class CurseAudit extends Effect {
     /** victim -> game tick the Tax Man may next appear. */
-    private static final Map<UUID, Long> COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> COOLDOWN = EffectState.saved("audit/cooldown", Codec.LONG);
     /** victim -> the Tax Man currently visiting them, if any. */
-    private static final Map<UUID, TaxManEntity> ACTIVE = new HashMap<>();
+    private static final Map<UUID, TaxManEntity> ACTIVE = EffectState.session("audit/active");
 
     public CurseAudit() {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 80, () -> Items.EMERALD);

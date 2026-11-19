@@ -30,6 +30,8 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.synergy.Synergies;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * build up a head of steam and nothing stands in your way.
@@ -48,15 +50,15 @@ import com.oliver.witchmod.synergy.Synergies;
 public final class BlessingBrute extends Effect {
     private static final ResourceLocation SPEED_ID = EffectUtil.modifierId("brute_charge_speed");
 
-    private static final Map<UUID, Integer> CHARGE = new HashMap<>();
-    private static final Map<UUID, Long> LAST_SPRINT = new HashMap<>();
-    private static final Map<UUID, Float> LAST_STEP = new HashMap<>();
+    private static final Map<UUID, Integer> CHARGE = EffectState.session("brute/charge");
+    private static final Map<UUID, Long> LAST_SPRINT = EffectState.session("brute/last_sprint");
+    private static final Map<UUID, Float> LAST_STEP = EffectState.session("brute/last_step");
     /** last non-trivial horizontal heading — from real position movement, so it survives a wall stop. */
-    private static final Map<UUID, Vec3> LAST_HEADING = new HashMap<>();
+    private static final Map<UUID, Vec3> LAST_HEADING = EffectState.session("brute/last_heading");
     /** last tick position, to derive the heading from ACTUAL movement (server deltaMovement is unreliable for players). */
-    private static final Map<UUID, Vec3> LAST_POS = new HashMap<>();
+    private static final Map<UUID, Vec3> LAST_POS = EffectState.session("brute/last_pos");
     /** per-player: entity id -> last game-tick it was plough-hit (per-entity cleave cooldown). */
-    private static final Map<UUID, Map<Integer, Long>> ENTITY_HITS = new HashMap<>();
+    private static final Map<UUID, Map<Integer, Long>> ENTITY_HITS = EffectState.session("brute/entity_hits");
     /** how far you travel between amplified footfalls, in blocks. */
     private static final float STEP_DISTANCE = 1.6F;
 
@@ -324,5 +326,13 @@ public final class BlessingBrute extends Effect {
         Vec3 look = target.getLookAngle();
         Vec3 lookFlat = new Vec3(look.x, 0.0, look.z);
         return lookFlat.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : lookFlat.normalize();
+    }
+
+    /** nothing shoves a fully-charged brute. */
+    @Override
+    public void onKnockback(ServerPlayer self, LivingKnockBackEvent event) {
+        if (isCharged(self)) {
+            event.setCanceled(true);
+        }
     }
 }

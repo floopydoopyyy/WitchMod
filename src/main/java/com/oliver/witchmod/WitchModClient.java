@@ -146,13 +146,15 @@ public class WitchModClient {
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "chat_overlay"), new ChatOverlayLayer());
         // puppeteer: the puppet's hearts in place of yours, and the console-style controls panel
         event.registerAbove(VanillaGuiLayers.PLAYER_HEALTH,
-                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_hearts"), new com.oliver.witchmod.client.PuppetHud.Hearts());
-        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_controls"), new com.oliver.witchmod.client.PuppetHud.Controls());
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_hearts"), new com.oliver.witchmod.effects.blessings.puppeteer.client.PuppetHud.Hearts());
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "puppet_controls"), new com.oliver.witchmod.effects.blessings.puppeteer.client.PuppetHud.Controls());
         // allergic reaction: green dead hearts after the health bar, and the green screen-edge haze
         event.registerAbove(VanillaGuiLayers.PLAYER_HEALTH,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "allergic_hearts"), new com.oliver.witchmod.client.AllergicHeartsLayer());
         event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "shadow_dread"), new com.oliver.witchmod.client.ShadowDreadOverlay());
+        event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS,
+                ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "holy_water"), new com.oliver.witchmod.client.HolyWaterOverlay());
         event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS,
                 ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "allergic_screen"), new com.oliver.witchmod.client.AllergicScreenOverlay());
         // gladiator parry gauge, near the crosshair
@@ -188,21 +190,23 @@ public class WitchModClient {
                 return WitchModFluids.TINT_COLOR;
             }
 
-            // submerged in holy water: a bright near-white fog, radiant rather than murky
+            // submerged in holy water: a bright white fog, radiant rather than murky
             @Override
             public org.joml.Vector3f modifyFogColor(net.minecraft.client.Camera camera, float partialTick,
                     net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float darkenWorldAmount,
                     org.joml.Vector3f fluidFogColor) {
-                return new org.joml.Vector3f(0.86F, 0.93F, 1.0F);
+                return new org.joml.Vector3f(0.95F, 0.98F, 1.0F);
             }
 
             @Override
             public void modifyFogRender(net.minecraft.client.Camera camera,
                     net.minecraft.client.renderer.FogRenderer.FogMode mode, float renderDistance, float partialTick,
                     float nearDistance, float farDistance, com.mojang.blaze3d.shaders.FogShape shape) {
-                // very close haze — holy water blinds you past arm's reach
-                com.mojang.blaze3d.systems.RenderSystem.setShaderFogStart(0.1F);
-                com.mojang.blaze3d.systems.RenderSystem.setShaderFogEnd(3.5F);
+                // a thick white haze — holy water blinds you past arm's reach, and pales even what's right in front of you
+                float end = (float) com.oliver.witchmod.ClientConfig.holyWaterFogDistance();
+                com.mojang.blaze3d.systems.RenderSystem.setShaderFogStart(-end * 0.5F);
+                com.mojang.blaze3d.systems.RenderSystem.setShaderFogEnd(end);
+                com.mojang.blaze3d.systems.RenderSystem.setShaderFogShape(com.mojang.blaze3d.shaders.FogShape.SPHERE);
             }
         }, WitchModFluids.PURIFYING_WATER_TYPE.get());
 

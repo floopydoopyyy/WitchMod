@@ -50,6 +50,15 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import com.oliver.witchmod.effects.EffectHooks;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * bedrock Moment (sacrificial item CRYING OBSIDIAN): one of the most OVERLOADED curses you can get — very
@@ -59,10 +68,11 @@ import com.oliver.witchmod.effects.Curses;
  * <p>Some effects are PASSIVE (they trigger off what you do — firing arrows, mounting things, taking fall
  * damage, being shot at). The rest are ACTIVE events fired from a weighted pool on a timer.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseBedrockMoment extends Effect {
-    private static final Map<UUID, State> STATES = new HashMap<>();
+    private static final Map<UUID, State> STATES = EffectState.session("bedrock_moment/states");
     /** guards damage we re-apply ourselves (Bluetooth/Delay) from being caught by the hook again. */
-    private static final Set<UUID> APPLYING = new HashSet<>();
+    private static final Set<UUID> APPLYING = EffectState.sessionSet("bedrock_moment/applying");
     /** bedrock Cooldowns (the beneficial bug): the ATTACK_SPEED modifier that quarters your swing cooldown. */
     private static final net.minecraft.resources.ResourceLocation COOLDOWNS_ID =
             com.oliver.witchmod.data.EffectUtil.modifierId("bedrock_cooldowns");
@@ -1236,5 +1246,59 @@ public final class CurseBedrockMoment extends Effect {
         target.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(
                 net.minecraft.core.Holder.direct(sound), SoundSource.MASTER,
                 target.getX(), target.getY(), target.getZ(), volume, pitch, target.getRandom().nextLong()));
+    }
+
+    /** its glitches intercept a hit, swing or break before anything else gets to react to it. */
+    @Override
+    public int hookPriority() {
+        return 50;
+    }
+
+    /** bluetooth (withhold + store all damage) / delay (late fall damage): a held-back hit is heard when it lands. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (onIncomingDamage(self, event)) {
+            EffectHooks.consumeHit();
+        }
+    }
+
+    /** hit reg: a small chance the hit just doesn't register. */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        if (onAttack(self)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** ghost block phase: a broken block just... comes back. */
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        if (onBlockBroken(self)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** ghost blocks: a block you place may briefly appear, then reject itself. */
+    @Override
+    public void onBlockPlace(ServerPlayer self, BlockEvent.EntityPlaceEvent event) {
+        onBlockPlaced(self, event.getPos());
+    }
+
+    /** food reg: a chance the food you just ate provides no hunger at all. */
+    @Override
+    public void onUseFinish(ServerPlayer self, LivingEntityUseItemEvent.Finish event) {
+        onFoodEaten(self, event.getItem());
+    }
+
+    /** a death clears the fake drowning so it doesn't carry to respawn. */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        onDeath(self);
+    }
+
+    /** pause: hitting a paused entity (anyone's) force-ends its pause, for the catch-up burst. */
+    @SubscribeEvent
+    static void onAnyHurt(LivingIncomingDamageEvent event) {
+        onEntityHurt(event.getEntity());
     }
 }

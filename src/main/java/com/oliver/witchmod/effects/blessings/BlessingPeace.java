@@ -13,13 +13,21 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import com.oliver.witchmod.effects.Blessings;
+import com.oliver.witchmod.data.EffectManager;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
 
 /**
  * the world leaves you alone — the exact opposite of Popularity.
  * Two halves:
  * <ul>
  *   <li><b>Far fewer spawns</b> — most hostile natural spawns near you are quietly cancelled
- *       ({@code peaceSpawnRateMultiplier}). That lives in {@code BlessingEventHandler} on
+ *       ({@code peaceSpawnRateMultiplier}). That lives in the spawn listener below on
  *       {@code FinalizeSpawnEvent}, the one place a spawn can be vetoed.</li>
  *   <li><b>Shrunken detection</b> — a hostile only notices you at {@code peaceDetectionMultiplier} of its
  *       normal follow range, so things you'd normally have aggroed just... don't. Enforced here each sweep by
@@ -29,6 +37,7 @@ import com.oliver.witchmod.data.EffectUtil;
  * <p>You <b>discover</b> it the first time you're stood inside a hostile's normal aggro range — close enough
  * that it should have turned on you — while it hasn't, because the reduction is keeping it calm.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingPeace extends Effect {
     public BlessingPeace() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 21, () -> Items.POPPY);
@@ -67,6 +76,27 @@ public final class BlessingPeace extends Effect {
                     && mob.getTarget() != target && mob.hasLineOfSight(target)) {
                 markDiscoveredByVictim(target);
             }
+        }
+    }
+
+    /**
+     * quietly cancel most hostile natural spawns near a blessed player (the shrunken detection half lives in the
+     * tick). only monsters and only natural/chunk spawns, so spawners and breeding are untouched.
+     */
+    @SubscribeEvent
+    static void onFinalizeSpawn(FinalizeSpawnEvent event) {
+        MobSpawnType type = event.getSpawnType();
+        if (type != MobSpawnType.NATURAL && type != MobSpawnType.CHUNK_GENERATION) {
+            return;
+        }
+        if (event.getEntity().getType().getCategory() != MobCategory.MONSTER) {
+            return;
+        }
+        Player nearby = event.getLevel().getNearestPlayer(event.getX(), event.getY(), event.getZ(),
+                Config.PEACE_RADIUS.get(),
+                e -> e instanceof ServerPlayer sp && EffectManager.isActive(sp, Blessings.PEACE));
+        if (nearby != null && event.getEntity().getRandom().nextDouble() >= Config.PEACE_SPAWN_RATE_MULT.get()) {
+            event.setSpawnCancelled(true); // only PEACE_SPAWN_RATE_MULT of them get through
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,6 +13,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * there's someone out there. There isn't. Fake players wearing the skins and
@@ -38,7 +39,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class CurseDelusions extends Effect {
     /** next game tick a delusion should be signalled for, per victim. Transient — see the self-heal below. */
-    private static final Map<UUID, Long> NEXT_SPAWN = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_SPAWN = EffectState.saved("delusions/next_spawn", Codec.LONG);
 
     public CurseDelusions() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.ENDER_PEARL);

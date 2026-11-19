@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,6 +17,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * the ground remembers being lava, and it only notices you when you stop. Stand
@@ -39,11 +39,11 @@ import com.oliver.witchmod.data.EffectCostTier;
  */
 public final class CurseFloorIsLava extends Effect {
     /** victim -> where they were when they last counted as having moved. */
-    private static final Map<UUID, Vec3> ANCHOR = new HashMap<>();
+    private static final Map<UUID, Vec3> ANCHOR = EffectState.session("floor_is_lava/anchor");
     /** victim -> ticks spent stationary since that anchor. */
-    private static final Map<UUID, Integer> STILL_TICKS = new HashMap<>();
+    private static final Map<UUID, Integer> STILL_TICKS = EffectState.session("floor_is_lava/still_ticks");
     /** victim -> how many consecutive burns they've taken, which drives the ramp. */
-    private static final Map<UUID, Integer> BURNS = new HashMap<>();
+    private static final Map<UUID, Integer> BURNS = EffectState.session("floor_is_lava/burns");
 
     public CurseFloorIsLava() {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 55, () -> Items.MAGMA_BLOCK);

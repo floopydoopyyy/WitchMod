@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -17,6 +16,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModDamageTypes;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you never go outside, and daylight makes that very clear. Standing in direct
@@ -33,7 +33,7 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
  */
 public final class CurseBasementDweller extends Effect {
     /** victim -> {rampOrigin (grace end), nextBurnTick}. */
-    private static final Map<UUID, long[]> STATE = new HashMap<>();
+    private static final Map<UUID, long[]> STATE = EffectState.session("basement_dweller/state");
 
     public CurseBasementDweller() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 40, () -> Items.GRASS_BLOCK);

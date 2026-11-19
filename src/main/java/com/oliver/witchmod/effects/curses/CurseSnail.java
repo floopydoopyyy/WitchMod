@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,8 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.entities.SnailEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * the Snail (sacrificial item NAUTILUS SHELL): a tiny, immortal snail that never stops chasing you and
@@ -40,8 +41,8 @@ import com.oliver.witchmod.entities.WitchModEntities;
  * {@code client/SnailSoundManager}.
  */
 public final class CurseSnail extends Effect {
-    private static final Map<UUID, Vec3> VIRTUAL = new HashMap<>();
-    private static final Map<UUID, SnailEntity> ENTITY = new HashMap<>();
+    private static final Map<UUID, Vec3> VIRTUAL = EffectState.saved("snail/virtual", Vec3.CODEC);
+    private static final Map<UUID, SnailEntity> ENTITY = EffectState.session("snail/entity");
 
     public CurseSnail() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 22, () -> net.minecraft.world.item.Items.NAUTILUS_SHELL);

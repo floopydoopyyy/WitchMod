@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,7 @@ import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * speed Demon (Carrot on a Stick — ⚠ Lightning Rod was requested but is Comic Relief's item): any LIVING
@@ -38,7 +38,7 @@ public final class BlessingSpeedDemon extends Effect {
     private static final ResourceLocation ICE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(WitchMod.MODID, "speed_demon_greased");
     /** rider UUID -> the mount entity id we last boosted, so we can strip it when they change/leave mounts. */
-    private static final Map<UUID, Integer> BOOSTED = new HashMap<>();
+    private static final Map<UUID, Integer> BOOSTED = EffectState.session("speed_demon/boosted");
 
     public BlessingSpeedDemon() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 28, () -> Items.CARROT_ON_A_STICK);

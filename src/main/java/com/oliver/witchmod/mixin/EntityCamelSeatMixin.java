@@ -10,17 +10,26 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
-import com.oliver.witchmod.effects.blessings.BlessingPuppeteer;
+import com.oliver.witchmod.effects.blessings.puppeteer.mob.CamelBehaviour;
 
 /**
- * puppeteer: a camel puppet seats its riders where the real camel does — one up front, a second behind (vanilla's
- * Camel.getPassengerAttachmentPoint) — instead of a player's single seat. both sides.
+ * puppeteer seats: a camel puppet seats its riders where the real camel does — one up front, a second behind (vanilla's
+ * Camel.getPassengerAttachmentPoint) — instead of a player's single seat; and a parrot puppet perches on its carrier's
+ * shoulder (left first, then right, as shoulder parrots go) rather than on their head. both sides.
  */
 @Mixin(Entity.class)
 public abstract class EntityCamelSeatMixin {
     @Inject(method = "getPassengerAttachmentPoint", at = @At("HEAD"), cancellable = true)
     private void witchmod$camelSeats(Entity passenger, EntityDimensions dimensions, float scale, CallbackInfoReturnable<Vec3> cir) {
-        if ((Object) this instanceof Player camel && BlessingPuppeteer.camelPuppet(camel)) {
+        if (com.oliver.witchmod.effects.blessings.puppeteer.mob.ParrotBehaviour.parrotPuppet(passenger)) {
+            Entity carrier = (Entity) (Object) this;
+            boolean left = Math.max(carrier.getPassengers().indexOf(passenger), 0) == 0;
+            float yaw = carrier instanceof net.minecraft.world.entity.LivingEntity living ? living.yBodyRot : carrier.getYRot();
+            double side = dimensions.width() * 0.66 * (left ? 1.0 : -1.0);
+            cir.setReturnValue(new Vec3(side, dimensions.height() * 0.76, 0.0).yRot(-yaw * ((float) Math.PI / 180.0F)));
+            return;
+        }
+        if ((Object) this instanceof Player camel && CamelBehaviour.camelPuppet(camel)) {
             int index = Math.max(camel.getPassengers().indexOf(passenger), 0);
             float along = camel.getPassengers().size() > 1 && index > 0 ? -0.7F : 0.5F;
             double up = dimensions.height() - 0.375F * scale;

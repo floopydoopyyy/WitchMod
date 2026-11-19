@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.curses;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +37,15 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Curses;
+import net.minecraft.tags.DamageTypeTags;
+import com.oliver.witchmod.data.EffectManager;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * it happens. Loudly, and with enough force to move you. Every so often you go off and
@@ -59,6 +67,7 @@ import com.oliver.witchmod.effects.Curses;
  * Those roll a much higher big-fart chance and carry an extra velocity multiplier, and share one cooldown so
  * a firework show doesn't punt you across the map forty times.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseGassy extends Effect {
     /** A faint green tinge through the white. Deliberately far weaker than Unhygienic's stink cloud. */
     private static final DustParticleOptions GREEN_TINGE =
@@ -68,10 +77,10 @@ public final class CurseGassy extends Effect {
     private static final int GREEN_TINGE_COUNT = 3;
     private static final int GREEN_TINGE_BIG = 6;
 
-    private static final Map<UUID, Long> NEXT_FART = new HashMap<>();
-    private static final Map<UUID, Long> EVENT_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_FART = EffectState.saved("gassy/next_fart", Codec.LONG);
+    private static final Map<UUID, Long> EVENT_COOLDOWN = EffectState.saved("gassy/event_cooldown", Codec.LONG);
     /** firework ids seen near each victim last tick, so a vanished one can be read as a detonation. */
-    private static final Map<UUID, Set<Integer>> NEARBY_FIREWORKS = new HashMap<>();
+    private static final Map<UUID, Set<Integer>> NEARBY_FIREWORKS = EffectState.session("gassy/nearby_fireworks");
 
     /** how much each hazard pulls the draw toward itself. Relative, not absolute — nothing here is certain. */
     private enum Hazard {
@@ -155,7 +164,7 @@ public final class CurseGassy extends Effect {
         Curses.GASSY.value().fart(target, big, 1.0);
     }
 
-    /** A hit frightens one out of you; an explosion much more so. Called from {@code CurseEventHandler}. */
+    /** A hit frightens one out of you; an explosion much more so. Called from the hooks below. */
     public static void onExternalTrigger(ServerPlayer target, int chancePercent) {
         long now = target.level().getGameTime();
         Long until = EVENT_COOLDOWN.get(target.getUUID());
@@ -414,5 +423,33 @@ public final class CurseGassy extends Effect {
             }
         }
         return true;
+    }
+
+    /** a hit frightens one out of you; explosion damage uses the much higher explosion chance. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        onExternalTrigger(self, event.getSource().is(DamageTypeTags.IS_EXPLOSION)
+                ? Config.GASSY_ON_EXPLOSION_CHANCE.get()
+                : Config.GASSY_ON_DAMAGE_CHANCE.get());
+    }
+
+    /**
+     * any explosion going off nearby can set one off sympathetically — tnt, creepers, beds, end crystals, since
+     * they all route through this one event. deliberately independent of whether the blast hurt you.
+     */
+    @SubscribeEvent
+    static void onExplosionDetonate(ExplosionEvent.Detonate event) {
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        Vec3 centre = event.getExplosion().center();
+        double radius = Config.GASSY_EXPLOSION_HEAR_RADIUS.get();
+        for (ServerPlayer player : event.getLevel().getServer().getPlayerList().getPlayers()) {
+            if (player.level() == event.getLevel()
+                    && player.position().distanceToSqr(centre) <= radius * radius
+                    && EffectManager.isActive(player, Curses.GASSY)) {
+                onExternalTrigger(player, Config.GASSY_ON_EXPLOSION_CHANCE.get());
+            }
+        }
     }
 }

@@ -16,6 +16,7 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.effects.blessings.puppeteer.Puppets;
 
 /**
  * you're always hungry, and it shows — literally. The player is rendered wider and
@@ -28,7 +29,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  *   <li>Because of that, <b>starvation takes twice as long to reach</b>: you only start starving once all 40
  *       points are gone.</li>
  *   <li>Eating fills vanilla first and the <b>overflow spills into the extra row</b> instead of being wasted
- *       (see the eating hook in {@code CurseEventHandler}).</li>
+ *       (see {@link EatingCurses}).</li>
  *   <li>Sprinting cuts out at {@code gluttonySprintCutoff} of the COMBINED bar — double vanilla's 6.</li>
  * </ul>
  *
@@ -76,7 +77,7 @@ public final class CurseGluttony extends Effect {
         // the SCALE modifier is TRANSIENT, so a world reload drops it while the curse itself persists —
         // you'd come back the wrong size. onApply never re-runs, so re-apply it here if it's gone.
         AttributeInstance scale = target.getAttribute(Attributes.SCALE);
-        if (scale != null && com.oliver.witchmod.effects.blessings.BlessingPuppeteer.isPuppet(target)) {
+        if (scale != null && Puppets.isPuppet(target)) {
             scale.removeModifier(SCALE_MODIFIER_ID); // a puppet keeps the mob's size; the reserve still works
         } else if (scale != null && !scale.hasModifier(SCALE_MODIFIER_ID)) {
             scale.addOrUpdateTransientModifier(new AttributeModifier(SCALE_MODIFIER_ID,

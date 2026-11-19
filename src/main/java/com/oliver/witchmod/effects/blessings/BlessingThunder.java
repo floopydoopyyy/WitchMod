@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -25,6 +24,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * blessing of Thunder (TRIDENT): a static charge builds while you're NOT swinging, through four tiers. Your
@@ -41,9 +43,9 @@ import com.oliver.witchmod.data.WitchModAttachments;
  */
 public final class BlessingThunder extends Effect {
     /** player -> game tick of the last discharge (a hit) — charge is the time since. */
-    private static final Map<UUID, Long> LAST_DISCHARGE = new HashMap<>();
+    private static final Map<UUID, Long> LAST_DISCHARGE = EffectState.saved("thunder/last_discharge", Codec.LONG);
     /** player -> last tier seen, so the "fully charged" cue fires exactly once on reaching T4. */
-    private static final Map<UUID, Integer> LAST_TIER = new HashMap<>();
+    private static final Map<UUID, Integer> LAST_TIER = EffectState.session("thunder/last_tier");
 
     public BlessingThunder() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.TRIDENT);
@@ -108,7 +110,7 @@ public final class BlessingThunder extends Effect {
         return 0;
     }
 
-    /** called from {@code BlessingEventHandler} when a Thunder-blessed player lands a MELEE hit. */
+    /** called from the hooks below when a Thunder-blessed player lands a MELEE hit. */
     public static void discharge(ServerPlayer player, LivingEntity primary, float baseDamage) {
         int tier = currentTier(player);
         LAST_DISCHARGE.put(player.getUUID(), player.level().getGameTime()); // spend the charge
@@ -235,5 +237,13 @@ public final class BlessingThunder extends Effect {
         LAST_DISCHARGE.put(target.getUUID(), target.level().getGameTime() - thresholds[tier]);
         target.setData(WitchModAttachments.THUNDER_TIER, tier);
         return "charged to tier " + tier + " — your next melee hit discharges it";
+    }
+
+    /** your melee hit (the direct entity is you) discharges the stored static. */
+    @Override
+    public void onDamagedOther(ServerPlayer self, LivingEntity victim, LivingDamageEvent.Post event) {
+        if (event.getSource().getDirectEntity() == self && victim != self) {
+            discharge(self, victim, event.getNewDamage());
+        }
     }
 }

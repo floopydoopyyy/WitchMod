@@ -18,6 +18,11 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
 
 /**
  * A reference to the genre of clip where someone is quietly having a bad time and the sky finishes the job
@@ -35,6 +40,7 @@ import com.oliver.witchmod.data.EffectUtil;
  *
  * <p>Discovery fires on ANY bolt this curse causes, including the ones that only hit your items.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseComicRelief extends Effect {
     /** A bolt owed to someone who has already died: where, in which level, and when it lands. */
     private record Posthumous(ServerLevel level, Vec3 pos, long dueTick) {}
@@ -146,7 +152,7 @@ public final class CurseComicRelief extends Effect {
         markDiscoveredByVictim(target);
     }
 
-    /** called from the death hook — see {@code CurseEventHandler}. */
+    /** called from the death hook — see the hooks below. */
     public static void onDeath(ServerPlayer target) {
         ServerLevel level = target.serverLevel();
         double multiplier = level.isThundering() ? Config.COMIC_THUNDER_MULTIPLIER.get() : 1.0;
@@ -192,5 +198,17 @@ public final class CurseComicRelief extends Effect {
         // visual only — the damage is applied directly, so this can't set fire to half the neighbourhood.
         lightning.setVisualOnly(true);
         level.addFreshEntity(lightning);
+    }
+
+    /** a small chance of one more bolt on the spot, moments later, to burn the drops. */
+    @Override
+    public void onDeath(ServerPlayer self, LivingDeathEvent event) {
+        onDeath(self);
+    }
+
+    /** land any parting bolt owed to someone who has already died. */
+    @SubscribeEvent
+    static void onServerTick(ServerTickEvent.Post event) {
+        tickPending();
     }
 }

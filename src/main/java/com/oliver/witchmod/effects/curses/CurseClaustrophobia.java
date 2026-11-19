@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,6 +15,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModDamageTypes;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * the walls are too close. Being shut indoors, with no sky above you, wears at
@@ -32,7 +32,7 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
  */
 public final class CurseClaustrophobia extends Effect {
     /** victim -> {rampOrigin (grace end), nextBiteTick}. */
-    private static final Map<UUID, long[]> STATE = new HashMap<>();
+    private static final Map<UUID, long[]> STATE = EffectState.session("claustrophobia/state");
 
     public CurseClaustrophobia() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 30, () -> Items.DEEPSLATE);

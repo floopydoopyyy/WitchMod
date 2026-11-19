@@ -5,6 +5,7 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.WitchModRegistries;
 import com.oliver.witchmod.effects.blessings.*;
+import com.oliver.witchmod.effects.blessings.puppeteer.BlessingPuppeteer;
 
 /**
  * registers all the blessings. some ids differ from their display names (e.g. {@code locked_in} = "hawk guy",
@@ -97,6 +98,7 @@ public final class Blessings {
     // secret attachments — hidden until every other blessing is discovered (see SpecialAttachments).
     public static final DeferredHolder<Effect, BlessingCornucopia> CORNUCOPIA = register("cornucopia", BlessingCornucopia::new);
     public static final DeferredHolder<Effect, BlessingPuppeteer> PUPPETEER = register("puppeteer", BlessingPuppeteer::new);
+    public static final DeferredHolder<Effect, BlessingAimAssist> AIM_ASSIST = register("aim_assist", BlessingAimAssist::new);
 
     private Blessings() {}
 

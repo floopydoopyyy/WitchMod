@@ -90,6 +90,15 @@ public final class WitchModAttachments {
     /** puppeteer: a second move's cooldown, for puppets with two (the chicken's explosive egg vs laying). */
     public static final Supplier<AttachmentType<Long>> PUPPET_ACTION2_READY = ATTACHMENT_TYPES.register("puppet_action2_ready",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
+    /** puppeteer (phantom): this player hasn't slept for three nights — what phantoms come for (synced: green to a phantom puppet). */
+    public static final Supplier<AttachmentType<Boolean>> PUPPET_INSOMNIAC = ATTACHMENT_TYPES.register("puppet_insomniac",
+            () -> AttachmentType.builder(() -> false).sync(ByteBufCodecs.BOOL).build());
+    /** puppeteer: whoever your mark is on (an entity id, or -1) — a phantom's dive prey, green on your own screen. */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_MARK = ATTACHMENT_TYPES.register("puppet_mark",
+            () -> AttachmentType.builder(() -> -1).sync(ByteBufCodecs.VAR_INT).build());
+    /** puppeteer: a third move's cooldown end (a warden's roar, a phantom's locate...). */
+    public static final Supplier<AttachmentType<Long>> PUPPET_ACTION3_READY = ATTACHMENT_TYPES.register("puppet_action3_ready",
+            () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
     public static final Supplier<AttachmentType<Long>> PUPPET_ACTION_READY = ATTACHMENT_TYPES.register("puppet_action_ready",
             () -> AttachmentType.builder(() -> 0L).sync(ByteBufCodecs.VAR_LONG).build());
     /** puppeteer (silverfish): hidden inside a stone block (not rendered, not pushed out, can see out). */
@@ -106,6 +115,15 @@ public final class WitchModAttachments {
             () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
     /** puppeteer (enderman): teleport charges ready. */
     public static final Supplier<AttachmentType<Integer>> PUPPET_TP_CHARGES = ATTACHMENT_TYPES.register("puppet_tp_charges",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+    /**
+     * puppeteer (warden): its one-off animations for the model, as a counter — (sequence << 8) | vanilla entity-event id
+     * (4 swing, 61 tendrils, 62 sonic boom; 100 the boom itself) — so every client plays each one once.
+     */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_WARDEN_FX = ATTACHMENT_TYPES.register("puppet_warden_fx",
+            () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
+    /** puppeteer (warden): how agitated it is (0-150, vanilla's anger scale) — its heartbeat's pace and the model's glow. */
+    public static final Supplier<AttachmentType<Integer>> PUPPET_WARDEN_ANGER = ATTACHMENT_TYPES.register("puppet_warden_anger",
             () -> AttachmentType.builder(() -> 0).sync(ByteBufCodecs.VAR_INT).build());
     /** puppeteer (endermite): burrowing — moving through blocks (see EntityBurrowMixin / PlayerBurrowMixin). */
     public static final Supplier<AttachmentType<Boolean>> PUPPET_BURROWED = ATTACHMENT_TYPES.register("puppet_burrowed",
@@ -663,7 +681,7 @@ public final class WitchModAttachments {
      * Set on the ITEM ENTITIES an Immortality rebuild spills onto the ground: the owner's UUID as a string
      * ({@code ""} = not an Immortality drop). The owner can never pick these back up (the blessing's whole
      * drawback is being trivially lootable BY OTHERS), so the pickup is vetoed for that one player in
-     * {@code BlessingEventHandler}. Serialized so it survives chunk unload; anyone else picks up normally.
+     * {@code BlessingImmortality}. Serialized so it survives chunk unload; anyone else picks up normally.
      */
     public static final Supplier<AttachmentType<String>> IMMORTALITY_DROP_OWNER = ATTACHMENT_TYPES.register("immortality_drop_owner",
             () -> AttachmentType.builder(() -> "").serialize(Codec.STRING).build());
@@ -712,6 +730,10 @@ public final class WitchModAttachments {
      * which isn't synced). Blindness/Darkness immunity is handled server-side.
      */
     public static final Supplier<AttachmentType<Integer>> NIGHTOWL_ACTIVE = ATTACHMENT_TYPES.register("nightowl_active",
+            () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
+
+    /** aim assist (blessing): on (>= 0) / off (-1), for the client's assist. */
+    public static final Supplier<AttachmentType<Integer>> AIM_ASSIST_ACTIVE = ATTACHMENT_TYPES.register("aim_assist_active",
             () -> AttachmentType.builder(() -> -1).serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
     /** organised: {@code 1} while active — synced so the inventory screen can show its stash button. */

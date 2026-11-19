@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
@@ -30,6 +29,7 @@ import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.effects.curses.CurseAllergic;
 import com.oliver.witchmod.effects.curses.CurseGluttony;
 import com.oliver.witchmod.synergy.Synergies;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * snack thief (pickpocket + munchies/gluttony): a separate roll from the normal lift that grabs one of a nearby
@@ -40,7 +40,7 @@ import com.oliver.witchmod.synergy.Synergies;
 public final class PickpocketSnack {
     private PickpocketSnack() {}
 
-    private static final Map<UUID, Long> NEXT_ATTEMPT = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> NEXT_ATTEMPT = EffectState.sessionConcurrent("pickpocket_snack/next_attempt");
 
     public static boolean activeFor(ServerPlayer thief) {
         return Synergies.SNACK_THIEF.activeFor(thief) || Synergies.SNACK_THIEF_GLUTTON.activeFor(thief);

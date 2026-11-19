@@ -135,8 +135,14 @@ public final class AmethystBellEffects {
                 continue;
             }
             EffectManager.remove(p, current);
-            // applyExact preserves the remaining duration verbatim (a re-roll keeps your time left).
-            EffectManager.applyExact(p, pick, e.getValue(), null);
+            // the new effect takes over the old one's time left — and a short one may be stretched way out
+            int left = e.getValue();
+            if (left < Config.BELL_SWAP_EXTEND_BELOW_TICKS.get() && rng.nextInt(100) < Config.BELL_SWAP_EXTEND_CHANCE_PERCENT.get()) {
+                int lo = Config.BELL_SWAP_EXTEND_MIN_TICKS.get();
+                int hi = Math.max(lo, Config.BELL_SWAP_EXTEND_MAX_TICKS.get());
+                left = lo + rng.nextInt(hi - lo + 1);
+            }
+            EffectManager.applyExact(p, pick, left, null);
         }
     }
 

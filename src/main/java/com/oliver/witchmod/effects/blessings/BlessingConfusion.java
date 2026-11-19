@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.blessings;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +26,9 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.entities.CloneEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * blessing of Confusion (OMINOUS BOTTLE): you throw off exact clones of yourself — same skin, same nametag —
@@ -35,11 +37,11 @@ import com.oliver.witchmod.entities.WitchModEntities;
  * blend into a crowd, so clones are emitted only rarely when there's nobody around to fool.
  */
 public final class BlessingConfusion extends Effect {
-    private static final Map<UUID, Integer> TIMER = new HashMap<>();
-    private static final Map<UUID, List<Integer>> CLONES = new HashMap<>();
+    private static final Map<UUID, Integer> TIMER = EffectState.session("confusion/timer");
+    private static final Map<UUID, List<Integer>> CLONES = EffectState.session("confusion/clones");
     /** forced-spawn state from being attacked: how many clones still owed, and the tick the next one is due. */
-    private static final Map<UUID, Integer> PENDING = new HashMap<>();
-    private static final Map<UUID, Long> NEXT_FORCED = new HashMap<>();
+    private static final Map<UUID, Integer> PENDING = EffectState.session("confusion/pending");
+    private static final Map<UUID, Long> NEXT_FORCED = EffectState.saved("confusion/next_forced", Codec.LONG);
 
     public BlessingConfusion() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.RABBIT_HIDE);
@@ -216,5 +218,11 @@ public final class BlessingConfusion extends Effect {
             }
         }
         return false;
+    }
+
+    /** being attacked forces out a burst of decoys, so a fight always throws up doppelgangers. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        onOwnerHurt(self);
     }
 }

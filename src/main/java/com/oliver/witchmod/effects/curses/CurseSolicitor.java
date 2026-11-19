@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,6 +25,17 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.SolicitorLines;
+import com.oliver.witchmod.effects.CompanionshipBanter;
+import com.oliver.witchmod.effects.Curses;
+import com.oliver.witchmod.data.EffectManager;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * the Solicitor (sacrificial item BUNDLE — Emerald Block is taken by Silver Tongue): a door-to-door salesman.
@@ -35,16 +45,17 @@ import com.oliver.witchmod.data.SolicitorLines;
  * relentless annoyance.
  *
  * <p>Uses a plain vanilla {@link WanderingTrader} (no custom entity), marked with scoreboard tags so the
- * kill/trade hooks in {@code CurseEventHandler} can find it and its victim. Names + dialogue come from
+ * kill/trade listeners below can find it and its victim. Names + dialogue come from
  * {@code data/witchmod/text/solicitor.json}.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseSolicitor extends Effect {
     public static final String TAG = "witchmod_solicitor";
     private static final String OWNER_PREFIX = "solowner_";
 
-    private static final Map<UUID, WanderingTrader> ACTIVE = new HashMap<>();
-    private static final Map<UUID, Long> HIDDEN_UNTIL = new HashMap<>();
-    private static final Map<UUID, Long> NEXT_CHAT = new HashMap<>();
+    private static final Map<UUID, WanderingTrader> ACTIVE = EffectState.session("solicitor/active");
+    private static final Map<UUID, Long> HIDDEN_UNTIL = EffectState.saved("solicitor/hidden_until", Codec.LONG);
+    private static final Map<UUID, Long> NEXT_CHAT = EffectState.saved("solicitor/next_chat", Codec.LONG);
 
     public CurseSolicitor() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 22, () -> Items.BUNDLE);
@@ -121,7 +132,7 @@ public final class CurseSolicitor extends Effect {
                         ? "witchmod.scry.solicitor.hiding" : "witchmod.scry.solicitor.incoming"));
     }
 
-    // --- Called from CurseEventHandler -------------------------------------------------------------------
+    // --- Called from the listeners below ---------------------------------------------------------------
 
     /** true if {@code entity} is a solicitor trader (by its tag). */
     public static boolean isSolicitor(net.minecraft.world.entity.Entity entity) {
@@ -291,5 +302,38 @@ public final class CurseSolicitor extends Effect {
         for (ServerPlayer p : victim.serverLevel().getEntitiesOfClass(ServerPlayer.class, box)) {
             p.sendSystemMessage(msg);
         }
+    }
+
+    // the trader isn't the cursed player, so these are listeners: kill -> instant respawn; a trade -> it hides
+
+    @SubscribeEvent
+    static void onTraderKilled(LivingDeathEvent event) {
+        ServerPlayer victim = victimOf(event.getEntity());
+        if (victim != null) {
+            onKilled(victim);
+            CompanionshipBanter.reactToDeath(victim, "solicitor");
+        }
+    }
+
+    @SubscribeEvent
+    static void onTraderTraded(TradeWithVillagerEvent event) {
+        ServerPlayer victim = victimOf(event.getAbstractVillager());
+        if (victim != null) {
+            onTraded(victim, (WanderingTrader) event.getAbstractVillager());
+        }
+    }
+
+    /** the still-cursed, online owner of a solicitor trader, or null if {@code e} isn't one / its owner is gone. */
+    @Nullable
+    private static ServerPlayer victimOf(Entity e) {
+        if (!isSolicitor(e) || !(e.level() instanceof ServerLevel level)) {
+            return null;
+        }
+        UUID owner = ownerOf(e);
+        if (owner == null) {
+            return null;
+        }
+        ServerPlayer victim = level.getServer().getPlayerList().getPlayer(owner);
+        return victim != null && EffectManager.isActive(victim, Curses.SOLICITOR) ? victim : null;
     }
 }

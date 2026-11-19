@@ -40,6 +40,20 @@ public final class ClientConfig {
                     "Immortality/Last Stand revive flash, the Bedrock Moment fake-BSOD glitch). Strongly recommended if",
                     "flashing imagery affects you.")
             .define("reduceFlashing", false);
+    public static final ModConfigSpec.DoubleValue HOLY_WATER_FOG_DISTANCE = BUILDER
+            .comment("Under holy water: how far you can see into its white fog (blocks). Lower = thicker.")
+            .defineInRange("holyWaterFogDistance", 2.25, 0.5, 32.0);
+    public static final ModConfigSpec.DoubleValue HOLY_WATER_GLOW = BUILDER
+            .comment("Under holy water: how strong the soft white radiance over your view is. 0 = none.")
+            .defineInRange("holyWaterGlow", 0.22, 0.0, 0.8);
+    public static final ModConfigSpec.DoubleValue WARDEN_SENSE_INTENSITY = BUILDER
+            .comment("Puppeteer (warden): how bright the sounds, sniffs and marks you see as a warden are drawn.",
+                    "1.0 = full, lower = subtler.")
+            .defineInRange("wardenSenseIntensity", 1.0, 0.1, 1.0);
+    public static final ModConfigSpec.IntValue PUPPET_HEALTH_BAR_ABOVE = BUILDER
+            .comment("Puppeteer: a puppet with more max health than this shows one heart and its health as a number instead",
+                    "of rows of hearts (a warden has 500).")
+            .defineInRange("puppetHealthBarAbove", 40, 1, 100000);
     static { BUILDER.pop(); }
 
     // ── particles (client.toml [particles]) ──
@@ -118,6 +132,38 @@ public final class ClientConfig {
             return !DISABLE_FULLSCREEN_SHADERS.get();
         } catch (IllegalStateException e) {
             return true;
+        }
+    }
+
+    public static double wardenSenseIntensity() {
+        try {
+            return WARDEN_SENSE_INTENSITY.get();
+        } catch (IllegalStateException e) {
+            return 1.0;
+        }
+    }
+
+    public static int puppetHealthBarAbove() {
+        try {
+            return PUPPET_HEALTH_BAR_ABOVE.get();
+        } catch (IllegalStateException e) {
+            return 40;
+        }
+    }
+
+    public static double holyWaterFogDistance() {
+        try {
+            return HOLY_WATER_FOG_DISTANCE.get();
+        } catch (IllegalStateException e) {
+            return 2.25;
+        }
+    }
+
+    public static double holyWaterGlow() {
+        try {
+            return HOLY_WATER_GLOW.get();
+        } catch (IllegalStateException e) {
+            return 0.22;
         }
     }
 

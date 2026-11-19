@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -21,6 +20,10 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * boing. You're
@@ -36,7 +39,7 @@ import com.oliver.witchmod.effects.Curses;
  */
 public final class CurseBouncy extends Effect {
     /** entity uuid -> game tick it may be bounced again (so a pinned entity isn't launched every tick). */
-    private static final Map<UUID, Long> BOUNCE_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> BOUNCE_COOLDOWN = EffectState.saved("bouncy/bounce_cooldown", Codec.LONG);
     private static final int BOUNCE_COOLDOWN_TICKS = 8;
 
     private static final net.minecraft.resources.ResourceLocation JUMP_ID =
@@ -140,5 +143,21 @@ public final class CurseBouncy extends Effect {
         level.playSound(null, x, y, z, WitchModSounds.BOUNCY_BOING.get(), SoundSource.PLAYERS, 0.9F,
                 0.9F + level.random.nextFloat() * 0.3F);
         level.sendParticles(ParticleTypes.ITEM_SLIME, x, y + 0.2, z, 8, 0.3, 0.2, 0.3, 0.02);
+    }
+
+    /** "get off me": whatever melees you pings straight back off your rubbery hide. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (event.getSource().getDirectEntity() instanceof LivingEntity attacker && attacker != self) {
+            bounceAway(self, attacker, Config.BOUNCY_ENTITY_FORCE.get());
+            markDiscoveredByVictim(self);
+        }
+    }
+
+    /** fall damage negated; the rebound itself is client-side (ClientCurseHandler.tickBouncy) so jumps can build height. */
+    @Override
+    public void onFall(ServerPlayer self, LivingFallEvent event) {
+        event.setDamageMultiplier(0.0F);
+        markDiscoveredByVictim(self);
     }
 }

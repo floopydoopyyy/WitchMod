@@ -8,14 +8,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 
-import com.oliver.witchmod.client.PuppeteerClient;
+import com.oliver.witchmod.effects.blessings.puppeteer.client.PuppetSenses;
 
 /** puppeteer: an enraged enderman puppet sees whoever looked it in the eye glowing — on its own screen only. */
 @Mixin(Minecraft.class)
 public abstract class MinecraftGlowMixin {
     @Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true)
     private void witchmod$starersGlow(Entity entity, CallbackInfoReturnable<Boolean> cir) {
-        if (PuppeteerClient.glowsForMe(entity)) {
+        if (PuppetSenses.glowsForMe(entity)) {
             cir.setReturnValue(true);
         }
     }

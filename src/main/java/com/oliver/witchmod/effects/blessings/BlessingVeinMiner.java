@@ -21,6 +21,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
 /**
  * vein Miner (sacrificial item IRON ORE). Break an ORE or a LOG and the whole connected vein / tree comes
@@ -120,5 +121,13 @@ public final class BlessingVeinMiner extends Effect {
                 net.minecraft.core.particles.ParticleTypes.BLOCK, state), x, y, z, 10, 0.3, 0.3, 0.3, 0.02);
         level.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, x, y, z, 4, 0.25, 0.25, 0.25, 0.15);
         level.sendParticles(net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER, x, y, z, 2, 0.3, 0.3, 0.3, 0.0);
+    }
+
+    /** breaking an ore or log fells the whole connected vein or tree. */
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        if (event.getLevel() instanceof ServerLevel level) {
+            onBreak(self, level, event.getPos(), event.getState());
+        }
     }
 }

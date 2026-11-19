@@ -7,6 +7,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.tags.BlockTags;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * please wait... loading region... this Bethesda joke never ends.
@@ -32,7 +35,7 @@ public final class CurseLoadingScreen extends Effect {
         return true;
     }
 
-    /** hook for opening a door-ish block — see {@code CurseEventHandler}. */
+    /** hook for opening a door-ish block — see the hooks below. */
     public static void trigger(ServerPlayer player) {
         long session = player.getRandom().nextLong();
         if (session == 0L) {
@@ -50,5 +53,18 @@ public final class CurseLoadingScreen extends Effect {
     @Override
     public void onRemove(ServerPlayer target) {
         target.setData(WitchModAttachments.LOADING_SCREEN_SESSION, 0L); // dismiss any screen in progress
+    }
+
+    /**
+     * every door, trapdoor and fence gate — no chance roll, no cooldown. the curse is completely avoidable (you
+     * choose when to touch a door), so certainty is what gives it teeth.
+     */
+    @Override
+    public void onRightClickBlock(ServerPlayer self, PlayerInteractEvent.RightClickBlock event) {
+        BlockState state = event.getLevel().getBlockState(event.getPos());
+        if (state.is(BlockTags.DOORS) || state.is(BlockTags.TRAPDOORS) || state.is(BlockTags.FENCE_GATES)) {
+            trigger(self);
+            markDiscoveredByVictim(self);
+        }
     }
 }

@@ -23,6 +23,14 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.effects.Curses;
+import com.oliver.witchmod.data.EffectManager;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * nobody's there. Other players and villagers simply aren't rendered on your
@@ -42,11 +50,12 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * your attacker on screen, but the moment they stop hitting you for {@code DAMAGE_REVEAL_TICKS} they
  * disappear again — mid-fight, while still hunting you.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseSocialOutcast extends Effect {
     /** victim -> (revealed entity id -> game tick the reveal lapses). */
-    private static final Map<UUID, Map<Integer, Long>> REVEALED = new HashMap<>();
+    private static final Map<UUID, Map<Integer, Long>> REVEALED = EffectState.session("social_outcast/revealed");
     /** victim -> ids currently inside reveal range, so the OUT→IN transition can be spotted. */
-    private static final Map<UUID, Set<Integer>> IN_RANGE = new HashMap<>();
+    private static final Map<UUID, Set<Integer>> IN_RANGE = EffectState.session("social_outcast/in_range");
 
     public CurseSocialOutcast() {
         super(EffectCategory.CURSE, EffectCostTier.MODERATE, 35, () -> Items.WITHER_ROSE);
@@ -138,7 +147,7 @@ public final class CurseSocialOutcast extends Effect {
     }
 
     /**
-     * someone hurt you, so you can see them for a while. Called from {@code CurseEventHandler}.
+     * someone hurt you, so you can see them for a while. Called from the hooks below.
      *
      * <p>Only players and villagers are tracked, because they're the only things ever hidden — revealing a
      * zombie you could already see would just be pointless network traffic.
@@ -157,5 +166,45 @@ public final class CurseSocialOutcast extends Effect {
 
     private static void push(ServerPlayer victim, Map<Integer, Long> reveals) {
         victim.setData(WitchModAttachments.SOCIAL_OUTCAST_REVEALED, new ArrayList<>(reveals.keySet()));
+    }
+
+    /** whoever just hit you becomes visible for a while (the source entity, so an arrow reveals the archer). */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (event.getSource().getEntity() != null) {
+            onDamagedBy(self, event.getSource().getEntity());
+        }
+    }
+
+    /**
+     * the isolation reaches chat too: an outcast can only read another player's message if they're close to them.
+     * far away, they still see that someone spoke, but not who or what. done by cancelling the vanilla broadcast
+     * and re-sending per recipient (the only way to vary a message per viewer), and only while an outcast is
+     * online — otherwise chat passes through vanilla untouched. a listener, since it's about every recipient.
+     */
+    @SubscribeEvent
+    static void onAnyChat(ServerChatEvent event) {
+        ServerPlayer sender = event.getPlayer();
+        net.minecraft.server.MinecraftServer server = sender.getServer();
+        if (server == null) {
+            return;
+        }
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.stream().noneMatch(p -> p != sender && EffectManager.isActive(p, Curses.SOCIAL_OUTCAST))) {
+            return; // nobody's outcast: let vanilla deliver chat normally
+        }
+        event.setCanceled(true);
+        net.minecraft.network.chat.Component normal =
+                net.minecraft.network.chat.Component.translatable("chat.type.text", sender.getDisplayName(), event.getMessage());
+        net.minecraft.network.chat.Component muffled = net.minecraft.network.chat.Component
+                .literal("Someone says something...")
+                .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC);
+        double reveal = Config.OUTCAST_REVEAL_DISTANCE.get();
+        for (ServerPlayer recipient : players) {
+            boolean muffle = recipient != sender
+                    && EffectManager.isActive(recipient, Curses.SOCIAL_OUTCAST)
+                    && (recipient.level() != sender.level() || recipient.distanceTo(sender) > reveal);
+            recipient.sendSystemMessage(muffle ? muffled : normal);
+        }
     }
 }

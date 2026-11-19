@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -17,6 +16,8 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * A joke about controllers. When the curse lands it rolls, ONCE, a mode
@@ -33,7 +34,7 @@ import com.oliver.witchmod.effects.Curses;
  */
 public final class CurseStickDrift extends Effect {
     /** victim -> game tick the next episode may start (server-only). */
-    private static final Map<UUID, Long> NEXT_EPISODE = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_EPISODE = EffectState.saved("stick_drift/next_episode", Codec.LONG);
 
     public CurseStickDrift() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.FISHING_ROD);

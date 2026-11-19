@@ -20,6 +20,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * you track by scent: entities leave a bright footstep trail on the ground where they walk, sent to YOU only,
@@ -33,9 +34,9 @@ public final class BlessingBloodhound extends Effect {
     private record Print(double x, double y, double z, long tick) {}
 
     /** player -> the live footprints to keep re-drawing. */
-    private static final Map<UUID, List<Print>> TRAIL = new HashMap<>();
+    private static final Map<UUID, List<Print>> TRAIL = EffectState.session("bloodhound/trail");
     /** player -> (entityId -> last position a print was dropped). */
-    private static final Map<UUID, Map<Integer, Vec3>> LAST = new HashMap<>();
+    private static final Map<UUID, Map<Integer, Vec3>> LAST = EffectState.session("bloodhound/last");
 
     public BlessingBloodhound() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.SNIFFER_EGG);

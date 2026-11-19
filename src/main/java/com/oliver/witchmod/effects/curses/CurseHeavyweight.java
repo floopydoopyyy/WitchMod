@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,6 +22,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * the floor can't take you. Stand on anything with air beneath it — a second
@@ -47,7 +47,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
 public final class CurseHeavyweight extends Effect {
     private record Progress(BlockPos pos, int ticks) {}
 
-    private static final Map<UUID, Progress> BREAKING = new HashMap<>();
+    private static final Map<UUID, Progress> BREAKING = EffectState.session("heavyweight/breaking");
 
     public CurseHeavyweight() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.IRON_BLOCK);

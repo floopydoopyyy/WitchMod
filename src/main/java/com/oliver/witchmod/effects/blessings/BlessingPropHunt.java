@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,13 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Blessings;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * prop hunt (sacrificial item FLOWER POT): crouch and hold still for a second to disguise as the block below
@@ -32,9 +38,10 @@ import com.oliver.witchmod.effects.Blessings;
  * <p>The anchor cell is computed from the SUPPORT block (feet minus a sliver) and synced as a {@code BlockPos}
  * so the render is exactly grid-aligned — never sunk by the feet resting a hair below the integer.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingPropHunt extends Effect {
-    private static final Map<UUID, Integer> STILL = new HashMap<>();
-    private static final Map<UUID, Vec3> LAST_POS = new HashMap<>();
+    private static final Map<UUID, Integer> STILL = EffectState.session("prop_hunt/still");
+    private static final Map<UUID, Vec3> LAST_POS = EffectState.session("prop_hunt/last_pos");
 
     public BlessingPropHunt() {
         super(EffectCategory.BLESSING, EffectCostTier.MINOR, 24, () -> Items.FLOWER_POT);
@@ -95,7 +102,7 @@ public final class BlessingPropHunt extends Effect {
         LAST_POS.remove(target.getUUID());
     }
 
-    /** A real action (attack/use/etc.) drops the disguise. Called from {@code BlessingEventHandler}. */
+    /** A real action (attack/use/etc.) drops the disguise. Called from the listeners below. */
     public static void actionTaken(ServerPlayer player) {
         if (player.getData(WitchModAttachments.PROPHUNT_BLOCK) >= 0) {
             cancel(player);
@@ -138,6 +145,40 @@ public final class BlessingPropHunt extends Effect {
             level.playSound(null, target.blockPosition(), was.getSoundType().getBreakSound(), SoundSource.PLAYERS, 0.8F, 1.5F);
             level.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF,
                     target.getX(), target.getY() + 0.5, target.getZ(), 10, 0.3, 0.4, 0.3, 0.02);
+        }
+    }
+
+    // any real action (not moving or jumping) drops the disguise. listeners rather than hooks: they key off the
+    // prop block attachment, so a debug-forced prop drops the same way.
+
+    @SubscribeEvent
+    static void onAttack(AttackEntityEvent event) {
+        actionBy(event.getEntity());
+    }
+
+    @SubscribeEvent
+    static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        actionBy(event.getEntity());
+    }
+
+    @SubscribeEvent
+    static void onUseItem(PlayerInteractEvent.RightClickItem event) {
+        actionBy(event.getEntity());
+    }
+
+    @SubscribeEvent
+    static void onUseBlock(PlayerInteractEvent.RightClickBlock event) {
+        actionBy(event.getEntity());
+    }
+
+    @SubscribeEvent
+    static void onInteract(PlayerInteractEvent.EntityInteract event) {
+        actionBy(event.getEntity());
+    }
+
+    private static void actionBy(Entity entity) {
+        if (entity instanceof ServerPlayer player) {
+            actionTaken(player);
         }
     }
 }

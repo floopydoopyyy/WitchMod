@@ -4,7 +4,6 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +28,7 @@ import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.entities.ShadowEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * secret curse: your shadow. like mario's shadow levels — a copy of you retraces your exact path a few seconds
@@ -63,7 +63,7 @@ public final class CurseShadow extends Effect {
         @Nullable ResourceKey<Level> dimension;
     }
 
-    private static final Map<UUID, State> STATES = new ConcurrentHashMap<>();
+    private static final Map<UUID, State> STATES = EffectState.sessionConcurrent("shadow/states");
 
     public CurseShadow() {
         super(EffectCategory.CURSE, EffectCostTier.MAJOR, 90, () -> Items.DRAGON_HEAD);

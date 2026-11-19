@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,6 +22,9 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModMobEffects;
 import com.oliver.witchmod.data.WitchModSounds;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.minecraft.world.entity.LivingEntity;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * slip out of sight. You're rendered to NOBODY — armour and
@@ -31,13 +33,13 @@ import com.oliver.witchmod.data.WitchModSounds;
  *
  * <p>The full-render hide + the cloak/uncloak puff as someone crosses the threshold are client-side (off the
  * synced {@link WitchModAttachments#UNSEEN_ACTIVE} flag; see {@code ClientCurseHandler.onRenderLiving}). The
- * mob-target veto is server-side ({@code BlessingEventHandler.onUnseenChangeTarget}). This class also gives
+ * mob-target veto is server-side (the hook below). This class also gives
  * the hidden player their OWN feedback: a puff around them the moment they slip out of / back into someone's
  * view. Replaces the prototype's vanilla Invisibility (which left armour showing).
  */
 public final class BlessingUnseen extends Effect {
     /** player -> were they visible to anyone last tick (for the self-feedback puff). */
-    private static final Map<UUID, Boolean> VISIBLE = new HashMap<>();
+    private static final Map<UUID, Boolean> VISIBLE = EffectState.session("unseen/visible");
 
     /** small black smoke — used for BOTH cloaking and uncloaking (scale 0.7 keeps it subtle). */
     public static final DustParticleOptions BLACK = new DustParticleOptions(new Vector3f(0.03F, 0.03F, 0.03F), 0.7F);
@@ -112,6 +114,15 @@ public final class BlessingUnseen extends Effect {
             level.sendParticles(BLACK, x, y, z, 10, 0.25, 0.4, 0.25, 0.0);
             level.playSound(null, target.blockPosition(), WitchModSounds.UNSEEN_CLOAK.get(), SoundSource.PLAYERS, 0.36F, 1.6F);
             markDiscoveredByVictim(target);
+        }
+    }
+
+    /** a mob can't lock onto you unless it's within reveal distance. */
+    @Override
+    public void onTargeted(ServerPlayer self, LivingEntity by, LivingChangeTargetEvent event) {
+        double reveal = Config.UNSEEN_REVEAL_DISTANCE.get();
+        if (by.distanceToSqr(self) > reveal * reveal) {
+            event.setCanceled(true);
         }
     }
 }

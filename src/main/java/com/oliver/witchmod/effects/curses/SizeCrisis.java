@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,6 +22,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModDamageTypes;
 import com.oliver.witchmod.synergy.Synergies;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * size_crisis synergy (Giant + Dwarfism): the two curses can't agree on a size, so the player flickers between
@@ -37,9 +37,9 @@ public final class SizeCrisis {
     private static final ResourceLocation REACH_ID = EffectUtil.modifierId("size_crisis_reach");
 
     /** true = currently GIANT-sized, false = dwarf; absent = not in a crisis. */
-    private static final Map<UUID, Boolean> GIANT = new HashMap<>();
-    private static final Map<UUID, Long> NEXT_SWITCH = new HashMap<>();
-    private static final Map<UUID, Long> LAST_TICK = new HashMap<>();
+    private static final Map<UUID, Boolean> GIANT = EffectState.session("size_crisis/giant");
+    private static final Map<UUID, Long> NEXT_SWITCH = EffectState.session("size_crisis/next_switch");
+    private static final Map<UUID, Long> LAST_TICK = EffectState.session("size_crisis/last_tick");
 
     private SizeCrisis() {}
 

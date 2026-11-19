@@ -398,6 +398,22 @@ public final class EffectManager {
         }
     }
 
+    /**
+     * recovery compass: effects it tagged don't survive death. stripped as the player dies (before the respawn
+     * copy of ACTIVE_EFFECTS runs, and before any effect's death hook), unless something cheated the death.
+     */
+    public static void stripNonPersistent(ServerPlayer player) {
+        java.util.Set<ResourceLocation> nonPersist = player.getData(WitchModAttachments.NON_PERSISTENT_EFFECTS);
+        if (nonPersist.isEmpty()) {
+            return;
+        }
+        for (ResourceLocation id : new java.util.ArrayList<>(nonPersist)) {
+            holderOf(id).ifPresent(h -> remove(player, h));
+        }
+        nonPersist.clear();
+        player.setData(WitchModAttachments.NON_PERSISTENT_EFFECTS, nonPersist);
+    }
+
     /** called once per player per tick by {@link WitchModEventHandler}. */
     public static void tick(ServerPlayer player) {
         ActiveEffects active = player.getExistingDataOrNull(WitchModAttachments.ACTIVE_EFFECTS);

@@ -14,6 +14,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * fortune of a subtler kind: your vanilla LUCK attribute
@@ -22,7 +24,7 @@ import com.oliver.witchmod.data.EffectUtil;
  *
  * <p>Applied as a plain {@code ADD_VALUE} modifier on {@link Attributes#LUCK}. The modifier is TRANSIENT, so
  * {@link #onTick} re-applies it if a world reload dropped it while the blessing persisted. Discovery is
- * handled in {@code BlessingEventHandler} — the first time you fish something up or crack open a loot chest,
+ * handled in the hooks below — the first time you fish something up or crack open a loot chest,
  * the moment the amplified luck could actually have mattered.
  */
 public final class BlessingLuck extends Effect {
@@ -62,6 +64,22 @@ public final class BlessingLuck extends Effect {
         if (luck != null && !luck.hasModifier(LUCK_MODIFIER_ID)) {
             luck.addOrUpdateTransientModifier(new AttributeModifier(LUCK_MODIFIER_ID,
                     Config.LUCK_ATTRIBUTE_BONUS.get(), AttributeModifier.Operation.ADD_VALUE));
+        }
+    }
+
+    /** discovered the first time it could actually have mattered: reeling in a catch. */
+    @Override
+    public void onFished(ServerPlayer self, ItemFishedEvent event) {
+        markDiscoveredByVictim(self);
+    }
+
+    /** ...or opening a loot-tabled container (its loot table is still pending before it opens). */
+    @Override
+    public void onRightClickBlock(ServerPlayer self, PlayerInteractEvent.RightClickBlock event) {
+        if (event.getLevel().getBlockEntity(event.getPos())
+                instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity chest
+                && chest.getLootTable() != null) {
+            markDiscoveredByVictim(self);
         }
     }
 }

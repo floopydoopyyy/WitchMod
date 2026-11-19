@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,8 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModSounds;
 import com.oliver.witchmod.effects.goals.UnhygienicFleeGoal;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you reek. The victim leaks a
@@ -44,7 +45,7 @@ public final class CurseUnhygienic extends Effect {
     private static final int PLAYER_PUSH_INTERVAL = 5;
 
     /** when the next ambient buzz is due, per player. Transient — re-rolled by the self-heal below. */
-    private static final Map<UUID, Long> NEXT_BUZZ = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_BUZZ = EffectState.saved("unhygienic/next_buzz", Codec.LONG);
 
     public CurseUnhygienic() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 20, () -> Items.ROTTEN_FLESH);

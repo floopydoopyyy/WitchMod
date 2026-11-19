@@ -20,6 +20,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
  * the sea looks after its own: underwater
@@ -30,7 +32,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * <p>The fast swim is client-side (movement is client-authoritative) off the synced
  * {@link WitchModAttachments#OCEANS_ACTIVE} flag — see {@code client/ClientCurseHandler}. The pacify is
  * server-side: a sweep here clears any aggressor already locked onto you while you're wet, and
- * {@code BlessingEventHandler} vetoes fresh target acquisition via {@code LivingChangeTargetEvent}.
+ * the targeting hook below vetoes fresh target acquisition via {@code LivingChangeTargetEvent}.
  */
 public final class BlessingOceansBlessing extends Effect {
     public static final TagKey<Item> CORALS =
@@ -87,5 +89,13 @@ public final class BlessingOceansBlessing extends Effect {
     @Override
     public void onRemove(ServerPlayer target) {
         target.setData(WitchModAttachments.OCEANS_ACTIVE, -1);
+    }
+
+    /** aggressive mobs won't lock onto you while you're in the water. */
+    @Override
+    public void onTargeted(ServerPlayer self, LivingEntity by, LivingChangeTargetEvent event) {
+        if (self.isInWater()) {
+            event.setCanceled(true);
+        }
     }
 }

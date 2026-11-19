@@ -75,6 +75,17 @@ import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.effects.curses.CurseSolicitor;
 import com.oliver.witchmod.entities.BodyguardEntity;
 import com.oliver.witchmod.synergy.Synergies;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import com.oliver.witchmod.effects.CompanionshipBanter;
+import net.neoforged.neoforge.event.entity.EntityMountEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * A statement blessing (sacrificial item ELYTRA): a managed guardian {@link Allay} that looks after you with a
@@ -90,6 +101,7 @@ import com.oliver.witchmod.synergy.Synergies;
  *
  * <p>Everything discrete is debug-forcible: {@code /bewitch debug force witchmod:guardian_angel @s <event>}.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingGuardianAngel extends Effect {
     /** movement/animation mode — computed each tick, highest applicable wins (see {@link #computeMode}). */
     private enum Mode { FOLLOW, FLYTO, CARRY, KIDNAP, LIFT, BLINDING, PINGPONG, HEAL, GATHER, FIREWORKS,
@@ -204,7 +216,7 @@ public final class BlessingGuardianAngel extends Effect {
         final Map<String, Long> cd = new HashMap<>();
     }
 
-    private static final Map<UUID, State> STATES = new HashMap<>();
+    private static final Map<UUID, State> STATES = EffectState.session("guardian_angel/states");
 
     public BlessingGuardianAngel() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 45, () -> Items.GOLDEN_APPLE);
@@ -2313,5 +2325,86 @@ public final class BlessingGuardianAngel extends Effect {
                 "hunger", "heal", "antigrief", "kidnap", "lift", "knockback", "blinding", "guiding", "sacrifice", "fireworks",
                 "arrows", "frantic", "dance", "curiosity", "buffs", "xp", "torch", "lightkeeper", "ore", "mark",
                 "durability", "pets", "mining", "restock", "planter", "push", "gift");
+    }
+
+    /** guiding light: bonus damage to the highlighted highest-health foe. */
+    @Override
+    public void onDamagePreOther(ServerPlayer self, LivingEntity victim, LivingDamageEvent.Pre event) {
+        float bonus = guidingBonus(self, victim);
+        if (bonus > 0.0F) {
+            event.setNewDamage(event.getNewDamage() + bonus);
+        }
+    }
+
+    /** attacking anything puts you "in combat" (enables the zap), and it sulks at villager/pet hits. */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        onOwnerAttack(self, target);
+    }
+
+    /** breaking a hard block, or a run of them, earns haste and a watchful hover. */
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        onOwnerMined(self, event.getPos(), event.getState().getDestroySpeed(self.level(), event.getPos()));
+    }
+
+    /** a killing blow is negated: the guardian dies in your place, leaving you at 1 hp. */
+    @Override
+    public void onDamagePre(ServerPlayer self, LivingDamageEvent.Pre event) {
+        if (event.getNewDamage() >= self.getHealth() && tryGuardianSacrifice(self)) {
+            event.setNewDamage(Math.max(0.0F, self.getHealth() - 1.0F));
+        }
+    }
+
+    /** you being hit makes the guardian panic around you. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (event.getSource().getEntity() instanceof LivingEntity attacker
+                && attacker != self
+                && !(attacker instanceof net.minecraft.world.entity.animal.allay.Allay)) {
+            onOwnerAttacked(self, attacker);
+        }
+    }
+
+    /** killing the last nearby hostile can set off a celebratory firework display. */
+    @Override
+    public void onKill(ServerPlayer self, LivingEntity victim, LivingDeathEvent event) {
+        if (victim instanceof net.minecraft.world.entity.monster.Enemy) {
+            onOwnerKill(self);
+        }
+    }
+
+    /** the allay can be killed: its owner then waits out the respawn cooldown. */
+    @SubscribeEvent
+    static void onAllayDeath(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.world.entity.animal.allay.Allay allay)
+                || !(allay.level() instanceof ServerLevel level)) {
+            return;
+        }
+        String ownerTag = allay.getTags().stream().filter(t -> t.startsWith("guardian_")).findFirst().orElse(null);
+        if (ownerTag == null) {
+            return;
+        }
+        onAllayKilled(allay);
+        // companionship banter: a surviving bodyguard/solicitor may remark on the angel falling
+        try {
+            ServerPlayer owner = level.getServer().getPlayerList()
+                    .getPlayer(UUID.fromString(ownerTag.substring("guardian_".length())));
+            if (owner != null && EffectManager.isActive(owner, Blessings.GUARDIAN_ANGEL)) {
+                CompanionshipBanter.reactToDeath(owner, "guardian");
+            }
+        } catch (IllegalArgumentException ignored) {
+            // malformed tag: nothing to do
+        }
+    }
+
+    /** a player being kidnapped can't dismount the allay to escape. */
+    @SubscribeEvent
+    static void onKidnapDismount(EntityMountEvent event) {
+        if (event.isDismounting() && event.getEntityMounting() instanceof ServerPlayer p
+                && event.getEntityBeingMounted() instanceof net.minecraft.world.entity.animal.allay.Allay
+                && isKidnapVictim(p)) {
+            event.setCanceled(true);
+        }
     }
 }

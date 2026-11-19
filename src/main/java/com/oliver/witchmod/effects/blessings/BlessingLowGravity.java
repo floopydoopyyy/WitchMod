@@ -14,6 +14,7 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 
 /**
  * gravity takes it easy on you — you are constantly LIGHT: big floaty hops and soft, slow descents, the whole time.
@@ -21,7 +22,7 @@ import com.oliver.witchmod.data.EffectUtil;
  * <p>Done with real vanilla physics rather than Jump Boost / Slow Falling: a {@code GRAVITY} multiplier does
  * the actual moon-walk feel (you rise higher on the same jump and fall slower, exactly like reduced gravity),
  * a {@code JUMP_STRENGTH} multiplier launches you higher, and fall damage is cut on {@code LivingFallEvent}
- * (see {@code BlessingEventHandler}). Both modifiers are TRANSIENT, so {@link #onTick} re-applies them if a
+ * (see the hooks below). Both modifiers are TRANSIENT, so {@link #onTick} re-applies them if a
  * reload dropped one while the blessing persisted. Discovered on apply — you feel it the instant you move.
  */
 public final class BlessingLowGravity extends Effect {
@@ -63,5 +64,11 @@ public final class BlessingLowGravity extends Effect {
 
     public static float fallDamageMultiplier() {
         return Config.LOW_GRAVITY_FALL_DAMAGE_MULT.get().floatValue();
+    }
+
+    /** soft landings: fall damage scaled down, on top of the lighter gravity. */
+    @Override
+    public void onFall(ServerPlayer self, LivingFallEvent event) {
+        event.setDamageMultiplier(event.getDamageMultiplier() * fallDamageMultiplier());
     }
 }

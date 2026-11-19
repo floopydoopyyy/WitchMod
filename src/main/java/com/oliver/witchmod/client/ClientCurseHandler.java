@@ -50,6 +50,7 @@ import com.oliver.witchmod.Config;
 import com.oliver.witchmod.WitchMod;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.data.WitchModSounds;
+import com.oliver.witchmod.effects.blessings.puppeteer.client.PuppetCamera;
 
 /**
  * the client-side curses, driven off auto-synced flags on the local player:
@@ -221,7 +222,7 @@ public final class ClientCurseHandler {
         boolean jumpPressed = jumpDown && !spiderJumpWasDown; // rising edge
         spiderJumpWasDown = jumpDown;
 
-        if ((player.getData(WitchModAttachments.SPIDER_ACTIVE) < 0 && !PuppeteerClient.isSpiderPuppet(player))
+        if ((player.getData(WitchModAttachments.SPIDER_ACTIVE) < 0 && !PuppetCamera.isSpiderPuppet(player))
                 || player.onGround() || player.isInWater() || player.getAbilities().flying
                 || !spiderNearWall(player)) {
             spiderAttached = false; // on the ground / off the wall — must re-attach before jumping off

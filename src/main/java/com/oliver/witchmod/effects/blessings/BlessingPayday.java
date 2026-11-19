@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -21,6 +20,7 @@ import com.oliver.witchmod.data.EffectManager;
 import com.oliver.witchmod.effects.Blessings;
 import com.oliver.witchmod.entities.TaxManEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * the Tax Man, but this time he owes YOU. He turns up, walks over, drops your money in front of you, and leaves — and that <b>one
@@ -45,7 +45,7 @@ public final class BlessingPayday extends Effect {
         }
     }
 
-    private static final Map<UUID, Watch> WATCHES = new HashMap<>();
+    private static final Map<UUID, Watch> WATCHES = EffectState.session("payday/watches");
     private static final double MOVE_EPSILON = 0.05; // per-tick displacement that counts as "moving"
 
     public BlessingPayday() {

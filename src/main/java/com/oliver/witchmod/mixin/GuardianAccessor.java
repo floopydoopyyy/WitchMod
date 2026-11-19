@@ -30,4 +30,7 @@ public interface GuardianAccessor {
 
     @Accessor("clientSideSpikesAnimationO")
     void witchmodSetSpikesO(float value);
+
+    @org.spongepowered.asm.mixin.gen.Invoker("setActiveAttackTarget")
+    void witchmodSetAttackTarget(int entityId);
 }

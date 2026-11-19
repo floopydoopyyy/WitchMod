@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,6 +13,7 @@ import net.minecraft.world.item.Items;
 import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
+import com.oliver.witchmod.data.EffectState;
 
 /**
  * restock (sacrificial item CHEST): a stacked item you USE is instantly topped back up from your inventory —
@@ -27,7 +27,7 @@ import com.oliver.witchmod.data.EffectCostTier;
  */
 public final class BlessingRestock extends Effect {
     /** player -> the item that was in each watched slot last tick (hotbar 0-8 then offhand at index 9). */
-    private static final Map<UUID, ItemStack[]> PREV = new HashMap<>();
+    private static final Map<UUID, ItemStack[]> PREV = EffectState.session("restock/prev");
     private static final int OFFHAND = 9; // our index for the offhand in the snapshot
 
     public BlessingRestock() {

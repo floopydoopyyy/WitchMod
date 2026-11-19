@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +27,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.goals.FarmhandBlockGoal;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you cannot get a moment's peace. Every untamed animal nearby drops what it's doing
@@ -41,7 +42,7 @@ import com.oliver.witchmod.effects.goals.FarmhandBlockGoal;
  */
 public final class CurseFarmhand extends Effect {
     /** per-player cooldown before the next top-up spawn burst. */
-    private static final Map<UUID, Long> NEXT_SPAWN = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_SPAWN = EffectState.saved("farmhand/next_spawn", Codec.LONG);
 
     public CurseFarmhand() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 17, () -> Items.WHEAT);

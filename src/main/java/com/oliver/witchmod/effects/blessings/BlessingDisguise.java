@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.blessings;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +21,16 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.synergy.Synergies;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * blessing of Disguise (ARMOR STAND): you're perfectly costumed as a cow, sheep or pig (consistent for the
@@ -30,6 +39,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * The disguise-as-mob render + hidden nametag are client-side (see {@code client/DisguiseClient}); the SERVER
  * owns the mob choice ({@link WitchModAttachments#DISGUISE_TYPE}, -1 while broken) + the hostile passivity.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingDisguise extends Effect {
     /** the vampire-bat disguise type (Sanguine synergy), above the 0/1/2 livestock set. */
     private static final int BAT = 3;
@@ -51,11 +61,11 @@ public final class BlessingDisguise extends Effect {
             com.oliver.witchmod.effects.Blessings.OCEANS_BLESSING
     };
     /** player -> base disguise type (0 cow / 1 sheep / 2 pig), stable for the whole blessing. */
-    private static final Map<UUID, Integer> BASE = new HashMap<>();
+    private static final Map<UUID, Integer> BASE = EffectState.saved("disguise/base", Codec.INT);
     /** player -> game tick the "broken" window ends; while broken they show their real model. */
-    private static final Map<UUID, Long> BROKEN_UNTIL = new HashMap<>();
+    private static final Map<UUID, Long> BROKEN_UNTIL = EffectState.saved("disguise/broken_until", Codec.LONG);
     /** player -> game tick the next ambient animal noise is due. */
-    private static final Map<UUID, Long> NEXT_SOUND = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_SOUND = EffectState.saved("disguise/next_sound", Codec.LONG);
 
     public BlessingDisguise() {
         super(EffectCategory.BLESSING, EffectCostTier.MODERATE, 42, () -> Items.ARMOR_STAND);
@@ -239,7 +249,7 @@ public final class BlessingDisguise extends Effect {
         }
     }
 
-    /** called from {@code BlessingEventHandler} when a disguised player is hit — the costume breaks. */
+    /** called from the hooks below when a disguised player is hit — the costume breaks. */
     public static void breakDisguise(ServerPlayer player) {
         if (!BASE.containsKey(player.getUUID())) {
             return;
@@ -290,5 +300,34 @@ public final class BlessingDisguise extends Effect {
     /** true if the player is CURRENTLY shown as a mob (server-authoritative). */
     public static boolean isDisguised(ServerPlayer player) {
         return player.getData(WitchModAttachments.DISGUISE_TYPE) >= 0;
+    }
+
+    /** taking a hit breaks the costume; with the concealment synergy it cascades prop -> animal -> player instead. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (Synergies.CONCEALMENT.activeFor(self)) {
+            concealCascade(self);
+        } else {
+            breakDisguise(self);
+        }
+    }
+
+    /** throwing a punch blows your cover too. */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        breakDisguise(self);
+    }
+
+    /**
+     * a convincing livestock disguise: hostiles won't lock onto a disguised player. reads DISGUISE_TYPE (-1 while
+     * the costume is broken, so a broken cover can be targeted) rather than being a hook.
+     */
+    @SubscribeEvent
+    static void onChangeTarget(LivingChangeTargetEvent event) {
+        if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player
+                && event.getEntity() instanceof net.minecraft.world.entity.monster.Enemy
+                && player.getData(WitchModAttachments.DISGUISE_TYPE) >= 0) {
+            event.setCanceled(true);
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.oliver.witchmod.effects.curses;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,6 +29,8 @@ import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * you come down like a dropped anvil. You fall faster, you take more for it, and past a
@@ -57,9 +58,9 @@ public final class CurseHeavy extends Effect {
     private static final ResourceLocation JUMP_MODIFIER_ID = EffectUtil.modifierId("curse_heavy_jump");
 
     /** last tick's {@code fallDistance} per victim — the landing edge is where it drops back to zero. */
-    private static final Map<UUID, Float> LAST_FALL_DISTANCE = new HashMap<>();
+    private static final Map<UUID, Float> LAST_FALL_DISTANCE = EffectState.session("heavy/last_fall_distance");
     /** game tick after which another crater is allowed — see the chaining note in {@link #watchForLanding}. */
-    private static final Map<UUID, Long> NEXT_CRATER = new HashMap<>();
+    private static final Map<UUID, Long> NEXT_CRATER = EffectState.saved("heavy/next_crater", Codec.LONG);
 
     public CurseHeavy() {
         super(EffectCategory.CURSE, EffectCostTier.MINOR, 25, () -> Items.IRON_INGOT);
@@ -153,7 +154,7 @@ public final class CurseHeavy extends Effect {
     }
 
     /**
-     * fall-damage hook only — see {@code CurseEventHandler}. The crater is deliberately NOT fired from here:
+     * fall-damage hook only — see the hooks below. The crater is deliberately NOT fired from here:
      * this event never runs in creative, so it lives in {@link #watchForLanding} instead.
      */
     public static float fallDamageMultiplier() {

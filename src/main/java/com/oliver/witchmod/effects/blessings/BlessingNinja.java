@@ -19,6 +19,14 @@ import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.data.EffectUtil;
 import com.oliver.witchmod.data.WitchModAttachments;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import com.oliver.witchmod.effects.Blessings;
+import com.oliver.witchmod.data.EffectManager;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
 
 /**
  * shadow-quick (statement blessing, sacrificial item BLACK DYE — Ink Sac is taken by Unseen): you move faster,
@@ -29,6 +37,7 @@ import com.oliver.witchmod.data.WitchModAttachments;
  * woosh and the smoke FX are client-side ({@code client/ClientCurseHandler}) off the synced
  * {@link WitchModAttachments#NINJA_ACTIVE} flag, since jumps/animation are client-authoritative.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class BlessingNinja extends Effect {
     public static final ResourceLocation SPEED_ID = EffectUtil.modifierId("blessing_ninja_speed");
     public static final ResourceLocation ATTACK_ID = EffectUtil.modifierId("blessing_ninja_attack");
@@ -90,6 +99,24 @@ public final class BlessingNinja extends Effect {
         if (attack != null && !attack.hasModifier(ATTACK_ID)) {
             attack.addOrUpdateTransientModifier(new AttributeModifier(ATTACK_ID,
                     Config.NINJA_ATTACK_SPEED.get(), AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+    }
+
+    /** your hits carry much less knockback, unless you also boost knockback (then it's off). */
+    @Override
+    public void onAttack(ServerPlayer self, Entity target, AttackEntityEvent event) {
+        if (target instanceof LivingEntity victim
+                && !EffectManager.isActive(self, Blessings.HEAVY_HITTER)
+                && !EffectManager.isActive(self, Blessings.MAIN_CHARACTER)) {
+            onMeleeHit(victim);
+        }
+    }
+
+    @SubscribeEvent
+    static void onKnockback(LivingKnockBackEvent event) {
+        float mult = knockbackMultiplier(event.getEntity());
+        if (mult != 1.0F) {
+            event.setStrength(event.getStrength() * mult);
         }
     }
 }

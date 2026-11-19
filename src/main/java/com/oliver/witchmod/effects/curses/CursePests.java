@@ -15,6 +15,9 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
  * every block you break (and every mob you hit) has something living in it. A decent chance per block mined —
@@ -28,7 +31,7 @@ import com.oliver.witchmod.effects.Curses;
  * <p>Note the chance looks low because mining is such a high-frequency action: at 8% per block, ordinary
  * tunnelling still produces a steady trickle.
  *
- * <p>The trigger lives in {@code CurseEventHandler} — it needs the block-break event, not a tick.
+ * <p>The trigger lives in the hooks below — it needs the block-break event, not a tick.
  */
 public final class CursePests extends Effect {
     public CursePests() {
@@ -41,7 +44,7 @@ public final class CursePests extends Effect {
         return true;
     }
 
-    /** hook for breaking a block — see {@code CurseEventHandler}. */
+    /** hook for breaking a block — see the hooks below. */
     public static void onBlockMined(ServerPlayer player, BlockPos pos) {
         if (roll(player, Config.PESTS_CHANCE.get())) {
             spawn(player, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
@@ -91,5 +94,19 @@ public final class CursePests extends Effect {
         if (spawned) {
             Curses.PESTS.value().markDiscoveredByVictim(player);
         }
+    }
+
+    /** a melee hit that actually lands on a mob can shake silverfish out of it. */
+    @Override
+    public void onDamagedOther(ServerPlayer self, LivingEntity victim, LivingDamageEvent.Post event) {
+        if (event.getSource().getDirectEntity() == self && victim instanceof Mob mob && event.getNewDamage() > 0.0F) {
+            onMobHit(self, mob);
+        }
+    }
+
+    /** something lives in every block you break. */
+    @Override
+    public void onBlockBreak(ServerPlayer self, BlockEvent.BreakEvent event) {
+        onBlockMined(self, event.getPos());
     }
 }

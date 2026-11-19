@@ -13,6 +13,8 @@ import com.oliver.witchmod.data.Effect;
 import com.oliver.witchmod.data.EffectCategory;
 import com.oliver.witchmod.data.EffectCostTier;
 import com.oliver.witchmod.effects.Curses;
+import net.minecraft.tags.DamageTypeTags;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
 /**
  * you're a bit of a hazard to be around. Every hit you take is a small,
@@ -33,7 +35,7 @@ import com.oliver.witchmod.effects.Curses;
  * blast, taking neither damage nor knockback. The player is carried on the damage source instead (for kill
  * attribution) and in the calculator (for block resistance and the self-damage scale).
  *
- * <p>The trigger lives in {@code CurseEventHandler} — it needs the incoming-damage event, not a tick.
+ * <p>The trigger lives in the hooks below — it needs the incoming-damage event, not a tick.
  */
 public final class CurseSuperExplosive extends Effect {
     public CurseSuperExplosive() {
@@ -46,7 +48,7 @@ public final class CurseSuperExplosive extends Effect {
         return true;
     }
 
-    /** hook for taking a hit — see {@code CurseEventHandler}. */
+    /** hook for taking a hit — see the hooks below. */
     public static void detonate(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         level.explode(
@@ -89,6 +91,15 @@ public final class CurseSuperExplosive extends Effect {
         @Override
         public float getKnockbackMultiplier(Entity entity) {
             return Config.SUPER_EXPLOSIVE_KNOCKBACK_MULTIPLIER.get().floatValue();
+        }
+    }
+
+    /** a small, constant chance to detonate when hurt. never from explosion damage, so your own blast can't chain. */
+    @Override
+    public void onHurt(ServerPlayer self, LivingIncomingDamageEvent event) {
+        if (!event.getSource().is(DamageTypeTags.IS_EXPLOSION)
+                && self.getRandom().nextInt(100) < Config.SUPER_EXPLOSIVE_CHANCE_PERCENT.get()) {
+            detonate(self);
         }
     }
 }

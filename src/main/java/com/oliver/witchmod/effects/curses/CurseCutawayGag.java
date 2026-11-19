@@ -1,7 +1,6 @@
 package com.oliver.witchmod.effects.curses;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,6 +43,16 @@ import com.oliver.witchmod.data.WitchModAttachments;
 import com.oliver.witchmod.effects.Curses;
 import com.oliver.witchmod.entities.SnailEntity;
 import com.oliver.witchmod.entities.WitchModEntities;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import com.oliver.witchmod.WitchMod;
+import com.oliver.witchmod.data.EffectState;
+import com.mojang.serialization.Codec;
 
 /**
  * cutaway Gag (statement curse) — Spyglass. Occasionally your camera CUTS AWAY to a random other player on
@@ -60,6 +69,7 @@ import com.oliver.witchmod.entities.WitchModEntities;
  * <p>Reads as a CURSE (the watcher is immobilised, relocated and made vulnerable; random others get
  * griefed) — flip {@link EffectCategory} if that's ever reconsidered.
  */
+@EventBusSubscriber(modid = WitchMod.MODID)
 public final class CurseCutawayGag extends Effect {
     /** the gag inflicted on the spectated victim. Most fire once; a few play out over the cutaway. */
     private enum Gag {
@@ -81,13 +91,13 @@ public final class CurseCutawayGag extends Effect {
     };
 
     /** watcher UUID -> earliest tick a cutaway may next START (the hard cooldown). */
-    private static final Map<UUID, Long> COOLDOWN_END = new HashMap<>();
-    private static final Map<UUID, Long> END_TICK = new HashMap<>();
-    private static final Map<UUID, SavedPos> SAVED = new HashMap<>();
-    private static final Map<UUID, ActiveGag> GAG = new HashMap<>();
+    private static final Map<UUID, Long> COOLDOWN_END = EffectState.saved("cutaway_gag/cooldown_end", Codec.LONG);
+    private static final Map<UUID, Long> END_TICK = EffectState.session("cutaway_gag/end_tick");
+    private static final Map<UUID, SavedPos> SAVED = EffectState.session("cutaway_gag/saved");
+    private static final Map<UUID, ActiveGag> GAG = EffectState.session("cutaway_gag/gag");
     /** last gag each watcher got — the picker biases away from it so the same gag never fires twice running. */
     /** watcher UUID -> the last few gags (newest first), so a gag can't repeat within RECENT_GAG_MEMORY. */
-    private static final Map<UUID, java.util.Deque<Gag>> RECENT_GAGS = new HashMap<>();
+    private static final Map<UUID, java.util.Deque<Gag>> RECENT_GAGS = EffectState.session("cutaway_gag/recent_gags");
     private static final int RECENT_GAG_MEMORY = 3;
 
     public CurseCutawayGag() {
@@ -144,7 +154,7 @@ public final class CurseCutawayGag extends Effect {
     }
 
     /**
-     * progresses an in-flight cutaway. Called EVERY server tick (from {@code CurseEventHandler}) for any player
+     * progresses an in-flight cutaway. Called EVERY server tick (from the server-tick listener below) for any player
      * with {@code CUTAWAY_TARGET >= 0}, independent of whether the curse is applied — so a debug-forced cutaway
      * fires its gag and ends, and a cutaway whose curse was removed mid-flight still cleans up.
      */
@@ -2005,6 +2015,50 @@ public final class CurseCutawayGag extends Effect {
             this.gag = gag;
             this.victim = victim;
             this.gagStart = gagStart;
+        }
+    }
+
+    // these key off the in-flight cutaway (CUTAWAY_TARGET), not the curse, so a debug-forced cutaway or one whose
+    // curse was removed still behaves
+
+    /** being hit mid-cutaway has a high chance to snap you back (the gag's effects still stick). */
+    @SubscribeEvent
+    static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            onWatcherHit(player);
+        }
+    }
+
+    /** dying mid-cutaway strobes against the respawn screen: snap out of it cleanly. low, so a cheated death is skipped. */
+    @SubscribeEvent(priority = EventPriority.LOW)
+    static void onDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            onWatcherDeath(player);
+        }
+    }
+
+    @SubscribeEvent
+    static void onServerTick(ServerTickEvent.Post event) {
+        long now = event.getServer().overworld().getGameTime();
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            if (player.getData(WitchModAttachments.CUTAWAY_TARGET) >= 0) {
+                driveActiveCutaway(player, now);
+            } else {
+                // anti-teleport guard: not spectating but still holding a persisted return position (relog,
+                // restart, abnormal end) — send them home so they can't be left at the vantage
+                recoverIfStranded(player);
+            }
+        }
+    }
+
+    /**
+     * a player who logged out mid-cutaway comes back at the vantage (CUTAWAY_TARGET is sync-only, so the tick
+     * driver won't pick them up): send them straight home from the persisted return position.
+     */
+    @SubscribeEvent
+    static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            recoverIfStranded(player);
         }
     }
 }
